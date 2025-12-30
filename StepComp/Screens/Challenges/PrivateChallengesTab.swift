@@ -47,7 +47,7 @@ struct PrivateChallengesTab: View {
     private func destinationView(for route: AppRoute) -> some View {
         switch route {
         case .groupDetails(let challengeId):
-            if let challenge = viewModel.privateChallenges.first(where: { $0.id == challengeId }) {
+            if viewModel.privateChallenges.contains(where: { $0.id == challengeId }) {
                 GroupDetailsView(
                     sessionViewModel: sessionViewModel,
                     challengeId: challengeId
@@ -66,6 +66,12 @@ struct PrivateChallengeCard: View {
     let onTap: () -> Void
     
     private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
+    
+    private func challengeDuration(in challenge: Challenge) -> Int {
+        let calendar = Calendar.current
+        let components = calendar.dateComponents([.day], from: challenge.startDate, to: challenge.endDate)
+        return max(1, components.day ?? 1)
+    }
     
     var body: some View {
         Button(action: onTap) {
@@ -88,7 +94,7 @@ struct PrivateChallengeCard: View {
                 }
                 
                 HStack(spacing: 8) {
-                    Label("\(challenge.durationInDays) Days", systemImage: "calendar")
+                    Label("\(challengeDuration(in: challenge)) Days", systemImage: "calendar")
                         .font(.system(size: 12, weight: .medium))
                         .foregroundColor(.secondary)
                     

@@ -1,56 +1,25 @@
 -- ============================================
--- CREATE 5 TEST ACCOUNTS FOR FRIENDS FEATURE
+-- CREATE 5 TEST ACCOUNTS (AUTOMATIC VERSION)
 -- ============================================
--- This script creates 5 test accounts that can be used to test the add friend feature
+-- This version automatically looks up user IDs by email
 -- 
--- IMPORTANT: You cannot create auth users directly via SQL in Supabase.
--- You need to create them via the Supabase Dashboard or Admin API first,
--- then run this script to create their profiles.
+-- IMPORTANT: You must create the auth users FIRST in Supabase Dashboard:
+-- Authentication > Users > Add User
 --
--- ============================================
--- STEP 1: CREATE AUTH USERS IN SUPABASE DASHBOARD
--- ============================================
--- Go to: Authentication > Users > Add User
--- Create these 5 users with the following credentials:
---
+-- Create these 5 users:
 -- 1. Email: sarah.test@stepcomp.app | Password: TestPassword123!
 -- 2. Email: mike.test@stepcomp.app | Password: TestPassword123!
 -- 3. Email: emma.test@stepcomp.app | Password: TestPassword123!
 -- 4. Email: alex.test@stepcomp.app | Password: TestPassword123!
 -- 5. Email: jordan.test@stepcomp.app | Password: TestPassword123!
 --
+-- Then run this script - it will automatically find the user IDs by email.
 -- ============================================
--- STEP 2: GET THE USER IDs
--- ============================================
--- After creating the users, run this query to get their IDs:
--- 
--- SELECT id, email FROM auth.users WHERE email IN (
---   'sarah.test@stepcomp.app',
---   'mike.test@stepcomp.app',
---   'emma.test@stepcomp.app',
---   'alex.test@stepcomp.app',
---   'jordan.test@stepcomp.app'
--- ) ORDER BY email;
---
--- Copy the IDs and replace the placeholder UUIDs below.
---
--- ============================================
--- STEP 3: UPDATE THE UUIDs BELOW AND RUN THIS SCRIPT
--- ============================================
---
--- OR use the Python script: CREATE_TEST_ACCOUNTS.py (recommended)
--- The Python script creates auth users AND profiles automatically.
---
--- NOTE: If you get an error about the 'email' column not existing, run this first:
--- ALTER TABLE profiles ADD COLUMN IF NOT EXISTS email TEXT;
 
 -- Test Account 1: Sarah Chen
--- Email: sarah.test@stepcomp.app
--- Password: TestPassword123!
--- NOTE: Replace the UUID with actual id from auth.users after creating the auth user
 INSERT INTO profiles (id, username, first_name, last_name, avatar, is_premium, height, weight)
-VALUES (
-  '00000000-0000-0000-0000-000000000001'::uuid, -- Replace with actual id from auth.users
+SELECT 
+  u.id,
   'sarahchen',
   'Sarah',
   'Chen',
@@ -58,7 +27,8 @@ VALUES (
   false,
   165, -- 165 cm
   60   -- 60 kg
-)
+FROM auth.users u
+WHERE u.email = 'sarah.test@stepcomp.app'
 ON CONFLICT (id) DO UPDATE SET
   username = EXCLUDED.username,
   first_name = EXCLUDED.first_name,
@@ -68,11 +38,9 @@ ON CONFLICT (id) DO UPDATE SET
   weight = EXCLUDED.weight;
 
 -- Test Account 2: Mike Johnson
--- Email: mike.test@stepcomp.app
--- Password: TestPassword123!
 INSERT INTO profiles (id, username, first_name, last_name, avatar, is_premium, height, weight)
-VALUES (
-  '00000000-0000-0000-0000-000000000002'::uuid, -- Replace with actual id from auth.users
+SELECT 
+  u.id,
   'mikejohnson',
   'Mike',
   'Johnson',
@@ -80,7 +48,8 @@ VALUES (
   false,
   180, -- 180 cm
   75   -- 75 kg
-)
+FROM auth.users u
+WHERE u.email = 'mike.test@stepcomp.app'
 ON CONFLICT (id) DO UPDATE SET
   username = EXCLUDED.username,
   first_name = EXCLUDED.first_name,
@@ -90,11 +59,9 @@ ON CONFLICT (id) DO UPDATE SET
   weight = EXCLUDED.weight;
 
 -- Test Account 3: Emma Wilson
--- Email: emma.test@stepcomp.app
--- Password: TestPassword123!
 INSERT INTO profiles (id, username, first_name, last_name, avatar, is_premium, height, weight)
-VALUES (
-  '00000000-0000-0000-0000-000000000003'::uuid, -- Replace with actual id from auth.users
+SELECT 
+  u.id,
   'emmawilson',
   'Emma',
   'Wilson',
@@ -102,7 +69,8 @@ VALUES (
   false,
   170, -- 170 cm
   65   -- 65 kg
-)
+FROM auth.users u
+WHERE u.email = 'emma.test@stepcomp.app'
 ON CONFLICT (id) DO UPDATE SET
   username = EXCLUDED.username,
   first_name = EXCLUDED.first_name,
@@ -112,11 +80,9 @@ ON CONFLICT (id) DO UPDATE SET
   weight = EXCLUDED.weight;
 
 -- Test Account 4: Alex Rivera
--- Email: alex.test@stepcomp.app
--- Password: TestPassword123!
 INSERT INTO profiles (id, username, first_name, last_name, avatar, is_premium, height, weight)
-VALUES (
-  '00000000-0000-0000-0000-000000000004'::uuid, -- Replace with actual id from auth.users
+SELECT 
+  u.id,
   'alexrivera',
   'Alex',
   'Rivera',
@@ -124,7 +90,8 @@ VALUES (
   false,
   175, -- 175 cm
   70   -- 70 kg
-)
+FROM auth.users u
+WHERE u.email = 'alex.test@stepcomp.app'
 ON CONFLICT (id) DO UPDATE SET
   username = EXCLUDED.username,
   first_name = EXCLUDED.first_name,
@@ -134,11 +101,9 @@ ON CONFLICT (id) DO UPDATE SET
   weight = EXCLUDED.weight;
 
 -- Test Account 5: Jordan Taylor
--- Email: jordan.test@stepcomp.app
--- Password: TestPassword123!
 INSERT INTO profiles (id, username, first_name, last_name, avatar, is_premium, height, weight)
-VALUES (
-  '00000000-0000-0000-0000-000000000005'::uuid, -- Replace with actual id from auth.users
+SELECT 
+  u.id,
   'jordantaylor',
   'Jordan',
   'Taylor',
@@ -146,7 +111,8 @@ VALUES (
   false,
   172, -- 172 cm
   68   -- 68 kg
-)
+FROM auth.users u
+WHERE u.email = 'jordan.test@stepcomp.app'
 ON CONFLICT (id) DO UPDATE SET
   username = EXCLUDED.username,
   first_name = EXCLUDED.first_name,
@@ -154,4 +120,22 @@ ON CONFLICT (id) DO UPDATE SET
   avatar = EXCLUDED.avatar,
   height = EXCLUDED.height,
   weight = EXCLUDED.weight;
+
+-- Verify the profiles were created
+SELECT 
+  p.id,
+  p.username,
+  p.first_name,
+  p.last_name,
+  u.email
+FROM profiles p
+JOIN auth.users u ON p.id = u.id
+WHERE u.email IN (
+  'sarah.test@stepcomp.app',
+  'mike.test@stepcomp.app',
+  'emma.test@stepcomp.app',
+  'alex.test@stepcomp.app',
+  'jordan.test@stepcomp.app'
+)
+ORDER BY u.email;
 

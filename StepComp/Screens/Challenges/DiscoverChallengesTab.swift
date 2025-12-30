@@ -14,6 +14,8 @@ struct DiscoverChallengesTab: View {
     
     @State private var searchText: String = ""
     @State private var selectedCategory: ChallengeCategory = .all
+    @State private var navigationPath = NavigationPath()
+    @State private var showingCreateChallenge = false
     
     private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
     
@@ -110,7 +112,7 @@ struct DiscoverChallengesTab: View {
     private func destinationView(for route: AppRoute) -> some View {
         switch route {
         case .groupDetails(let challengeId):
-            if let challenge = viewModel.publicChallenges.first(where: { $0.id == challengeId }) {
+            if viewModel.publicChallenges.contains(where: { $0.id == challengeId }) {
                 GroupDetailsView(
                     sessionViewModel: sessionViewModel,
                     challengeId: challengeId
@@ -215,6 +217,12 @@ struct DiscoverChallengeCard: View {
     
     private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
     
+    private func challengeDuration(in challenge: Challenge) -> Int {
+        let calendar = Calendar.current
+        let components = calendar.dateComponents([.day], from: challenge.startDate, to: challenge.endDate)
+        return max(1, components.day ?? 1)
+    }
+    
     var iconColor: Color {
         // Assign colors based on challenge name or type
         let colors: [Color] = [
@@ -274,7 +282,7 @@ struct DiscoverChallengeCard: View {
                     HStack(spacing: 4) {
                         Image(systemName: "timer")
                             .font(.system(size: 10))
-                        Text("\(challenge.durationInDays) Days")
+                        Text("\(challengeDuration(in: challenge)) Days")
                             .font(.system(size: 11, weight: .bold))
                     }
                     .foregroundColor(iconColor)
