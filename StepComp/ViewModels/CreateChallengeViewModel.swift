@@ -25,6 +25,7 @@ final class CreateChallengeViewModel: ObservableObject {
     @Published var customDays: Int = 7 // Default custom days
     @Published var startDateMode: StartDateMode = .today
     @Published var isPrivate: Bool = true
+    @Published var isFriendsOnly: Bool = false // Only friends can join
     @Published var selectedParticipants: [String] = [] // User IDs
     
     private var challengeService: ChallengeService

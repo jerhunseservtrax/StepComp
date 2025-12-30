@@ -21,6 +21,8 @@ struct ProfileView: View {
     @State private var showingLogoutAlert = false
     @State private var showingDeleteAlert = false
     @State private var isEditing = false
+    @State private var showingAddFriends = false
+    @State private var showEditAccountInfoCard = false
     
     private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
     
@@ -78,17 +80,34 @@ struct ProfileView: View {
                         .padding(.horizontal, 16)
                         .padding(.bottom, 32)
                     
-                    // Edit Account Info Section
-                    EditAccountInfoSection(
-                        user: viewModel.user,
-                        height: $viewModel.height,
-                        weight: $viewModel.weight,
-                        onSave: { height, weight in
-                            viewModel.updateAccountInfo(height: height, weight: weight)
-                        }
-                    )
+                    // Friends Section
+                    ProfileFriendsSection(onAddFriends: {
+                        showingAddFriends = true
+                    })
                     .padding(.horizontal, 16)
                     .padding(.bottom, 32)
+                    
+                    // Edit Account Info Section (only show after saving changes)
+                    if showEditAccountInfoCard {
+                        EditAccountInfoSection(
+                            user: viewModel.user,
+                            height: $viewModel.height,
+                            weight: $viewModel.weight,
+                            onSave: { height, weight in
+                                viewModel.updateAccountInfo(height: height, weight: weight)
+                                // Hide the card after saving
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                                    showEditAccountInfoCard = false
+                                }
+                            },
+                            onDismiss: {
+                                showEditAccountInfoCard = false
+                            }
+                        )
+                        .padding(.horizontal, 16)
+                        .padding(.bottom, 32)
+                        .transition(.move(edge: .top).combined(with: .opacity))
+                    }
                     
                     // Privacy & Settings Section
                     PrivacySettingsSection(
@@ -121,10 +140,7 @@ struct ProfileView: View {
                 }
                 ToolbarItem(placement: .primaryAction) {
                     Button(action: {
-                        isEditing.toggle()
-                        if isEditing {
-                            showingEditAccount = true
-                        }
+                        showingEditAccount = true
                     }) {
                         Text("Edit")
                             .foregroundColor(primaryYellow)
@@ -149,6 +165,8 @@ struct ProfileView: View {
                 onSave: { height, weight in
                     viewModel.updateAccountInfo(height: height, weight: weight)
                     showingEditAccount = false
+                    // Show the card after saving
+                    showEditAccountInfoCard = true
                 }
             )
         }
@@ -169,6 +187,9 @@ struct ProfileView: View {
             }
         } message: {
             Text("This action cannot be undone. All your data will be permanently deleted.")
+        }
+        .sheet(isPresented: $showingAddFriends) {
+            AddFriendsView(sessionViewModel: sessionViewModel)
         }
         .onAppear {
             viewModel.updateServices(challengeService: challengeService, authService: authService)
@@ -625,6 +646,7 @@ struct EditAccountInfoSection: View {
     @Binding var height: Int
     @Binding var weight: Int
     let onSave: (Int, Int) -> Void
+    let onDismiss: () -> Void
     
     @State private var editingHeight: Int = 175
     @State private var editingWeight: Int = 68
@@ -632,8 +654,18 @@ struct EditAccountInfoSection: View {
     
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("Edit Account Info")
-                .font(.system(size: 18, weight: .bold))
+            HStack {
+                Text("Edit Account Info")
+                    .font(.system(size: 18, weight: .bold))
+                
+                Spacer()
+                
+                Button(action: onDismiss) {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 20))
+                        .foregroundColor(.secondary)
+                }
+            }
             
             VStack(spacing: 16) {
                 // Full Name

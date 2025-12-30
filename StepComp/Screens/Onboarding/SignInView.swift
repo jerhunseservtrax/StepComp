@@ -1481,7 +1481,7 @@ struct ForgotPasswordSheet: View {
         do {
             #if canImport(Supabase)
             // Include redirect URL so the app can handle the callback
-            let redirectURL = SupabaseConfig.oauthRedirectURL.absoluteString
+            let redirectURL = SupabaseConfig.oauthRedirectURL
             try await supabase.auth.resetPasswordForEmail(
                 trimmedEmail,
                 redirectTo: redirectURL

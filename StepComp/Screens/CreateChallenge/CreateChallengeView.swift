@@ -99,7 +99,8 @@ struct CreateChallengeView: View {
                         InviteSectionView(
                             selectedParticipants: $viewModel.selectedParticipants,
                             friends: friendsService.friends,
-                            searchText: $searchText
+                            searchText: $searchText,
+                            isFriendsOnly: $viewModel.isFriendsOnly
                         )
                         .padding(.horizontal)
                         
@@ -539,19 +540,37 @@ struct StartDateButton: View {
 
 struct InviteSectionView: View {
     @Binding var selectedParticipants: [String]
-    let friends: [User]
+    let friends: [User] // Friends from FriendsService (for backward compatibility)
     @Binding var searchText: String
+    @Binding var isFriendsOnly: Bool
+    
+    @StateObject private var friendsLoader = FriendsLoaderViewModel()
     
     private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
     
+    // Use friends from Supabase if available, otherwise fallback to passed friends
+    var availableFriends: [User] {
+        if !friendsLoader.friends.isEmpty {
+            return friendsLoader.friends
+        }
+        return friends
+    }
+    
     var filteredFriends: [User] {
+        let friends: [User]
         if searchText.isEmpty {
-            return friends
+            friends = availableFriends
         } else {
-            return friends.filter { friend in
-                friend.displayName.localizedCaseInsensitiveContains(searchText)
+            friends = availableFriends.filter { friend in
+                friend.displayName.localizedCaseInsensitiveContains(searchText) ||
+                friend.username.localizedCaseInsensitiveContains(searchText)
             }
         }
+        
+        // Friends are already shown first since we're loading from Supabase friends table
+        // If isFriendsOnly is enabled, we could filter to only show friends here
+        // For now, we show all friends (they're already prioritized)
+        return friends
     }
     
     var body: some View {
@@ -573,6 +592,10 @@ struct InviteSectionView: View {
                 }
             }
             
+            // Friends Only Toggle
+            FriendsOnlyToggleView(isFriendsOnly: $isFriendsOnly)
+                .padding(.vertical, 8)
+            
             // Search field
             HStack {
                 Image(systemName: "magnifyingglass")
@@ -592,14 +615,30 @@ struct InviteSectionView: View {
             .shadow(color: Color.black.opacity(0.02), radius: 4, x: 0, y: 2)
             
             // Friend avatars
-            if filteredFriends.isEmpty {
+            if friendsLoader.isLoading {
+                HStack {
+                    ProgressView()
+                        .scaleEffect(0.8)
+                    Text("Loading friends...")
+                        .font(.system(size: 14))
+                        .foregroundColor(.secondary)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 24)
+            } else if filteredFriends.isEmpty {
                 VStack(spacing: 12) {
                     Image(systemName: "person.3.fill")
                         .font(.system(size: 32))
                         .foregroundColor(.secondary)
-                    Text("No friends found")
+                    Text(availableFriends.isEmpty ? "No friends yet" : "No friends found")
                         .font(.system(size: 14, weight: .medium))
                         .foregroundColor(.secondary)
+                    if availableFriends.isEmpty {
+                        Text("Add friends to invite them to challenges")
+                            .font(.system(size: 12))
+                            .foregroundColor(.secondary)
+                            .multilineTextAlignment(.center)
+                    }
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 24)
@@ -628,6 +667,9 @@ struct InviteSectionView: View {
                 .foregroundColor(Color(.systemGray5)),
             alignment: .top
         )
+        .onAppear {
+            friendsLoader.loadFriends()
+        }
     }
     
     private func toggleFriendSelection(friendId: String) {

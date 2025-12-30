@@ -521,7 +521,7 @@ struct NotificationsCard: View {
 struct PreferencesCard: View {
     @Binding var darkMode: Bool
     @Binding var unitSystem: SettingsView.UnitSystem
-    @ObservedObject var sessionViewModel: SessionViewModel?
+    let sessionViewModel: SessionViewModel?
     @State private var showingHeightWeightEditor = false
     
     var body: some View {

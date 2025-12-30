@@ -16,6 +16,7 @@ struct HomeDashboardView: View {
     
     @StateObject private var viewModel: DashboardViewModel
     @State private var navigationPath = NavigationPath()
+    @State private var showingAddFriends = false
     
     init(sessionViewModel: SessionViewModel, tabManager: TabSelectionManager) {
         self.sessionViewModel = sessionViewModel
@@ -37,17 +38,28 @@ struct HomeDashboardView: View {
                     // Header
                     DashboardHeader(user: sessionViewModel.currentUser)
                     
-                    // Active Challenge Hero Card
-                    if let activeChallenge = viewModel.activeChallenges.first {
-                        ActiveChallengeHeroCard(
-                            challenge: activeChallenge,
-                            currentSteps: viewModel.todaySteps,
-                            onViewLeaderboard: {
-                                navigationPath.append(AppRoute.leaderboard(challengeId: activeChallenge.id))
-                            }
-                        )
-                    } else {
+                    // Active Challenges Section
+                    if viewModel.activeChallenges.isEmpty {
                         EmptyChallengesView()
+                    } else {
+                        VStack(alignment: .leading, spacing: 16) {
+                            Text("Active Challenges")
+                                .font(.system(size: 20, weight: .bold))
+                                .padding(.horizontal)
+                            
+                            ForEach(viewModel.activeChallenges) { challenge in
+                                ActiveChallengeCard(
+                                    challenge: challenge,
+                                    currentSteps: viewModel.todaySteps,
+                                    onTap: {
+                                        navigationPath.append(AppRoute.groupDetails(challengeId: challenge.id))
+                                    },
+                                    onViewLeaderboard: {
+                                        navigationPath.append(AppRoute.leaderboard(challengeId: challenge.id))
+                                    }
+                                )
+                            }
+                        }
                     }
                     
                     // Daily Pulse Stats
@@ -56,6 +68,11 @@ struct HomeDashboardView: View {
                         distance: viewModel.distanceKm,
                         streak: viewModel.currentStreak
                     )
+                    
+                    // Add Friends CTA
+                    AddFriendsCTA {
+                        showingAddFriends = true
+                    }
                     
                     // Create Challenge CTA
                     CreateChallengeCTA {
@@ -78,15 +95,28 @@ struct HomeDashboardView: View {
                 destinationView(for: route)
             }
             .refreshable {
+                #if canImport(Supabase)
+                await challengeService.refreshChallenges()
+                #endif
                 viewModel.refresh()
             }
         }
         .onAppear {
             updateViewModel()
+            // Refresh challenges from Supabase when view appears
+            Task {
+                #if canImport(Supabase)
+                await challengeService.refreshChallenges()
+                #endif
+                updateViewModel()
+            }
         }
         .task(id: challengeService.challenges.count) {
             // Only update when challenges actually change (count changes)
             updateViewModel()
+        }
+        .sheet(isPresented: $showingAddFriends) {
+            AddFriendsView(sessionViewModel: sessionViewModel)
         }
     }
     

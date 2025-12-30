@@ -245,7 +245,7 @@ final class AuthService: ObservableObject {
                 let _: UserProfile = try await supabase
                     .from("profiles")
                     .select()
-                    .eq("user_id", value: userId)
+                    .eq("id", value: userId)
                     .single()
                     .execute()
                     .value
@@ -272,7 +272,7 @@ final class AuthService: ObservableObject {
                 try await supabase
                     .from("profiles")
                     .update(profile)
-                    .eq("user_id", value: userId)
+                    .eq("id", value: userId)
                     .execute()
                 print("✅ Profile updated")
             } else {
@@ -527,7 +527,7 @@ final class AuthService: ObservableObject {
                     let existingProfile: UserProfile? = try await supabase
                         .from("profiles")
                         .select()
-                        .eq("user_id", value: userId)
+                        .eq("id", value: userId)
                         .single()
                         .execute()
                         .value
@@ -548,7 +548,7 @@ final class AuthService: ObservableObject {
                         _ = try? await supabase
                             .from("profiles")
                             .update(updatedProfile)
-                            .eq("user_id", value: userId)
+                            .eq("id", value: userId)
                             .execute()
                     } else {
                         print("⚠️ Profile creation failed: \(error.localizedDescription)")
@@ -617,7 +617,7 @@ final class AuthService: ObservableObject {
             let profile: UserProfile = try await supabase
                 .from("profiles")
                 .select()
-                .eq("user_id", value: userId)
+                .eq("id", value: userId)
                 .single()
                 .execute()
                 .value
@@ -699,7 +699,7 @@ final class AuthService: ObservableObject {
             try await supabase
                 .from("profiles")
                 .update(profile)
-                .eq("user_id", value: userId)
+                .eq("id", value: userId)
                 .execute()
             
             print("✅ Profile updated successfully with height: \(height), weight: \(weight)")
@@ -741,7 +741,7 @@ final class AuthService: ObservableObject {
             try await supabase
                 .from("profiles")
                 .update(profile)
-                .eq("user_id", value: userId)
+                .eq("id", value: userId)
                 .execute()
             
             print("✅ Height and weight updated successfully: height=\(height?.description ?? "nil"), weight=\(weight?.description ?? "nil")")

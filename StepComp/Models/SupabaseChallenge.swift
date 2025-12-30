@@ -57,6 +57,25 @@ struct ChallengeMember: Codable, Identifiable {
         case lastUpdated = "last_updated"
     }
     
+    // Regular initializer
+    init(
+        id: String,
+        challengeId: String,
+        userId: String,
+        totalSteps: Int = 0,
+        dailySteps: [String: Int] = [:],
+        joinedAt: Date = Date(),
+        lastUpdated: Date = Date()
+    ) {
+        self.id = id
+        self.challengeId = challengeId
+        self.userId = userId
+        self.totalSteps = totalSteps
+        self.dailySteps = dailySteps
+        self.joinedAt = joinedAt
+        self.lastUpdated = lastUpdated
+    }
+    
     // Custom decoder to handle JSONB daily_steps
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)

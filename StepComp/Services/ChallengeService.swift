@@ -7,6 +7,9 @@
 
 import Foundation
 import Combine // Required for @Published and ObservableObject
+#if canImport(Supabase)
+import Supabase
+#endif
 
 @MainActor
 final class ChallengeService: ObservableObject {
@@ -56,6 +59,8 @@ final class ChallengeService: ObservableObject {
         let inviteCode = challenge.inviteCode ?? generateInviteCode()
         
         // Convert Challenge to SupabaseChallenge
+        // Note: isPublic = false means private (only invited can join)
+        // We'll use isPublic to represent privacy, and can add isFriendsOnly later if needed
         let supabaseChallenge = SupabaseChallenge(
             id: challenge.id,
             name: challenge.name,
@@ -63,7 +68,7 @@ final class ChallengeService: ObservableObject {
             startDate: challenge.startDate,
             endDate: challenge.endDate,
             createdBy: challenge.creatorId,
-            isPublic: true, // Default to public
+            isPublic: false, // Private by default (only invited participants can join)
             inviteCode: inviteCode,
             createdAt: challenge.createdAt,
             updatedAt: Date()
@@ -265,30 +270,43 @@ final class ChallengeService: ObservableObject {
     
     #if canImport(Supabase)
     private func getLeaderboardFromSupabase(challengeId: String) async -> [LeaderboardEntry] {
+        // Query challenge_members directly instead of using RPC function
+        // This avoids RPC syntax issues and works reliably
         do {
-            // Use the database function to get ranked leaderboard
-            // Note: RPC params need to match function signature exactly
-            struct RPCParams: Codable {
-                let p_challenge_id: String
-            }
-            
-            let params = RPCParams(p_challenge_id: challengeId)
-            let results: [LeaderboardResult] = try await supabase
-                .rpc("get_challenge_leaderboard", params: params)
+            // Get all members for this challenge
+            let members: [ChallengeMember] = try await supabase
+                .from("challenge_members")
+                .select()
+                .eq("challenge_id", value: challengeId)
                 .execute()
                 .value
             
+            // Get user profiles
+            let userIds = members.map { $0.userId }
+            guard !userIds.isEmpty else { return [] }
+            
+            let profiles: [UserProfile] = try await supabase
+                .from("profiles")
+                .select()
+                .in("id", values: userIds)
+                .execute()
+                .value
+            
+            // Sort by total_steps descending and assign ranks
+            let sortedMembers = members.sorted { $0.totalSteps > $1.totalSteps }
+            
             // Convert to LeaderboardEntry
-            let entries = results.map { result in
-                LeaderboardEntry(
+            let entries = sortedMembers.enumerated().compactMap { index, member -> LeaderboardEntry? in
+                let profile = profiles.first { $0.id == member.userId }
+                return LeaderboardEntry(
                     id: UUID().uuidString,
-                    userId: result.userId,
+                    userId: member.userId,
                     challengeId: challengeId,
-                    displayName: result.username,
-                    avatarURL: result.avatar,
-                    steps: result.totalSteps,
-                    rank: Int(result.rank),
-                    lastUpdated: Date()
+                    displayName: profile?.username ?? "User",
+                    avatarURL: profile?.avatar,
+                    steps: member.totalSteps,
+                    rank: index + 1,
+                    lastUpdated: member.lastUpdated
                 )
             }
             
@@ -360,7 +378,7 @@ final class ChallengeService: ObservableObject {
             let profiles: [UserProfile] = try await supabase
                 .from("profiles")
                 .select()
-                .in("user_id", values: userIds)
+                .in("id", values: userIds)
                 .execute()
                 .value
             
@@ -426,7 +444,7 @@ final class ChallengeService: ObservableObject {
             let profiles: [UserProfile] = try await supabase
                 .from("profiles")
                 .select()
-                .in("user_id", values: userIds)
+                .in("id", values: userIds)
                 .execute()
                 .value
             
@@ -458,6 +476,10 @@ final class ChallengeService: ObservableObject {
     // MARK: - Supabase Methods
     
     #if canImport(Supabase)
+    func refreshChallenges() async {
+        await loadChallengesFromSupabase()
+    }
+    
     private func loadChallengesFromSupabase() async {
         do {
             // Get current user ID from session
@@ -476,7 +498,7 @@ final class ChallengeService: ObservableObject {
             let memberRecords: [ChallengeMember] = try await supabase
                 .from("challenge_members")
                 .select()
-                .eq("user_id", value: userId)
+                .eq("id", value: userId)
                 .execute()
                 .value
             
@@ -576,19 +598,16 @@ final class ChallengeService: ObservableObject {
         
         do {
             // Get current challenge member record
-            let members: [ChallengeMember] = try await supabase
+            let member: ChallengeMember = try await supabase
                 .from("challenge_members")
                 .select()
                 .eq("challenge_id", value: challengeId)
-                .eq("user_id", value: userId)
+                .eq("id", value: userId)
                 .single()
                 .execute()
                 .value
             
-            guard var member = members.first else {
-                print("⚠️ User \(userId) not found in challenge \(challengeId)")
-                return
-            }
+            var updatedMember = member
             
             // Format date for daily_steps JSONB
             let dateFormatter = DateFormatter()
@@ -596,21 +615,21 @@ final class ChallengeService: ObservableObject {
             let dateString = dateFormatter.string(from: date)
             
             // Update daily steps
-            var dailySteps = member.dailySteps
+            var dailySteps = updatedMember.dailySteps
             dailySteps[dateString] = steps
             
             // Calculate new total steps (sum of all daily steps)
             let totalSteps = dailySteps.values.reduce(0, +)
             
             // Update member record
-            member.totalSteps = totalSteps
-            member.dailySteps = dailySteps
-            member.lastUpdated = Date()
+            updatedMember.totalSteps = totalSteps
+            updatedMember.dailySteps = dailySteps
+            updatedMember.lastUpdated = Date()
             
             try await supabase
                 .from("challenge_members")
-                .update(member)
-                .eq("id", value: member.id)
+                .update(updatedMember)
+                .eq("id", value: updatedMember.id)
                 .execute()
             
             print("✅ Synced \(steps) steps for user \(userId) in challenge \(challengeId)")
@@ -634,12 +653,16 @@ final class ChallengeService: ObservableObject {
             
             // Sync steps to each challenge
             for challenge in activeChallenges {
-                try? await syncStepsToChallenge(
-                    challengeId: challenge.id,
-                    userId: userId,
-                    steps: todaySteps,
-                    date: Date()
-                )
+                do {
+                    try await syncStepsToChallenge(
+                        challengeId: challenge.id,
+                        userId: userId,
+                        steps: todaySteps,
+                        date: Date()
+                    )
+                } catch {
+                    print("⚠️ Error syncing steps to challenge \(challenge.id): \(error.localizedDescription)")
+                }
             }
             
             print("✅ Synced today's steps (\(todaySteps)) to \(activeChallenges.count) challenges")

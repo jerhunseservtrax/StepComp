@@ -42,15 +42,10 @@ final class LeaderboardViewModel: ObservableObject {
         errorMessage = nil
         
         Task {
-            do {
-                let loadedEntries = await challengeService.getLeaderboard(for: challengeId, scope: selectedScope)
-                // Ensure entries are sorted by rank
-                entries = loadedEntries.sorted { $0.rank < $1.rank }
-                isLoading = false
-            } catch {
-                errorMessage = error.localizedDescription
-                isLoading = false
-            }
+            let loadedEntries = await challengeService.getLeaderboard(for: challengeId, scope: selectedScope)
+            // Ensure entries are sorted by rank
+            entries = loadedEntries.sorted { $0.rank < $1.rank }
+            isLoading = false
         }
     }
     

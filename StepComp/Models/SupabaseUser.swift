@@ -26,7 +26,7 @@ struct SupabaseAuthUser: Codable {
 // This represents the user profile stored in the profiles table
 
 struct UserProfile: Codable, Identifiable {
-    let id: String // user_id from profiles table
+    let id: String // id from profiles table (references auth.users(id))
     var username: String // Unique username (e.g., @username)
     var firstName: String?
     var lastName: String?
@@ -34,9 +34,10 @@ struct UserProfile: Codable, Identifiable {
     var isPremium: Bool
     var height: Int? // Height in cm
     var weight: Int? // Weight in kg
+    var email: String? // Email from profiles table
     
     enum CodingKeys: String, CodingKey {
-        case id = "user_id"
+        case id // Now uses 'id' instead of 'user_id' to match new schema
         case username
         case firstName = "first_name"
         case lastName = "last_name"
@@ -44,6 +45,7 @@ struct UserProfile: Codable, Identifiable {
         case isPremium = "is_premium"
         case height
         case weight
+        case email
     }
 }
 

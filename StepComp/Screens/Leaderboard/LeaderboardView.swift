@@ -42,9 +42,19 @@ struct LeaderboardView: View {
                     VStack(spacing: 16) {
                         AnimatedSegmentedControl(
                             selectedIndex: Binding(
-                                get: { viewModel.selectedScope == .daily ? 0 : 1 },
+                                get: { 
+                                    switch viewModel.selectedScope {
+                                    case .daily: return 0
+                                    case .weekly: return 1 // Map weekly to Overall for now
+                                    case .allTime: return 1
+                                    }
+                                },
                                 set: { index in
-                                    viewModel.updateScope(index == 0 ? .daily : .allTime)
+                                    switch index {
+                                    case 0: viewModel.updateScope(.daily)
+                                    case 1: viewModel.updateScope(.allTime)
+                                    default: break
+                                    }
                                 }
                             ),
                             options: ["Today", "Overall"]
@@ -52,28 +62,43 @@ struct LeaderboardView: View {
                         .padding(.horizontal)
                         .padding(.vertical, 16)
                         
-                        // Podium Section (Top 3)
-                        if viewModel.entries.count >= 1 {
+                        // Loading State
+                        if viewModel.isLoading {
+                            ProgressView()
+                                .padding(.vertical, 40)
+                        } else if viewModel.entries.isEmpty {
+                            // Empty State
+                            VStack(spacing: 16) {
+                                Image(systemName: "trophy")
+                                    .font(.system(size: 50))
+                                    .foregroundColor(.secondary)
+                                Text("No entries yet")
+                                    .font(.system(size: 16, weight: .medium))
+                                    .foregroundColor(.secondary)
+                            }
+                            .padding(.vertical, 60)
+                        } else {
+                            // Podium Section (Top 3)
                             PodiumView(
                                 entries: Array(viewModel.entries.prefix(3)),
                                 currentUserId: sessionViewModel.currentUser?.id ?? ""
                             )
                             .padding(.horizontal)
                             .padding(.bottom, 32)
-                        }
-                        
-                        // List Section (Rank 4+)
-                        if viewModel.entries.count > 3 {
-                            VStack(spacing: 12) {
-                                ForEach(Array(viewModel.entries.dropFirst(3))) { entry in
-                                    LeaderboardListItem(
-                                        entry: entry,
-                                        isCurrentUser: entry.userId == sessionViewModel.currentUser?.id ?? "",
-                                        maxSteps: viewModel.entries.first?.steps ?? 1
-                                    )
+                            
+                            // List Section (Rank 4+)
+                            if viewModel.entries.count > 3 {
+                                VStack(spacing: 12) {
+                                    ForEach(Array(viewModel.entries.dropFirst(3))) { entry in
+                                        LeaderboardListItem(
+                                            entry: entry,
+                                            isCurrentUser: entry.userId == sessionViewModel.currentUser?.id ?? "",
+                                            maxSteps: viewModel.entries.first?.steps ?? 1
+                                        )
+                                    }
                                 }
+                                .padding(.horizontal)
                             }
-                            .padding(.horizontal)
                         }
                         
                         // Spacer for sticky footer
@@ -91,7 +116,8 @@ struct LeaderboardView: View {
             if let currentUserEntry = viewModel.currentUserEntry {
                 StickyUserFooter(
                     entry: currentUserEntry,
-                    nextEntry: viewModel.entries.first { $0.rank == currentUserEntry.rank - 1 }
+                    nextEntry: viewModel.entries.first { $0.rank == currentUserEntry.rank - 1 },
+                    challengeService: challengeService
                 )
             }
         }
@@ -106,34 +132,35 @@ struct LeaderboardView: View {
 struct LeaderboardHeader: View {
     let onBack: () -> Void
     
+    private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
+    
     var body: some View {
         HStack {
             Button(action: onBack) {
                 Image(systemName: "arrow.left")
-                    .font(.system(size: 20))
+                    .font(.system(size: 24))
                     .foregroundColor(.primary)
-                    .frame(width: 40, height: 40)
-                    .background(Color(.systemGray6))
-                    .clipShape(Circle())
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
             }
             
             Spacer()
             
             Text("Leaderboard")
                 .font(.system(size: 20, weight: .bold))
+                .tracking(-0.5)
             
             Spacer()
             
             Button(action: {}) {
                 Image(systemName: "square.and.arrow.up")
-                    .font(.system(size: 20))
+                    .font(.system(size: 24))
                     .foregroundColor(.primary)
-                    .frame(width: 40, height: 40)
-                    .background(Color(.systemGray6))
-                    .clipShape(Circle())
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
             }
         }
-        .padding(.horizontal)
+        .padding(.horizontal, 24)
         .padding(.vertical, 16)
         .background(
             Color(.systemBackground)
@@ -143,7 +170,7 @@ struct LeaderboardHeader: View {
         .overlay(
             Rectangle()
                 .frame(height: 1)
-                .foregroundColor(Color(.systemGray5)),
+                .foregroundColor(Color(.systemGray5).opacity(0.2)),
             alignment: .bottom
         )
     }
@@ -156,13 +183,14 @@ struct AnimatedSegmentedControl: View {
     let options: [String]
     
     private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
+    private let subtleLight = Color(red: 0.914, green: 0.906, blue: 0.808)
     
     var body: some View {
         GeometryReader { geometry in
             ZStack(alignment: .leading) {
                 // Background
                 RoundedRectangle(cornerRadius: 999)
-                    .fill(Color(.systemGray6))
+                    .fill(subtleLight)
                     .frame(height: 40)
                 
                 // Animated indicator
@@ -172,17 +200,21 @@ struct AnimatedSegmentedControl: View {
                     .padding(4)
                     .offset(x: CGFloat(selectedIndex) * (geometry.size.width / CGFloat(options.count)))
                     .animation(.spring(response: 0.3, dampingFraction: 0.7), value: selectedIndex)
+                    .shadow(color: primaryYellow.opacity(0.3), radius: 2, x: 0, y: 1)
                 
                 // Buttons
                 HStack(spacing: 0) {
                     ForEach(Array(options.enumerated()), id: \.offset) { index, option in
                         Button(action: {
-                            selectedIndex = index
+                            withAnimation {
+                                selectedIndex = index
+                            }
                         }) {
                             Text(option)
                                 .font(.system(size: 14, weight: selectedIndex == index ? .bold : .medium))
-                                .foregroundColor(selectedIndex == index ? .black : .secondary)
+                                .foregroundColor(selectedIndex == index ? .black : Color(red: 0.620, green: 0.616, blue: 0.278))
                                 .frame(maxWidth: .infinity)
+                                .padding(.vertical, 8)
                         }
                     }
                 }
@@ -253,6 +285,7 @@ struct PodiumPlace: View {
     var isFirst: Bool = false
     
     private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
+    private let bronzeColor = Color(red: 0.804, green: 0.498, blue: 0.196)
     
     var body: some View {
         VStack(spacing: 12) {
@@ -262,7 +295,7 @@ struct PodiumPlace: View {
                     // Glow effect for first place
                     Circle()
                         .fill(primaryYellow.opacity(0.3))
-                        .frame(width: isFirst ? 88 : 72, height: isFirst ? 88 : 72)
+                        .frame(width: 88, height: 88)
                         .blur(radius: 20)
                 }
                 
@@ -275,6 +308,10 @@ struct PodiumPlace: View {
                     Circle()
                         .stroke(borderColor, lineWidth: 4)
                 )
+                .background(
+                    Circle()
+                        .fill(rank == 1 ? primaryYellow.opacity(0.2) : (rank == 3 ? Color.orange.opacity(0.1) : Color.gray.opacity(0.1)))
+                )
                 
                 // Rank badge
                 VStack {
@@ -285,10 +322,14 @@ struct PodiumPlace: View {
                             .font(.system(size: rank == 1 ? 13 : 11, weight: .bold))
                             .foregroundColor(rank == 1 ? .black : .primary)
                             .padding(.horizontal, rank == 1 ? 12 : 8)
-                            .padding(.vertical, 4)
+                            .padding(.vertical, rank == 1 ? 6 : 4)
                             .background(rank == 1 ? primaryYellow : Color(.systemBackground))
                             .cornerRadius(999)
-                            .shadow(color: rank == 1 ? primaryYellow.opacity(0.5) : Color.clear, radius: 8)
+                            .shadow(color: rank == 1 ? primaryYellow.opacity(0.5) : Color.clear, radius: 8, x: 0, y: 2)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 999)
+                                    .stroke(rank == 1 ? Color.clear : Color(.systemGray5), lineWidth: 1)
+                            )
                             .offset(y: rank == 1 ? 8 : 4)
                     }
                 }
@@ -300,11 +341,13 @@ struct PodiumPlace: View {
                     .font(.system(size: isFirst ? 16 : 14, weight: .bold))
                     .lineLimit(1)
                     .frame(maxWidth: isFirst ? 96 : 80)
+                    .foregroundColor(.primary)
                 
                 Text("\(entry.steps.formatted())")
                     .font(.system(size: isFirst ? 14 : 12, weight: isFirst ? .bold : .medium))
-                    .foregroundColor(isFirst ? primaryYellow : .secondary)
+                    .foregroundColor(isFirst ? primaryYellow : Color(red: 0.620, green: 0.616, blue: 0.278))
             }
+            .padding(.top, isFirst ? 4 : 0)
             
             // Podium base
             RoundedRectangle(cornerRadius: 16, style: .continuous)
@@ -312,16 +355,15 @@ struct PodiumPlace: View {
                     LinearGradient(
                         colors: rank == 1 ? 
                             [primaryYellow.opacity(0.4), primaryYellow.opacity(0.1)] :
+                            rank == 3 ?
+                            [bronzeColor.opacity(0.2), bronzeColor.opacity(0.05)] :
                             [Color(.systemGray5), Color(.systemGray6)],
                         startPoint: .top,
                         endPoint: .bottom
                     )
                 )
                 .frame(height: height)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .stroke(borderColor.opacity(0.3), lineWidth: 1)
-                )
+                .opacity(rank == 1 ? 1.0 : 0.8)
         }
         .frame(maxWidth: .infinity)
         .offset(y: isFirst ? -24 : 0)
@@ -336,6 +378,7 @@ struct LeaderboardListItem: View {
     let maxSteps: Int
     
     private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
+    private let subtleLight = Color(red: 0.914, green: 0.906, blue: 0.808)
     private let reactions = ["🔥", "👏", "😎", "💪"]
     
     var progress: Double {
@@ -348,7 +391,7 @@ struct LeaderboardListItem: View {
             // Rank number
             Text("\(entry.rank)")
                 .font(.system(size: 14, weight: .bold))
-                .foregroundColor(.secondary)
+                .foregroundColor(Color(red: 0.620, green: 0.616, blue: 0.278))
                 .frame(width: 20)
             
             // Avatar
@@ -359,27 +402,28 @@ struct LeaderboardListItem: View {
             )
             
             // Name, steps, and progress bar
-            VStack(alignment: .leading, spacing: 6) {
+            VStack(alignment: .leading, spacing: 4) {
                 HStack {
                     Text(isCurrentUser ? "You" : entry.displayName)
                         .font(.system(size: 14, weight: isCurrentUser ? .bold : .medium))
                         .lineLimit(1)
+                        .foregroundColor(.primary)
                     
                     Spacer()
                     
                     Text("\(entry.steps.formatted())")
                         .font(.system(size: isCurrentUser ? 14 : 12, weight: isCurrentUser ? .bold : .medium))
-                        .foregroundColor(isCurrentUser ? primaryYellow : .secondary)
+                        .foregroundColor(isCurrentUser ? primaryYellow : Color(red: 0.620, green: 0.616, blue: 0.278))
                 }
                 
                 // Progress bar
                 GeometryReader { geometry in
                     ZStack(alignment: .leading) {
-                        RoundedRectangle(cornerRadius: 4)
-                            .fill(Color(.systemGray6))
+                        RoundedRectangle(cornerRadius: 999)
+                            .fill(subtleLight)
                             .frame(height: 8)
                         
-                        RoundedRectangle(cornerRadius: 4)
+                        RoundedRectangle(cornerRadius: 999)
                             .fill(isCurrentUser ? primaryYellow : Color(.systemGray4))
                             .frame(width: geometry.size.width * progress, height: 8)
                     }
@@ -389,10 +433,10 @@ struct LeaderboardListItem: View {
             
             // Reaction button
             Button(action: {}) {
-                Text(reactions[entry.rank % reactions.count])
+                Text(reactions[(entry.rank - 1) % reactions.count])
                     .font(.system(size: 18))
                     .frame(width: 32, height: 32)
-                    .background(Color(.systemGray6))
+                    .background(subtleLight.opacity(0.5))
                     .clipShape(Circle())
             }
         }
@@ -424,8 +468,11 @@ struct LeaderboardListItem: View {
 struct StickyUserFooter: View {
     let entry: LeaderboardEntry
     let nextEntry: LeaderboardEntry?
+    let challengeService: ChallengeService
+    @EnvironmentObject var healthKitService: HealthKitService
     
     private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
+    @State private var isSyncing = false
     
     var stepsToNext: Int {
         guard let next = nextEntry else { return 0 }
@@ -472,12 +519,20 @@ struct StickyUserFooter: View {
                 Spacer()
                 
                 // Sync button
-                Button(action: {}) {
+                Button(action: {
+                    syncSteps()
+                }) {
                     HStack(spacing: 4) {
-                        Text("Sync")
-                            .font(.system(size: 14, weight: .bold))
-                        Image(systemName: "arrow.clockwise")
-                            .font(.system(size: 14))
+                        if isSyncing {
+                            ProgressView()
+                                .progressViewStyle(CircularProgressViewStyle(tint: primaryYellow))
+                                .scaleEffect(0.8)
+                        } else {
+                            Text("Sync")
+                                .font(.system(size: 14, weight: .bold))
+                            Image(systemName: "arrow.clockwise")
+                                .font(.system(size: 14))
+                        }
                     }
                     .foregroundColor(primaryYellow)
                     .padding(.horizontal, 16)
@@ -485,6 +540,7 @@ struct StickyUserFooter: View {
                     .background(Color.black)
                     .cornerRadius(999)
                 }
+                .disabled(isSyncing)
             }
             .padding(16)
             .background(
@@ -496,8 +552,22 @@ struct StickyUserFooter: View {
             )
             .cornerRadius(24)
             .shadow(color: primaryYellow.opacity(0.3), radius: 16, x: 0, y: 8)
-            .padding(.horizontal)
+            .padding(.horizontal, 16)
             .padding(.bottom, 24)
+        }
+    }
+    
+    private func syncSteps() {
+        guard !isSyncing else { return }
+        isSyncing = true
+        
+        Task {
+            // Sync steps for all active challenges
+            await challengeService.syncTodayStepsToAllChallenges(userId: entry.userId, healthKitService: healthKitService)
+            
+            // Wait a bit for UI feedback
+            try? await Task.sleep(nanoseconds: 500_000_000)
+            isSyncing = false
         }
     }
 }
