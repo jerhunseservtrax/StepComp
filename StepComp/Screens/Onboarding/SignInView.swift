@@ -1,0 +1,1780 @@
+//
+//  SignInView.swift
+//  StepComp
+//
+//  Created by Jeffery Erhunse on 12/24/25.
+//
+
+import SwiftUI
+import AuthenticationServices
+import Combine
+#if canImport(UIKit)
+import UIKit
+#endif
+#if canImport(AuthenticationServices)
+import AuthenticationServices
+#endif
+#if canImport(Supabase)
+import Supabase
+#endif
+
+struct SignInOnboardingView: View {
+    @ObservedObject var sessionViewModel: SessionViewModel
+    @Binding var currentStep: OnboardingFlowView.OnboardingStep
+    
+    @State private var showingEmailAuth = false
+    @State private var email: String = ""
+    @State private var password: String = ""
+    @State private var username: String = ""
+    @State private var firstName: String = ""
+    @State private var lastName: String = ""
+    @State private var height: String = ""
+    @State private var weight: String = ""
+    @State private var isSignUp: Bool = false
+    @State private var isLoading: Bool = false
+    @State private var errorMessage: String?
+    @State private var showingForgotPassword = false
+    
+    private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
+    
+    var body: some View {
+        OnboardingScreenBase(currentStep: currentStep.stepIndex) {
+            VStack(spacing: 0) {
+                ScrollView {
+                    VStack(spacing: 0) {
+                        // Graphic Card
+                        ZStack {
+                            RoundedRectangle(cornerRadius: 32)
+                                .fill(Color(.systemGray6))
+                                .frame(height: 224)
+                            
+                            // Gradient overlay
+                            LinearGradient(
+                                colors: [
+                                    .clear,
+                                    primaryYellow.opacity(0.1)
+                                ],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            )
+                            
+                            // Floating elements
+                            VStack {
+                                HStack {
+                                    Spacer()
+                                    ZStack {
+                                        Circle()
+                                            .fill(primaryYellow)
+                                            .frame(width: 40, height: 40)
+                                        
+                                        Image(systemName: "bolt.fill")
+                                            .font(.system(size: 18))
+                                            .foregroundColor(.black)
+                                    }
+                                    .offset(y: isAnimating ? -5 : 5)
+                                    .animation(
+                                        Animation.easeInOut(duration: 3.0)
+                                            .repeatForever(autoreverses: true),
+                                        value: isAnimating
+                                    )
+                                }
+                                .padding()
+                                
+                                Spacer()
+                                
+                                Image(systemName: "chart.bar.fill")
+                                    .font(.system(size: 64))
+                                    .foregroundColor(.secondary)
+                                
+                                Spacer()
+                            }
+                            
+                            // Decorative icons
+                            Image(systemName: "trophy.fill")
+                                .font(.system(size: 32))
+                                .foregroundColor(primaryYellow.opacity(0.4))
+                                .offset(x: -80, y: -40)
+                                .rotationEffect(.degrees(-12))
+                            
+                            Image(systemName: "flame.fill")
+                                .font(.system(size: 32))
+                                .foregroundColor(primaryYellow.opacity(0.4))
+                                .offset(x: 80, y: 40)
+                                .rotationEffect(.degrees(12))
+                        }
+                        .padding(.horizontal, 24)
+                        .padding(.top, 24)
+                        .padding(.bottom, 32)
+                        
+                        // Text Content
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text("Save your progress")
+                                .font(.system(size: 32, weight: .bold))
+                            
+                            Text("Don't lose your stats! Sign in to compete on the global leaderboard and save your rewards.")
+                                .font(.system(size: 16))
+                                .foregroundColor(.secondary)
+                                .lineSpacing(4)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 24)
+                        .padding(.bottom, 32)
+                        
+                        // Auth Buttons
+                        VStack(spacing: 12) {
+                            // Apple Sign In
+                            SignInWithAppleButton(
+                                onRequest: { request in
+                                    request.requestedScopes = [.fullName, .email]
+                                },
+                                onCompletion: { result in
+                                    handleAppleSignIn(result: result)
+                                }
+                            )
+                            .signInWithAppleButtonStyle(.black)
+                            .frame(height: 56)
+                            .cornerRadius(999)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 999)
+                                    .stroke(Color.clear, lineWidth: 0)
+                            )
+                            
+                            // Google Sign In
+                            Button(action: {
+                                handleGoogleSignIn()
+                            }) {
+                                HStack {
+                                    Image(systemName: "globe")
+                                        .font(.system(size: 18))
+                                    Text("Continue with Google")
+                                        .font(.system(size: 16, weight: .bold))
+                                }
+                                .foregroundColor(.primary)
+                                .frame(maxWidth: .infinity)
+                                .frame(height: 56)
+                                .background(Color(.systemBackground))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 999)
+                                        .stroke(Color(.systemGray4), lineWidth: 1)
+                                )
+                                .cornerRadius(999)
+                            }
+                            
+                            // Email Sign In
+                            Button(action: {
+                                showingEmailAuth = true
+                            }) {
+                                HStack {
+                                    Image(systemName: "envelope.fill")
+                                        .font(.system(size: 18))
+                                    Text("Use Email Address")
+                                        .font(.system(size: 16, weight: .bold))
+                                }
+                                .foregroundColor(.primary)
+                                .frame(maxWidth: .infinity)
+                                .frame(height: 56)
+                                .background(primaryYellow.opacity(0.2))
+                                .cornerRadius(999)
+                            }
+                        }
+                        .padding(.horizontal, 24)
+                        .padding(.bottom, 16)
+                    }
+                }
+                
+                // Terms Text
+                Text("By continuing, you agree to our Terms of Service & Privacy Policy.")
+                    .font(.system(size: 10))
+                    .foregroundColor(.secondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 32)
+                    .padding(.bottom, 32)
+            }
+        }
+        .sheet(isPresented: $showingEmailAuth) {
+            EmailAuthSheet(
+                isSignUp: $isSignUp,
+                email: $email,
+                password: $password,
+                username: $username,
+                firstName: $firstName,
+                lastName: $lastName,
+                height: $height,
+                weight: $weight,
+                isLoading: $isLoading,
+                errorMessage: errorMessage,
+                showingForgotPassword: $showingForgotPassword,
+                onSignIn: {
+                    Task {
+                        await performEmailAuth()
+                    }
+                },
+                onSignUp: {
+                    Task {
+                        await performEmailAuth()
+                    }
+                },
+                onForgotPassword: {
+                    showingForgotPassword = true
+                }
+            )
+        }
+        .sheet(isPresented: $showingForgotPassword) {
+            ForgotPasswordSheet(email: $email)
+        }
+        .onAppear {
+            isAnimating = true
+        }
+        .onOpenURL { url in
+            // Handle OAuth callback URL
+            Task {
+                await handleOAuthCallback(url: url)
+            }
+        }
+    }
+    
+    @State private var isAnimating = false
+    
+    private func handleAppleSignIn(result: Result<ASAuthorization, Error>) {
+        switch result {
+        case .success(let authorization):
+            guard let appleIDCredential = authorization.credential as? ASAuthorizationAppleIDCredential else {
+                errorMessage = "Failed to get Apple ID credential. Please try again."
+                return
+            }
+            
+            Task {
+                isLoading = true
+                errorMessage = nil
+                
+                do {
+                    // Extract identity token from Apple ID credential
+                    guard let identityTokenData = appleIDCredential.identityToken,
+                          let identityTokenString = String(data: identityTokenData, encoding: .utf8) else {
+                        errorMessage = "Failed to get identity token from Apple. Please try again."
+                        isLoading = false
+                        return
+                    }
+                    
+                    // Extract user information from Apple ID credential
+                    let authorizationCode = appleIDCredential.authorizationCode.flatMap { String(data: $0, encoding: .utf8) }
+                    let fullName = appleIDCredential.fullName
+                    let email = appleIDCredential.email
+                    
+                    // Extract first and last name
+                    let firstName = fullName?.givenName
+                    let lastName = fullName?.familyName
+                    
+                    // Sign in with Apple using Supabase OAuth
+                    try await sessionViewModel.signInWithApple(
+                        identityToken: identityTokenString,
+                        authorizationCode: authorizationCode,
+                        email: email,
+                        firstName: firstName,
+                        lastName: lastName
+                    )
+                    
+                    // Wait a moment for state to update
+                    try? await Task.sleep(nanoseconds: 200_000_000) // 0.2 seconds
+                    
+                    // Apply avatar if selected during onboarding
+                    if var user = sessionViewModel.currentUser,
+                       let avatarURL = UserDefaults.standard.string(forKey: "selectedAvatarURL") {
+                        user.avatarURL = avatarURL
+                        sessionViewModel.updateUser(user)
+                        UserDefaults.standard.removeObject(forKey: "selectedAvatarURL")
+                    }
+                    
+                    // Verify authentication succeeded
+                    if sessionViewModel.isAuthenticated, sessionViewModel.currentUser != nil {
+                        isLoading = false
+                        sessionViewModel.completeOnboarding()
+                    } else {
+                        isLoading = false
+                        errorMessage = "Sign in with Apple failed. Please try again."
+                    }
+                } catch {
+                    isLoading = false
+                    let errorDescription = error.localizedDescription
+                    print("⚠️ Apple Sign In error: \(errorDescription)")
+                    
+                    // Provide user-friendly error messages
+                    if errorDescription.contains("1000") || errorDescription.contains("AuthorizationError") {
+                        errorMessage = "Sign in with Apple is not configured. Please use email sign in instead."
+                    } else {
+                        errorMessage = errorDescription.isEmpty ? "Sign in with Apple failed. Please try again or use email sign in." : errorDescription
+                    }
+                }
+            }
+        case .failure(let error):
+            isLoading = false
+            let errorDescription = error.localizedDescription
+            let nsError = error as NSError
+            
+            print("⚠️ Apple Sign In error: \(errorDescription), Code: \(nsError.code)")
+            
+            // Handle specific error codes
+            if nsError.domain == "com.apple.AuthenticationServices.AuthorizationError" {
+                switch nsError.code {
+                case 1000:
+                    errorMessage = "Sign in with Apple is not configured. Please use email sign in instead."
+                case 1001:
+                    errorMessage = "Sign in with Apple was cancelled."
+                default:
+                    errorMessage = "Sign in with Apple failed. Please try email sign in instead."
+                }
+            } else {
+                errorMessage = errorDescription.isEmpty ? "Sign in with Apple was cancelled or failed. Please try email sign in." : errorDescription
+            }
+        }
+    }
+    
+    private func performEmailAuth() async {
+        isLoading = true
+        errorMessage = nil
+        
+        // Trim whitespace from inputs
+        let trimmedEmail = email.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedPassword = password.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedUsername = username.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let trimmedFirstName = firstName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedLastName = lastName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedHeight = height.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedWeight = weight.trimmingCharacters(in: .whitespacesAndNewlines)
+        
+        // Validate inputs
+        guard !trimmedEmail.isEmpty else {
+            errorMessage = "Please enter your email"
+            isLoading = false
+            return
+        }
+        
+        guard !trimmedPassword.isEmpty else {
+            errorMessage = "Please enter your password"
+            isLoading = false
+            return
+        }
+        
+        if isSignUp {
+            guard !trimmedUsername.isEmpty else {
+                errorMessage = "Please enter a username"
+                isLoading = false
+                return
+            }
+            
+            // Validate username format (alphanumeric and underscores only, 3-20 characters)
+            let usernameRegex = "^[a-z0-9_]{3,20}$"
+            let usernamePredicate = NSPredicate(format: "SELF MATCHES %@", usernameRegex)
+            guard usernamePredicate.evaluate(with: trimmedUsername) else {
+                errorMessage = "Username must be 3-20 characters and contain only letters, numbers, and underscores"
+                isLoading = false
+                return
+            }
+            
+            guard !trimmedFirstName.isEmpty else {
+                errorMessage = "Please enter your first name"
+                isLoading = false
+                return
+            }
+            
+            guard !trimmedLastName.isEmpty else {
+                errorMessage = "Please enter your last name"
+                isLoading = false
+                return
+            }
+            
+            // Validate height and weight (optional but should be numbers if provided)
+            let heightValue = trimmedHeight.isEmpty ? nil : Int(trimmedHeight)
+            let weightValue = trimmedWeight.isEmpty ? nil : Int(trimmedWeight)
+            
+            if !trimmedHeight.isEmpty && heightValue == nil {
+                errorMessage = "Height must be a valid number"
+                isLoading = false
+                return
+            }
+            
+            if !trimmedWeight.isEmpty && weightValue == nil {
+                errorMessage = "Weight must be a valid number"
+                isLoading = false
+                return
+            }
+        }
+        
+        do {
+            if isSignUp {
+                let heightValue = trimmedHeight.isEmpty ? nil : Int(trimmedHeight)
+                let weightValue = trimmedWeight.isEmpty ? nil : Int(trimmedWeight)
+                
+                try await sessionViewModel.signUp(
+                    email: trimmedEmail,
+                    password: trimmedPassword,
+                    username: trimmedUsername,
+                    firstName: trimmedFirstName,
+                    lastName: trimmedLastName,
+                    height: heightValue,
+                    weight: weightValue
+                )
+            } else {
+                try await sessionViewModel.signIn(
+                    email: trimmedEmail,
+                    password: trimmedPassword
+                )
+            }
+            
+            // Wait a moment for the state to update
+            try? await Task.sleep(nanoseconds: 200_000_000) // 0.2 seconds
+            
+            // Check authentication status - refresh from authService
+            // The SessionViewModel should have updated via Combine, but let's verify
+            if sessionViewModel.isAuthenticated, sessionViewModel.currentUser != nil {
+                showingEmailAuth = false
+                // Apply avatar if selected during onboarding
+                if var user = sessionViewModel.currentUser,
+                   let avatarURL = UserDefaults.standard.string(forKey: "selectedAvatarURL") {
+                    user.avatarURL = avatarURL
+                    sessionViewModel.updateUser(user)
+                    UserDefaults.standard.removeObject(forKey: "selectedAvatarURL")
+                }
+                sessionViewModel.completeOnboarding()
+            } else {
+                errorMessage = "Authentication failed. Please check your credentials and try again."
+            }
+        } catch {
+            let errorMsg = error.localizedDescription.isEmpty ? "An error occurred. Please try again." : error.localizedDescription
+            errorMessage = errorMsg
+            print("⚠️ Auth error: \(errorMsg)")
+        }
+        
+        isLoading = false
+    }
+    
+    private func handleGoogleSignIn() {
+        #if canImport(Supabase) && canImport(UIKit)
+        Task {
+            isLoading = true
+            errorMessage = nil
+            
+            do {
+                // Use Supabase OAuth for Google Sign-In
+                let oauthURL = try await sessionViewModel.signInWithGoogle()
+                
+                // Open OAuth URL using ASWebAuthenticationSession
+                await MainActor.run {
+                    openGoogleOAuth(url: oauthURL)
+                }
+            } catch {
+                isLoading = false
+                if case AuthError.oauthURLGenerated(let url) = error {
+                    // URL was generated, open it
+                    await MainActor.run {
+                        openGoogleOAuth(url: url)
+                    }
+                } else {
+                    errorMessage = error.localizedDescription.isEmpty ? "Sign in with Google failed. Please try again." : error.localizedDescription
+                    print("⚠️ Google Sign In error: \(error.localizedDescription)")
+                }
+            }
+        }
+        #else
+        // Fallback to mock when Supabase is not available
+        Task {
+            isLoading = true
+            errorMessage = nil
+            
+            do {
+                try? await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
+                
+                // Create a mock Google user
+                try await sessionViewModel.signInWithGoogle(
+                    email: "google.user@example.com",
+                    displayName: "Google User"
+                )
+                
+                // Wait a moment for state to update
+                try? await Task.sleep(nanoseconds: 200_000_000) // 0.2 seconds
+                
+                // Apply avatar if selected during onboarding
+                if var user = sessionViewModel.currentUser,
+                   let avatarURL = UserDefaults.standard.string(forKey: "selectedAvatarURL") {
+                    user.avatarURL = avatarURL
+                    sessionViewModel.updateUser(user)
+                    UserDefaults.standard.removeObject(forKey: "selectedAvatarURL")
+                }
+                
+                // Verify authentication succeeded
+                if sessionViewModel.isAuthenticated, sessionViewModel.currentUser != nil {
+                    sessionViewModel.completeOnboarding()
+                } else {
+                    errorMessage = "Sign in with Google failed. Please try again."
+                }
+            } catch {
+                errorMessage = error.localizedDescription.isEmpty ? "Sign in with Google failed. Please try again." : error.localizedDescription
+                print("⚠️ Google Sign In error: \(error.localizedDescription)")
+            }
+            
+            isLoading = false
+        }
+        #endif
+    }
+    
+    #if canImport(UIKit)
+    @State private var webAuthSession: ASWebAuthenticationSession?
+    
+    private func openGoogleOAuth(url: URL) {
+        let callbackURLScheme = "je.stepcomp" // Your bundle ID in reverse domain notation
+        
+        let session = ASWebAuthenticationSession(
+            url: url,
+            callbackURLScheme: callbackURLScheme
+        ) { callbackURL, error in
+            Task { @MainActor in
+                isLoading = false
+                
+                if let error = error {
+                    // User cancelled or error occurred
+                    if (error as NSError).code != ASWebAuthenticationSessionError.canceledLogin.rawValue {
+                        errorMessage = "Google Sign In failed: \(error.localizedDescription)"
+                    }
+                    return
+                }
+                
+                guard let callbackURL = callbackURL else {
+                    errorMessage = "Google Sign In failed: No callback URL"
+                    return
+                }
+                
+                // Handle the OAuth callback
+                await handleOAuthCallback(url: callbackURL)
+            }
+        }
+        
+        #if os(iOS)
+        // presentationContextProvider is optional - iOS will use default window if not set
+        // SwiftUI structs can't conform to class protocols, so we skip it
+        #endif
+        session.prefersEphemeralWebBrowserSession = false
+        
+        webAuthSession = session
+        session.start()
+    }
+    
+    private func handleOAuthCallback(url: URL) async {
+        #if canImport(Supabase)
+        print("🔵 OAuth callback received: \(url)")
+        
+        // Process the OAuth callback URL with Supabase
+        // Extract tokens from the callback URL
+        // Supabase OAuth callbacks contain tokens in the URL fragment or query parameters
+        let components = URLComponents(url: url, resolvingAgainstBaseURL: false)
+        
+        // Check if this is a valid OAuth callback
+        if let fragment = components?.fragment, fragment.contains("access_token") {
+            // Parse the fragment to extract tokens
+            print("🔵 Found OAuth tokens in URL fragment")
+        } else if let queryItems = components?.queryItems, queryItems.contains(where: { $0.name == "code" || $0.name == "access_token" }) {
+            // Parse query parameters
+            print("🔵 Found OAuth tokens in URL query")
+        }
+        
+        // Supabase SDK should handle the callback automatically
+        // Try to get the current session
+        do {
+            let session = try await supabase.auth.session
+            print("✅ OAuth session established: \(session.user.id)")
+            
+            // Load user profile
+            await sessionViewModel.checkSession()
+            
+            // Wait for state to update
+            try? await Task.sleep(nanoseconds: 1000_000_000) // 1 second
+            
+            // Check if we're now authenticated
+            if sessionViewModel.isAuthenticated, sessionViewModel.currentUser != nil {
+                print("✅ User authenticated successfully")
+                // Apply avatar if selected during onboarding
+                if var user = sessionViewModel.currentUser,
+                   let avatarURL = UserDefaults.standard.string(forKey: "selectedAvatarURL") {
+                    user.avatarURL = avatarURL
+                    sessionViewModel.updateUser(user)
+                    UserDefaults.standard.removeObject(forKey: "selectedAvatarURL")
+                }
+                sessionViewModel.completeOnboarding()
+            } else {
+                print("⚠️ Session exists but user not authenticated")
+                errorMessage = "Google Sign In completed but authentication failed. Please try again."
+            }
+        } catch {
+            print("⚠️ No session found after OAuth callback: \(error.localizedDescription)")
+            errorMessage = "Google Sign In completed but no session was established. Please try again."
+        }
+        #else
+        errorMessage = "Supabase is not available. Google Sign In cannot be used."
+        #endif
+    }
+    #endif
+}
+
+// MARK: - Email Auth Sheet
+
+struct EmailAuthSheet: View {
+    @Binding var isSignUp: Bool
+    @Binding var email: String
+    @Binding var password: String
+    @Binding var username: String
+    @Binding var firstName: String
+    @Binding var lastName: String
+    @Binding var height: String
+    @Binding var weight: String
+    @Binding var isLoading: Bool
+    let errorMessage: String?
+    @Binding var showingForgotPassword: Bool
+    let onSignIn: () -> Void
+    let onSignUp: () -> Void
+    let onForgotPassword: () -> Void
+    
+    @State private var confirmPassword: String = ""
+    @State private var showingPassword: Bool = false
+    @State private var showingConfirmPassword: Bool = false
+    
+    @Environment(\.dismiss) var dismiss
+    
+    private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
+    private let backgroundDark = Color(red: 0.137, green: 0.133, blue: 0.059) // #23220f
+    private let inputDark = Color(red: 0.208, green: 0.204, blue: 0.094) // #353418
+    private let inputBorder = Color(red: 0.416, green: 0.412, blue: 0.184) // #6a692f
+    
+    var body: some View {
+        if isSignUp {
+            SignUpView(
+                email: $email,
+                password: $password,
+                confirmPassword: $confirmPassword,
+                username: $username,
+                firstName: $firstName,
+                lastName: $lastName,
+                height: $height,
+                weight: $weight,
+                isLoading: $isLoading,
+                errorMessage: errorMessage,
+                showingPassword: $showingPassword,
+                showingConfirmPassword: $showingConfirmPassword,
+                onSignUp: onSignUp,
+                onBack: { dismiss() },
+                onSwitchToSignIn: {
+                    isSignUp = false
+                }
+            )
+        } else {
+            SignInView(
+                email: $email,
+                password: $password,
+                isLoading: $isLoading,
+                errorMessage: errorMessage,
+                showingForgotPassword: $showingForgotPassword,
+                onSignIn: onSignIn,
+                onForgotPassword: onForgotPassword,
+                onBack: { dismiss() },
+                onSwitchToSignUp: {
+                    isSignUp = true
+                }
+            )
+        }
+    }
+}
+
+// MARK: - Sign Up View
+
+struct SignUpView: View {
+    @Binding var email: String
+    @Binding var password: String
+    @Binding var confirmPassword: String
+    @Binding var username: String
+    @Binding var firstName: String
+    @Binding var lastName: String
+    @Binding var height: String
+    @Binding var weight: String
+    @Binding var isLoading: Bool
+    let errorMessage: String?
+    @Binding var showingPassword: Bool
+    @Binding var showingConfirmPassword: Bool
+    let onSignUp: () -> Void
+    let onBack: () -> Void
+    let onSwitchToSignIn: () -> Void
+    
+    @State private var fullName: String = ""
+    
+    private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
+    private let backgroundDark = Color(red: 0.137, green: 0.133, blue: 0.059)
+    private let inputDark = Color(red: 0.208, green: 0.204, blue: 0.094)
+    private let inputBorder = Color(red: 0.416, green: 0.412, blue: 0.184)
+    
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                // Background
+                backgroundDark
+                    .ignoresSafeArea()
+                
+                ScrollView {
+                    VStack(spacing: 0) {
+                        // Hero Section
+                        VStack(spacing: 24) {
+                            // Circular background with sneaker image
+                            ZStack {
+                                Circle()
+                                    .fill(primaryYellow.opacity(0.2))
+                                    .frame(width: 128, height: 128)
+                                
+                                AsyncImage(url: URL(string: "https://lh3.googleusercontent.com/aida-public/AB6AXuDIcP6fXEkuSJTittn3fIRyMHDITzVQFCiMXorkxjfcf2jr6YBoVOifKJEmAhyg9N6iTWEzro46X1qFm7JEe8MXyZ9q1DdwANkUQqdauhPw_T1G-yCeAYmBmP7mj6TAN5AChk2UNG-qWCVbSs6XnlkGGa3xofiibOYkymYTR5VMXtoBsTGq5npN8xyDpoAmIjIInJrxQvRrTGhL0flxVTqYeu64d0UmuEEzHgvqxxdPo1oxDSAgvPMgex_PcKN7Q5Dzf-_fgaMxiA")) { image in
+                                    image
+                                        .resizable()
+                                        .aspectRatio(contentMode: .fit)
+                                } placeholder: {
+                                    Image(systemName: "figure.run")
+                                        .font(.system(size: 48))
+                                        .foregroundColor(primaryYellow)
+                                }
+                                .frame(width: 96, height: 96)
+                            }
+                            
+                            // Title and Subtitle
+                            VStack(spacing: 8) {
+                                Text("Join the Step Squad")
+                                    .font(.system(size: 32, weight: .black))
+                                    .tracking(-0.5)
+                                
+                                Text("Track every step, reach every goal.")
+                                    .font(.system(size: 16, weight: .medium))
+                                    .foregroundColor(.gray)
+                            }
+                        }
+                        .padding(.top, 24)
+                        .padding(.bottom, 32)
+                        
+                        // Form Fields
+                        VStack(spacing: 20) {
+                            // Full Name
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("Full Name")
+                                    .font(.system(size: 14, weight: .bold))
+                                    .foregroundColor(.white)
+                                
+                                HStack {
+                                    Image(systemName: "person")
+                                        .foregroundColor(Color(red: 0.8, green: 0.796, blue: 0.557)) // #cccb8e
+                                        .frame(width: 24)
+                                    
+                                    TextField("What should we call you?", text: $fullName)
+                                        .textContentType(.name)
+                                        .foregroundColor(.white)
+                                        .onChange(of: fullName) { oldValue, newValue in
+                                            // Split full name into first and last
+                                            let components = newValue.split(separator: " ", maxSplits: 1)
+                                            firstName = components.first.map(String.init) ?? ""
+                                            lastName = components.count > 1 ? String(components[1]) : ""
+                                        }
+                                }
+                                .padding(.horizontal, 16)
+                                .frame(height: 56)
+                                .background(inputDark)
+                                .cornerRadius(12)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 12)
+                                        .stroke(inputBorder, lineWidth: 1)
+                                )
+                            }
+                            
+                            // Username
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("Username")
+                                    .font(.system(size: 14, weight: .bold))
+                                    .foregroundColor(.white)
+                                
+                                HStack {
+                                    Image(systemName: "at")
+                                        .foregroundColor(Color(red: 0.8, green: 0.796, blue: 0.557))
+                                        .frame(width: 24)
+                                    
+                                    TextField("Choose a username", text: $username)
+                                        .textContentType(.username)
+                                        .autocapitalization(.none)
+                                        .autocorrectionDisabled()
+                                        .foregroundColor(.white)
+                                        .onChange(of: username) { oldValue, newValue in
+                                            // Auto-lowercase and remove spaces
+                                            username = newValue.lowercased().replacingOccurrences(of: " ", with: "")
+                                        }
+                                }
+                                .padding(.horizontal, 16)
+                                .frame(height: 56)
+                                .background(inputDark)
+                                .cornerRadius(12)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 12)
+                                        .stroke(inputBorder, lineWidth: 1)
+                                )
+                            }
+                            
+                            // Email
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("Email Address")
+                                    .font(.system(size: 14, weight: .bold))
+                                    .foregroundColor(.white)
+                                
+                                HStack {
+                                    Image(systemName: "envelope")
+                                        .foregroundColor(Color(red: 0.8, green: 0.796, blue: 0.557))
+                                        .frame(width: 24)
+                                    
+                                    TextField("name@example.com", text: $email)
+                                        .textContentType(.emailAddress)
+                                        .keyboardType(.emailAddress)
+                                        .autocapitalization(.none)
+                                        .foregroundColor(.white)
+                                }
+                                .padding(.horizontal, 16)
+                                .frame(height: 56)
+                                .background(inputDark)
+                                .cornerRadius(12)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 12)
+                                        .stroke(inputBorder, lineWidth: 1)
+                                )
+                            }
+                            
+                            // Password
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("Password")
+                                    .font(.system(size: 14, weight: .bold))
+                                    .foregroundColor(.white)
+                                
+                                HStack {
+                                    Image(systemName: "lock")
+                                        .foregroundColor(Color(red: 0.8, green: 0.796, blue: 0.557))
+                                        .frame(width: 24)
+                                    
+                                    if showingPassword {
+                                        TextField("Create a password", text: $password)
+                                            .textContentType(.newPassword)
+                                            .foregroundColor(.white)
+                                    } else {
+                                        SecureField("Create a password", text: $password)
+                                            .textContentType(.newPassword)
+                                            .foregroundColor(.white)
+                                    }
+                                    
+                                    Button(action: {
+                                        showingPassword.toggle()
+                                    }) {
+                                        Image(systemName: showingPassword ? "eye.slash" : "eye")
+                                            .foregroundColor(Color(red: 0.8, green: 0.796, blue: 0.557))
+                                    }
+                                }
+                                .padding(.horizontal, 16)
+                                .frame(height: 56)
+                                .background(inputDark)
+                                .cornerRadius(12)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 12)
+                                        .stroke(inputBorder, lineWidth: 1)
+                                )
+                            }
+                            
+                            // Confirm Password
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("Confirm Password")
+                                    .font(.system(size: 14, weight: .bold))
+                                    .foregroundColor(.white)
+                                
+                                HStack {
+                                    Image(systemName: "lock.rotation")
+                                        .foregroundColor(Color(red: 0.8, green: 0.796, blue: 0.557))
+                                        .frame(width: 24)
+                                    
+                                    SecureField("Repeat password", text: $confirmPassword)
+                                        .textContentType(.newPassword)
+                                        .foregroundColor(.white)
+                                }
+                                .padding(.horizontal, 16)
+                                .frame(height: 56)
+                                .background(inputDark)
+                                .cornerRadius(12)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 12)
+                                        .stroke(inputBorder, lineWidth: 1)
+                                )
+                            }
+                            
+                            // Height and Weight in a row
+                            HStack(spacing: 16) {
+                                // Height
+                                VStack(alignment: .leading, spacing: 8) {
+                                    Text("Height (cm)")
+                                        .font(.system(size: 14, weight: .bold))
+                                        .foregroundColor(.white)
+                                    
+                                    HStack {
+                                        Image(systemName: "ruler")
+                                            .foregroundColor(Color(red: 0.8, green: 0.796, blue: 0.557))
+                                            .frame(width: 24)
+                                        
+                                        TextField("175", text: $height)
+                                            .keyboardType(.numberPad)
+                                            .foregroundColor(.white)
+                                    }
+                                    .padding(.horizontal, 16)
+                                    .frame(height: 56)
+                                    .background(inputDark)
+                                    .cornerRadius(12)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 12)
+                                            .stroke(inputBorder, lineWidth: 1)
+                                    )
+                                }
+                                
+                                // Weight
+                                VStack(alignment: .leading, spacing: 8) {
+                                    Text("Weight (kg)")
+                                        .font(.system(size: 14, weight: .bold))
+                                        .foregroundColor(.white)
+                                    
+                                    HStack {
+                                        Image(systemName: "scalemass")
+                                            .foregroundColor(Color(red: 0.8, green: 0.796, blue: 0.557))
+                                            .frame(width: 24)
+                                        
+                                        TextField("70", text: $weight)
+                                            .keyboardType(.numberPad)
+                                            .foregroundColor(.white)
+                                    }
+                                    .padding(.horizontal, 16)
+                                    .frame(height: 56)
+                                    .background(inputDark)
+                                    .cornerRadius(12)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 12)
+                                            .stroke(inputBorder, lineWidth: 1)
+                                    )
+                                }
+                            }
+                        }
+                        .padding(.horizontal, 24)
+                        .padding(.bottom, 24)
+                        
+                        // Terms and Conditions
+                        Text("By signing up, you agree to our [Terms and Conditions](https://example.com/terms) and [Privacy Policy](https://example.com/privacy).")
+                            .font(.system(size: 12))
+                            .foregroundColor(.gray)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 32)
+                            .padding(.bottom, 24)
+                        
+                        // Error Message
+                        if let errorMessage = errorMessage, !errorMessage.isEmpty {
+                            Text(errorMessage)
+                                .font(.system(size: 14))
+                                .foregroundColor(.red)
+                                .padding(.horizontal, 24)
+                                .padding(.bottom, 16)
+                        }
+                        
+                        // Start Walking Button
+                        Button(action: {
+                            // Validate passwords match
+                            if password != confirmPassword {
+                                // Error will be shown
+                                return
+                            }
+                            onSignUp()
+                        }) {
+                            HStack(spacing: 8) {
+                                if isLoading {
+                                    ProgressView()
+                                        .progressViewStyle(CircularProgressViewStyle(tint: .black))
+                                } else {
+                                    Text("Start Walking")
+                                        .font(.system(size: 18, weight: .black))
+                                    Image(systemName: "arrow.right")
+                                        .font(.system(size: 18, weight: .bold))
+                                }
+                            }
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 56)
+                            .background(primaryYellow)
+                            .foregroundColor(.black)
+                            .cornerRadius(12)
+                            .shadow(color: primaryYellow.opacity(0.39), radius: 14, x: 0, y: 4)
+                        }
+                        .disabled(isLoading || fullName.isEmpty || username.isEmpty || email.isEmpty || password.isEmpty || confirmPassword.isEmpty || password != confirmPassword)
+                        .padding(.horizontal, 24)
+                        .padding(.bottom, 32)
+                        
+                        // Divider
+                        HStack {
+                            Rectangle()
+                                .fill(Color.gray.opacity(0.3))
+                                .frame(height: 1)
+                            
+                            Text("Or sign up with")
+                                .font(.system(size: 14, weight: .medium))
+                                .foregroundColor(.gray)
+                                .padding(.horizontal, 12)
+                            
+                            Rectangle()
+                                .fill(Color.gray.opacity(0.3))
+                                .frame(height: 1)
+                        }
+                        .padding(.horizontal, 24)
+                        .padding(.bottom, 24)
+                        
+                        // Social Login Buttons
+                        HStack(spacing: 16) {
+                            // Apple Sign In
+                            Button(action: {
+                                // Handle Apple Sign In
+                            }) {
+                                ZStack {
+                                    Circle()
+                                        .fill(inputDark)
+                                        .frame(width: 56, height: 56)
+                                        .overlay(
+                                            Circle()
+                                                .stroke(inputBorder, lineWidth: 1)
+                                        )
+                                    
+                                    Image(systemName: "apple.logo")
+                                        .font(.system(size: 24))
+                                        .foregroundColor(.white)
+                                }
+                            }
+                            
+                            // Google Sign In
+                            Button(action: {
+                                // Handle Google Sign In
+                            }) {
+                                ZStack {
+                                    Circle()
+                                        .fill(inputDark)
+                                        .frame(width: 56, height: 56)
+                                        .overlay(
+                                            Circle()
+                                                .stroke(inputBorder, lineWidth: 1)
+                                        )
+                                    
+                                    Text("G")
+                                        .font(.system(size: 24, weight: .bold))
+                                        .foregroundColor(.white)
+                                }
+                            }
+                        }
+                        .padding(.bottom, 32)
+                        
+                        // Log In Link
+                        HStack {
+                            Text("Already have an account?")
+                                .font(.system(size: 14, weight: .medium))
+                                .foregroundColor(.gray)
+                            
+                            Button(action: onSwitchToSignIn) {
+                                Text("Log In")
+                                    .font(.system(size: 14, weight: .bold))
+                                    .foregroundColor(primaryYellow)
+                            }
+                        }
+                        .padding(.bottom, 32)
+                    }
+                }
+            }
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button(action: onBack) {
+                        Image(systemName: "arrow.left")
+                            .foregroundColor(.white)
+                    }
+                }
+                ToolbarItem(placement: .principal) {
+                    Text("Sign Up")
+                        .font(.system(size: 18, weight: .bold))
+                        .foregroundColor(.white)
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Sign In View
+
+struct SignInView: View {
+    @Binding var email: String
+    @Binding var password: String
+    @Binding var isLoading: Bool
+    let errorMessage: String?
+    @Binding var showingForgotPassword: Bool
+    let onSignIn: () -> Void
+    let onForgotPassword: () -> Void
+    let onBack: () -> Void
+    let onSwitchToSignUp: () -> Void
+    
+    @State private var showingPassword: Bool = false
+    
+    private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
+    private let backgroundDark = Color(red: 0.137, green: 0.133, blue: 0.059)
+    private let inputDark = Color(red: 0.208, green: 0.204, blue: 0.094)
+    private let inputBorder = Color(red: 0.416, green: 0.412, blue: 0.184)
+    
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                // Background
+                backgroundDark
+                    .ignoresSafeArea()
+                
+                ScrollView {
+                    VStack(spacing: 0) {
+                        // Hero Section
+                        VStack(spacing: 24) {
+                            // Circular background with sneaker image
+                            ZStack {
+                                Circle()
+                                    .fill(primaryYellow.opacity(0.2))
+                                    .frame(width: 128, height: 128)
+                                
+                                AsyncImage(url: URL(string: "https://lh3.googleusercontent.com/aida-public/AB6AXuDIcP6fXEkuSJTittn3fIRyMHDITzVQFCiMXorkxjfcf2jr6YBoVOifKJEmAhyg9N6iTWEzro46X1qFm7JEe8MXyZ9q1DdwANkUQqdauhPw_T1G-yCeAYmBmP7mj6TAN5AChk2UNG-qWCVbSs6XnlkGGa3xofiibOYkymYTR5VMXtoBsTGq5npN8xyDpoAmIjIInJrxQvRrTGhL0flxVTqYeu64d0UmuEEzHgvqxxdPo1oxDSAgvPMgex_PcKN7Q5Dzf-_fgaMxiA")) { image in
+                                    image
+                                        .resizable()
+                                        .aspectRatio(contentMode: .fit)
+                                } placeholder: {
+                                    Image(systemName: "figure.run")
+                                        .font(.system(size: 48))
+                                        .foregroundColor(primaryYellow)
+                                }
+                                .frame(width: 96, height: 96)
+                            }
+                            
+                            // Title and Subtitle
+                            VStack(spacing: 8) {
+                                Text("Welcome Back")
+                                    .font(.system(size: 32, weight: .black))
+                                    .tracking(-0.5)
+                                
+                                Text("Continue your step journey.")
+                                    .font(.system(size: 16, weight: .medium))
+                                    .foregroundColor(.gray)
+                            }
+                        }
+                        .padding(.top, 24)
+                        .padding(.bottom, 32)
+                        
+                        // Form Fields
+                        VStack(spacing: 20) {
+                            // Email
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("Email Address")
+                                    .font(.system(size: 14, weight: .bold))
+                                    .foregroundColor(.white)
+                                
+                                HStack {
+                                    Image(systemName: "envelope")
+                                        .foregroundColor(Color(red: 0.8, green: 0.796, blue: 0.557))
+                                        .frame(width: 24)
+                                    
+                                    TextField("name@example.com", text: $email)
+                                        .textContentType(.emailAddress)
+                                        .keyboardType(.emailAddress)
+                                        .autocapitalization(.none)
+                                        .foregroundColor(.white)
+                                }
+                                .padding(.horizontal, 16)
+                                .frame(height: 56)
+                                .background(inputDark)
+                                .cornerRadius(12)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 12)
+                                        .stroke(inputBorder, lineWidth: 1)
+                                )
+                            }
+                            
+                            // Password
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("Password")
+                                    .font(.system(size: 14, weight: .bold))
+                                    .foregroundColor(.white)
+                                
+                                HStack {
+                                    Image(systemName: "lock")
+                                        .foregroundColor(Color(red: 0.8, green: 0.796, blue: 0.557))
+                                        .frame(width: 24)
+                                    
+                                    if showingPassword {
+                                        TextField("Enter your password", text: $password)
+                                            .textContentType(.password)
+                                            .foregroundColor(.white)
+                                    } else {
+                                        SecureField("Enter your password", text: $password)
+                                            .textContentType(.password)
+                                            .foregroundColor(.white)
+                                    }
+                                    
+                                    Button(action: {
+                                        showingPassword.toggle()
+                                    }) {
+                                        Image(systemName: showingPassword ? "eye.slash" : "eye")
+                                            .foregroundColor(Color(red: 0.8, green: 0.796, blue: 0.557))
+                                    }
+                                }
+                                .padding(.horizontal, 16)
+                                .frame(height: 56)
+                                .background(inputDark)
+                                .cornerRadius(12)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 12)
+                                        .stroke(inputBorder, lineWidth: 1)
+                                )
+                            }
+                        }
+                        .padding(.horizontal, 24)
+                        .padding(.bottom, 16)
+                        
+                        // Forgot Password Link
+                        HStack {
+                            Spacer()
+                            Button(action: onForgotPassword) {
+                                Text("Forgot Password?")
+                                    .font(.system(size: 14, weight: .medium))
+                                    .foregroundColor(primaryYellow)
+                            }
+                        }
+                        .padding(.horizontal, 24)
+                        .padding(.bottom, 24)
+                        
+                        // Error Message
+                        if let errorMessage = errorMessage, !errorMessage.isEmpty {
+                            Text(errorMessage)
+                                .font(.system(size: 14))
+                                .foregroundColor(.red)
+                                .padding(.horizontal, 24)
+                                .padding(.bottom, 16)
+                        }
+                        
+                        // Sign In Button
+                        Button(action: onSignIn) {
+                            HStack(spacing: 8) {
+                                if isLoading {
+                                    ProgressView()
+                                        .progressViewStyle(CircularProgressViewStyle(tint: .black))
+                                } else {
+                                    Text("Sign In")
+                                        .font(.system(size: 18, weight: .black))
+                                    Image(systemName: "arrow.right")
+                                        .font(.system(size: 18, weight: .bold))
+                                }
+                            }
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 56)
+                            .background(primaryYellow)
+                            .foregroundColor(.black)
+                            .cornerRadius(12)
+                            .shadow(color: primaryYellow.opacity(0.39), radius: 14, x: 0, y: 4)
+                        }
+                        .disabled(isLoading || email.isEmpty || password.isEmpty)
+                        .padding(.horizontal, 24)
+                        .padding(.bottom, 32)
+                        
+                        // Divider
+                        HStack {
+                            Rectangle()
+                                .fill(Color.gray.opacity(0.3))
+                                .frame(height: 1)
+                            
+                            Text("Or sign in with")
+                                .font(.system(size: 14, weight: .medium))
+                                .foregroundColor(.gray)
+                                .padding(.horizontal, 12)
+                            
+                            Rectangle()
+                                .fill(Color.gray.opacity(0.3))
+                                .frame(height: 1)
+                        }
+                        .padding(.horizontal, 24)
+                        .padding(.bottom, 24)
+                        
+                        // Social Login Buttons
+                        HStack(spacing: 16) {
+                            // Apple Sign In
+                            Button(action: {
+                                // Handle Apple Sign In
+                            }) {
+                                ZStack {
+                                    Circle()
+                                        .fill(inputDark)
+                                        .frame(width: 56, height: 56)
+                                        .overlay(
+                                            Circle()
+                                                .stroke(inputBorder, lineWidth: 1)
+                                        )
+                                    
+                                    Image(systemName: "apple.logo")
+                                        .font(.system(size: 24))
+                                        .foregroundColor(.white)
+                                }
+                            }
+                            
+                            // Google Sign In
+                            Button(action: {
+                                // Handle Google Sign In
+                            }) {
+                                ZStack {
+                                    Circle()
+                                        .fill(inputDark)
+                                        .frame(width: 56, height: 56)
+                                        .overlay(
+                                            Circle()
+                                                .stroke(inputBorder, lineWidth: 1)
+                                        )
+                                    
+                                    Text("G")
+                                        .font(.system(size: 24, weight: .bold))
+                                        .foregroundColor(.white)
+                                }
+                            }
+                        }
+                        .padding(.bottom, 32)
+                        
+                        // Sign Up Link
+                        HStack {
+                            Text("Don't have an account?")
+                                .font(.system(size: 14, weight: .medium))
+                                .foregroundColor(.gray)
+                            
+                            Button(action: onSwitchToSignUp) {
+                                Text("Sign Up")
+                                    .font(.system(size: 14, weight: .bold))
+                                    .foregroundColor(primaryYellow)
+                            }
+                        }
+                        .padding(.bottom, 32)
+                    }
+                }
+            }
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button(action: onBack) {
+                        Image(systemName: "arrow.left")
+                            .foregroundColor(.white)
+                    }
+                }
+                ToolbarItem(placement: .principal) {
+                    Text("Sign In")
+                        .font(.system(size: 18, weight: .bold))
+                        .foregroundColor(.white)
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Forgot Password Sheet
+
+struct ForgotPasswordSheet: View {
+    @Binding var email: String
+    @State private var resetEmail: String = ""
+    @State private var isLoading: Bool = false
+    @State private var errorMessage: String?
+    @State private var successMessage: String?
+    
+    @Environment(\.dismiss) var dismiss
+    
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    Text("Enter your email address and we'll send you a link to reset your password.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    
+                    TextField("Email", text: $resetEmail)
+                        .textContentType(.emailAddress)
+                        #if os(iOS)
+                        .textInputAutocapitalization(.never)
+                        #endif
+                        .autocorrectionDisabled(true)
+                        .onAppear {
+                            resetEmail = email
+                        }
+                }
+                
+                Section {
+                    Button(action: {
+                        Task {
+                            await resetPassword()
+                        }
+                    }) {
+                        HStack {
+                            if isLoading {
+                                ProgressView()
+                                    .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                            }
+                            Text("Send Reset Link")
+                                .fontWeight(.semibold)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .foregroundColor(.white)
+                    }
+                    .disabled(isLoading || resetEmail.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    .buttonStyle(.borderedProminent)
+                    .tint(.blue)
+                }
+                
+                if let errorMessage = errorMessage {
+                    Section {
+                        HStack {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .foregroundColor(.red)
+                            Text(errorMessage)
+                                .foregroundColor(.red)
+                                .font(.caption)
+                        }
+                    }
+                }
+                
+                if let successMessage = successMessage {
+                    Section {
+                        HStack {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundColor(.green)
+                            Text(successMessage)
+                                .foregroundColor(.green)
+                                .font(.caption)
+                        }
+                    }
+                }
+            }
+            .navigationTitle("Reset Password")
+            #if os(iOS)
+            .navigationBarTitleDisplayMode(.inline)
+            #endif
+            .toolbar {
+                ToolbarItem(placement: .primaryAction) {
+                    Button("Done") {
+                        dismiss()
+                    }
+                }
+            }
+        }
+    }
+    
+    private func resetPassword() async {
+        isLoading = true
+        errorMessage = nil
+        successMessage = nil
+        
+        let trimmedEmail = resetEmail.trimmingCharacters(in: .whitespacesAndNewlines)
+        
+        guard !trimmedEmail.isEmpty else {
+            errorMessage = "Please enter your email address."
+            isLoading = false
+            return
+        }
+        
+        do {
+            #if canImport(Supabase)
+            // Include redirect URL so the app can handle the callback
+            let redirectURL = SupabaseConfig.oauthRedirectURL.absoluteString
+            try await supabase.auth.resetPasswordForEmail(
+                trimmedEmail,
+                redirectTo: redirectURL
+            )
+            successMessage = "Password reset link sent! Check your email and click the link to reset your password."
+            #else
+            // Mock implementation
+            try? await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
+            successMessage = "Password reset link sent! Check your email."
+            #endif
+        } catch {
+            errorMessage = error.localizedDescription.isEmpty ? "Failed to send reset link. Please try again." : error.localizedDescription
+        }
+        
+        isLoading = false
+    }
+}
+
+// MARK: - Password Reset View
+
+struct PasswordResetView: View {
+    let resetURL: URL
+    let onComplete: () -> Void
+    
+    @State private var newPassword: String = ""
+    @State private var confirmPassword: String = ""
+    @State private var isLoading: Bool = false
+    @State private var errorMessage: String?
+    @State private var successMessage: String?
+    @State private var showingPassword: Bool = false
+    @State private var showingConfirmPassword: Bool = false
+    
+    @EnvironmentObject var authService: AuthService
+    
+    private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
+    
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                Color(.systemBackground)
+                    .ignoresSafeArea()
+                
+                ScrollView {
+                    VStack(spacing: 24) {
+                        // Header
+                        VStack(spacing: 12) {
+                            Image(systemName: "lock.rotation")
+                                .font(.system(size: 64))
+                                .foregroundColor(primaryYellow)
+                            
+                            Text("Reset Your Password")
+                                .font(.system(size: 32, weight: .bold))
+                            
+                            Text("Enter your new password below")
+                                .font(.system(size: 16))
+                                .foregroundColor(.secondary)
+                        }
+                        .padding(.top, 40)
+                        .padding(.bottom, 20)
+                        
+                        // Password Fields
+                        VStack(spacing: 20) {
+                            // New Password
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("New Password")
+                                    .font(.system(size: 14, weight: .semibold))
+                                
+                                HStack {
+                                    Image(systemName: "lock")
+                                        .foregroundColor(.secondary)
+                                        .frame(width: 24)
+                                    
+                                    if showingPassword {
+                                        TextField("Enter new password", text: $newPassword)
+                                            .textContentType(.newPassword)
+                                    } else {
+                                        SecureField("Enter new password", text: $newPassword)
+                                            .textContentType(.newPassword)
+                                    }
+                                    
+                                    Button(action: {
+                                        showingPassword.toggle()
+                                    }) {
+                                        Image(systemName: showingPassword ? "eye.slash" : "eye")
+                                            .foregroundColor(.secondary)
+                                    }
+                                }
+                                .padding()
+                                .background(Color(.systemGray6))
+                                .cornerRadius(12)
+                            }
+                            
+                            // Confirm Password
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("Confirm Password")
+                                    .font(.system(size: 14, weight: .semibold))
+                                
+                                HStack {
+                                    Image(systemName: "lock.rotation")
+                                        .foregroundColor(.secondary)
+                                        .frame(width: 24)
+                                    
+                                    if showingConfirmPassword {
+                                        TextField("Confirm new password", text: $confirmPassword)
+                                            .textContentType(.newPassword)
+                                    } else {
+                                        SecureField("Confirm new password", text: $confirmPassword)
+                                            .textContentType(.newPassword)
+                                    }
+                                    
+                                    Button(action: {
+                                        showingConfirmPassword.toggle()
+                                    }) {
+                                        Image(systemName: showingConfirmPassword ? "eye.slash" : "eye")
+                                            .foregroundColor(.secondary)
+                                    }
+                                }
+                                .padding()
+                                .background(Color(.systemGray6))
+                                .cornerRadius(12)
+                            }
+                        }
+                        .padding(.horizontal, 24)
+                        
+                        // Error Message
+                        if let errorMessage = errorMessage {
+                            HStack {
+                                Image(systemName: "exclamationmark.triangle.fill")
+                                    .foregroundColor(.red)
+                                Text(errorMessage)
+                                    .font(.system(size: 14))
+                                    .foregroundColor(.red)
+                            }
+                            .padding(.horizontal, 24)
+                        }
+                        
+                        // Success Message
+                        if let successMessage = successMessage {
+                            HStack {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .foregroundColor(.green)
+                                Text(successMessage)
+                                    .font(.system(size: 14))
+                                    .foregroundColor(.green)
+                            }
+                            .padding(.horizontal, 24)
+                        }
+                        
+                        // Reset Button
+                        Button(action: {
+                            Task {
+                                await resetPassword()
+                            }
+                        }) {
+                            HStack {
+                                if isLoading {
+                                    ProgressView()
+                                        .progressViewStyle(CircularProgressViewStyle(tint: .black))
+                                } else {
+                                    Text("Reset Password")
+                                        .font(.system(size: 18, weight: .bold))
+                                }
+                            }
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 56)
+                            .background(primaryYellow)
+                            .foregroundColor(.black)
+                            .cornerRadius(12)
+                        }
+                        .disabled(isLoading || newPassword.isEmpty || confirmPassword.isEmpty || newPassword != confirmPassword)
+                        .padding(.horizontal, 24)
+                        .padding(.top, 8)
+                        
+                        // Password Requirements
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Password Requirements:")
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundColor(.secondary)
+                            
+                            Text("• At least 6 characters")
+                                .font(.system(size: 12))
+                                .foregroundColor(.secondary)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 24)
+                        .padding(.top, 8)
+                    }
+                    .padding(.bottom, 40)
+                }
+            }
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") {
+                        onComplete()
+                    }
+                }
+            }
+        }
+    }
+    
+    private func resetPassword() async {
+        isLoading = true
+        errorMessage = nil
+        successMessage = nil
+        
+        // Validate passwords
+        guard !newPassword.isEmpty else {
+            errorMessage = "Please enter a new password"
+            isLoading = false
+            return
+        }
+        
+        guard newPassword.count >= 6 else {
+            errorMessage = "Password must be at least 6 characters"
+            isLoading = false
+            return
+        }
+        
+        guard newPassword == confirmPassword else {
+            errorMessage = "Passwords do not match"
+            isLoading = false
+            return
+        }
+        
+        do {
+            #if canImport(Supabase)
+            // Supabase password reset URLs contain tokens in the fragment
+            // Parse the URL to extract tokens
+            let components = URLComponents(url: resetURL, resolvingAgainstBaseURL: false)
+            var accessToken: String?
+            var refreshToken: String?
+            
+            // Extract tokens from URL fragment (common format)
+            if let fragment = components?.fragment {
+                let params = fragment.components(separatedBy: "&")
+                for param in params {
+                    let parts = param.components(separatedBy: "=")
+                    if parts.count == 2 {
+                        if parts[0] == "access_token" {
+                            accessToken = parts[1].removingPercentEncoding
+                        } else if parts[0] == "refresh_token" {
+                            refreshToken = parts[1].removingPercentEncoding
+                        }
+                    }
+                }
+            }
+            
+            // Extract from query parameters (alternative format)
+            if accessToken == nil, let queryItems = components?.queryItems {
+                for item in queryItems {
+                    if item.name == "access_token" {
+                        accessToken = item.value
+                    } else if item.name == "refresh_token" {
+                        refreshToken = item.value
+                    }
+                }
+            }
+            
+            guard let accessToken = accessToken, let refreshToken = refreshToken else {
+                errorMessage = "Invalid reset link. Please request a new password reset email."
+                isLoading = false
+                return
+            }
+            
+            // Set the session with tokens from reset URL
+            try await supabase.auth.setSession(
+                accessToken: accessToken,
+                refreshToken: refreshToken
+            )
+            
+            // Wait a moment for session to be established
+            try? await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
+            
+            // Update the password
+            try await authService.updatePassword(newPassword: newPassword)
+            
+            successMessage = "Password reset successfully! You can now sign in with your new password."
+            
+            // Sign out after password reset (user needs to sign in again)
+            try? await authService.signOut()
+            
+            // Wait a moment then close
+            try? await Task.sleep(nanoseconds: 2_000_000_000) // 2 seconds
+            onComplete()
+            #else
+            errorMessage = "Password reset is not available in mock mode"
+            #endif
+        } catch {
+            errorMessage = error.localizedDescription.isEmpty ? "Failed to reset password. Please try again." : error.localizedDescription
+            print("⚠️ Password reset error: \(error.localizedDescription)")
+        }
+        
+        isLoading = false
+    }
+}
