@@ -83,7 +83,7 @@ DROP POLICY IF EXISTS "Users can update own profile" ON profiles;
 -- Policy: Users can read their own profile
 CREATE POLICY "Users can read own profile"
   ON profiles FOR SELECT
-  USING (auth.uid() = user_id);
+  USING ((SELECT auth.uid()) = user_id);
 
 -- Policy: Users can read other users' profiles (for leaderboards, etc.)
 CREATE POLICY "Users can read other profiles"
@@ -93,12 +93,12 @@ CREATE POLICY "Users can read other profiles"
 -- Policy: Users can insert their own profile
 CREATE POLICY "Users can insert own profile"
   ON profiles FOR INSERT
-  WITH CHECK (auth.uid() = user_id);
+  WITH CHECK ((SELECT auth.uid()) = user_id);
 
 -- Policy: Users can update their own profile
 CREATE POLICY "Users can update own profile"
   ON profiles FOR UPDATE
-  USING (auth.uid() = user_id);
+  USING ((SELECT auth.uid()) = user_id);
 
 -- Function to automatically update updated_at timestamp
 CREATE OR REPLACE FUNCTION update_updated_at_column()
@@ -180,22 +180,22 @@ CREATE POLICY "Anyone can read public challenges"
 -- Policy: Users can read challenges they created
 CREATE POLICY "Users can read own challenges"
   ON challenges FOR SELECT
-  USING (auth.uid() = created_by);
+  USING ((SELECT auth.uid()) = created_by);
 
 -- Policy: Users can create challenges
 CREATE POLICY "Users can create challenges"
   ON challenges FOR INSERT
-  WITH CHECK (auth.uid() = created_by);
+  WITH CHECK ((SELECT auth.uid()) = created_by);
 
 -- Policy: Challenge creators can update their challenges
 CREATE POLICY "Users can update own challenges"
   ON challenges FOR UPDATE
-  USING (auth.uid() = created_by);
+  USING ((SELECT auth.uid()) = created_by);
 
 -- Policy: Challenge creators can delete their challenges
 CREATE POLICY "Users can delete own challenges"
   ON challenges FOR DELETE
-  USING (auth.uid() = created_by);
+  USING ((SELECT auth.uid()) = created_by);
 
 -- Trigger to update updated_at on challenge updates
 DROP TRIGGER IF EXISTS update_challenges_updated_at ON challenges;
@@ -252,17 +252,17 @@ DROP POLICY IF EXISTS "Users can leave challenges" ON challenge_members;
 CREATE POLICY "Users can read challenge members"
   ON challenge_members FOR SELECT
   USING (
-    auth.uid() = user_id OR
+    (SELECT auth.uid()) = user_id OR
     EXISTS (
       SELECT 1 FROM challenges
       WHERE challenges.id = challenge_members.challenge_id
       AND (
         challenges.is_public = TRUE OR
-        challenges.created_by = auth.uid() OR
+        challenges.created_by = (SELECT auth.uid()) OR
         EXISTS (
           SELECT 1 FROM challenge_members cm
           WHERE cm.challenge_id = challenges.id
-          AND cm.user_id = auth.uid()
+          AND cm.user_id = (SELECT auth.uid())
         )
       )
     )
@@ -271,17 +271,17 @@ CREATE POLICY "Users can read challenge members"
 -- Policy: Users can join challenges
 CREATE POLICY "Users can join challenges"
   ON challenge_members FOR INSERT
-  WITH CHECK (auth.uid() = user_id);
+  WITH CHECK ((SELECT auth.uid()) = user_id);
 
 -- Policy: Users can update their own step count
 CREATE POLICY "Users can update own steps"
   ON challenge_members FOR UPDATE
-  USING (auth.uid() = user_id);
+  USING ((SELECT auth.uid()) = user_id);
 
 -- Policy: Users can leave challenges
 CREATE POLICY "Users can leave challenges"
   ON challenge_members FOR DELETE
-  USING (auth.uid() = user_id);
+  USING ((SELECT auth.uid()) = user_id);
 
 -- Trigger to update last_updated timestamp
 DROP TRIGGER IF EXISTS update_challenge_members_last_updated ON challenge_members;
@@ -297,7 +297,7 @@ CREATE POLICY "Challenge members can read challenges"
     EXISTS (
       SELECT 1 FROM challenge_members
       WHERE challenge_members.challenge_id = challenges.id
-      AND challenge_members.user_id = auth.uid()
+      AND challenge_members.user_id = (SELECT auth.uid())
     )
   );
 
@@ -327,17 +327,17 @@ DROP POLICY IF EXISTS "Users can update received friend requests" ON friends;
 -- Policy: Users can read their own friendships
 CREATE POLICY "Users can read own friendships"
   ON friends FOR SELECT
-  USING (auth.uid() = user_id OR auth.uid() = friend_id);
+  USING ((SELECT auth.uid()) = user_id OR (SELECT auth.uid()) = friend_id);
 
 -- Policy: Users can create friend requests
 CREATE POLICY "Users can create friend requests"
   ON friends FOR INSERT
-  WITH CHECK (auth.uid() = user_id);
+  WITH CHECK ((SELECT auth.uid()) = user_id);
 
 -- Policy: Users can update friend requests they received
 CREATE POLICY "Users can update received friend requests"
   ON friends FOR UPDATE
-  USING (auth.uid() = friend_id);
+  USING ((SELECT auth.uid()) = friend_id);
 
 -- Trigger to update updated_at
 DROP TRIGGER IF EXISTS update_friends_updated_at ON friends;
