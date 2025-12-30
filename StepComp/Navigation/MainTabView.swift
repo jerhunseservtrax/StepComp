@@ -39,9 +39,9 @@ struct MainTabView: View {
                 }
                 .tag(1)
             
-            CreateChallengeView(sessionViewModel: sessionViewModel)
+            ChallengesView(sessionViewModel: sessionViewModel)
                 .tabItem {
-                    Label("Create", systemImage: "plus.circle.fill")
+                    Label("Challenges", systemImage: "trophy.fill")
                 }
                 .tag(2)
             

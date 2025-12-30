@@ -76,7 +76,7 @@ struct HomeDashboardView: View {
                     
                     // Create Challenge CTA
                     CreateChallengeCTA {
-                        tabManager.switchToCreateTab()
+                        tabManager.selectedTab = 2 // Switch to Challenges tab
                     }
                     
                     // Join Challenge CTA (if no active challenges)
