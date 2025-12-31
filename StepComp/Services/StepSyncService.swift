@@ -84,37 +84,32 @@ final class StepSyncService: ObservableObject {
             device_id: deviceId
         )
         
-        // Call Edge Function
-        // Edge Function will:
-        // 1. Validate JWT (get userId from token, not client)
-        // 2. Check rate limits (30/min, 4/hour)
-        // 3. Validate step count (< 100k, no sudden spikes)
-        // 4. Call sync_daily_steps() RPC
-        // 5. Return result with fraud detection flags
-        let response = try await supabase.functions
+        struct EdgeFunctionResponse: Decodable {
+            let success: Bool
+            let data: EdgeData?
+            let error: String?
+            
+            struct EdgeData: Decodable {
+                let is_suspicious: Bool?
+            }
+        }
+        
+        // Call Edge Function and decode JSON response
+        let response: EdgeFunctionResponse = try await supabase.functions
             .invoke("sync-steps", options: FunctionInvokeOptions(body: payload))
         
-        // Parse response
-        if let data = response.data,
-           let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
-            
-            if let success = json["success"] as? Bool, success {
-                print("✅ Edge Function sync successful")
-                
-                // Check if flagged as suspicious
-                if let data = json["data"] as? [String: Any],
-                   let isSuspicious = data["is_suspicious"] as? Bool,
-                   isSuspicious {
-                    print("⚠️ Steps flagged as suspicious - under review")
-                }
-            } else if let error = json["error"] as? String {
-                print("❌ Edge Function error: \(error)")
-                throw NSError(
-                    domain: "StepSyncError",
-                    code: 400,
-                    userInfo: [NSLocalizedDescriptionKey: error]
-                )
+        if response.success {
+            print("✅ Edge Function sync successful")
+            if let isSuspicious = response.data?.is_suspicious, isSuspicious {
+                print("⚠️ Steps flagged as suspicious - under review")
             }
+        } else if let errorMessage = response.error {
+            print("❌ Edge Function error: \(errorMessage)")
+            throw NSError(
+                domain: "StepSyncError",
+                code: 400,
+                userInfo: [NSLocalizedDescriptionKey: errorMessage]
+            )
         }
     }
     

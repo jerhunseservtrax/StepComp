@@ -49,26 +49,43 @@ final class ChallengesViewModel: ObservableObject {
     #if canImport(Supabase)
     private func loadChallengesFromSupabase() async {
         do {
-            // Get all challenges the user is participating in (both private and public)
+            // Get all challenges the user is participating in (via challenge_members)
             let userChallengeIds = await getUserChallengeIds()
             
+            // Also get challenges the user created (they might not be in challenge_members yet due to timing)
+            let createdChallenges: [SupabaseChallenge] = try await supabase
+                .from("challenges")
+                .select()
+                .eq("created_by", value: userId)
+                .gte("end_date", value: ISO8601DateFormatter().string(from: Date()))
+                .execute()
+                .value
+            
+            // Get challenges user is a member of
+            var memberChallenges: [SupabaseChallenge] = []
             if !userChallengeIds.isEmpty {
-                let memberChallenges: [SupabaseChallenge] = try await supabase
+                memberChallenges = try await supabase
                     .from("challenges")
                     .select()
                     .in("id", values: userChallengeIds)
                     .gte("end_date", value: ISO8601DateFormatter().string(from: Date()))
                     .execute()
                     .value
-                
-                // Convert to Challenge models - these are the user's active challenges
-                activeChallenges = try await convertToChallenges(memberChallenges)
-            } else {
-                activeChallenges = []
             }
             
+            // Combine and deduplicate
+            var allUserChallenges: [SupabaseChallenge] = createdChallenges
+            for memberChallenge in memberChallenges {
+                if !allUserChallenges.contains(where: { $0.id == memberChallenge.id }) {
+                    allUserChallenges.append(memberChallenge)
+                }
+            }
+            
+            // Convert to Challenge models - these are the user's active challenges
+            activeChallenges = try await convertToChallenges(allUserChallenges)
+            print("📊 ChallengesViewModel: Loaded \(activeChallenges.count) active challenges for user")
+            
             // Get all public challenges that haven't ended yet
-            // This includes challenges that haven't started (future challenges) and ongoing ones
             let allPublicChallenges: [SupabaseChallenge] = try await supabase
                 .from("challenges")
                 .select()
@@ -84,16 +101,11 @@ final class ChallengesViewModel: ObservableObject {
             let allPublic = try await convertToChallenges(sortedPublicChallenges)
             
             // Filter out challenges the user is already participating in
-            // These will show in the Active tab instead
-            // But keep challenges the user created (so they can see their own public challenges)
+            // Show in Discover tab only if user is NOT a participant
             publicChallenges = allPublic.filter { challenge in
-                // Show if user created it (so they can see their own public challenges)
-                if challenge.creatorId == userId {
-                    return true
-                }
-                // Otherwise, only show if user is NOT already a participant
-                return !challenge.participantIds.contains(userId)
+                !challenge.participantIds.contains(userId) && challenge.creatorId != userId
             }
+            print("📊 ChallengesViewModel: Loaded \(publicChallenges.count) discover challenges")
             
         } catch {
             print("⚠️ Error loading challenges: \(error.localizedDescription)")

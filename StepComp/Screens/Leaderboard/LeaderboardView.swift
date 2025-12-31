@@ -563,7 +563,7 @@ struct StickyUserFooter: View {
         
         Task {
             // Sync steps for all active challenges
-            await challengeService.syncTodayStepsToAllChallenges(userId: entry.userId, healthKitService: healthKitService)
+            await challengeService.syncTodayStepsToAllChallenges(healthKitService: healthKitService)
             
             // Wait a bit for UI feedback
             try? await Task.sleep(nanoseconds: 500_000_000)
@@ -571,3 +571,4 @@ struct StickyUserFooter: View {
         }
     }
 }
+

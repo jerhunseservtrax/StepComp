@@ -152,10 +152,13 @@ struct HomeDashboardView: View {
             if oldValue == true && newValue == false {
                 Task {
                     #if canImport(Supabase)
+                    // Small delay to ensure database transaction is committed
+                    try? await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
                     await challengeService.refreshChallenges()
                     #endif
                     await viewModel.refreshChallenges()
                     updateViewModel()
+                    print("🔄 Home screen: Refreshed challenges after creation")
                 }
             }
         }
