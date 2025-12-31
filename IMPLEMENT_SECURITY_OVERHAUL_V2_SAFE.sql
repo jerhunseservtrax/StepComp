@@ -9,11 +9,15 @@
 -- - Scalable architecture
 -- - Realistic fraud detection
 -- ============================================
+-- SAFE TO RUN: Table creation and indexes split into steps
+-- Partial indexes created separately to avoid potential issues
+-- ============================================
 
 -- ============================================
 -- 1. Create daily_steps table (event log)
 -- ============================================
 
+-- Step 1: Create table first (no indexes yet)
 CREATE TABLE IF NOT EXISTS public.daily_steps (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE, -- ✅ FK to auth.users, not profiles
@@ -30,10 +34,17 @@ CREATE TABLE IF NOT EXISTS public.daily_steps (
     UNIQUE(user_id, day)
 );
 
--- Indexes for performance
-CREATE INDEX IF NOT EXISTS idx_daily_steps_user_day ON public.daily_steps(user_id, day DESC);
-CREATE INDEX IF NOT EXISTS idx_daily_steps_day ON public.daily_steps(day);
-CREATE INDEX IF NOT EXISTS idx_daily_steps_suspicious ON public.daily_steps(is_suspicious) WHERE is_suspicious = TRUE;
+-- Step 2: Create indexes separately (safer for partial indexes)
+CREATE INDEX IF NOT EXISTS idx_daily_steps_user_day 
+    ON public.daily_steps(user_id, day DESC);
+
+CREATE INDEX IF NOT EXISTS idx_daily_steps_day 
+    ON public.daily_steps(day);
+
+-- Partial index for suspicious entries only
+CREATE INDEX IF NOT EXISTS idx_daily_steps_suspicious 
+    ON public.daily_steps(is_suspicious) 
+    WHERE is_suspicious = TRUE;
 
 -- ============================================
 -- RLS: Simple and non-recursive
