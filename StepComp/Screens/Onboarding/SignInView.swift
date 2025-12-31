@@ -95,10 +95,10 @@ struct SignInOnboardingView: View {
                         
                         // Text Content
                         VStack(spacing: 12) {
-                            Text("Save your progress")
+                            Text("Welcome back!")
                                 .font(.system(size: 32, weight: .bold))
                             
-                            Text("Create an account to keep your streaks, badges, and avatars safe.")
+                            Text("Sign in to continue your journey, or create a new account to get started.")
                                 .font(.system(size: 14))
                                 .foregroundColor(.secondary)
                                 .multilineTextAlignment(.center)
@@ -205,7 +205,7 @@ struct SignInOnboardingView: View {
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 32)
                     
-                    // Already have an account? Sign in link
+                    // Email sign in link
                     HStack {
                         Spacer()
                         Button(action: {
@@ -213,10 +213,10 @@ struct SignInOnboardingView: View {
                             showingEmailAuth = true
                         }) {
                             HStack(spacing: 0) {
-                                Text("Already have an account?")
+                                Text("Sign in with email instead?")
                                     .font(.system(size: 14, weight: .medium))
                                     .foregroundColor(.secondary)
-                                Text(" Sign in")
+                                Text(" Tap here")
                                     .font(.system(size: 14, weight: .semibold))
                                     .foregroundColor(primaryYellow)
                             }
