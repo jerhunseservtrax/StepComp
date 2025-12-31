@@ -741,15 +741,12 @@ struct SignUpView: View {
     @State private var fullName: String = ""
     
     private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
-    private let backgroundDark = Color(red: 0.137, green: 0.133, blue: 0.059)
-    private let inputDark = Color(red: 0.208, green: 0.204, blue: 0.094)
-    private let inputBorder = Color(red: 0.416, green: 0.412, blue: 0.184)
     
     var body: some View {
         NavigationStack {
             ZStack {
-                // Background
-                backgroundDark
+                // Background - Light mode
+                Color(.systemBackground)
                     .ignoresSafeArea()
                 
                 ScrollView {
@@ -796,16 +793,16 @@ struct SignUpView: View {
                             VStack(alignment: .leading, spacing: 8) {
                                 Text("Full Name")
                                     .font(.system(size: 14, weight: .bold))
-                                    .foregroundColor(.white)
+                                    .foregroundColor(.primary)
                                 
                                 HStack {
                                     Image(systemName: "person")
-                                        .foregroundColor(Color(red: 0.8, green: 0.796, blue: 0.557)) // #cccb8e
+                                        .foregroundColor(.secondary)
                                         .frame(width: 24)
                                     
                                     TextField("What should we call you?", text: $fullName)
                                         .textContentType(.name)
-                                        .foregroundColor(.white)
+                                        .foregroundColor(.primary)
                                         .onChange(of: fullName) { oldValue, newValue in
                                             // Split full name into first and last
                                             let components = newValue.split(separator: " ", maxSplits: 1)
@@ -815,11 +812,11 @@ struct SignUpView: View {
                                 }
                                 .padding(.horizontal, 16)
                                 .frame(height: 56)
-                                .background(inputDark)
+                                .background(Color(.systemGray6))
                                 .cornerRadius(12)
                                 .overlay(
                                     RoundedRectangle(cornerRadius: 12)
-                                        .stroke(inputBorder, lineWidth: 1)
+                                        .stroke(Color(.systemGray4), lineWidth: 1)
                                 )
                             }
                             
@@ -827,18 +824,18 @@ struct SignUpView: View {
                             VStack(alignment: .leading, spacing: 8) {
                                 Text("Username")
                                     .font(.system(size: 14, weight: .bold))
-                                    .foregroundColor(.white)
+                                    .foregroundColor(.primary)
                                 
                                 HStack {
                                     Image(systemName: "at")
-                                        .foregroundColor(Color(red: 0.8, green: 0.796, blue: 0.557))
+                                        .foregroundColor(.secondary)
                                         .frame(width: 24)
                                     
                                     TextField("Choose a username", text: $username)
                                         .textContentType(.username)
                                         .autocapitalization(.none)
                                         .autocorrectionDisabled()
-                                        .foregroundColor(.white)
+                                        .foregroundColor(.primary)
                                         .onChange(of: username) { oldValue, newValue in
                                             // Auto-lowercase and remove spaces
                                             username = newValue.lowercased().replacingOccurrences(of: " ", with: "")
@@ -846,11 +843,11 @@ struct SignUpView: View {
                                 }
                                 .padding(.horizontal, 16)
                                 .frame(height: 56)
-                                .background(inputDark)
+                                .background(Color(.systemGray6))
                                 .cornerRadius(12)
                                 .overlay(
                                     RoundedRectangle(cornerRadius: 12)
-                                        .stroke(inputBorder, lineWidth: 1)
+                                        .stroke(Color(.systemGray4), lineWidth: 1)
                                 )
                             }
                             
@@ -858,26 +855,26 @@ struct SignUpView: View {
                             VStack(alignment: .leading, spacing: 8) {
                                 Text("Email Address")
                                     .font(.system(size: 14, weight: .bold))
-                                    .foregroundColor(.white)
+                                    .foregroundColor(.primary)
                                 
                                 HStack {
                                     Image(systemName: "envelope")
-                                        .foregroundColor(Color(red: 0.8, green: 0.796, blue: 0.557))
+                                        .foregroundColor(.secondary)
                                         .frame(width: 24)
                                     
                                     TextField("name@example.com", text: $email)
                                         .textContentType(.emailAddress)
                                         .keyboardType(.emailAddress)
                                         .autocapitalization(.none)
-                                        .foregroundColor(.white)
+                                        .foregroundColor(.primary)
                                 }
                                 .padding(.horizontal, 16)
                                 .frame(height: 56)
-                                .background(inputDark)
+                                .background(Color(.systemGray6))
                                 .cornerRadius(12)
                                 .overlay(
                                     RoundedRectangle(cornerRadius: 12)
-                                        .stroke(inputBorder, lineWidth: 1)
+                                        .stroke(Color(.systemGray4), lineWidth: 1)
                                 )
                             }
                             
@@ -885,37 +882,37 @@ struct SignUpView: View {
                             VStack(alignment: .leading, spacing: 8) {
                                 Text("Password")
                                     .font(.system(size: 14, weight: .bold))
-                                    .foregroundColor(.white)
+                                    .foregroundColor(.primary)
                                 
                                 HStack {
                                     Image(systemName: "lock")
-                                        .foregroundColor(Color(red: 0.8, green: 0.796, blue: 0.557))
+                                        .foregroundColor(.secondary)
                                         .frame(width: 24)
                                     
                                     if showingPassword {
                                         TextField("Create a password", text: $password)
                                             .textContentType(.newPassword)
-                                            .foregroundColor(.white)
+                                            .foregroundColor(.primary)
                                     } else {
                                         SecureField("Create a password", text: $password)
                                             .textContentType(.newPassword)
-                                            .foregroundColor(.white)
+                                            .foregroundColor(.primary)
                                     }
                                     
                                     Button(action: {
                                         showingPassword.toggle()
                                     }) {
                                         Image(systemName: showingPassword ? "eye.slash" : "eye")
-                                            .foregroundColor(Color(red: 0.8, green: 0.796, blue: 0.557))
+                                            .foregroundColor(.secondary)
                                     }
                                 }
                                 .padding(.horizontal, 16)
                                 .frame(height: 56)
-                                .background(inputDark)
+                                .background(Color(.systemGray6))
                                 .cornerRadius(12)
                                 .overlay(
                                     RoundedRectangle(cornerRadius: 12)
-                                        .stroke(inputBorder, lineWidth: 1)
+                                        .stroke(Color(.systemGray4), lineWidth: 1)
                                 )
                             }
                             
@@ -923,24 +920,24 @@ struct SignUpView: View {
                             VStack(alignment: .leading, spacing: 8) {
                                 Text("Confirm Password")
                                     .font(.system(size: 14, weight: .bold))
-                                    .foregroundColor(.white)
+                                    .foregroundColor(.primary)
                                 
                                 HStack {
                                     Image(systemName: "lock.rotation")
-                                        .foregroundColor(Color(red: 0.8, green: 0.796, blue: 0.557))
+                                        .foregroundColor(.secondary)
                                         .frame(width: 24)
                                     
                                     SecureField("Repeat password", text: $confirmPassword)
                                         .textContentType(.newPassword)
-                                        .foregroundColor(.white)
+                                        .foregroundColor(.primary)
                                 }
                                 .padding(.horizontal, 16)
                                 .frame(height: 56)
-                                .background(inputDark)
+                                .background(Color(.systemGray6))
                                 .cornerRadius(12)
                                 .overlay(
                                     RoundedRectangle(cornerRadius: 12)
-                                        .stroke(inputBorder, lineWidth: 1)
+                                        .stroke(Color(.systemGray4), lineWidth: 1)
                                 )
                             }
                             
@@ -950,12 +947,12 @@ struct SignUpView: View {
                                 VStack(alignment: .leading, spacing: 8) {
                                     Text("Height")
                                         .font(.system(size: 14, weight: .bold))
-                                        .foregroundColor(.white)
+                                        .foregroundColor(.primary)
                                     
                                     HStack(spacing: 12) {
                                         HStack {
                                             Image(systemName: "ruler")
-                                                .foregroundColor(Color(red: 0.8, green: 0.796, blue: 0.557))
+                                                .foregroundColor(.secondary)
                                                 .frame(width: 24)
                                             
                                             TextField("5", text: Binding(
@@ -978,18 +975,18 @@ struct SignUpView: View {
                                                 }
                                             ))
                                             .keyboardType(.numberPad)
-                                            .foregroundColor(.white)
+                                            .foregroundColor(.primary)
                                             
                                             Text("ft")
                                                 .foregroundColor(.gray)
                                         }
                                         .padding(.horizontal, 16)
                                         .frame(height: 56)
-                                        .background(inputDark)
+                                        .background(Color(.systemGray6))
                                         .cornerRadius(12)
                                         .overlay(
                                             RoundedRectangle(cornerRadius: 12)
-                                                .stroke(inputBorder, lineWidth: 1)
+                                                .stroke(Color(.systemGray4), lineWidth: 1)
                                         )
                                         
                                         HStack {
@@ -1013,18 +1010,18 @@ struct SignUpView: View {
                                                 }
                                             ))
                                             .keyboardType(.numberPad)
-                                            .foregroundColor(.white)
+                                            .foregroundColor(.primary)
                                             
                                             Text("in")
                                                 .foregroundColor(.gray)
                                         }
                                         .padding(.horizontal, 16)
                                         .frame(height: 56)
-                                        .background(inputDark)
+                                        .background(Color(.systemGray6))
                                         .cornerRadius(12)
                                         .overlay(
                                             RoundedRectangle(cornerRadius: 12)
-                                                .stroke(inputBorder, lineWidth: 1)
+                                                .stroke(Color(.systemGray4), lineWidth: 1)
                                         )
                                     }
                                 }
@@ -1033,11 +1030,11 @@ struct SignUpView: View {
                                 VStack(alignment: .leading, spacing: 8) {
                                     Text("Weight (lbs)")
                                         .font(.system(size: 14, weight: .bold))
-                                        .foregroundColor(.white)
+                                        .foregroundColor(.primary)
                                     
                                     HStack {
                                         Image(systemName: "scalemass")
-                                            .foregroundColor(Color(red: 0.8, green: 0.796, blue: 0.557))
+                                            .foregroundColor(.secondary)
                                             .frame(width: 24)
                                         
                                         TextField("150", text: Binding(
@@ -1057,15 +1054,15 @@ struct SignUpView: View {
                                             }
                                         ))
                                         .keyboardType(.numberPad)
-                                        .foregroundColor(.white)
+                                        .foregroundColor(.primary)
                                     }
                                     .padding(.horizontal, 16)
                                     .frame(height: 56)
-                                    .background(inputDark)
+                                    .background(Color(.systemGray6))
                                     .cornerRadius(12)
                                     .overlay(
                                         RoundedRectangle(cornerRadius: 12)
-                                            .stroke(inputBorder, lineWidth: 1)
+                                            .stroke(Color(.systemGray4), lineWidth: 1)
                                     )
                                 }
                             }
@@ -1147,16 +1144,16 @@ struct SignUpView: View {
                             }) {
                                 ZStack {
                                     Circle()
-                                        .fill(inputDark)
+                                        .fill(Color(.systemGray6))
                                         .frame(width: 56, height: 56)
                                         .overlay(
                                             Circle()
-                                                .stroke(inputBorder, lineWidth: 1)
+                                                .stroke(Color(.systemGray4), lineWidth: 1)
                                         )
                                     
                                     Image(systemName: "apple.logo")
                                         .font(.system(size: 24))
-                                        .foregroundColor(.white)
+                                        .foregroundColor(.primary)
                                 }
                             }
                             
@@ -1166,16 +1163,16 @@ struct SignUpView: View {
                             }) {
                                 ZStack {
                                     Circle()
-                                        .fill(inputDark)
+                                        .fill(Color(.systemGray6))
                                         .frame(width: 56, height: 56)
                                         .overlay(
                                             Circle()
-                                                .stroke(inputBorder, lineWidth: 1)
+                                                .stroke(Color(.systemGray4), lineWidth: 1)
                                         )
                                     
                                     Text("G")
                                         .font(.system(size: 24, weight: .bold))
-                                        .foregroundColor(.white)
+                                        .foregroundColor(.primary)
                                 }
                             }
                         }
@@ -1202,13 +1199,13 @@ struct SignUpView: View {
                 ToolbarItem(placement: .cancellationAction) {
                     Button(action: onBack) {
                         Image(systemName: "arrow.left")
-                            .foregroundColor(.white)
+                            .foregroundColor(.primary)
                     }
                 }
                 ToolbarItem(placement: .principal) {
                     Text("Sign Up")
                         .font(.system(size: 18, weight: .bold))
-                        .foregroundColor(.white)
+                        .foregroundColor(.primary)
                 }
             }
         }
@@ -1285,26 +1282,26 @@ struct SignInView: View {
                             VStack(alignment: .leading, spacing: 8) {
                                 Text("Email Address")
                                     .font(.system(size: 14, weight: .bold))
-                                    .foregroundColor(.white)
+                                    .foregroundColor(.primary)
                                 
                                 HStack {
                                     Image(systemName: "envelope")
-                                        .foregroundColor(Color(red: 0.8, green: 0.796, blue: 0.557))
+                                        .foregroundColor(.secondary)
                                         .frame(width: 24)
                                     
                                     TextField("name@example.com", text: $email)
                                         .textContentType(.emailAddress)
                                         .keyboardType(.emailAddress)
                                         .autocapitalization(.none)
-                                        .foregroundColor(.white)
+                                        .foregroundColor(.primary)
                                 }
                                 .padding(.horizontal, 16)
                                 .frame(height: 56)
-                                .background(inputDark)
+                                .background(Color(.systemGray6))
                                 .cornerRadius(12)
                                 .overlay(
                                     RoundedRectangle(cornerRadius: 12)
-                                        .stroke(inputBorder, lineWidth: 1)
+                                        .stroke(Color(.systemGray4), lineWidth: 1)
                                 )
                             }
                             
@@ -1312,37 +1309,37 @@ struct SignInView: View {
                             VStack(alignment: .leading, spacing: 8) {
                                 Text("Password")
                                     .font(.system(size: 14, weight: .bold))
-                                    .foregroundColor(.white)
+                                    .foregroundColor(.primary)
                                 
                                 HStack {
                                     Image(systemName: "lock")
-                                        .foregroundColor(Color(red: 0.8, green: 0.796, blue: 0.557))
+                                        .foregroundColor(.secondary)
                                         .frame(width: 24)
                                     
                                     if showingPassword {
                                         TextField("Enter your password", text: $password)
                                             .textContentType(.password)
-                                            .foregroundColor(.white)
+                                            .foregroundColor(.primary)
                                     } else {
                                         SecureField("Enter your password", text: $password)
                                             .textContentType(.password)
-                                            .foregroundColor(.white)
+                                            .foregroundColor(.primary)
                                     }
                                     
                                     Button(action: {
                                         showingPassword.toggle()
                                     }) {
                                         Image(systemName: showingPassword ? "eye.slash" : "eye")
-                                            .foregroundColor(Color(red: 0.8, green: 0.796, blue: 0.557))
+                                            .foregroundColor(.secondary)
                                     }
                                 }
                                 .padding(.horizontal, 16)
                                 .frame(height: 56)
-                                .background(inputDark)
+                                .background(Color(.systemGray6))
                                 .cornerRadius(12)
                                 .overlay(
                                     RoundedRectangle(cornerRadius: 12)
-                                        .stroke(inputBorder, lineWidth: 1)
+                                        .stroke(Color(.systemGray4), lineWidth: 1)
                                 )
                             }
                         }
@@ -1420,16 +1417,16 @@ struct SignInView: View {
                             }) {
                                 ZStack {
                                     Circle()
-                                        .fill(inputDark)
+                                        .fill(Color(.systemGray6))
                                         .frame(width: 56, height: 56)
                                         .overlay(
                                             Circle()
-                                                .stroke(inputBorder, lineWidth: 1)
+                                                .stroke(Color(.systemGray4), lineWidth: 1)
                                         )
                                     
                                     Image(systemName: "apple.logo")
                                         .font(.system(size: 24))
-                                        .foregroundColor(.white)
+                                        .foregroundColor(.primary)
                                 }
                             }
                             
@@ -1439,16 +1436,16 @@ struct SignInView: View {
                             }) {
                                 ZStack {
                                     Circle()
-                                        .fill(inputDark)
+                                        .fill(Color(.systemGray6))
                                         .frame(width: 56, height: 56)
                                         .overlay(
                                             Circle()
-                                                .stroke(inputBorder, lineWidth: 1)
+                                                .stroke(Color(.systemGray4), lineWidth: 1)
                                         )
                                     
                                     Text("G")
                                         .font(.system(size: 24, weight: .bold))
-                                        .foregroundColor(.white)
+                                        .foregroundColor(.primary)
                                 }
                             }
                         }
