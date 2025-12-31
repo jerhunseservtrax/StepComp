@@ -13,6 +13,10 @@ import Combine
 import Supabase
 #endif
 
+#if os(iOS)
+import UIKit
+#endif
+
 @MainActor
 final class StepSyncService: ObservableObject {
     private let healthKitService: HealthKitService
@@ -52,6 +56,19 @@ final class StepSyncService: ObservableObject {
     }
     
     #if canImport(Supabase)
+    /// Payload for Edge Function
+    private struct SyncStepsPayload: Codable {
+        let day: String
+        let steps: Int
+        let device_id: String
+        
+        enum CodingKeys: String, CodingKey {
+            case day
+            case steps
+            case device_id
+        }
+    }
+    
     /// Sync steps via Edge Function (with rate limiting and validation)
     /// This is the ONLY way steps should be written to the database
     private func syncStepsViaEdgeFunction(
@@ -60,12 +77,12 @@ final class StepSyncService: ObservableObject {
     ) async throws {
         let deviceId = await getDeviceIdentifier()
         
-        // Prepare payload
-        let payload: [String: Any] = [
-            "day": day,
-            "steps": steps,
-            "device_id": deviceId
-        ]
+        // Prepare payload (Codable struct)
+        let payload = SyncStepsPayload(
+            day: day,
+            steps: steps,
+            device_id: deviceId
+        )
         
         // Call Edge Function
         // Edge Function will:
@@ -104,8 +121,9 @@ final class StepSyncService: ObservableObject {
     /// Get device identifier for fraud detection
     private func getDeviceIdentifier() async -> String {
         #if os(iOS)
-        import UIKit
-        return await UIDevice.current.identifierForVendor?.uuidString ?? "unknown"
+        return await MainActor.run {
+            UIDevice.current.identifierForVendor?.uuidString ?? "unknown"
+        }
         #else
         return "unknown"
         #endif

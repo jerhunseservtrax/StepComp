@@ -183,17 +183,25 @@ struct SignInOnboardingView: View {
                 // Bottom Section with Terms and Sign In Link
                 VStack(spacing: 16) {
                     // Terms Text
-                    Group {
-                        Text("By continuing, you agree to our ") +
+                    HStack(spacing: 0) {
+                        Text("By continuing, you agree to our ")
+                            .font(.system(size: 12))
+                            .foregroundColor(.secondary)
                         Text("Terms")
-                            .underline() +
-                        Text(" and ") +
+                            .font(.system(size: 12))
+                            .foregroundColor(.secondary)
+                            .underline()
+                        Text(" and ")
+                            .font(.system(size: 12))
+                            .foregroundColor(.secondary)
                         Text("Privacy Policy")
-                            .underline() +
+                            .font(.system(size: 12))
+                            .foregroundColor(.secondary)
+                            .underline()
                         Text(".")
+                            .font(.system(size: 12))
+                            .foregroundColor(.secondary)
                     }
-                    .font(.system(size: 12))
-                    .foregroundColor(.secondary)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 32)
                     
@@ -204,11 +212,10 @@ struct SignInOnboardingView: View {
                             isSignUp = false
                             showingEmailAuth = true
                         }) {
-                            Group {
+                            HStack(spacing: 0) {
                                 Text("Already have an account?")
                                     .font(.system(size: 14, weight: .medium))
                                     .foregroundColor(.secondary)
-                                +
                                 Text(" Sign in")
                                     .font(.system(size: 14, weight: .semibold))
                                     .foregroundColor(primaryYellow)

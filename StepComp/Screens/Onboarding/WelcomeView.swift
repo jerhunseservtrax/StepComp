@@ -60,19 +60,21 @@ struct WelcomeOnboardingView: View {
                 
                 // Text Content
                 VStack(spacing: 16) {
-                    Group {
-                        Text("Step into ") +
+                    HStack(spacing: 0) {
+                        Text("Step into ")
+                            .font(.system(size: 36, weight: .bold))
                         Text("greatness")
+                            .font(.system(size: 36, weight: .bold))
                             .foregroundStyle(
                                 LinearGradient(
                                     colors: [Color.yellow, primaryYellow],
                                     startPoint: .leading,
                                     endPoint: .trailing
                                 )
-                            ) +
+                            )
                         Text(" 🚶‍♂️🔥")
+                            .font(.system(size: 36, weight: .bold))
                     }
-                    .font(.system(size: 36, weight: .bold))
                     .multilineTextAlignment(.center)
                     
                     Text("Turn your daily walks into a game. Earn rewards and compete with friends.")
