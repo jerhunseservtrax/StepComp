@@ -114,9 +114,8 @@ final class StepSyncService: ObservableObject {
             }
         } catch {
             // Handle 404 (Edge Function not deployed) gracefully
-            if let error = error as? NSError,
-               error.localizedDescription.contains("404") ||
-               error.localizedDescription.contains("not found") {
+            let errorDescription = error.localizedDescription
+            if errorDescription.contains("404") || errorDescription.contains("not found") {
                 print("⚠️ Edge Function 'sync-steps' not deployed. Steps will sync via RPC fallback.")
                 // Fallback: Call RPC directly (less secure but works)
                 try await syncStepsViaRPCFallback(steps: steps, day: day, deviceId: deviceId)
@@ -142,7 +141,7 @@ final class StepSyncService: ObservableObject {
         print("🔄 Using RPC fallback for step sync")
         let _ = try await supabase.rpc("sync_daily_steps", params: [
             "p_day": day,
-            "p_steps": steps,
+            "p_steps": String(steps),
             "p_source": "healthkit",
             "p_device_id": deviceId,
             "p_ip": "unknown",
