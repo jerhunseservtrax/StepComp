@@ -149,7 +149,7 @@ final class StepSyncService: ObservableObject {
                 "p_steps": String(steps),
                 "p_source": "healthkit",
                 "p_device_id": deviceId,
-                "p_ip": "unknown",
+                "p_ip": nil, // Changed from "unknown" to nil - PostgreSQL inet type doesn't accept "unknown"
                 "p_user_agent": "iOS"
             ]).execute()
             print("✅ Steps synced via RPC fallback")
