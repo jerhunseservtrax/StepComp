@@ -197,8 +197,6 @@ struct SettingsView: View {
             print("✅ Total distance: \(String(format: "%.1f", totalDistanceMiles)) miles")
             
             // Calculate average steps for current month
-            let calendar = Calendar.current
-            let now = Date()
             let monthStart = calendar.date(from: calendar.dateComponents([.year, .month], from: now)) ?? now
             let monthStats = try await healthKitService.getSteps(from: monthStart, to: now)
             
