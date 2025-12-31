@@ -1229,37 +1229,36 @@ struct SignInView: View {
     @State private var showingPassword: Bool = false
     
     private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
-    private let backgroundDark = Color(red: 0.137, green: 0.133, blue: 0.059)
-    private let inputDark = Color(red: 0.208, green: 0.204, blue: 0.094)
-    private let inputBorder = Color(red: 0.416, green: 0.412, blue: 0.184)
     
     var body: some View {
         NavigationStack {
             ZStack {
-                // Background
-                backgroundDark
+                // Background - Light mode
+                Color(.systemBackground)
                     .ignoresSafeArea()
                 
                 ScrollView {
                     VStack(spacing: 0) {
                         // Hero Section
                         VStack(spacing: 24) {
-                            // Circular background with sneaker image
+                            // Circular background with email icon
                             ZStack {
+                                // Outer glow circle
                                 Circle()
                                     .fill(primaryYellow.opacity(0.2))
                                     .frame(width: 128, height: 128)
                                 
-                                AsyncImage(url: URL(string: "https://lh3.googleusercontent.com/aida-public/AB6AXuDIcP6fXEkuSJTittn3fIRyMHDITzVQFCiMXorkxjfcf2jr6YBoVOifKJEmAhyg9N6iTWEzro46X1qFm7JEe8MXyZ9q1DdwANkUQqdauhPw_T1G-yCeAYmBmP7mj6TAN5AChk2UNG-qWCVbSs6XnlkGGa3xofiibOYkymYTR5VMXtoBsTGq5npN8xyDpoAmIjIInJrxQvRrTGhL0flxVTqYeu64d0UmuEEzHgvqxxdPo1oxDSAgvPMgex_PcKN7Q5Dzf-_fgaMxiA")) { image in
-                                    image
-                                        .resizable()
-                                        .aspectRatio(contentMode: .fit)
-                                } placeholder: {
-                                    Image(systemName: "figure.run")
-                                        .font(.system(size: 48))
-                                        .foregroundColor(primaryYellow)
-                                }
-                                .frame(width: 96, height: 96)
+                                // Pulsing animation circle
+                                Circle()
+                                    .fill(primaryYellow.opacity(0.1))
+                                    .frame(width: 128, height: 128)
+                                    .scaleEffect(1.2)
+                                    .opacity(0.5)
+                                
+                                // Email icon
+                                Image(systemName: "envelope.fill")
+                                    .font(.system(size: 52, weight: .medium))
+                                    .foregroundColor(primaryYellow)
                             }
                             
                             // Title and Subtitle
@@ -1472,13 +1471,13 @@ struct SignInView: View {
                 ToolbarItem(placement: .cancellationAction) {
                     Button(action: onBack) {
                         Image(systemName: "arrow.left")
-                            .foregroundColor(.white)
+                            .foregroundColor(.primary)
                     }
                 }
                 ToolbarItem(placement: .principal) {
                     Text("Sign In")
                         .font(.system(size: 18, weight: .bold))
-                        .foregroundColor(.white)
+                        .foregroundColor(.primary)
                 }
             }
         }
