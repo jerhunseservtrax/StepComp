@@ -45,23 +45,21 @@ struct ChallengesView: View {
                 }
             )
             
-            // Tab Content
-            Group {
-                if selectedTab == .active {
-                    ActiveChallengesTab(
-                        sessionViewModel: sessionViewModel,
-                        viewModel: viewModel
-                    )
-                    .transition(.opacity)
-                } else {
-                    DiscoverChallengesTab(
-                        sessionViewModel: sessionViewModel,
-                        viewModel: viewModel
-                    )
-                    .transition(.opacity)
-                }
+            // TabView with swipe gesture between tabs
+            TabView(selection: $selectedTab) {
+                ActiveChallengesTab(
+                    sessionViewModel: sessionViewModel,
+                    viewModel: viewModel
+                )
+                .tag(ChallengeTab.active)
+                
+                DiscoverChallengesTab(
+                    sessionViewModel: sessionViewModel,
+                    viewModel: viewModel
+                )
+                .tag(ChallengeTab.discover)
             }
-            .animation(.easeInOut(duration: 0.2), value: selectedTab)
+            .tabViewStyle(.page(indexDisplayMode: .never)) // Enable swipe, hide page dots
         }
         .navigationBarHidden(true)
         .sheet(isPresented: $showingCreateChallenge) {

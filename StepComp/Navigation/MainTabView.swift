@@ -22,7 +22,6 @@ class TabSelectionManager: ObservableObject {
 struct MainTabView: View {
     @StateObject private var sessionViewModel: SessionViewModel
     @StateObject private var tabManager = TabSelectionManager()
-    @State private var dragStartLocation: CGPoint = .zero
     
     init(sessionViewModel: SessionViewModel) {
         _sessionViewModel = StateObject(wrappedValue: sessionViewModel)
@@ -61,71 +60,6 @@ struct MainTabView: View {
             setupTabBarAppearance()
         }
         .environmentObject(tabManager)
-        .simultaneousGesture(
-            DragGesture(minimumDistance: 30)
-                .onChanged { value in
-                    dragStartLocation = value.startLocation
-                }
-                .onEnded { value in
-                    handleSwipe(value: value)
-                }
-        )
-    }
-    
-    private func handleSwipe(value: DragGesture.Value) {
-        let horizontalAmount = value.translation.width
-        let verticalAmount = value.translation.height
-        
-        // Only handle horizontal swipes (more horizontal than vertical, and significant movement)
-        // Require at least 80 points of horizontal movement to avoid conflicts with scrolling
-        guard abs(horizontalAmount) > abs(verticalAmount) && abs(horizontalAmount) > 80 else {
-            return
-        }
-        
-        #if canImport(UIKit)
-        // Check if swipe started near the edge (within 50 points from left/right edge)
-        // This helps avoid conflicts with content scrolling
-        // Use a reasonable default screen width if UIScreen is not available
-        let screenWidth: CGFloat = 390 // Default iPhone width, will be adjusted by actual gesture
-        let startX = dragStartLocation.x
-        let isNearEdge = startX < 50 || startX > screenWidth - 50
-        
-        // Only trigger if swipe is significant and started near edge or is very horizontal
-        if abs(horizontalAmount) > 100 || isNearEdge {
-            if horizontalAmount > 0 {
-                // Swipe right - go to previous tab
-                if tabManager.selectedTab > 0 {
-                    withAnimation(.easeInOut(duration: 0.25)) {
-                        tabManager.selectedTab -= 1
-                    }
-                }
-            } else {
-                // Swipe left - go to next tab
-                if tabManager.selectedTab < 3 {
-                    withAnimation(.easeInOut(duration: 0.25)) {
-                        tabManager.selectedTab += 1
-                    }
-                }
-            }
-        }
-        #else
-        // Fallback for non-iOS platforms
-        if abs(horizontalAmount) > 100 {
-            if horizontalAmount > 0 {
-                if tabManager.selectedTab > 0 {
-                    withAnimation(.easeInOut(duration: 0.25)) {
-                        tabManager.selectedTab -= 1
-                    }
-                }
-            } else {
-                if tabManager.selectedTab < 3 {
-                    withAnimation(.easeInOut(duration: 0.25)) {
-                        tabManager.selectedTab += 1
-                    }
-                }
-            }
-        }
-        #endif
     }
     
     private func setupTabBarAppearance() {

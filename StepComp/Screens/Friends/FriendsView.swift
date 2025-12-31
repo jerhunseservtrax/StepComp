@@ -31,12 +31,15 @@ struct FriendsView: View {
                 .pickerStyle(.segmented)
                 .padding(.horizontal)
 
-                switch vm.selectedTab {
-                case .friends:
+                // TabView with swipe gesture between tabs
+                TabView(selection: $vm.selectedTab) {
                     friendsTab
-                case .discover:
+                        .tag(FriendsViewModel.Tab.friends)
+                    
                     discoverTab
+                        .tag(FriendsViewModel.Tab.discover)
                 }
+                .tabViewStyle(.page(indexDisplayMode: .never)) // Enable swipe, hide page indicator
             }
             .navigationTitle("Friends")
             .toolbar {

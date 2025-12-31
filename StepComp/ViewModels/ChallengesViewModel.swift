@@ -100,12 +100,15 @@ final class ChallengesViewModel: ObservableObject {
             // Convert to Challenge models
             let allPublic = try await convertToChallenges(sortedPublicChallenges)
             
-            // Filter out challenges the user is already participating in
-            // Show in Discover tab only if user is NOT a participant
+            // Filter public challenges for Discover tab:
+            // Show ALL public challenges, including ones user created
+            // Only exclude challenges where user is already a participant (joined via challenge_members)
             publicChallenges = allPublic.filter { challenge in
-                !challenge.participantIds.contains(userId) && challenge.creatorId != userId
+                !challenge.participantIds.contains(userId)
             }
-            print("📊 ChallengesViewModel: Loaded \(publicChallenges.count) discover challenges")
+            print("📊 ChallengesViewModel: Loaded \(publicChallenges.count) discover challenges (including user's own public challenges)")
+            print("   Total public challenges in DB: \(allPublic.count)")
+            print("   User is participating in: \(activeChallenges.count)")
             
         } catch {
             print("⚠️ Error loading challenges: \(error.localizedDescription)")
