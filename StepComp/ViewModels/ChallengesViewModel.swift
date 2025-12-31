@@ -49,6 +49,17 @@ final class ChallengesViewModel: ObservableObject {
     #if canImport(Supabase)
     private func loadChallengesFromSupabase() async {
         do {
+            // Check if user is authenticated before trying to load challenges
+            do {
+                _ = try await supabase.auth.session
+            } catch {
+                // No session - user not authenticated yet, skip loading challenges
+                print("ℹ️ Skipping challenge load - user not authenticated yet")
+                activeChallenges = []
+                publicChallenges = []
+                return
+            }
+            
             // Get all challenges the user is participating in (via challenge_members)
             let userChallengeIds = await getUserChallengeIds()
             

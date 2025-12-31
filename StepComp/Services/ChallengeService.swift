@@ -561,6 +561,15 @@ final class ChallengeService: ObservableObject {
     
     private func loadChallengesFromSupabase() async {
         do {
+            // Check if user is authenticated before trying to load challenges
+            do {
+                _ = try await supabase.auth.session
+            } catch {
+                // No session - user not authenticated yet, skip loading challenges
+                print("ℹ️ Skipping challenge load - user not authenticated yet")
+                return
+            }
+            
             // Get current user ID from session
             let session = try await supabase.auth.session
             let userId = session.user.id.uuidString
