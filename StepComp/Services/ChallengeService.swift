@@ -145,6 +145,36 @@ final class ChallengeService: ObservableObject {
     }
     
     func deleteChallenge(_ challengeId: String) async throws {
+        #if canImport(Supabase)
+        if useSupabase {
+            print("🗑️ Deleting challenge from Supabase: \(challengeId)")
+            do {
+                // Delete from Supabase database
+                // RLS policy ensures only the creator can delete
+                try await supabase
+                    .from("challenges")
+                    .delete()
+                    .eq("id", value: challengeId)
+                    .execute()
+                
+                print("✅ Challenge deleted from Supabase")
+                
+                // Remove from local cache
+                challenges.removeAll { $0.id == challengeId }
+                leaderboardEntries.removeValue(forKey: challengeId)
+                
+                // Refresh from database to ensure consistency
+                try? await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
+                await loadChallengesFromSupabase()
+            } catch {
+                print("❌ Failed to delete challenge from Supabase: \(error.localizedDescription)")
+                throw error
+            }
+            return
+        }
+        #endif
+        
+        // Local storage fallback
         challenges.removeAll { $0.id == challengeId }
         leaderboardEntries.removeValue(forKey: challengeId)
         saveChallenges()

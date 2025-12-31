@@ -1979,19 +1979,21 @@ struct PasswordResetView: View {
             await MainActor.run {
                 onComplete()
             }
-            
-            // Sign out after password reset (user needs to sign in again)
-            try? await authService.signOut()
-            
-            // Wait a moment then close
-            try? await Task.sleep(nanoseconds: 2_000_000_000) // 2 seconds
-            onComplete()
             #else
             errorMessage = "Password reset is not available in mock mode"
             #endif
         } catch {
-            errorMessage = error.localizedDescription.isEmpty ? "Failed to reset password. Please try again." : error.localizedDescription
-            print("⚠️ Password reset error: \(error.localizedDescription)")
+            let errorMsg = error.localizedDescription
+            print("⚠️ Password reset error: \(errorMsg)")
+            
+            // Provide user-friendly error messages
+            if errorMsg.contains("session") || errorMsg.contains("expired") {
+                errorMessage = "Your reset link has expired. Please request a new password reset link."
+            } else if errorMsg.contains("same") {
+                errorMessage = "New password must be different from your current password."
+            } else {
+                errorMessage = errorMsg.isEmpty ? "Failed to reset password. Please try again." : errorMsg
+            }
         }
         
         isLoading = false

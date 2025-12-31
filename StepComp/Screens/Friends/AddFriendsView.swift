@@ -17,6 +17,9 @@ struct AddFriendsView: View {
     @StateObject private var viewModel: AddFriendsViewModel
     
     @State private var searchText: String = ""
+    @State private var showingCancelAlert = false
+    @State private var userIdToCancel: String?
+    @State private var userNameToCancel: String?
     
     private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
     
@@ -107,7 +110,9 @@ struct AddFriendsView: View {
                                         viewModel.sendFriendRequest(to: user.id)
                                     },
                                     onCancelRequest: {
-                                        viewModel.cancelFriendRequest(to: user.id)
+                                        userIdToCancel = user.id
+                                        userNameToCancel = user.displayName
+                                        showingCancelAlert = true
                                     }
                                 )
                             }
@@ -124,6 +129,25 @@ struct AddFriendsView: View {
                     Button("Done") {
                         dismiss()
                     }
+                }
+            }
+            .alert("Unsend Friend Request?", isPresented: $showingCancelAlert) {
+                Button("Cancel", role: .cancel) {
+                    userIdToCancel = nil
+                    userNameToCancel = nil
+                }
+                Button("Unsend", role: .destructive) {
+                    if let userId = userIdToCancel {
+                        viewModel.cancelFriendRequest(to: userId)
+                    }
+                    userIdToCancel = nil
+                    userNameToCancel = nil
+                }
+            } message: {
+                if let userName = userNameToCancel {
+                    Text("Are you sure you want to unsend your friend request to \(userName)?")
+                } else {
+                    Text("Are you sure you want to unsend this friend request?")
                 }
             }
         }
