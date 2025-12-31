@@ -79,7 +79,7 @@ struct AvatarSelectionOnboardingView: View {
                     .frame(height: 40)
                     
                     Button(action: {
-                        completeOnboarding()
+                        saveAvatarAndContinue()
                     }) {
                         Text("Lookin' Good")
                             .font(.system(size: 18, weight: .bold))

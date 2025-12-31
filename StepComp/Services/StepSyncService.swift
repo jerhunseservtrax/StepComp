@@ -139,14 +139,14 @@ final class StepSyncService: ObservableObject {
     /// Fallback: Sync steps via RPC if Edge Function is not deployed
     private func syncStepsViaRPCFallback(steps: Int, day: String, deviceId: String) async throws {
         print("🔄 Using RPC fallback for step sync")
-        let _ = try await supabase.rpc("sync_daily_steps", params: [
+        _ = try await supabase.rpc("sync_daily_steps", params: [
             "p_day": day,
             "p_steps": String(steps),
             "p_source": "healthkit",
             "p_device_id": deviceId,
             "p_ip": "unknown",
             "p_user_agent": "iOS"
-        ])
+        ]).execute()
         print("✅ Steps synced via RPC fallback")
     }
     #endif
