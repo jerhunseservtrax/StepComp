@@ -178,19 +178,6 @@ final class FriendsViewModel: ObservableObject {
         }
     }
 
-    // MARK: - Invite Links
-
-    func createInviteLink() async -> URL? {
-        do {
-            let invite = try await service.createInviteRPC(expiresInHours: 168)
-            // Use your app's URL scheme
-            return URL(string: "je.stepcomp://friend-invite?token=\(invite.token)")
-        } catch {
-            errorMessage = error.localizedDescription
-            return nil
-        }
-    }
-
     // MARK: - Mapping helpers
 
     private func mapToFriendItems(friendships: [Friendship]) async throws -> [FriendListItem] {
