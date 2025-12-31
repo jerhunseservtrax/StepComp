@@ -95,7 +95,7 @@ struct FirstWinOnboardingView: View {
                 
                 // Start Button
                 Button(action: {
-                    completeOnboarding()
+                    continueToSignIn()
                 }) {
                     HStack(spacing: 8) {
                         Text("Start Walking")
@@ -120,13 +120,13 @@ struct FirstWinOnboardingView: View {
         }
     }
     
-    private func completeOnboarding() {
-        // Mark onboarding as complete
-        UserDefaults.standard.set(true, forKey: "hasCompletedOnboarding")
-        sessionViewModel.hasCompletedOnboarding = true
-        print("✅ Onboarding completed!")
-        
-        // User will be routed to main app by RootView
+    private func continueToSignIn() {
+        // Navigate to Sign In step
+        // completeOnboarding() will be called after successful authentication in SignInView
+        withAnimation {
+            currentStep = .signIn
+        }
+        print("➡️ Navigating to Sign In step")
     }
 }
 
