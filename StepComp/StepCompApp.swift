@@ -13,30 +13,22 @@ import Supabase
 
 @main
 struct StepCompApp: App {
-    @State private var showSplash = true
     @StateObject private var authService = AuthService()
     
     var body: some Scene {
         WindowGroup {
-            if showSplash {
-                SplashScreenView {
-                    withAnimation(.easeOut(duration: 0.3)) {
-                        showSplash = false
+            RootView()
+                .environmentObject(authService)
+                .onOpenURL { url in
+                    // Handle deep links (friend invites, OAuth, etc.)
+                    DeepLinkRouter.shared.handle(url: url)
+                    
+                    // Handle OAuth callback at app level
+                    // This ensures callbacks are handled even if SignInView is not visible
+                    Task {
+                        await handleOAuthCallback(url: url)
                     }
                 }
-                .transition(.opacity)
-            } else {
-                RootView()
-                    .transition(.opacity)
-                    .environmentObject(authService)
-                    .onOpenURL { url in
-                        // Handle OAuth callback at app level
-                        // This ensures callbacks are handled even if SignInView is not visible
-                        Task {
-                            await handleOAuthCallback(url: url)
-                        }
-                    }
-            }
         }
     }
     

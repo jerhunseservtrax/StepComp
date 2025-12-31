@@ -19,6 +19,9 @@ final class HealthKitService: ObservableObject {
     private var stepCountType: HKQuantityType?
     private var distanceType: HKQuantityType?
     private var activeEnergyType: HKQuantityType?
+    private var heightType: HKQuantityType?
+    private var weightType: HKQuantityType?
+    private var dateOfBirthType: HKCharacteristicType?
     private var healthKitInitialized = false
     #endif
     
@@ -57,13 +60,19 @@ final class HealthKitService: ObservableObject {
         stepCountType = HKQuantityType.quantityType(forIdentifier: .stepCount)
         distanceType = HKQuantityType.quantityType(forIdentifier: .distanceWalkingRunning)
         activeEnergyType = HKQuantityType.quantityType(forIdentifier: .activeEnergyBurned)
+        heightType = HKQuantityType.quantityType(forIdentifier: .height)
+        weightType = HKQuantityType.quantityType(forIdentifier: .bodyMass)
+        dateOfBirthType = HKCharacteristicType.characteristicType(forIdentifier: .dateOfBirth)
         
-        // If types are nil, HealthKit is not available (likely missing entitlement)
+        // If core types are nil, HealthKit is not available (likely missing entitlement)
         if stepCountType == nil || distanceType == nil || activeEnergyType == nil {
             healthStore = nil
             stepCountType = nil
             distanceType = nil
             activeEnergyType = nil
+            heightType = nil
+            weightType = nil
+            dateOfBirthType = nil
             isAuthorized = false
             authorizationStatus = .notDetermined
             return
@@ -124,8 +133,26 @@ final class HealthKitService: ObservableObject {
             return
         }
         
-        let typesToRead: Set<HKObjectType> = [stepCountType, distanceType, activeEnergyType]
-        let typesToShare: Set<HKSampleType> = [stepCountType, distanceType, activeEnergyType]
+        // Build types to read - include height, weight, and date of birth
+        var typesToRead: Set<HKObjectType> = [stepCountType, distanceType, activeEnergyType]
+        if let heightType = heightType {
+            typesToRead.insert(heightType)
+        }
+        if let weightType = weightType {
+            typesToRead.insert(weightType)
+        }
+        if let dateOfBirthType = dateOfBirthType {
+            typesToRead.insert(dateOfBirthType)
+        }
+        
+        // Types to share (write) - include height and weight
+        var typesToShare: Set<HKSampleType> = [stepCountType, distanceType, activeEnergyType]
+        if let heightType = heightType {
+            typesToShare.insert(heightType)
+        }
+        if let weightType = weightType {
+            typesToShare.insert(weightType)
+        }
         
         do {
             try await healthStore.requestAuthorization(toShare: typesToShare, read: typesToRead)
@@ -284,6 +311,112 @@ final class HealthKitService: ObservableObject {
         }
         #else
         return []
+        #endif
+    }
+    
+    // MARK: - Height, Weight, and Age
+    
+    func getHeight() async throws -> Double? {
+        #if os(iOS)
+        guard isAuthorized,
+              let healthStore = healthStore,
+              let heightType = heightType else {
+            return nil
+        }
+        
+        return try await withCheckedThrowingContinuation { continuation in
+            let query = HKSampleQuery(
+                sampleType: heightType,
+                predicate: nil,
+                limit: 1,
+                sortDescriptors: [NSSortDescriptor(key: HKSampleSortIdentifierEndDate, ascending: false)]
+            ) { _, samples, error in
+                if error != nil {
+                    continuation.resume(returning: nil)
+                    return
+                }
+                
+                guard let sample = samples?.first as? HKQuantitySample else {
+                    continuation.resume(returning: nil)
+                    return
+                }
+                
+                // Height is stored in meters in HealthKit, convert to cm
+                let heightInMeters = sample.quantity.doubleValue(for: HKUnit.meter())
+                let heightInCm = heightInMeters * 100.0
+                print("✅ Height from HealthKit: \(heightInCm) cm")
+                continuation.resume(returning: heightInCm)
+            }
+            
+            healthStore.execute(query)
+        }
+        #else
+        return nil
+        #endif
+    }
+    
+    func getWeight() async throws -> Double? {
+        #if os(iOS)
+        guard isAuthorized,
+              let healthStore = healthStore,
+              let weightType = weightType else {
+            return nil
+        }
+        
+        return try await withCheckedThrowingContinuation { continuation in
+            let query = HKSampleQuery(
+                sampleType: weightType,
+                predicate: nil,
+                limit: 1,
+                sortDescriptors: [NSSortDescriptor(key: HKSampleSortIdentifierEndDate, ascending: false)]
+            ) { _, samples, error in
+                if error != nil {
+                    continuation.resume(returning: nil)
+                    return
+                }
+                
+                guard let sample = samples?.first as? HKQuantitySample else {
+                    continuation.resume(returning: nil)
+                    return
+                }
+                
+                // Weight is stored in kilograms in HealthKit
+                let weightInKg = sample.quantity.doubleValue(for: HKUnit.gramUnit(with: .kilo))
+                print("✅ Weight from HealthKit: \(weightInKg) kg")
+                continuation.resume(returning: weightInKg)
+            }
+            
+            healthStore.execute(query)
+        }
+        #else
+        return nil
+        #endif
+    }
+    
+    func getAge() -> Int? {
+        #if os(iOS)
+        guard let healthStore = healthStore else {
+            return nil
+        }
+        
+        do {
+            let dateOfBirth = try healthStore.dateOfBirthComponents()
+            let calendar = Calendar.current
+            let today = Date()
+            let birthDate = calendar.date(from: dateOfBirth)
+            
+            guard let birthDate = birthDate else {
+                return nil
+            }
+            
+            let ageComponents = calendar.dateComponents([.year], from: birthDate, to: today)
+            return ageComponents.year
+        } catch {
+            print("⚠️ Error fetching date of birth: \(error.localizedDescription)")
+            return nil
+        }
+        #else
+        return nil
         #endif
     }
 }

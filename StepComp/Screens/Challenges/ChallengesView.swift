@@ -13,12 +13,13 @@ struct ChallengesView: View {
     @EnvironmentObject var challengeService: ChallengeService
     @Environment(\.dismiss) var dismiss
     
-    @State private var selectedTab: ChallengeTab = .private
+    @State private var selectedTab: ChallengeTab = .active
+    @State private var showingCreateChallenge = false
     
     private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
     
     enum ChallengeTab {
-        case `private`
+        case active
         case discover
     }
     
@@ -38,13 +39,16 @@ struct ChallengesView: View {
             // Header
             ChallengesHeader(
                 user: sessionViewModel.currentUser,
-                selectedTab: $selectedTab
+                selectedTab: $selectedTab,
+                onCreateChallenge: {
+                    showingCreateChallenge = true
+                }
             )
             
             // Tab Content
             Group {
-                if selectedTab == .private {
-                    PrivateChallengesTab(
+                if selectedTab == .active {
+                    ActiveChallengesTab(
                         sessionViewModel: sessionViewModel,
                         viewModel: viewModel
                     )
@@ -60,8 +64,32 @@ struct ChallengesView: View {
             .animation(.easeInOut(duration: 0.2), value: selectedTab)
         }
         .navigationBarHidden(true)
+        .sheet(isPresented: $showingCreateChallenge) {
+            CreateChallengeView(sessionViewModel: sessionViewModel)
+        }
+        .onChange(of: showingCreateChallenge) { oldValue, newValue in
+            // Refresh challenges when sheet is dismissed
+            if oldValue == true && newValue == false {
+                Task {
+                    #if canImport(Supabase)
+                    // Refresh challenge service first
+                    await challengeService.refreshChallenges()
+                    // Small delay to ensure database is updated
+                    try? await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
+                    #endif
+                    // Then reload challenges in view model
+                    await viewModel.loadChallenges()
+                }
+            }
+        }
         .onAppear {
             viewModel.updateService(challengeService)
+            Task {
+                await viewModel.loadChallenges()
+            }
+        }
+        .onChange(of: challengeService.challenges.count) { oldValue, newValue in
+            // Refresh when challenges change (e.g., after creating a new one)
             Task {
                 await viewModel.loadChallenges()
             }
@@ -74,6 +102,7 @@ struct ChallengesView: View {
 struct ChallengesHeader: View {
     let user: User?
     @Binding var selectedTab: ChallengesView.ChallengeTab
+    let onCreateChallenge: () -> Void
     
     private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
     
@@ -104,24 +133,21 @@ struct ChallengesHeader: View {
                 }
                 
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(selectedTab == .private ? "Private" : "Discover")
+                    Text(selectedTab == .active ? "Active" : "Discover")
                         .font(.system(size: 20, weight: .bold))
                     
-                    Text(selectedTab == .private ? "Your active challenges" : "Find your next battle")
+                    Text(selectedTab == .active ? "Your active challenges" : "Find your next battle")
                         .font(.system(size: 14, weight: .medium))
                         .foregroundColor(Color(red: 0.620, green: 0.616, blue: 0.278))
                 }
                 
                 Spacer()
                 
-                // Filter button
-                Button(action: {}) {
-                    Image(systemName: "line.3.horizontal.decrease.circle")
-                        .font(.system(size: 20))
-                        .foregroundColor(.primary)
-                        .frame(width: 40, height: 40)
-                        .background(Color(.systemGray6))
-                        .clipShape(Circle())
+                // Create Challenge button
+                Button(action: onCreateChallenge) {
+                    Image(systemName: "plus.circle.fill")
+                        .font(.system(size: 24))
+                        .foregroundColor(primaryYellow)
                 }
             }
             .padding(.horizontal, 24)
@@ -130,11 +156,11 @@ struct ChallengesHeader: View {
             // Tab Selector
             HStack(spacing: 0) {
                 TabButton(
-                    title: "Private",
-                    isSelected: selectedTab == .private,
+                    title: "Active",
+                    isSelected: selectedTab == .active,
                     action: {
                         withAnimation {
-                            selectedTab = .private
+                            selectedTab = .active
                         }
                     }
                 )

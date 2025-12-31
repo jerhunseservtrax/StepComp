@@ -46,8 +46,12 @@ let supabase: SupabaseClient = {
         fatalError("Invalid Supabase URL")
     }
     
-    // Note: The warning about initial session emission is expected behavior in current SDK version
-    // We handle expired sessions in checkSupabaseSession() by checking session validity
+    // Note: The warning about "Initial session emitted after attempting to refresh" is expected
+    // behavior in the current Supabase Swift SDK version. This is a known issue that will be
+    // fixed in a future major release. We handle expired sessions properly in AuthService by
+    // checking session.isExpired and refreshing when needed. The session handling logic in
+    // checkSupabaseSession() ensures users remain signed in indefinitely until manual logout.
+    // See: https://github.com/supabase/supabase-swift/pull/822
     return SupabaseClient(
         supabaseURL: url,
         supabaseKey: SupabaseConfig.supabaseAnonKey

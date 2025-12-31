@@ -14,6 +14,7 @@ struct RootView: View {
     @StateObject private var challengeService = ChallengeService()
     @StateObject private var friendsService = FriendsService()
     @StateObject private var themeManager = ThemeManager()
+    @ObservedObject private var router = DeepLinkRouter.shared
     
     @StateObject private var sessionViewModel: SessionViewModel
     @State private var showingPasswordReset = false
@@ -60,6 +61,14 @@ struct RootView: View {
             if let url = notification.userInfo?["url"] as? URL {
                 passwordResetURL = url
                 showingPasswordReset = true
+            }
+        }
+        .sheet(item: Binding(
+            get: { router.pendingInviteToken.map { InviteTokenItem(token: $0) } },
+            set: { _ in router.pendingInviteToken = nil }
+        )) { item in
+            NavigationStack {
+                InviteAcceptView(token: item.token, service: friendsService)
             }
         }
     }

@@ -98,6 +98,7 @@ struct JoinChallengeView: View {
             }
             .navigationBarHidden(true)
         }
+        .dismissKeyboardOnTap()
         .onAppear {
             viewModel.updateService(challengeService)
         }

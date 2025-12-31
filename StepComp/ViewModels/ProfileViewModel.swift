@@ -62,20 +62,30 @@ final class ProfileViewModel: ObservableObject {
     
     private var challengeService: ChallengeService
     private var authService: AuthService
+    private var healthKitService: HealthKitService?
     
     private var themeManager: ThemeManager?
+    private var refreshTimer: Timer?
+    private var cancellables = Set<AnyCancellable>()
     
     init(
         user: User,
         challengeService: ChallengeService,
-        authService: AuthService
+        authService: AuthService,
+        healthKitService: HealthKitService? = nil
     ) {
         self.user = user
         self.challengeService = challengeService
         self.authService = authService
+        self.healthKitService = healthKitService
         
         loadStats()
         loadDarkModePreference()
+        startAutoRefresh()
+    }
+    
+    deinit {
+        stopAutoRefresh()
     }
     
     func setThemeManager(_ themeManager: ThemeManager) {
@@ -101,10 +111,14 @@ final class ProfileViewModel: ObservableObject {
         themeManager?.setColorScheme(isDarkMode ? .dark : .light)
     }
     
-    func updateServices(challengeService: ChallengeService, authService: AuthService) {
+    func updateServices(challengeService: ChallengeService, authService: AuthService, healthKitService: HealthKitService? = nil) {
         self.challengeService = challengeService
         self.authService = authService
+        self.healthKitService = healthKitService
         loadStats()
+        // Restart auto-refresh with new healthKitService
+        stopAutoRefresh()
+        startAutoRefresh()
     }
     
     func loadStats() {
@@ -114,15 +128,20 @@ final class ProfileViewModel: ObservableObject {
         Task {
             let userChallenges = challengeService.getUserChallenges(userId: user.id)
             totalChallenges = userChallenges.count
-            totalSteps = user.totalSteps
             
-            // Calculate derived stats
-            caloriesBurned = Int(Double(totalSteps) * 0.04) // Approximate
-            activeTimeHours = Int(Double(totalSteps) * 0.0001) // Approximate
+            // Load HealthKit data if available
+            if let healthKitService = healthKitService, healthKitService.isAuthorized {
+                await loadHealthKitStats(healthKitService: healthKitService)
+            } else {
+                // Fallback to user's stored data
+                totalSteps = user.totalSteps
+                caloriesBurned = Int(Double(totalSteps) * 0.04)
+                activeTimeHours = Int(Double(totalSteps) * 0.0001)
+                weeklyActivityData = generateWeeklyData()
+                monthlyActivityData = generateMonthlyData()
+                todaySteps = 0
+            }
             
-            // Generate sample weekly data (would come from HealthKit in real app)
-            weeklyActivityData = generateWeeklyData()
-            monthlyActivityData = generateMonthlyData()
             // Ensure we have exactly 7 days of data
             if weeklyActivityData.count < 7 {
                 weeklyActivityData = Array(weeklyActivityData.prefix(7))
@@ -130,10 +149,8 @@ final class ProfileViewModel: ObservableObject {
                     weeklyActivityData.append(0)
                 }
             }
-            todaySteps = weeklyActivityData.isEmpty ? 0 : (weeklyActivityData.last ?? 0)
             
             // Load height and weight from UserDefaults (set by AuthService.loadUserProfile)
-            // These are synced from the database when the user profile is loaded
             height = UserDefaults.standard.integer(forKey: "userHeight")
             if height == 0 { height = 175 } // Default
             weight = UserDefaults.standard.integer(forKey: "userWeight")
@@ -142,6 +159,145 @@ final class ProfileViewModel: ObservableObject {
             
             isLoading = false
         }
+    }
+    
+    private func loadHealthKitStats(healthKitService: HealthKitService) async {
+        // Ensure HealthKit is initialized and check authorization
+        _ = healthKitService.isHealthKitAvailable
+        healthKitService.checkAuthorizationStatus()
+        
+        guard healthKitService.isAuthorized else {
+            print("⚠️ HealthKit not authorized in Profile, using fallback values")
+            todaySteps = 0
+            weeklyActivityData = generateWeeklyData()
+            monthlyActivityData = generateMonthlyData()
+            caloriesBurned = Int(Double(totalSteps) * 0.04)
+            activeTimeHours = Int(Double(totalSteps) * 0.0001)
+            currentStreak = 0
+            return
+        }
+        
+        do {
+            print("🔄 Loading HealthKit data in Profile...")
+            // Get today's steps
+            todaySteps = try await healthKitService.getTodaySteps()
+            print("✅ Today's steps: \(todaySteps)")
+            
+            // Get weekly stats for activity chart
+            let calendar = Calendar.current
+            let now = Date()
+            let weekAgo = calendar.date(byAdding: .day, value: -7, to: now) ?? now
+            let weeklyStats = try await healthKitService.getSteps(from: weekAgo, to: now)
+            
+            // Convert to array format for chart (7 days)
+            weeklyActivityData = Array(repeating: 0, count: 7)
+            for stat in weeklyStats {
+                let daysAgo = calendar.dateComponents([.day], from: stat.date, to: now).day ?? 0
+                if daysAgo >= 0 && daysAgo < 7 {
+                    weeklyActivityData[6 - daysAgo] = stat.steps
+                }
+            }
+            
+            // Get monthly stats (last 30 days)
+            let monthAgo = calendar.date(byAdding: .day, value: -30, to: now) ?? now
+            let monthlyStats = try await healthKitService.getSteps(from: monthAgo, to: now)
+            monthlyActivityData = Array(repeating: 0, count: 30)
+            for stat in monthlyStats {
+                let daysAgo = calendar.dateComponents([.day], from: stat.date, to: now).day ?? 0
+                if daysAgo >= 0 && daysAgo < 30 {
+                    monthlyActivityData[29 - daysAgo] = stat.steps
+                }
+            }
+            
+            // Calculate total steps (sum of all weekly stats + today)
+            let weeklyTotal = weeklyStats.reduce(0) { $0 + $1.steps }
+            totalSteps = max(weeklyTotal, user.totalSteps) // Use max of HealthKit data or stored total
+            
+            // Calculate derived stats from today's steps
+            caloriesBurned = Int(Double(todaySteps) * 0.04) // Approximate: 1 step ≈ 0.04 kcal
+            activeTimeHours = Int(Double(todaySteps) * 0.0001) // Approximate: 1 step ≈ 0.0001 hours
+            
+            // Calculate streak
+            currentStreak = calculateStreak(from: weeklyStats)
+            print("✅ Profile HealthKit data loaded - Total: \(totalSteps), Streak: \(currentStreak)")
+            
+            // Load height and weight from HealthKit if available
+            await loadHeightWeightFromHealthKit(healthKitService: healthKitService)
+        } catch {
+            print("⚠️ Error loading HealthKit stats: \(error.localizedDescription)")
+            // Fallback to stored data
+            totalSteps = user.totalSteps
+            caloriesBurned = Int(Double(totalSteps) * 0.04)
+            activeTimeHours = Int(Double(totalSteps) * 0.0001)
+            weeklyActivityData = generateWeeklyData()
+            monthlyActivityData = generateMonthlyData()
+            todaySteps = 0
+        }
+    }
+    
+    private func loadHeightWeightFromHealthKit(healthKitService: HealthKitService) async {
+        // Only load if user has default values (hasn't set custom height/weight)
+        let currentHeight = UserDefaults.standard.integer(forKey: "userHeight")
+        let currentWeight = UserDefaults.standard.integer(forKey: "userWeight")
+        
+        // Only auto-load if user hasn't set custom values
+        guard currentHeight == 0 || currentHeight == 175, currentWeight == 0 || currentWeight == 68 else {
+            // User already has custom values, don't overwrite
+            return
+        }
+        
+        do {
+            // Try to load height from HealthKit
+            if let heightInCm = try await healthKitService.getHeight() {
+                let heightInt = Int(heightInCm)
+                if heightInt > 0 {
+                    print("✅ Loaded height from HealthKit: \(heightInt) cm")
+                    height = heightInt
+                    UserDefaults.standard.set(heightInt, forKey: "userHeight")
+                    // Update in database
+                    await authService.updateUserHeightWeight(height: heightInt, weight: weight)
+                }
+            }
+            
+            // Try to load weight from HealthKit
+            if let weightInKg = try await healthKitService.getWeight() {
+                let weightInt = Int(weightInKg)
+                if weightInt > 0 {
+                    print("✅ Loaded weight from HealthKit: \(weightInt) kg")
+                    weight = weightInt
+                    UserDefaults.standard.set(weightInt, forKey: "userWeight")
+                    // Update in database
+                    await authService.updateUserHeightWeight(height: height, weight: weightInt)
+                }
+            }
+        } catch {
+            print("⚠️ Error loading height/weight from HealthKit: \(error.localizedDescription)")
+        }
+    }
+    
+    private func calculateStreak(from stats: [StepStats]) -> Int {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        var streak = 0
+        
+        // Check today first
+        if let todayStat = stats.first(where: { calendar.isDate($0.date, inSameDayAs: today) }),
+           todayStat.steps > 0 {
+            streak = 1
+            
+            // Check previous days
+            for i in 1..<30 {
+                if let date = calendar.date(byAdding: .day, value: -i, to: today),
+                   let stat = stats.first(where: { calendar.isDate($0.date, inSameDayAs: date) }),
+                   stat.steps > 0 {
+                    streak += 1
+                } else {
+                    break
+                }
+            }
+        }
+        
+        return max(streak, 0)
     }
     
     private func generateWeeklyData() -> [Int] {
@@ -188,6 +344,41 @@ final class ProfileViewModel: ObservableObject {
     
     func refresh() {
         loadStats()
+    }
+    
+    // MARK: - Auto Refresh
+    
+    private func startAutoRefresh() {
+        // Refresh every 30 seconds to keep HealthKit data up-to-date
+        refreshTimer = Timer.scheduledTimer(withTimeInterval: 30.0, repeats: true) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                guard let self = self, let healthKitService = self.healthKitService, healthKitService.isAuthorized else { return }
+                print("🔄 Auto-refreshing HealthKit data in Profile...")
+                await self.loadHealthKitStats(healthKitService: healthKitService)
+            }
+        }
+        // Ensure timer runs on main thread
+        if let timer = refreshTimer {
+            RunLoop.main.add(timer, forMode: .common)
+        }
+    }
+    
+    nonisolated private func stopAutoRefresh() {
+        Task { @MainActor in
+            refreshTimer?.invalidate()
+            refreshTimer = nil
+            cancellables.removeAll()
+        }
+    }
+    
+    func pauseAutoRefresh() {
+        stopAutoRefresh()
+    }
+    
+    func resumeAutoRefresh() {
+        if refreshTimer == nil {
+            startAutoRefresh()
+        }
     }
 }
 

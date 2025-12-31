@@ -2,15 +2,16 @@
 //  LeaderboardEntry.swift
 //  StepComp
 //
-//  Created by Jeffery Erhunse on 12/24/25.
+//  Model for leaderboard entries (computed server-side)
 //
 
 import Foundation
 
+// MARK: - Client Model (UI)
 struct LeaderboardEntry: Identifiable, Codable, Equatable {
-    let id: String
-    let userId: String
-    let challengeId: String
+    var id: String
+    var userId: String
+    var challengeId: String
     var displayName: String
     var avatarURL: String?
     var steps: Int
@@ -23,8 +24,8 @@ struct LeaderboardEntry: Identifiable, Codable, Equatable {
         challengeId: String,
         displayName: String,
         avatarURL: String? = nil,
-        steps: Int = 0,
-        rank: Int = 0,
+        steps: Int,
+        rank: Int,
         lastUpdated: Date = Date()
     ) {
         self.id = id
@@ -38,19 +39,42 @@ struct LeaderboardEntry: Identifiable, Codable, Equatable {
     }
 }
 
-enum LeaderboardScope: String, CaseIterable, Identifiable {
-    case daily
-    case weekly
-    case allTime
+// MARK: - Server Model (from RPC)
+// This matches the structure returned by get_challenge_leaderboard() and get_challenge_leaderboard_today()
+struct ServerLeaderboardEntry: Codable {
+    let userId: String
+    let username: String
+    let displayName: String?
+    let avatarUrl: String?
+    let steps: Int
+    let rank: Int
     
-    var id: String { rawValue }
+    enum CodingKeys: String, CodingKey {
+        case userId = "user_id"
+        case username
+        case displayName = "display_name"
+        case avatarUrl = "avatar_url"
+        case steps
+        case rank
+    }
     
-    var displayName: String {
-        switch self {
-        case .daily: return "Today"
-        case .weekly: return "This Week"
-        case .allTime: return "All Time"
-        }
+    // Convert to client model
+    func toLeaderboardEntry(challengeId: String) -> LeaderboardEntry {
+        LeaderboardEntry(
+            id: UUID().uuidString,
+            userId: userId,
+            challengeId: challengeId,
+            displayName: displayName ?? username,
+            avatarURL: avatarUrl,
+            steps: steps,
+            rank: rank,
+            lastUpdated: Date()
+        )
     }
 }
 
+enum LeaderboardScope: String, CaseIterable {
+    case daily = "Today"
+    case weekly = "Week"
+    case allTime = "Overall"
+}

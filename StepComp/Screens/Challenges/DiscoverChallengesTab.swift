@@ -106,6 +106,27 @@ struct DiscoverChallengesTab: View {
         .sheet(isPresented: $showingCreateChallenge) {
             CreateChallengeView(sessionViewModel: sessionViewModel)
         }
+        .onChange(of: showingCreateChallenge) { oldValue, newValue in
+            // Refresh challenges when sheet is dismissed
+            if oldValue == true && newValue == false {
+                Task {
+                    #if canImport(Supabase)
+                    // Refresh challenge service first
+                    await challengeService.refreshChallenges()
+                    // Small delay to ensure database is updated
+                    try? await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
+                    #endif
+                    // Then reload challenges in view model
+                    await viewModel.loadChallenges()
+                }
+            }
+        }
+        .onAppear {
+            // Load challenges when Discover tab appears
+            Task {
+                await viewModel.loadChallenges()
+            }
+        }
     }
     
     @ViewBuilder

@@ -39,10 +39,10 @@ final class ChallengeService: ObservableObject {
     
     // MARK: - Challenges
     
-    func createChallenge(_ challenge: Challenge) async throws {
+    func createChallenge(_ challenge: Challenge, isPublic: Bool = false) async throws {
         #if canImport(Supabase)
         if useSupabase {
-            try await createChallengeInSupabase(challenge)
+            try await createChallengeInSupabase(challenge, isPublic: isPublic)
         } else {
             challenges.append(challenge)
             saveChallenges()
@@ -54,13 +54,12 @@ final class ChallengeService: ObservableObject {
     }
     
     #if canImport(Supabase)
-    private func createChallengeInSupabase(_ challenge: Challenge) async throws {
-        // Generate invite code if not provided
-        let inviteCode = challenge.inviteCode ?? generateInviteCode()
+    private func createChallengeInSupabase(_ challenge: Challenge, isPublic: Bool) async throws {
+        // Generate invite code if not provided (only for private challenges)
+        let inviteCode = isPublic ? nil : (challenge.inviteCode ?? generateInviteCode())
         
         // Convert Challenge to SupabaseChallenge
-        // Note: isPublic = false means private (only invited can join)
-        // We'll use isPublic to represent privacy, and can add isFriendsOnly later if needed
+        // isPublic = true means anyone can join, false means private (only invited can join)
         let supabaseChallenge = SupabaseChallenge(
             id: challenge.id,
             name: challenge.name,
@@ -68,29 +67,47 @@ final class ChallengeService: ObservableObject {
             startDate: challenge.startDate,
             endDate: challenge.endDate,
             createdBy: challenge.creatorId,
-            isPublic: false, // Private by default (only invited participants can join)
+            isPublic: isPublic,
             inviteCode: inviteCode,
             createdAt: challenge.createdAt,
             updatedAt: Date()
         )
         
         // Insert challenge into database
-        try await supabase
-            .from("challenges")
-            .insert(supabaseChallenge)
-            .execute()
+        print("📤 Inserting challenge into database...")
+        do {
+            try await supabase
+                .from("challenges")
+                .insert(supabaseChallenge)
+                .execute()
+            print("✅ Challenge inserted into database")
+        } catch {
+            print("❌ Failed to insert challenge: \(error.localizedDescription)")
+            throw error
+        }
         
         // Add creator as challenge member
-        try await addChallengeMember(challengeId: challenge.id, userId: challenge.creatorId)
+        print("👤 Adding creator as challenge member...")
+        do {
+            try await addChallengeMember(challengeId: challenge.id, userId: challenge.creatorId)
+            print("✅ Creator added as challenge member")
+        } catch {
+            print("⚠️ Failed to add creator as member: \(error.localizedDescription)")
+            // Don't throw - challenge was created, we can try to add member later
+        }
         
         // Add selected participants
         for participantId in challenge.participantIds where participantId != challenge.creatorId {
             try? await addChallengeMember(challengeId: challenge.id, userId: participantId)
         }
         
-        // Update local cache
-        challenges.append(challenge)
+        // Refresh challenges from database to ensure consistency
+        // This ensures the challenge appears immediately in the UI
+        // Add a small delay to ensure database transaction is committed
+        try? await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
+        await loadChallengesFromSupabase()
         print("✅ Challenge created in Supabase: \(challenge.id)")
+        print("✅ Total challenges loaded: \(challenges.count)")
     }
     
     private func generateInviteCode() -> String {
@@ -142,9 +159,14 @@ final class ChallengeService: ObservableObject {
         #if canImport(Supabase)
         if useSupabase {
             // Return cached challenges (loaded from Supabase)
-            return challenges.filter { challenge in
+            let userChallenges = challenges.filter { challenge in
                 challenge.creatorId == userId || challenge.participantIds.contains(userId)
             }
+            print("🔍 getUserChallenges for userId \(userId): Found \(userChallenges.count) challenges out of \(challenges.count) total")
+            for challenge in userChallenges {
+                print("  - \(challenge.name): creator=\(challenge.creatorId == userId), participant=\(challenge.participantIds.contains(userId))")
+            }
+            return userChallenges
         } else {
             return challenges.filter { challenge in
                 challenge.creatorId == userId || challenge.participantIds.contains(userId)
@@ -158,7 +180,22 @@ final class ChallengeService: ObservableObject {
     }
     
     func getActiveChallenges(userId: String) -> [Challenge] {
-        getUserChallenges(userId: userId).filter { $0.isOngoing }
+        // Show challenges that are ongoing OR haven't started yet (user is part of them)
+        // This ensures users see challenges they've created/joined even if they start in the future
+        let userChallenges = getUserChallenges(userId: userId)
+        let now = Date()
+        return userChallenges.filter { challenge in
+            // Show if ongoing (started and not ended)
+            if challenge.isOngoing {
+                return true
+            }
+            // Also show if it hasn't started yet (future challenge)
+            if challenge.isActive && challenge.startDate > now {
+                return true
+            }
+            // Don't show if it's ended
+            return false
+        }
     }
     
     func joinChallenge(_ challengeId: String, userId: String) async throws {
@@ -270,49 +307,20 @@ final class ChallengeService: ObservableObject {
     
     #if canImport(Supabase)
     private func getLeaderboardFromSupabase(challengeId: String) async -> [LeaderboardEntry] {
-        // Query challenge_members directly instead of using RPC function
-        // This avoids RPC syntax issues and works reliably
+        // Use server-side RPC function (secure, validated, computed from daily_steps)
         do {
-            // Get all members for this challenge
-            let members: [ChallengeMember] = try await supabase
-                .from("challenge_members")
-                .select()
-                .eq("challenge_id", value: challengeId)
+            let serverEntries: [ServerLeaderboardEntry] = try await supabase
+                .rpc("get_challenge_leaderboard", params: ["p_challenge_id": challengeId])
                 .execute()
                 .value
             
-            // Get user profiles
-            let userIds = members.map { $0.userId }
-            guard !userIds.isEmpty else { return [] }
-            
-            let profiles: [UserProfile] = try await supabase
-                .from("profiles")
-                .select()
-                .in("id", values: userIds)
-                .execute()
-                .value
-            
-            // Sort by total_steps descending and assign ranks
-            let sortedMembers = members.sorted { $0.totalSteps > $1.totalSteps }
-            
-            // Convert to LeaderboardEntry
-            let entries = sortedMembers.enumerated().compactMap { index, member -> LeaderboardEntry? in
-                let profile = profiles.first { $0.id == member.userId }
-                return LeaderboardEntry(
-                    id: UUID().uuidString,
-                    userId: member.userId,
-                    challengeId: challengeId,
-                    displayName: profile?.username ?? "User",
-                    avatarURL: profile?.avatar,
-                    steps: member.totalSteps,
-                    rank: index + 1,
-                    lastUpdated: member.lastUpdated
-                )
-            }
+            // Convert to client model
+            let entries = serverEntries.map { $0.toLeaderboardEntry(challengeId: challengeId) }
             
             // Cache for offline access
             leaderboardEntries[challengeId] = entries
             
+            print("✅ Loaded \(entries.count) leaderboard entries from RPC")
             return entries
         } catch {
             print("⚠️ Error loading leaderboard from Supabase: \(error.localizedDescription)")
@@ -498,18 +506,22 @@ final class ChallengeService: ObservableObject {
             let memberRecords: [ChallengeMember] = try await supabase
                 .from("challenge_members")
                 .select()
-                .eq("id", value: userId)
+                .eq("user_id", value: userId)
                 .execute()
                 .value
             
             let memberChallengeIds = memberRecords.map { $0.challengeId }
             
-            let memberChallenges: [SupabaseChallenge] = try await supabase
-                .from("challenges")
-                .select()
-                .in("id", values: memberChallengeIds)
-                .execute()
-                .value
+            // Only query if there are member challenge IDs
+            var memberChallenges: [SupabaseChallenge] = []
+            if !memberChallengeIds.isEmpty {
+                memberChallenges = try await supabase
+                    .from("challenges")
+                    .select()
+                    .in("id", values: memberChallengeIds)
+                    .execute()
+                    .value
+            }
             
             // Combine and deduplicate
             var allChallenges = createdChallenges
@@ -533,6 +545,13 @@ final class ChallengeService: ObservableObject {
                 
                 let participantIds = members.map { $0.userId }
                 
+                // Ensure creator is in participantIds (they should be, but double-check)
+                var finalParticipantIds = participantIds
+                if !finalParticipantIds.contains(supabaseChallenge.createdBy) {
+                    finalParticipantIds.append(supabaseChallenge.createdBy)
+                    print("⚠️ Creator \(supabaseChallenge.createdBy) not in participantIds, adding them")
+                }
+                
                 let challenge = Challenge(
                     id: supabaseChallenge.id,
                     name: supabaseChallenge.name,
@@ -541,7 +560,7 @@ final class ChallengeService: ObservableObject {
                     endDate: supabaseChallenge.endDate,
                     targetSteps: 10000, // Default - could add to schema later
                     creatorId: supabaseChallenge.createdBy,
-                    participantIds: participantIds,
+                    participantIds: finalParticipantIds,
                     isActive: true,
                     createdAt: supabaseChallenge.createdAt,
                     inviteCode: supabaseChallenge.inviteCode
@@ -552,6 +571,10 @@ final class ChallengeService: ObservableObject {
             
             challenges = loadedChallenges
             print("✅ Loaded \(challenges.count) challenges from Supabase")
+            // Log challenge details for debugging
+            for challenge in challenges {
+                print("  - Challenge: \(challenge.name) (ID: \(challenge.id), Creator: \(challenge.creatorId), Participants: \(challenge.participantIds.count), Start: \(challenge.startDate), End: \(challenge.endDate))")
+            }
         } catch {
             print("⚠️ Error loading challenges from Supabase: \(error.localizedDescription)")
             // Fallback to local storage
@@ -591,85 +614,19 @@ final class ChallengeService: ObservableObject {
     }
     
     // MARK: - Step Syncing
+    // NOTE: Step syncing is now handled entirely by the Edge Function + sync_daily_steps() RPC
+    // These methods are kept for backwards compatibility but are no longer the primary sync path
     
     func syncStepsToChallenge(challengeId: String, userId: String, steps: Int, date: Date = Date()) async throws {
-        #if canImport(Supabase)
-        guard useSupabase else { return }
-        
-        do {
-            // Get current challenge member record
-            let member: ChallengeMember = try await supabase
-                .from("challenge_members")
-                .select()
-                .eq("challenge_id", value: challengeId)
-                .eq("id", value: userId)
-                .single()
-                .execute()
-                .value
-            
-            var updatedMember = member
-            
-            // Format date for daily_steps JSONB
-            let dateFormatter = DateFormatter()
-            dateFormatter.dateFormat = "yyyy-MM-dd"
-            let dateString = dateFormatter.string(from: date)
-            
-            // Update daily steps
-            var dailySteps = updatedMember.dailySteps
-            dailySteps[dateString] = steps
-            
-            // Calculate new total steps (sum of all daily steps)
-            let totalSteps = dailySteps.values.reduce(0, +)
-            
-            // Update member record
-            updatedMember.totalSteps = totalSteps
-            updatedMember.dailySteps = dailySteps
-            updatedMember.lastUpdated = Date()
-            
-            try await supabase
-                .from("challenge_members")
-                .update(updatedMember)
-                .eq("id", value: updatedMember.id)
-                .execute()
-            
-            print("✅ Synced \(steps) steps for user \(userId) in challenge \(challengeId)")
-        } catch {
-            print("⚠️ Error syncing steps: \(error.localizedDescription)")
-            throw error
-        }
-        #endif
+        // ⚠️ DEPRECATED: Steps are now synced automatically via Edge Function
+        // The sync_daily_steps() RPC automatically updates challenge_members
+        print("ℹ️ syncStepsToChallenge is deprecated - steps are synced via Edge Function")
     }
     
-    func syncTodayStepsToAllChallenges(userId: String, healthKitService: HealthKitService) async {
-        #if canImport(Supabase)
-        guard useSupabase else { return }
-        
-        do {
-            // Get today's steps from HealthKit
-            let todaySteps = try await healthKitService.getTodaySteps()
-            
-            // Get all active challenges for this user
-            let activeChallenges = getActiveChallenges(userId: userId)
-            
-            // Sync steps to each challenge
-            for challenge in activeChallenges {
-                do {
-                    try await syncStepsToChallenge(
-                        challengeId: challenge.id,
-                        userId: userId,
-                        steps: todaySteps,
-                        date: Date()
-                    )
-                } catch {
-                    print("⚠️ Error syncing steps to challenge \(challenge.id): \(error.localizedDescription)")
-                }
-            }
-            
-            print("✅ Synced today's steps (\(todaySteps)) to \(activeChallenges.count) challenges")
-        } catch {
-            print("⚠️ Error syncing today's steps: \(error.localizedDescription)")
-        }
-        #endif
+    func syncTodayStepsToAllChallenges(healthKitService: HealthKitService) async {
+        // ⚠️ DEPRECATED: Steps are now synced automatically via Edge Function
+        // The sync_daily_steps() RPC automatically updates all challenge_members
+        print("ℹ️ syncTodayStepsToAllChallenges is deprecated - steps are synced via Edge Function")
     }
 }
 

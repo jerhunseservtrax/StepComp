@@ -127,6 +127,7 @@ struct AddFriendsView: View {
                 }
             }
         }
+        .dismissKeyboardOnTap()
     }
 }
 
@@ -334,7 +335,7 @@ final class AddFriendsViewModel: ObservableObject {
                 }
                 
                 let requests: [FriendRequest] = try await supabase
-                    .from("friends")
+                    .from("friendships")
                     .select()
                     .eq("requester_id", value: currentUserId)
                     .execute()
@@ -351,7 +352,7 @@ final class AddFriendsViewModel: ObservableObject {
                 
                 // Also load requests where current user is addressee (accepted friendships)
                 let received: [FriendRequest] = try await supabase
-                    .from("friends")
+                    .from("friendships")
                     .select()
                     .eq("addressee_id", value: currentUserId)
                     .eq("status", value: "accepted")
@@ -409,7 +410,7 @@ final class AddFriendsViewModel: ObservableObject {
                 )
                 
                 try await supabase
-                    .from("friends")
+                    .from("friendships")
                     .insert(request)
                     .execute()
                 
@@ -429,7 +430,7 @@ final class AddFriendsViewModel: ObservableObject {
             #if canImport(Supabase)
             do {
                 try await supabase
-                    .from("friends")
+                    .from("friendships")
                     .delete()
                     .eq("requester_id", value: currentUserId)
                     .eq("addressee_id", value: userId)

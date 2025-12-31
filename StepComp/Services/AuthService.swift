@@ -264,7 +264,8 @@ final class AuthService: ObservableObject {
                 firstName: firstName,
                 lastName: lastName,
                 avatar: nil,
-                isPremium: false
+                isPremium: false,
+                publicProfile: false // Default to private
             )
             
             if profileExists {
@@ -508,7 +509,8 @@ final class AuthService: ObservableObject {
                 avatar: nil,
                 isPremium: false,
                 height: height,
-                weight: weight
+                weight: weight,
+                publicProfile: false // Default to private
             )
             
             do {
@@ -543,7 +545,8 @@ final class AuthService: ObservableObject {
                             avatar: existingProfile?.avatar,
                             isPremium: existingProfile?.isPremium ?? false,
                             height: height,
-                            weight: weight
+                            weight: weight,
+                            publicProfile: existingProfile?.publicProfile ?? false
                         )
                         _ = try? await supabase
                             .from("profiles")
@@ -627,14 +630,17 @@ final class AuthService: ObservableObject {
             let firstName = profile.firstName ?? ""
             let lastName = profile.lastName ?? ""
             
+            // Use avatar_url if available, fallback to avatar
+            let avatarURL = profile.avatarUrl ?? profile.avatar
+            
             let user = User(
                 id: profile.id,
                 username: profile.username,
                 firstName: firstName,
                 lastName: lastName,
-                avatarURL: profile.avatar,
+                avatarURL: avatarURL,
                 email: email, // Email from auth session
-                totalSteps: 0, // Would come from challenge_members aggregation
+                totalSteps: profile.totalSteps ?? 0, // Load from profiles.total_steps
                 totalChallenges: 0 // Would come from challenge_members count
             )
             
@@ -648,6 +654,13 @@ final class AuthService: ObservableObject {
             }
             if let weight = profile.weight {
                 UserDefaults.standard.set(weight, forKey: "userWeight")
+            }
+            // Store daily step goal in UserDefaults
+            if let dailyStepGoal = profile.dailyStepGoal {
+                UserDefaults.standard.set(dailyStepGoal, forKey: "dailyStepGoal")
+            } else {
+                // Set default if not set
+                UserDefaults.standard.set(10000, forKey: "dailyStepGoal")
             }
         } catch {
             print("⚠️ Error loading user profile: \(error.localizedDescription)")
@@ -685,15 +698,34 @@ final class AuthService: ObservableObject {
             let height = UserDefaults.standard.integer(forKey: "userHeight")
             let weight = UserDefaults.standard.integer(forKey: "userWeight")
             
+            // First, get existing profile to preserve publicProfile setting
+            let existingProfiles: [UserProfile] = try await supabase
+                .from("profiles")
+                .select()
+                .eq("id", value: userId)
+                .execute()
+                .value
+            let existingProfile = existingProfiles.first
+            
+            // Use avatar_url if available, otherwise use avatar
+            let avatarURL = user.avatarURL
+            
+            // Get daily step goal from UserDefaults or use existing profile value
+            let dailyStepGoal = UserDefaults.standard.integer(forKey: "dailyStepGoal")
+            let goal = dailyStepGoal > 0 ? dailyStepGoal : (existingProfile?.dailyStepGoal ?? 10000)
+            
             let profile = UserProfile(
                 id: userId,
                 username: user.username,
                 firstName: user.firstName,
                 lastName: user.lastName,
-                avatar: user.avatarURL,
-                isPremium: false, // Would come from profiles table
+                avatar: avatarURL, // Keep for backward compatibility
+                avatarUrl: avatarURL, // Use new field
+                isPremium: existingProfile?.isPremium ?? false,
                 height: height > 0 ? height : nil,
-                weight: weight > 0 ? weight : nil
+                weight: weight > 0 ? weight : nil,
+                publicProfile: existingProfile?.publicProfile ?? false,
+                dailyStepGoal: goal
             )
             
             try await supabase
@@ -727,15 +759,30 @@ final class AuthService: ObservableObject {
             }
             
             // Update profile in database
+            // First, get existing profile to preserve publicProfile setting
+            let existingProfiles: [UserProfile] = try await supabase
+                .from("profiles")
+                .select()
+                .eq("id", value: userId)
+                .execute()
+                .value
+            let existingProfile = existingProfiles.first
+            
+            // Get daily step goal from UserDefaults or use existing profile value
+            let dailyStepGoal = UserDefaults.standard.integer(forKey: "dailyStepGoal")
+            let goal = dailyStepGoal > 0 ? dailyStepGoal : (existingProfile?.dailyStepGoal ?? 10000)
+            
             let profile = UserProfile(
                 id: userId,
                 username: currentUser?.username ?? "",
                 firstName: currentUser?.firstName,
                 lastName: currentUser?.lastName,
                 avatar: currentUser?.avatarURL,
-                isPremium: false,
+                isPremium: existingProfile?.isPremium ?? false,
                 height: height,
-                weight: weight
+                weight: weight,
+                publicProfile: existingProfile?.publicProfile ?? false,
+                dailyStepGoal: goal
             )
             
             try await supabase
@@ -747,6 +794,55 @@ final class AuthService: ObservableObject {
             print("✅ Height and weight updated successfully: height=\(height?.description ?? "nil"), weight=\(weight?.description ?? "nil")")
         } catch {
             print("⚠️ Error updating height/weight: \(error.localizedDescription)")
+        }
+        #endif
+    }
+    
+    func updateDailyStepGoal(_ goal: Int) async {
+        #if canImport(Supabase)
+        guard useSupabase else { return }
+        
+        guard let userId = currentUser?.id as String? else {
+            print("⚠️ No current user to update daily step goal")
+            return
+        }
+        
+        do {
+            // Update UserDefaults first
+            UserDefaults.standard.set(goal, forKey: "dailyStepGoal")
+            
+            // Update profile in database
+            // First, get existing profile to preserve other settings
+            let existingProfiles: [UserProfile] = try await supabase
+                .from("profiles")
+                .select()
+                .eq("id", value: userId)
+                .execute()
+                .value
+            let existingProfile = existingProfiles.first
+            
+            let profile = UserProfile(
+                id: userId,
+                username: currentUser?.username ?? "",
+                firstName: currentUser?.firstName,
+                lastName: currentUser?.lastName,
+                avatar: currentUser?.avatarURL,
+                isPremium: existingProfile?.isPremium ?? false,
+                height: existingProfile?.height,
+                weight: existingProfile?.weight,
+                publicProfile: existingProfile?.publicProfile ?? false,
+                dailyStepGoal: goal
+            )
+            
+            try await supabase
+                .from("profiles")
+                .update(profile)
+                .eq("id", value: userId)
+                .execute()
+            
+            print("✅ Daily step goal updated successfully: \(goal)")
+        } catch {
+            print("⚠️ Error updating daily step goal: \(error.localizedDescription)")
         }
         #endif
     }

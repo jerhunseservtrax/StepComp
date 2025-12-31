@@ -26,6 +26,12 @@ struct SettingsView: View {
     @State private var darkMode = false
     @State private var unitSystem: UnitSystem = .metric
     
+    // HealthKit data
+    @State private var todaySteps: Int = 0
+    @State private var currentStreak: Int = 0
+    @State private var totalSteps: Int = 0
+    @State private var refreshTimer: Timer?
+    
     private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
     
     enum UnitSystem {
@@ -41,8 +47,8 @@ struct SettingsView: View {
                     // Sidebar
                     SettingsSidebar(
                         user: sessionViewModel.currentUser,
-                        totalSteps: sessionViewModel.currentUser?.totalSteps ?? 0,
-                        currentStreak: 42
+                        totalSteps: totalSteps,
+                        currentStreak: currentStreak
                     )
                     .frame(width: 320)
                     
@@ -72,8 +78,8 @@ struct SettingsView: View {
                             // Profile Section (Mobile)
                             SettingsProfileSection(
                                 user: sessionViewModel.currentUser,
-                                totalSteps: sessionViewModel.currentUser?.totalSteps ?? 0,
-                                currentStreak: 42
+                                totalSteps: totalSteps,
+                                currentStreak: currentStreak
                             )
                             .padding()
                             
@@ -97,6 +103,14 @@ struct SettingsView: View {
             }
         }
         .navigationBarHidden(true)
+        .task {
+            await loadHealthKitData()
+        }
+        .onChange(of: healthKitService.isAuthorized) { _, _ in
+            Task {
+                await loadHealthKitData()
+            }
+        }
         .alert("Sign Out", isPresented: $showingSignOutAlert) {
             Button("Cancel", role: .cancel) { }
             Button("Sign Out", role: .destructive) {
@@ -111,9 +125,120 @@ struct SettingsView: View {
         .onAppear {
             healthKitEnabled = healthKitService.isAuthorized
             darkMode = colorScheme == .dark
+            startAutoRefresh()
+        }
+        .onDisappear {
+            stopAutoRefresh()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
+            // Refresh when app comes to foreground
+            Task {
+                await loadHealthKitData()
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("RefreshHealthKitData"))) { _ in
+            // Refresh when timer fires
+            Task {
+                await loadHealthKitData()
+            }
         }
     }
+    
+    // MARK: - HealthKit Data Loading
+    
+    private func loadHealthKitData() async {
+        // Ensure HealthKit is initialized and check authorization
+        _ = healthKitService.isHealthKitAvailable
+        healthKitService.checkAuthorizationStatus()
+        
+        guard healthKitService.isAuthorized else {
+            // Use fallback values if HealthKit not authorized
+            print("⚠️ HealthKit not authorized in Settings, using fallback values")
+            totalSteps = sessionViewModel.currentUser?.totalSteps ?? 0
+            todaySteps = 0
+            currentStreak = 0
+            return
+        }
+        
+        do {
+            print("🔄 Loading HealthKit data in Settings...")
+            // Get today's steps
+            todaySteps = try await healthKitService.getTodaySteps()
+            print("✅ Today's steps: \(todaySteps)")
+            
+            // Get weekly stats for streak calculation
+            let calendar = Calendar.current
+            let now = Date()
+            let weekAgo = calendar.date(byAdding: .day, value: -7, to: now) ?? now
+            let weeklyStats = try await healthKitService.getSteps(from: weekAgo, to: now)
+            
+            // Calculate streak from HealthKit data
+            currentStreak = calculateStreak(from: weeklyStats)
+            print("✅ Streak: \(currentStreak) days")
+            
+            // Total steps: use user's total steps from database (since joining the app)
+            // This is stored in the profiles table and synced from HealthKit
+            totalSteps = sessionViewModel.currentUser?.totalSteps ?? 0
+            print("✅ Total steps since joining: \(totalSteps)")
+        } catch {
+            print("⚠️ Error loading HealthKit data in Settings: \(error.localizedDescription)")
+            // Fallback to user's stored total steps
+            totalSteps = sessionViewModel.currentUser?.totalSteps ?? 0
+            todaySteps = 0
+            currentStreak = 0
+        }
+    }
+    
+    private func calculateStreak(from stats: [StepStats]) -> Int {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        var streak = 0
+        
+        // Check today first
+        if let todayStat = stats.first(where: { calendar.isDate($0.date, inSameDayAs: today) }),
+           todayStat.steps > 0 {
+            streak = 1
+            
+            // Check previous days
+            for i in 1..<30 {
+                if let date = calendar.date(byAdding: .day, value: -i, to: today),
+                   let stat = stats.first(where: { calendar.isDate($0.date, inSameDayAs: date) }),
+                   stat.steps > 0 {
+                    streak += 1
+                } else {
+                    break
+                }
+            }
+        }
+        
+        return max(streak, 0)
+    }
+    
+    // MARK: - Auto Refresh
+    
+    private func startAutoRefresh() {
+        // Refresh every 30 seconds to keep HealthKit data up-to-date
+        // Note: SettingsView is a struct, so we can't use [weak self]. 
+        // We use a notification to trigger the refresh, which is handled by onReceive.
+        refreshTimer = Timer.scheduledTimer(withTimeInterval: 30.0, repeats: true) { _ in
+            Task { @MainActor in
+                print("🔄 Auto-refreshing HealthKit data in Settings...")
+                NotificationCenter.default.post(name: NSNotification.Name("RefreshHealthKitData"), object: nil)
+            }
+        }
+        // Ensure timer runs on main thread
+        if let timer = refreshTimer {
+            RunLoop.main.add(timer, forMode: .common)
+        }
+    }
+    
+    private func stopAutoRefresh() {
+        refreshTimer?.invalidate()
+        refreshTimer = nil
+    }
 }
+
+// MARK: - Sidebar
 
 // MARK: - Mobile Header
 
@@ -399,10 +524,8 @@ struct SettingsMainContent: View {
                         // Support & Legal Card
                         SupportLegalCard()
                         
-                        // Developer/Test Card (only show in debug builds)
-                        #if DEBUG
+                        // Developer/Test Card (always visible for HealthKit testing)
                         DeveloperCard()
-                        #endif
                     }
                     .padding(.horizontal, 32)
                     .padding(.top, 16)
@@ -523,6 +646,15 @@ struct PreferencesCard: View {
     @Binding var unitSystem: SettingsView.UnitSystem
     let sessionViewModel: SessionViewModel?
     @State private var showingHeightWeightEditor = false
+    @State private var showingDailyStepGoalEditor = false
+    
+    // Helper function to convert cm to feet/inches
+    private func heightInImperial(_ cm: Int) -> (feet: Int, inches: Int) {
+        let totalInches = Double(cm) / 2.54
+        let feet = Int(totalInches / 12)
+        let inches = Int(totalInches.truncatingRemainder(dividingBy: 12))
+        return (feet, inches)
+    }
     
     var body: some View {
         SettingsCard(
@@ -572,6 +704,35 @@ struct PreferencesCard: View {
                     }
                 )
                 
+                // Public Profile Toggle
+                if let sessionViewModel = sessionViewModel {
+                    SettingItemRow(
+                        icon: "person.circle.fill",
+                        iconBackground: .blue,
+                        title: "Public Profile",
+                        subtitle: "Allow others to find you in search",
+                        trailing: {
+                            Toggle("", isOn: Binding(
+                                get: {
+                                    // Read from current user's profile
+                                    return sessionViewModel.currentUser != nil
+                                },
+                                set: { newValue in
+                                    Task {
+                                        if let userId = sessionViewModel.currentUser?.id {
+                                            let service = FriendsService()
+                                            try? await service.setPublicProfile(newValue, myUserId: userId)
+                                            // Refresh user profile
+                                            await sessionViewModel.checkSession()
+                                        }
+                                    }
+                                }
+                            ))
+                            .toggleStyle(SwitchToggleStyle(tint: Color(red: 0.976, green: 0.961, blue: 0.024)))
+                        }
+                    )
+                }
+                
                 // Height and Weight
                 if let sessionViewModel = sessionViewModel {
                     Button(action: {
@@ -583,8 +744,11 @@ struct PreferencesCard: View {
                             subtitle: {
                                 let height = UserDefaults.standard.integer(forKey: "userHeight")
                                 let weight = UserDefaults.standard.integer(forKey: "userWeight")
+                                
                                 if height > 0 && weight > 0 {
-                                    return "\(height) cm, \(weight) kg"
+                                    let imperialHeight = heightInImperial(height)
+                                    let imperialWeight = Int(Double(weight) * 2.20462)
+                                    return "\(imperialHeight.feet)'\(imperialHeight.inches)\", \(imperialWeight) lbs"
                                 } else {
                                     return "Not set"
                                 }
@@ -604,6 +768,50 @@ struct PreferencesCard: View {
                                 onSave: { height, weight in
                                     Task {
                                         await sessionViewModel.authServiceAccess.updateUserHeightWeight(height: height, weight: weight)
+                                    }
+                                }
+                            )
+                        }
+                    }
+                }
+                
+                // Daily Step Goal
+                if let sessionViewModel = sessionViewModel {
+                    Button(action: {
+                        showingDailyStepGoalEditor = true
+                    }) {
+                        SettingItemRow(
+                            icon: "target",
+                            iconBackground: .green,
+                            title: "Daily Step Goal",
+                            subtitle: {
+                                let goal = UserDefaults.standard.integer(forKey: "dailyStepGoal")
+                                if goal > 0 {
+                                    let formatter = NumberFormatter()
+                                    formatter.numberStyle = .decimal
+                                    return "\(formatter.string(from: NSNumber(value: goal)) ?? "\(goal)") steps"
+                                } else {
+                                    return "10,000 steps (default)"
+                                }
+                            }(),
+                            trailing: {
+                                Image(systemName: "chevron.right")
+                                    .font(.system(size: 14))
+                                    .foregroundColor(.secondary)
+                            }
+                        )
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                    .sheet(isPresented: $showingDailyStepGoalEditor) {
+                        if let user = sessionViewModel.currentUser {
+                            EditDailyStepGoalSheet(
+                                user: user,
+                                currentGoal: UserDefaults.standard.integer(forKey: "dailyStepGoal") > 0 
+                                    ? UserDefaults.standard.integer(forKey: "dailyStepGoal") 
+                                    : 10000,
+                                onSave: { goal in
+                                    Task {
+                                        await sessionViewModel.authServiceAccess.updateDailyStepGoal(goal)
                                     }
                                 }
                             )
@@ -799,9 +1007,10 @@ struct FunFooter: View {
 
 // MARK: - Developer Card
 
-#if DEBUG
 struct DeveloperCard: View {
     @State private var showingSupabaseTest = false
+    @State private var showingHealthKitTest = false
+    @EnvironmentObject var healthKitService: HealthKitService
     
     var body: some View {
         SettingsCard(
@@ -809,41 +1018,73 @@ struct DeveloperCard: View {
             iconColor: .orange,
             title: "Developer Tools"
         ) {
-            VStack(spacing: 8) {
-                Button(action: {
-                    showingSupabaseTest = true
-                }) {
-                    HStack {
-                        Image(systemName: "network")
-                            .font(.system(size: 18))
-                        
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("Test Supabase Connection")
-                                .font(.system(size: 16, weight: .semibold))
-                                .foregroundColor(.primary)
-                            
-                            Text("Verify your Supabase setup")
-                                .font(.system(size: 12))
-                                .foregroundColor(.secondary)
+                    VStack(spacing: 8) {
+                        Button(action: {
+                            showingSupabaseTest = true
+                        }) {
+                            HStack {
+                                Image(systemName: "network")
+                                    .font(.system(size: 18))
+                                
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Test Supabase Connection")
+                                        .font(.system(size: 16, weight: .semibold))
+                                        .foregroundColor(.primary)
+                                }
+                                
+                                Spacer()
+                                
+                                Image(systemName: "chevron.right")
+                                    .font(.system(size: 14))
+                                    .foregroundColor(.secondary)
+                            }
+                            .padding()
+                            .background(Color(.systemGray6))
+                            .cornerRadius(12)
                         }
+                        .buttonStyle(PlainButtonStyle())
                         
-                        Spacer()
-                        
-                        Image(systemName: "chevron.right")
-                            .font(.system(size: 14))
-                            .foregroundColor(.secondary)
+                        Button(action: {
+                            showingHealthKitTest = true
+                        }) {
+                            HStack {
+                                Image(systemName: "heart.fill")
+                                    .font(.system(size: 18))
+                                    .foregroundColor(.red)
+                                
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Test HealthKit Connection")
+                                        .font(.system(size: 16, weight: .semibold))
+                                        .foregroundColor(.primary)
+                                    
+                                    Text("Test Apple Health integration")
+                                        .font(.system(size: 12))
+                                        .foregroundColor(.secondary)
+                                }
+                                
+                                Spacer()
+                                
+                                Image(systemName: "chevron.right")
+                                    .font(.system(size: 14))
+                                    .foregroundColor(.secondary)
+                            }
+                            .padding()
+                            .background(Color(.systemGray6))
+                            .cornerRadius(12)
+                        }
+                        .buttonStyle(PlainButtonStyle())
                     }
-                    .padding(8)
                 }
-                .buttonStyle(PlainButtonStyle())
+            .sheet(isPresented: $showingSupabaseTest) {
+                SupabaseTestView()
+            }
+            .sheet(isPresented: $showingHealthKitTest) {
+                HealthKitTestView()
+                    .environmentObject(healthKitService)
             }
         }
-        .sheet(isPresented: $showingSupabaseTest) {
-            SupabaseTestView()
-        }
     }
-}
-#endif
+
 
 // MARK: - Edit Height Weight Sheet
 
@@ -853,28 +1094,113 @@ struct EditHeightWeightSheet: View {
     
     @State private var editingHeight: String = ""
     @State private var editingWeight: String = ""
+    @State private var unitSystem: UnitSystem = {
+        // Default to imperial (feet/inches, lbs)
+        if let saved = UserDefaults.standard.string(forKey: "unitSystem"),
+           saved == "metric" {
+            return .metric
+        }
+        return .imperial
+    }()
     @Environment(\.dismiss) var dismiss
+    
+    enum UnitSystem {
+        case metric
+        case imperial
+    }
+    
+    // Convert cm to feet/inches for display
+    private func heightInImperial(_ cm: Int) -> (feet: Int, inches: Int) {
+        let totalInches = Double(cm) / 2.54
+        let feet = Int(totalInches / 12)
+        let inches = Int(totalInches.truncatingRemainder(dividingBy: 12))
+        return (feet, inches)
+    }
+    
+    // Convert kg to lbs for display
+    private func weightInImperial(_ kg: Int) -> Int {
+        return Int(Double(kg) * 2.20462)
+    }
+    
+    // Convert feet/inches to cm
+    private func heightToMetric(feet: Int, inches: Int) -> Int {
+        let totalInches = Double(feet * 12 + inches)
+        return Int(totalInches * 2.54)
+    }
+    
+    // Convert lbs to kg
+    private func weightToMetric(_ lbs: Int) -> Int {
+        return Int(Double(lbs) / 2.20462)
+    }
     
     var body: some View {
         NavigationStack {
             Form {
                 Section(header: Text("Body Measurements")) {
-                    HStack {
-                        Text("Height (cm)")
-                        Spacer()
-                        TextField("175", text: $editingHeight)
+                    // Height in feet/inches
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Height")
+                        HStack {
+                            TextField("5", text: Binding(
+                                get: {
+                                    let height = Int(editingHeight) ?? 0
+                                    let imperial = heightInImperial(height)
+                                    return "\(imperial.feet)"
+                                },
+                                set: { newValue in
+                                    if let feet = Int(newValue) {
+                                        let height = Int(editingHeight) ?? 0
+                                        let currentImperial = heightInImperial(height)
+                                        let newHeight = heightToMetric(feet: feet, inches: currentImperial.inches)
+                                        editingHeight = "\(newHeight)"
+                                    }
+                                }
+                            ))
                             .keyboardType(.numberPad)
                             .multilineTextAlignment(.trailing)
-                            .frame(width: 100)
+                            .frame(width: 60)
+                            Text("ft")
+                            
+                            TextField("10", text: Binding(
+                                get: {
+                                    let height = Int(editingHeight) ?? 0
+                                    let imperial = heightInImperial(height)
+                                    return "\(imperial.inches)"
+                                },
+                                set: { newValue in
+                                    if let inches = Int(newValue) {
+                                        let height = Int(editingHeight) ?? 0
+                                        let currentImperial = heightInImperial(height)
+                                        let newHeight = heightToMetric(feet: currentImperial.feet, inches: inches)
+                                        editingHeight = "\(newHeight)"
+                                    }
+                                }
+                            ))
+                            .keyboardType(.numberPad)
+                            .multilineTextAlignment(.trailing)
+                            .frame(width: 60)
+                            Text("in")
+                        }
                     }
                     
+                    // Weight in lbs
                     HStack {
-                        Text("Weight (kg)")
+                        Text("Weight (lbs)")
                         Spacer()
-                        TextField("70", text: $editingWeight)
-                            .keyboardType(.numberPad)
-                            .multilineTextAlignment(.trailing)
-                            .frame(width: 100)
+                        TextField("150", text: Binding(
+                            get: {
+                                let weight = Int(editingWeight) ?? 0
+                                return weight > 0 ? "\(weightInImperial(weight))" : ""
+                            },
+                            set: { newValue in
+                                if let lbs = Int(newValue) {
+                                    editingWeight = "\(weightToMetric(lbs))"
+                                }
+                            }
+                        ))
+                        .keyboardType(.numberPad)
+                        .multilineTextAlignment(.trailing)
+                        .frame(width: 100)
                     }
                 }
                 
@@ -901,11 +1227,123 @@ struct EditHeightWeightSheet: View {
                 }
             }
         }
+        .dismissKeyboardOnTap()
         .onAppear {
             let height = UserDefaults.standard.integer(forKey: "userHeight")
             let weight = UserDefaults.standard.integer(forKey: "userWeight")
             editingHeight = height > 0 ? "\(height)" : ""
             editingWeight = weight > 0 ? "\(weight)" : ""
+        }
+    }
+}
+
+// MARK: - Edit Daily Step Goal Sheet
+
+struct EditDailyStepGoalSheet: View {
+    let user: User
+    let currentGoal: Int
+    let onSave: (Int) -> Void
+    
+    @State private var goalText: String = ""
+    @State private var selectedPreset: GoalPreset? = nil
+    @Environment(\.dismiss) var dismiss
+    
+    private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
+    
+    enum GoalPreset: Int, CaseIterable {
+        case fiveThousand = 5000
+        case sevenThousand = 7000
+        case tenThousand = 10000
+        case twelveThousand = 12000
+        case fifteenThousand = 15000
+        
+        var displayName: String {
+            switch self {
+            case .fiveThousand: return "5,000"
+            case .sevenThousand: return "7,000"
+            case .tenThousand: return "10,000"
+            case .twelveThousand: return "12,000"
+            case .fifteenThousand: return "15,000"
+            }
+        }
+    }
+    
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section(header: Text("Daily Step Goal")) {
+                    // Preset buttons
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Quick Select")
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundColor(.secondary)
+                        
+                        HStack(spacing: 8) {
+                            ForEach(GoalPreset.allCases, id: \.self) { preset in
+                                Button(action: {
+                                    selectedPreset = preset
+                                    goalText = "\(preset.rawValue)"
+                                }) {
+                                    Text(preset.displayName)
+                                        .font(.system(size: 14, weight: .medium))
+                                        .foregroundColor(selectedPreset == preset ? .black : .primary)
+                                        .padding(.horizontal, 16)
+                                        .padding(.vertical, 8)
+                                        .background(selectedPreset == preset ? primaryYellow : Color(.systemGray6))
+                                        .cornerRadius(8)
+                                }
+                            }
+                        }
+                    }
+                    .padding(.vertical, 8)
+                    
+                    // Custom input
+                    HStack {
+                        Text("Custom Goal")
+                        Spacer()
+                        TextField("10000", text: $goalText)
+                            .keyboardType(.numberPad)
+                            .multilineTextAlignment(.trailing)
+                            .frame(width: 120)
+                        Text("steps")
+                            .foregroundColor(.secondary)
+                    }
+                }
+                
+                Section(footer: Text("Set your daily step goal to track your progress and stay motivated. The default is 10,000 steps per day.")) {
+                    EmptyView()
+                }
+            }
+            .navigationTitle("Daily Step Goal")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") {
+                        dismiss()
+                    }
+                }
+                ToolbarItem(placement: .primaryAction) {
+                    Button("Save") {
+                        if let goal = Int(goalText), goal > 0 {
+                            onSave(goal)
+                        } else {
+                            // Use default if invalid
+                            onSave(10000)
+                        }
+                        dismiss()
+                    }
+                    .fontWeight(.bold)
+                    .disabled(goalText.isEmpty || Int(goalText) == nil || Int(goalText)! <= 0)
+                }
+            }
+        }
+        .dismissKeyboardOnTap()
+        .onAppear {
+            goalText = currentGoal > 0 ? "\(currentGoal)" : "10000"
+            // Select matching preset if applicable
+            if let matchingPreset = GoalPreset.allCases.first(where: { $0.rawValue == currentGoal }) {
+                selectedPreset = matchingPreset
+            }
         }
     }
 }

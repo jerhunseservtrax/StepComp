@@ -7,6 +7,9 @@
 
 import SwiftUI
 import Combine
+#if canImport(UIKit)
+import UIKit
+#endif
 
 struct ProfileView: View {
     @ObservedObject var sessionViewModel: SessionViewModel
@@ -33,7 +36,8 @@ struct ProfileView: View {
             wrappedValue: ProfileViewModel(
                 user: user,
                 challengeService: ChallengeService(),
-                authService: AuthService()
+                authService: AuthService(),
+                healthKitService: nil // Will be updated in onAppear
             )
         )
     }
@@ -81,20 +85,23 @@ struct ProfileView: View {
                         .padding(.bottom, 32)
                     
                     // Friends Section
-                    ProfileFriendsSection(onAddFriends: {
-                        showingAddFriends = true
-                    })
+                    ProfileFriendsSection(
+                        sessionViewModel: sessionViewModel,
+                        onAddFriends: {
+                            showingAddFriends = true
+                        }
+                    )
                     .padding(.horizontal, 16)
                     .padding(.bottom, 32)
                     
                     // Edit Account Info Section (only show after saving changes)
                     if showEditAccountInfoCard {
-                        EditAccountInfoSection(
-                            user: viewModel.user,
-                            height: $viewModel.height,
-                            weight: $viewModel.weight,
-                            onSave: { height, weight in
-                                viewModel.updateAccountInfo(height: height, weight: weight)
+                    EditAccountInfoSection(
+                        user: viewModel.user,
+                        height: $viewModel.height,
+                        weight: $viewModel.weight,
+                        onSave: { height, weight in
+                            viewModel.updateAccountInfo(height: height, weight: weight)
                                 // Hide the card after saving
                                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                                     showEditAccountInfoCard = false
@@ -102,10 +109,10 @@ struct ProfileView: View {
                             },
                             onDismiss: {
                                 showEditAccountInfoCard = false
-                            }
-                        )
-                        .padding(.horizontal, 16)
-                        .padding(.bottom, 32)
+                        }
+                    )
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 32)
                         .transition(.move(edge: .top).combined(with: .opacity))
                     }
                     
@@ -140,7 +147,7 @@ struct ProfileView: View {
                 }
                 ToolbarItem(placement: .primaryAction) {
                     Button(action: {
-                        showingEditAccount = true
+                            showingEditAccount = true
                     }) {
                         Text("Edit")
                             .foregroundColor(primaryYellow)
@@ -192,9 +199,31 @@ struct ProfileView: View {
             AddFriendsView(sessionViewModel: sessionViewModel)
         }
         .onAppear {
-            viewModel.updateServices(challengeService: challengeService, authService: authService)
+            // Ensure HealthKit is initialized
+            _ = healthKitService.isHealthKitAvailable
+            healthKitService.checkAuthorizationStatus()
+            
+            viewModel.updateServices(challengeService: challengeService, authService: authService, healthKitService: healthKitService)
             viewModel.setThemeManager(themeManager)
             viewModel.healthKitEnabled = healthKitService.isAuthorized
+        }
+        .onChange(of: healthKitService.isAuthorized) { _, _ in
+            // Reload data when authorization status changes
+            viewModel.updateServices(challengeService: challengeService, authService: authService, healthKitService: healthKitService)
+        }
+        #if canImport(UIKit)
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
+            // Refresh when app comes to foreground
+            viewModel.updateServices(challengeService: challengeService, authService: authService, healthKitService: healthKitService)
+        }
+        #endif
+        .onDisappear {
+            // Pause auto-refresh when view disappears to save resources
+            viewModel.pauseAutoRefresh()
+        }
+        .onAppear {
+            // Resume auto-refresh when view appears
+            viewModel.resumeAutoRefresh()
         }
     }
 }
@@ -287,7 +316,7 @@ struct StatsCardsSection: View {
     var body: some View {
         HStack(spacing: 12) {
             StatCard(
-                icon: "footprint",
+                icon: "figure.walk",
                 value: formatSteps(totalSteps),
                 label: "Total Steps",
                 color: primaryYellow
@@ -655,8 +684,8 @@ struct EditAccountInfoSection: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack {
-                Text("Edit Account Info")
-                    .font(.system(size: 18, weight: .bold))
+            Text("Edit Account Info")
+                .font(.system(size: 18, weight: .bold))
                 
                 Spacer()
                 
@@ -823,72 +852,396 @@ struct EditAccountInfoSheet: View {
     @State private var editingHeight: String = ""
     @State private var editingWeight: String = ""
     @State private var showingPassword = false
+    @State private var editingName: String = ""
+    @State private var editingEmail: String = ""
     @Environment(\.dismiss) var dismiss
+    
+    private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
+    private let backgroundDark = Color(red: 0.137, green: 0.133, blue: 0.059) // #23220f
+    private let surfaceDark = Color(red: 0.176, green: 0.173, blue: 0.106) // #2d2c1b
+    
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                // Dark background
+                backgroundDark.ignoresSafeArea()
+                
+                ScrollView {
+                    VStack(spacing: 0) {
+                        // Profile Photo Section
+                        VStack(spacing: 12) {
+                            ZStack(alignment: .bottomTrailing) {
+                                // Profile Image
+                                AvatarView(
+                                    displayName: user.displayName,
+                                    avatarURL: user.avatarURL,
+                                    size: 96
+                                )
+                                .overlay(
+                                    Circle()
+                                        .stroke(surfaceDark, lineWidth: 4)
+                                )
+                                .shadow(color: .black.opacity(0.3), radius: 10, x: 0, y: 4)
+                                
+                                // Camera Button
+                                Button(action: {
+                                    // TODO: Implement photo picker
+                                }) {
+                                    ZStack {
+                                        Circle()
+                                            .fill(primaryYellow)
+                                            .frame(width: 36, height: 36)
+                                        
+                                        Image(systemName: "camera.fill")
+                                            .font(.system(size: 14, weight: .bold))
+                                            .foregroundColor(backgroundDark)
+                                    }
+                                }
+                                .overlay(
+                                    Circle()
+                                        .stroke(backgroundDark, lineWidth: 4)
+                                )
+                                .offset(x: 4, y: 4)
+                            }
+                            
+                            Text("Change Profile Photo")
+                                .font(.system(size: 14, weight: .medium))
+                                .foregroundColor(.gray)
+                        }
+                        .padding(.top, 32)
+                        .padding(.bottom, 40)
+                        
+                        // Form Fields
+                        VStack(spacing: 24) {
+                            // Name and Email Card
+                            VStack(spacing: 0) {
+                                EditAccountField(
+                                    label: "Name",
+                                    value: $editingName,
+                                    icon: "person.fill",
+                                    isEditable: false
+                                )
+                                
+                                Divider()
+                                    .background(Color.white.opacity(0.05))
+                                
+                                EditAccountField(
+                                    label: "Email",
+                                    value: $editingEmail,
+                                    icon: "envelope.fill",
+                                    isEditable: false
+                                )
+                            }
+                            .background(surfaceDark)
+                            .cornerRadius(24)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 24)
+                                    .stroke(Color.white.opacity(0.05), lineWidth: 1)
+                            )
+                            
+                            // Height and Weight Card
+                            VStack(spacing: 0) {
+                                EditAccountHeightWeightField(
+                                    label: "Height",
+                                    value: $editingHeight,
+                                    isHeight: true
+                                )
+                                
+                                Divider()
+                                    .background(Color.white.opacity(0.05))
+                                
+                                EditAccountHeightWeightField(
+                                    label: "Weight",
+                                    value: $editingWeight,
+                                    isHeight: false
+                                )
+                            }
+                            .background(surfaceDark)
+                            .cornerRadius(24)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 24)
+                                    .stroke(Color.white.opacity(0.05), lineWidth: 1)
+                            )
+                            
+                            // Password Card
+                            VStack(spacing: 0) {
+                                EditAccountPasswordField(
+                                    label: "Password",
+                                    showingPassword: $showingPassword
+                                )
+                            }
+                            .background(surfaceDark)
+                            .cornerRadius(24)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 24)
+                                    .stroke(Color.white.opacity(0.05), lineWidth: 1)
+                            )
+                            
+                            // Save Button
+                            Button(action: {
+                                if let h = Int(editingHeight), let w = Int(editingWeight) {
+                                    onSave(h, w)
+                                    dismiss()
+                                }
+                            }) {
+                                Text("SAVE CHANGES")
+                                    .font(.system(size: 16, weight: .black))
+                                    .foregroundColor(backgroundDark)
+                                    .tracking(1.2)
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 16)
+                                    .background(primaryYellow)
+                                    .cornerRadius(16)
+                                    .shadow(color: primaryYellow.opacity(0.3), radius: 8, x: 0, y: 4)
+                            }
+                            .padding(.top, 16)
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.bottom, 32)
+                    }
+                }
+            }
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .principal) {
+                    Text("Edit Account Info")
+                        .font(.system(size: 18, weight: .bold))
+                        .foregroundColor(.white)
+                }
+                ToolbarItem(placement: .cancellationAction) {
+                    Button(action: { dismiss() }) {
+                        Image(systemName: "arrow.left")
+                            .foregroundColor(.white)
+                            .font(.system(size: 20))
+                    }
+                }
+            }
+            .toolbarBackground(backgroundDark.opacity(0.95), for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
+        }
+        .dismissKeyboardOnTap()
+        .onAppear {
+            editingName = user.displayName
+            editingEmail = user.email ?? ""
+            editingHeight = "\(height)"
+            editingWeight = "\(weight)"
+        }
+    }
+}
+
+// MARK: - Edit Account Field Components
+
+struct EditAccountField: View {
+    let label: String
+    @Binding var value: String
+    let icon: String
+    let isEditable: Bool
+    
+    @FocusState private var isFocused: Bool
+    private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
+    
+    var body: some View {
+        HStack(spacing: 12) {
+            Text(label)
+                .font(.system(size: 14, weight: .bold))
+                .foregroundColor(.gray)
+                .frame(width: 96, alignment: .leading)
+            
+            TextField("", text: $value)
+                .font(.system(size: 16, weight: .bold))
+                .foregroundColor(.white)
+                .disabled(!isEditable)
+                .focused($isFocused)
+            
+                        Spacer()
+            
+            Image(systemName: icon)
+                .font(.system(size: 20))
+                .foregroundColor(isFocused ? primaryYellow : .gray.opacity(0.6))
+        }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 16)
+    }
+}
+
+struct EditAccountNumberField: View {
+    let label: String
+    @Binding var value: String
+    
+    @FocusState private var isFocused: Bool
+    private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
+    
+    var body: some View {
+                    HStack {
+            Text(label)
+                .font(.system(size: 16, weight: .bold))
+                .foregroundColor(.white)
+            
+                        Spacer()
+            
+            TextField("", text: $value)
+                .font(.system(size: 18, weight: .black))
+                .foregroundColor(isFocused ? primaryYellow : .gray)
+                            .multilineTextAlignment(.trailing)
+                .keyboardType(.numberPad)
+                .frame(width: 96)
+                .focused($isFocused)
+        }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 16)
+    }
+}
+
+struct EditAccountHeightWeightField: View {
+    let label: String
+    @Binding var value: String
+    let isHeight: Bool
+    
+    @FocusState private var isFocused: Bool
+    @State private var unitSystem: String = "imperial" // Always use imperial (feet/inches, lbs)
+    private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
+    
+    // Convert cm to feet/inches for display
+    private func heightInImperial(_ cm: Int) -> (feet: Int, inches: Int) {
+        let totalInches = Double(cm) / 2.54
+        let feet = Int(totalInches / 12)
+        let inches = Int(totalInches.truncatingRemainder(dividingBy: 12))
+        return (feet, inches)
+    }
+    
+    // Convert kg to lbs for display
+    private func weightInImperial(_ kg: Int) -> Int {
+        return Int(Double(kg) * 2.20462)
+    }
+    
+    // Convert feet/inches to cm
+    private func heightToMetric(feet: Int, inches: Int) -> Int {
+        let totalInches = Double(feet * 12 + inches)
+        return Int(totalInches * 2.54)
+    }
+    
+    // Convert lbs to kg
+    private func weightToMetric(_ lbs: Int) -> Int {
+        return Int(Double(lbs) / 2.20462)
+    }
+    
+    var displayLabel: String {
+        return isHeight ? "Height (ft/in)" : "Weight (lbs)"
+    }
+    
+    var body: some View {
+                    HStack {
+            Text(displayLabel)
+                .font(.system(size: 16, weight: .bold))
+                .foregroundColor(.white)
+            
+                        Spacer()
+            
+            if isHeight {
+                // Show feet/inches for height
+                HStack(spacing: 4) {
+                    let height = Int(value) ?? 0
+                    let imperial = heightInImperial(height)
+                    
+                    TextField("", text: Binding(
+                        get: { "\(imperial.feet)" },
+                        set: { newValue in
+                            if let feet = Int(newValue) {
+                                let currentImperial = heightInImperial(height)
+                                let newHeight = heightToMetric(feet: feet, inches: currentImperial.inches)
+                                value = "\(newHeight)"
+                            }
+                        }
+                    ))
+                    .font(.system(size: 18, weight: .black))
+                    .foregroundColor(isFocused ? primaryYellow : .gray)
+                    .multilineTextAlignment(.trailing)
+                    .keyboardType(.numberPad)
+                    .frame(width: 40)
+                    .focused($isFocused)
+                    
+                    Text("ft")
+                        .font(.system(size: 14))
+                        .foregroundColor(.gray)
+                    
+                    TextField("", text: Binding(
+                        get: { "\(imperial.inches)" },
+                        set: { newValue in
+                            if let inches = Int(newValue) {
+                                let currentImperial = heightInImperial(height)
+                                let newHeight = heightToMetric(feet: currentImperial.feet, inches: inches)
+                                value = "\(newHeight)"
+                            }
+                        }
+                    ))
+                    .font(.system(size: 18, weight: .black))
+                    .foregroundColor(isFocused ? primaryYellow : .gray)
+                    .multilineTextAlignment(.trailing)
+                    .keyboardType(.numberPad)
+                    .frame(width: 40)
+                    
+                    Text("in")
+                        .font(.system(size: 14))
+                        .foregroundColor(.gray)
+                }
+            } else {
+                // Show weight in lbs
+                TextField("", text: Binding(
+                    get: {
+                        let metricValue = Int(value) ?? 0
+                        return metricValue > 0 ? "\(weightInImperial(metricValue))" : ""
+                    },
+                    set: { newValue in
+                        if let inputValue = Int(newValue) {
+                            value = "\(weightToMetric(inputValue))"
+                        } else {
+                            value = ""
+                        }
+                    }
+                ))
+                .font(.system(size: 18, weight: .black))
+                .foregroundColor(isFocused ? primaryYellow : .gray)
+                .multilineTextAlignment(.trailing)
+                .keyboardType(.numberPad)
+                .frame(width: 96)
+                .focused($isFocused)
+            }
+        }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 16)
+    }
+}
+
+struct EditAccountPasswordField: View {
+    let label: String
+    @Binding var showingPassword: Bool
     
     private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
     
     var body: some View {
-        NavigationStack {
-            Form {
-                Section {
-                    TextField("Full Name", text: .constant(user.displayName))
-                        .disabled(true)
-                    
-                    TextField("Email Address", text: .constant(user.email ?? ""))
-                        .disabled(true)
-                }
+        HStack {
+            Text(label)
+                .font(.system(size: 16, weight: .bold))
+                .foregroundColor(.white)
+            
+            Spacer()
+            
+            HStack(spacing: 8) {
+                Text("••••••••")
+                    .font(.system(size: 18, weight: .bold))
+                    .foregroundColor(.gray)
                 
-                Section {
-                    HStack {
-                        Text("Height (cm)")
-                        Spacer()
-                        TextField("", text: $editingHeight)
-                            .keyboardType(.numberPad)
-                            .multilineTextAlignment(.trailing)
-                            .frame(width: 100)
-                    }
-                    
-                    HStack {
-                        Text("Weight (kg)")
-                        Spacer()
-                        TextField("", text: $editingWeight)
-                            .keyboardType(.numberPad)
-                            .multilineTextAlignment(.trailing)
-                            .frame(width: 100)
-                    }
-                }
-                
-                Section {
-                    HStack {
-                        Text("Password")
-                        Spacer()
-                        SecureField("", text: .constant(""))
-                            .disabled(true)
-                    }
-                }
-            }
-            .navigationTitle("Edit Account Info")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") {
-                        dismiss()
-                    }
-                }
-                ToolbarItem(placement: .primaryAction) {
-                    Button("Save") {
-                        if let h = Int(editingHeight), let w = Int(editingWeight) {
-                            onSave(h, w)
-                        }
-                    }
-                    .fontWeight(.bold)
+                Button(action: {
+                    showingPassword.toggle()
+                }) {
+                    Image(systemName: showingPassword ? "eye.fill" : "eye.slash.fill")
+                        .font(.system(size: 20))
+                        .foregroundColor(.gray.opacity(0.6))
                 }
             }
         }
-        .onAppear {
-            editingHeight = "\(height)"
-            editingWeight = "\(weight)"
-        }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 16)
     }
 }
 

@@ -7,6 +7,9 @@
 
 import SwiftUI
 import Combine
+#if canImport(UIKit)
+import UIKit
+#endif
 
 struct HomeDashboardView: View {
     @ObservedObject var sessionViewModel: SessionViewModel
@@ -17,6 +20,7 @@ struct HomeDashboardView: View {
     @StateObject private var viewModel: DashboardViewModel
     @State private var navigationPath = NavigationPath()
     @State private var showingAddFriends = false
+    @State private var showingCreateChallenge = false
     
     init(sessionViewModel: SessionViewModel, tabManager: TabSelectionManager) {
         self.sessionViewModel = sessionViewModel
@@ -65,8 +69,8 @@ struct HomeDashboardView: View {
                     // Daily Pulse Stats
                     DailyPulseStatsView(
                         calories: viewModel.caloriesBurned,
-                        distance: viewModel.distanceKm,
-                        streak: viewModel.currentStreak
+                        distanceMiles: viewModel.distanceMiles,
+                        steps: viewModel.todaySteps
                     )
                     
                     // Add Friends CTA
@@ -76,7 +80,7 @@ struct HomeDashboardView: View {
                     
                     // Create Challenge CTA
                     CreateChallengeCTA {
-                        tabManager.selectedTab = 2 // Switch to Challenges tab
+                        showingCreateChallenge = true
                     }
                     
                     // Join Challenge CTA (if no active challenges)
@@ -103,20 +107,57 @@ struct HomeDashboardView: View {
         }
         .onAppear {
             updateViewModel()
+            // Ensure HealthKit is initialized
+            _ = healthKitService.isHealthKitAvailable
+            healthKitService.checkAuthorizationStatus()
+            
+            // Resume auto-refresh when view appears
+            viewModel.resumeAutoRefresh()
+            
             // Refresh challenges from Supabase when view appears
             Task {
                 #if canImport(Supabase)
                 await challengeService.refreshChallenges()
                 #endif
                 updateViewModel()
+                // Steps will sync automatically via DashboardViewModel.loadStepData()
             }
         }
+        .onDisappear {
+            // Pause auto-refresh when view disappears to save resources
+            viewModel.pauseAutoRefresh()
+        }
+        .onChange(of: healthKitService.isAuthorized) { _, _ in
+            // Reload data when authorization status changes
+            updateViewModel()
+        }
+        #if canImport(UIKit)
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
+            // Refresh when app comes to foreground
+            updateViewModel()
+        }
+        #endif
         .task(id: challengeService.challenges.count) {
             // Only update when challenges actually change (count changes)
             updateViewModel()
         }
         .sheet(isPresented: $showingAddFriends) {
             AddFriendsView(sessionViewModel: sessionViewModel)
+        }
+        .sheet(isPresented: $showingCreateChallenge) {
+            CreateChallengeView(sessionViewModel: sessionViewModel)
+        }
+        .onChange(of: showingCreateChallenge) { oldValue, newValue in
+            // Refresh challenges when sheet is dismissed
+            if oldValue == true && newValue == false {
+                Task {
+                    #if canImport(Supabase)
+                    await challengeService.refreshChallenges()
+                    #endif
+                    await viewModel.refreshChallenges()
+                    updateViewModel()
+                }
+            }
         }
     }
     

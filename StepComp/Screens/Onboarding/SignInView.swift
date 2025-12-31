@@ -42,82 +42,70 @@ struct SignInOnboardingView: View {
             VStack(spacing: 0) {
                 ScrollView {
                     VStack(spacing: 0) {
-                        // Graphic Card
+                        // Hero Image - Trophy and Cloud
                         ZStack {
-                            RoundedRectangle(cornerRadius: 32)
-                                .fill(Color(.systemGray6))
-                                .frame(height: 224)
+                            // Background blurs
+                            Circle()
+                                .fill(Color.blue.opacity(0.1))
+                                .frame(width: 160, height: 160)
+                                .blur(radius: 40)
+                                .offset(x: -20, y: 20)
                             
-                            // Gradient overlay
-                            LinearGradient(
-                                colors: [
-                                    .clear,
-                                    primaryYellow.opacity(0.1)
-                                ],
-                                startPoint: .top,
-                                endPoint: .bottom
-                            )
+                            Circle()
+                                .fill(primaryYellow.opacity(0.1))
+                                .frame(width: 128, height: 128)
+                                .blur(radius: 30)
+                                .offset(x: 20, y: -20)
                             
-                            // Floating elements
-                            VStack {
-                                HStack {
-                                    Spacer()
-                                    ZStack {
-                                        Circle()
-                                            .fill(primaryYellow)
-                                            .frame(width: 40, height: 40)
-                                        
-                                        Image(systemName: "bolt.fill")
-                                            .font(.system(size: 18))
-                                            .foregroundColor(.black)
-                                    }
-                                    .offset(y: isAnimating ? -5 : 5)
-                                    .animation(
-                                        Animation.easeInOut(duration: 3.0)
-                                            .repeatForever(autoreverses: true),
-                                        value: isAnimating
-                                    )
+                            // Icon Group - Overlapping cards
+                            VStack(spacing: 0) {
+                                // Trophy card (top, rotated)
+                                ZStack {
+                                    RoundedRectangle(cornerRadius: 24)
+                                        .fill(Color(.systemBackground))
+                                        .frame(width: 120, height: 120)
+                                        .shadow(color: Color.black.opacity(0.1), radius: 8, x: 0, y: 4)
+                                    
+                                    Image(systemName: "trophy.fill")
+                                        .font(.system(size: 60))
+                                        .foregroundColor(primaryYellow)
                                 }
-                                .padding()
+                                .rotationEffect(.degrees(-6))
+                                .offset(y: 20)
                                 
-                                Spacer()
-                                
-                                Image(systemName: "chart.bar.fill")
-                                    .font(.system(size: 64))
-                                    .foregroundColor(.secondary)
-                                
-                                Spacer()
+                                // Cloud card (bottom, rotated)
+                                ZStack {
+                                    RoundedRectangle(cornerRadius: 24)
+                                        .fill(Color(.systemGray6))
+                                        .frame(width: 192, height: 128)
+                                        .shadow(color: Color.black.opacity(0.05), radius: 4, x: 0, y: 2)
+                                    
+                                    Image(systemName: "cloud.upload.fill")
+                                        .font(.system(size: 50))
+                                        .foregroundColor(.secondary)
+                                }
+                                .rotationEffect(.degrees(6))
+                                .offset(y: -20)
                             }
-                            
-                            // Decorative icons
-                            Image(systemName: "trophy.fill")
-                                .font(.system(size: 32))
-                                .foregroundColor(primaryYellow.opacity(0.4))
-                                .offset(x: -80, y: -40)
-                                .rotationEffect(.degrees(-12))
-                            
-                            Image(systemName: "flame.fill")
-                                .font(.system(size: 32))
-                                .foregroundColor(primaryYellow.opacity(0.4))
-                                .offset(x: 80, y: 40)
-                                .rotationEffect(.degrees(12))
                         }
+                        .frame(height: 256)
                         .padding(.horizontal, 24)
                         .padding(.top, 24)
                         .padding(.bottom, 32)
                         
                         // Text Content
-                        VStack(alignment: .leading, spacing: 12) {
+                        VStack(spacing: 12) {
                             Text("Save your progress")
                                 .font(.system(size: 32, weight: .bold))
                             
-                            Text("Don't lose your stats! Sign in to compete on the global leaderboard and save your rewards.")
-                                .font(.system(size: 16))
+                            Text("Create an account to keep your streaks, badges, and avatars safe.")
+                                .font(.system(size: 14))
                                 .foregroundColor(.secondary)
+                                .multilineTextAlignment(.center)
                                 .lineSpacing(4)
+                                .padding(.horizontal, 24)
                         }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.horizontal, 24)
+                        .frame(maxWidth: .infinity)
                         .padding(.bottom, 32)
                         
                         // Auth Buttons
@@ -144,9 +132,13 @@ struct SignInOnboardingView: View {
                                 handleGoogleSignIn()
                             }) {
                                 HStack {
-                                    Image(systemName: "globe")
-                                        .font(.system(size: 18))
-                                    Text("Continue with Google")
+                                    // Google G logo approximation
+                                    Text("G")
+                                        .font(.system(size: 20, weight: .bold))
+                                        .foregroundColor(.blue)
+                                        .frame(width: 24, height: 24)
+                                    
+                                    Text("Sign in with Google")
                                         .font(.system(size: 16, weight: .bold))
                                 }
                                 .foregroundColor(.primary)
@@ -160,20 +152,26 @@ struct SignInOnboardingView: View {
                                 .cornerRadius(999)
                             }
                             
-                            // Email Sign In
+                            // Email Sign Up
                             Button(action: {
+                                isSignUp = true
                                 showingEmailAuth = true
                             }) {
                                 HStack {
                                     Image(systemName: "envelope.fill")
-                                        .font(.system(size: 18))
-                                    Text("Use Email Address")
+                                        .font(.system(size: 16, weight: .semibold))
+                                    
+                                    Text("Sign up with Email")
                                         .font(.system(size: 16, weight: .bold))
                                 }
                                 .foregroundColor(.primary)
                                 .frame(maxWidth: .infinity)
                                 .frame(height: 56)
-                                .background(primaryYellow.opacity(0.2))
+                                .background(Color(.systemBackground))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 999)
+                                        .stroke(Color(.systemGray4), lineWidth: 1)
+                                )
                                 .cornerRadius(999)
                             }
                         }
@@ -182,13 +180,45 @@ struct SignInOnboardingView: View {
                     }
                 }
                 
-                // Terms Text
-                Text("By continuing, you agree to our Terms of Service & Privacy Policy.")
-                    .font(.system(size: 10))
+                // Bottom Section with Terms and Sign In Link
+                VStack(spacing: 16) {
+                    // Terms Text
+                    Group {
+                        Text("By continuing, you agree to our ") +
+                        Text("Terms")
+                            .underline() +
+                        Text(" and ") +
+                        Text("Privacy Policy")
+                            .underline() +
+                        Text(".")
+                    }
+                    .font(.system(size: 12))
                     .foregroundColor(.secondary)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 32)
-                    .padding(.bottom, 32)
+                    
+                    // Already have an account? Sign in link
+                    HStack {
+                        Spacer()
+                        Button(action: {
+                            isSignUp = false
+                            showingEmailAuth = true
+                        }) {
+                            Group {
+                                Text("Already have an account?")
+                                    .font(.system(size: 14, weight: .medium))
+                                    .foregroundColor(.secondary)
+                                +
+                                Text(" Sign in")
+                                    .font(.system(size: 14, weight: .semibold))
+                                    .foregroundColor(primaryYellow)
+                            }
+                        }
+                        .padding(.trailing, 24)
+                        .padding(.bottom, 8)
+                    }
+                }
+                .padding(.bottom, 32)
             }
         }
         .sheet(isPresented: $showingEmailAuth) {
@@ -906,35 +936,93 @@ struct SignUpView: View {
                             }
                             
                             // Height and Weight in a row
-                            HStack(spacing: 16) {
-                                // Height
+                            VStack(spacing: 16) {
+                                // Height in feet/inches
                                 VStack(alignment: .leading, spacing: 8) {
-                                    Text("Height (cm)")
+                                    Text("Height")
                                         .font(.system(size: 14, weight: .bold))
                                         .foregroundColor(.white)
                                     
-                                    HStack {
-                                        Image(systemName: "ruler")
-                                            .foregroundColor(Color(red: 0.8, green: 0.796, blue: 0.557))
-                                            .frame(width: 24)
-                                        
-                                        TextField("175", text: $height)
+                                    HStack(spacing: 12) {
+                                        HStack {
+                                            Image(systemName: "ruler")
+                                                .foregroundColor(Color(red: 0.8, green: 0.796, blue: 0.557))
+                                                .frame(width: 24)
+                                            
+                                            TextField("5", text: Binding(
+                                                get: {
+                                                    // Convert stored cm to feet for display
+                                                    if let cm = Int(height), cm > 0 {
+                                                        let totalInches = Double(cm) / 2.54
+                                                        let feet = Int(totalInches / 12)
+                                                        return "\(feet)"
+                                                    }
+                                                    return ""
+                                                },
+                                                set: { newValue in
+                                                    if let feet = Int(newValue) {
+                                                        let currentCm = Int(height) ?? 0
+                                                        let currentInches = Int((Double(currentCm) / 2.54).truncatingRemainder(dividingBy: 12))
+                                                        let newCm = Int(Double(feet * 12 + currentInches) * 2.54)
+                                                        height = "\(newCm)"
+                                                    }
+                                                }
+                                            ))
                                             .keyboardType(.numberPad)
                                             .foregroundColor(.white)
+                                            
+                                            Text("ft")
+                                                .foregroundColor(.gray)
+                                        }
+                                        .padding(.horizontal, 16)
+                                        .frame(height: 56)
+                                        .background(inputDark)
+                                        .cornerRadius(12)
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 12)
+                                                .stroke(inputBorder, lineWidth: 1)
+                                        )
+                                        
+                                        HStack {
+                                            TextField("10", text: Binding(
+                                                get: {
+                                                    // Convert stored cm to inches for display
+                                                    if let cm = Int(height), cm > 0 {
+                                                        let totalInches = Double(cm) / 2.54
+                                                        let inches = Int(totalInches.truncatingRemainder(dividingBy: 12))
+                                                        return "\(inches)"
+                                                    }
+                                                    return ""
+                                                },
+                                                set: { newValue in
+                                                    if let inches = Int(newValue) {
+                                                        let currentCm = Int(height) ?? 0
+                                                        let currentFeet = Int((Double(currentCm) / 2.54) / 12)
+                                                        let newCm = Int(Double(currentFeet * 12 + inches) * 2.54)
+                                                        height = "\(newCm)"
+                                                    }
+                                                }
+                                            ))
+                                            .keyboardType(.numberPad)
+                                            .foregroundColor(.white)
+                                            
+                                            Text("in")
+                                                .foregroundColor(.gray)
+                                        }
+                                        .padding(.horizontal, 16)
+                                        .frame(height: 56)
+                                        .background(inputDark)
+                                        .cornerRadius(12)
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 12)
+                                                .stroke(inputBorder, lineWidth: 1)
+                                        )
                                     }
-                                    .padding(.horizontal, 16)
-                                    .frame(height: 56)
-                                    .background(inputDark)
-                                    .cornerRadius(12)
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 12)
-                                            .stroke(inputBorder, lineWidth: 1)
-                                    )
                                 }
                                 
-                                // Weight
+                                // Weight in lbs
                                 VStack(alignment: .leading, spacing: 8) {
-                                    Text("Weight (kg)")
+                                    Text("Weight (lbs)")
                                         .font(.system(size: 14, weight: .bold))
                                         .foregroundColor(.white)
                                     
@@ -943,9 +1031,24 @@ struct SignUpView: View {
                                             .foregroundColor(Color(red: 0.8, green: 0.796, blue: 0.557))
                                             .frame(width: 24)
                                         
-                                        TextField("70", text: $weight)
-                                            .keyboardType(.numberPad)
-                                            .foregroundColor(.white)
+                                        TextField("150", text: Binding(
+                                            get: {
+                                                // Convert stored kg to lbs for display
+                                                if let kg = Int(weight), kg > 0 {
+                                                    let lbs = Int(Double(kg) * 2.20462)
+                                                    return "\(lbs)"
+                                                }
+                                                return ""
+                                            },
+                                            set: { newValue in
+                                                if let lbs = Int(newValue) {
+                                                    let kg = Int(Double(lbs) / 2.20462)
+                                                    weight = "\(kg)"
+                                                }
+                                            }
+                                        ))
+                                        .keyboardType(.numberPad)
+                                        .foregroundColor(.white)
                                     }
                                     .padding(.horizontal, 16)
                                     .frame(height: 56)
@@ -1100,6 +1203,7 @@ struct SignUpView: View {
                 }
             }
         }
+        .dismissKeyboardOnTap()
     }
 }
 
@@ -1372,6 +1476,7 @@ struct SignInView: View {
                 }
             }
         }
+        .dismissKeyboardOnTap()
     }
 }
 

@@ -85,7 +85,7 @@ final class FriendsLoaderViewModel: ObservableObject {
             
             // Get all accepted friendships where user is involved
             let requests: [FriendRequest] = try await supabase
-                .from("friends")
+                .from("friendships")
                 .select()
                 .or("requester_id.eq.\(currentUserId),addressee_id.eq.\(currentUserId))")
                 .eq("status", value: "accepted")

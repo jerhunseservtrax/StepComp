@@ -98,7 +98,7 @@ struct CreateChallengeView: View {
                         // Invite Section
                         InviteSectionView(
                             selectedParticipants: $viewModel.selectedParticipants,
-                            friends: friendsService.friends,
+                            friends: [], // FriendsLoaderViewModel will load friends from Supabase
                             searchText: $searchText,
                             isFriendsOnly: $viewModel.isFriendsOnly
                         )
@@ -127,6 +127,10 @@ struct CreateChallengeView: View {
                         Task {
                             await viewModel.createChallenge()
                             if viewModel.createdChallenge != nil {
+                                // Refresh challenges immediately after creation
+                                #if canImport(Supabase)
+                                await challengeService.refreshChallenges()
+                                #endif
                                 showingSuccess = true
                             }
                         }
@@ -161,6 +165,12 @@ struct CreateChallengeView: View {
         .alert("Challenge Created!", isPresented: $showingSuccess) {
             Button("OK") {
                 viewModel.reset()
+                // Refresh challenges after creation
+                Task {
+                    #if canImport(Supabase)
+                    await challengeService.refreshChallenges()
+                    #endif
+                }
                 dismiss()
             }
         } message: {
@@ -179,7 +189,12 @@ struct CreateChallengeView: View {
                 }
             )
         }
+        .dismissKeyboardOnTap()
         .onAppear {
+            viewModel.updateService(challengeService)
+        }
+        .onChange(of: challengeService.challenges.count) {
+            // Update viewModel when challenges change
             viewModel.updateService(challengeService)
         }
     }
@@ -874,6 +889,7 @@ struct CustomDurationSheet: View {
             }
         }
         .presentationDetents([.medium])
+        .dismissKeyboardOnTap()
     }
     
     private func saveDays() {

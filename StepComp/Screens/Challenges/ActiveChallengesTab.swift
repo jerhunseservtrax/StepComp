@@ -1,5 +1,5 @@
 //
-//  PrivateChallengesTab.swift
+//  ActiveChallengesTab.swift
 //  StepComp
 //
 //  Created by Jeffery Erhunse on 12/24/25.
@@ -7,7 +7,7 @@
 
 import SwiftUI
 
-struct PrivateChallengesTab: View {
+struct ActiveChallengesTab: View {
     @ObservedObject var sessionViewModel: SessionViewModel
     @ObservedObject var viewModel: ChallengesViewModel
     @EnvironmentObject var challengeService: ChallengeService
@@ -17,11 +17,11 @@ struct PrivateChallengesTab: View {
         NavigationStack(path: $navigationPath) {
             ScrollView {
                 VStack(spacing: 16) {
-                    if viewModel.privateChallenges.isEmpty {
-                        EmptyPrivateChallengesView()
+                    if viewModel.activeChallenges.isEmpty {
+                        EmptyActiveChallengesView()
                     } else {
-                        ForEach(viewModel.privateChallenges) { challenge in
-                            PrivateChallengeCard(
+                        ForEach(viewModel.activeChallenges) { challenge in
+                            ActiveChallengeListItem(
                                 challenge: challenge,
                                 onTap: {
                                     navigationPath.append(AppRoute.groupDetails(challengeId: challenge.id))
@@ -47,7 +47,7 @@ struct PrivateChallengesTab: View {
     private func destinationView(for route: AppRoute) -> some View {
         switch route {
         case .groupDetails(let challengeId):
-            if viewModel.privateChallenges.contains(where: { $0.id == challengeId }) {
+            if viewModel.activeChallenges.contains(where: { $0.id == challengeId }) {
                 GroupDetailsView(
                     sessionViewModel: sessionViewModel,
                     challengeId: challengeId
@@ -61,7 +61,7 @@ struct PrivateChallengesTab: View {
     }
 }
 
-struct PrivateChallengeCard: View {
+struct ActiveChallengeListItem: View {
     let challenge: Challenge
     let onTap: () -> Void
     
@@ -81,14 +81,15 @@ struct PrivateChallengeCard: View {
                         Text(challenge.name)
                             .font(.system(size: 18, weight: .bold))
                         
-                        Text(challenge.description.isEmpty ? "Private Challenge" : challenge.description)
+                        Text(challenge.description.isEmpty ? "Challenge" : challenge.description)
                             .font(.system(size: 14))
                             .foregroundColor(.secondary)
                     }
                     
                     Spacer()
                     
-                    Image(systemName: "lock.fill")
+                    // Show lock icon for private challenges, globe for public
+                    Image(systemName: challenge.inviteCode == nil ? "globe" : "lock.fill")
                         .foregroundColor(primaryYellow)
                         .font(.system(size: 20))
                 }
@@ -114,17 +115,17 @@ struct PrivateChallengeCard: View {
     }
 }
 
-struct EmptyPrivateChallengesView: View {
+struct EmptyActiveChallengesView: View {
     var body: some View {
         VStack(spacing: 16) {
-            Image(systemName: "lock.rectangle.stack")
+            Image(systemName: "trophy")
                 .font(.system(size: 48))
                 .foregroundColor(.secondary)
             
-            Text("No Private Challenges")
+            Text("No Active Challenges")
                 .font(.system(size: 20, weight: .bold))
             
-            Text("Join or create private challenges to see them here")
+            Text("Join or create challenges to see them here")
                 .font(.system(size: 14))
                 .foregroundColor(.secondary)
                 .multilineTextAlignment(.center)
@@ -132,3 +133,4 @@ struct EmptyPrivateChallengesView: View {
         .padding(.vertical, 60)
     }
 }
+

@@ -20,41 +20,62 @@ struct WelcomeOnboardingView: View {
                 
                 // Hero Image Section
                 ZStack {
-                    // Background gradient blob
-                    Circle()
-                        .fill(primaryYellow.opacity(0.2))
-                        .frame(width: 256, height: 256)
-                        .blur(radius: 60)
+                    // Background gradient
+                    LinearGradient(
+                        colors: [
+                            Color(red: 0.2, green: 0.8, blue: 0.9).opacity(0.3),
+                            Color(red: 0.1, green: 0.7, blue: 0.8).opacity(0.2)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                    .frame(maxWidth: .infinity, maxHeight: 400)
+                    .cornerRadius(24)
                     
-                    // Hero illustration placeholder
-                    Image(systemName: "figure.run")
-                        .font(.system(size: 120))
-                        .foregroundColor(primaryYellow)
-                        .symbolEffect(.bounce, value: currentStep)
+                    // Hero illustration - Sneakers
+                    VStack {
+                        Image(systemName: "figure.walk")
+                            .font(.system(size: 120))
+                            .foregroundColor(.white)
+                            .symbolEffect(.bounce, value: currentStep)
+                        
+                        // Decorative elements
+                        HStack(spacing: 20) {
+                            Circle()
+                                .fill(Color.white.opacity(0.3))
+                                .frame(width: 8, height: 8)
+                            Circle()
+                                .fill(Color.white.opacity(0.5))
+                                .frame(width: 12, height: 12)
+                            Circle()
+                                .fill(Color.white.opacity(0.3))
+                                .frame(width: 8, height: 8)
+                        }
+                        .offset(y: -40)
+                    }
                 }
                 .frame(maxHeight: 400)
+                .padding(.horizontal, 16)
                 .padding(.bottom, 24)
                 
                 // Text Content
                 VStack(spacing: 16) {
-                    VStack(spacing: 0) {
-                        HStack(spacing: 0) {
-                            Text("Step into")
-                                .font(.system(size: 36, weight: .bold))
-                            Text(" greatness ")
-                                .font(.system(size: 36, weight: .bold))
-                                .overlay(
-                                    Rectangle()
-                                        .fill(primaryYellow.opacity(0.5))
-                                        .frame(height: 12)
-                                        .offset(y: 6)
+                    Group {
+                        Text("Step into ") +
+                        Text("greatness")
+                            .foregroundStyle(
+                                LinearGradient(
+                                    colors: [Color.yellow, primaryYellow],
+                                    startPoint: .leading,
+                                    endPoint: .trailing
                                 )
-                            Text("🚶‍♂️🔥")
-                                .font(.system(size: 36))
-                        }
+                            ) +
+                        Text(" 🚶‍♂️🔥")
                     }
+                    .font(.system(size: 36, weight: .bold))
+                    .multilineTextAlignment(.center)
                     
-                    Text("Turn every walk into a game. Track stats, beat friends, and earn real rewards.")
+                    Text("Turn your daily walks into a game. Earn rewards and compete with friends.")
                         .font(.system(size: 18, weight: .medium))
                         .foregroundColor(.secondary)
                         .multilineTextAlignment(.center)
@@ -78,13 +99,15 @@ struct WelcomeOnboardingView: View {
                     .frame(height: 40)
                     
                     Button(action: {
-                        currentStep = .healthPermission
+                        withAnimation {
+                            currentStep = .healthPermission
+                        }
                     }) {
-                        Text("Let's Go!")
+                        Text("Get Started")
                             .font(.system(size: 18, weight: .bold))
                             .foregroundColor(.black)
                             .frame(maxWidth: .infinity)
-                            .frame(height: 64)
+                            .frame(height: 56)
                             .background(primaryYellow)
                             .cornerRadius(999)
                             .shadow(color: primaryYellow.opacity(0.3), radius: 16, x: 0, y: 8)

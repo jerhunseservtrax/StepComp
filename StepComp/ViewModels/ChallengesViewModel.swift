@@ -14,8 +14,8 @@ import Supabase
 
 @MainActor
 final class ChallengesViewModel: ObservableObject {
-    @Published var privateChallenges: [Challenge] = []
-    @Published var publicChallenges: [Challenge] = []
+    @Published var activeChallenges: [Challenge] = [] // All challenges user is participating in (private + public)
+    @Published var publicChallenges: [Challenge] = [] // Public challenges available to join
     @Published var isLoading: Bool = false
     @Published var errorMessage: String?
     
@@ -39,8 +39,8 @@ final class ChallengesViewModel: ObservableObject {
         await loadChallengesFromSupabase()
         #else
         // Fallback to local challenges
-        privateChallenges = challengeService.challenges.filter { !$0.isActive || $0.creatorId == userId }
-        publicChallenges = challengeService.challenges.filter { $0.isActive && $0.creatorId != userId }
+        activeChallenges = challengeService.challenges.filter { $0.participantIds.contains(userId) && $0.isActive }
+        publicChallenges = challengeService.challenges.filter { $0.isActive && !$0.participantIds.contains(userId) }
         #endif
         
         isLoading = false
@@ -49,39 +49,56 @@ final class ChallengesViewModel: ObservableObject {
     #if canImport(Supabase)
     private func loadChallengesFromSupabase() async {
         do {
-            // Get current user's challenges (private - challenges they're a member of)
-            let memberChallenges: [SupabaseChallenge] = try await supabase
-                .from("challenges")
-                .select()
-                .in("id", values: await getUserChallengeIds())
-                .eq("is_public", value: false)
-                .execute()
-                .value
-            
-            // Convert to Challenge models
-            privateChallenges = try await convertToChallenges(memberChallenges)
-            
-            // Get all public challenges (excluding ones user is already in)
+            // Get all challenges the user is participating in (both private and public)
             let userChallengeIds = await getUserChallengeIds()
+            
+            if !userChallengeIds.isEmpty {
+                let memberChallenges: [SupabaseChallenge] = try await supabase
+                    .from("challenges")
+                    .select()
+                    .in("id", values: userChallengeIds)
+                    .gte("end_date", value: ISO8601DateFormatter().string(from: Date()))
+                    .execute()
+                    .value
+                
+                // Convert to Challenge models - these are the user's active challenges
+                activeChallenges = try await convertToChallenges(memberChallenges)
+            } else {
+                activeChallenges = []
+            }
+            
+            // Get all public challenges that haven't ended yet
+            // This includes challenges that haven't started (future challenges) and ongoing ones
             let allPublicChallenges: [SupabaseChallenge] = try await supabase
                 .from("challenges")
                 .select()
                 .eq("is_public", value: true)
+                .gte("end_date", value: ISO8601DateFormatter().string(from: Date()))
                 .execute()
                 .value
             
-            // Filter out challenges user is already in
-            let availablePublic = allPublicChallenges.filter { challenge in
-                !userChallengeIds.contains(challenge.id) &&
-                challenge.endDate >= Date()
-            }
+            // Sort by created_at descending (newest first)
+            let sortedPublicChallenges = allPublicChallenges.sorted { $0.createdAt > $1.createdAt }
             
-            publicChallenges = try await convertToChallenges(availablePublic)
+            // Convert to Challenge models
+            let allPublic = try await convertToChallenges(sortedPublicChallenges)
+            
+            // Filter out challenges the user is already participating in
+            // These will show in the Active tab instead
+            // But keep challenges the user created (so they can see their own public challenges)
+            publicChallenges = allPublic.filter { challenge in
+                // Show if user created it (so they can see their own public challenges)
+                if challenge.creatorId == userId {
+                    return true
+                }
+                // Otherwise, only show if user is NOT already a participant
+                return !challenge.participantIds.contains(userId)
+            }
             
         } catch {
             print("⚠️ Error loading challenges: \(error.localizedDescription)")
             errorMessage = error.localizedDescription
-            privateChallenges = []
+            activeChallenges = []
             publicChallenges = []
         }
     }

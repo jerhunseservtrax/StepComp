@@ -40,5 +40,16 @@ extension View {
         return AnyView(self.padding(.horizontal, 20))
         #endif
     }
+    
+    /// Dismisses keyboard when tapping outside text fields
+    func dismissKeyboardOnTap() -> some View {
+        #if os(iOS)
+        return AnyView(self.onTapGesture {
+            UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+        })
+        #else
+        return AnyView(self)
+        #endif
+    }
 }
 

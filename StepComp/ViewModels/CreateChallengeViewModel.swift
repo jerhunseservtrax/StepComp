@@ -8,6 +8,10 @@
 import Foundation
 import SwiftUI
 import Combine
+#if canImport(Supabase)
+import Supabase
+import PostgREST
+#endif
 
 @MainActor
 final class CreateChallengeViewModel: ObservableObject {
@@ -104,11 +108,18 @@ final class CreateChallengeViewModel: ObservableObject {
     func createChallenge() async {
         guard isValid else {
             errorMessage = "Please fill in all fields correctly"
+            print("⚠️ Challenge creation failed: Invalid form data")
             return
         }
         
         isLoading = true
         errorMessage = nil
+        
+        print("🚀 Starting challenge creation...")
+        print("   Name: \(name)")
+        print("   Is Private: \(isPrivate)")
+        print("   Is Public: \(!isPrivate)")
+        print("   Creator ID: \(creatorId)")
         
         do {
             // Include creator and selected participants
@@ -125,10 +136,25 @@ final class CreateChallengeViewModel: ObservableObject {
                 participantIds: participantIds
             )
             
-            try await challengeService.createChallenge(challenge)
+            print("📝 Challenge object created: \(challenge.id)")
+            
+            // isPublic = !isPrivate (if isPrivate is true, then isPublic is false)
+            try await challengeService.createChallenge(challenge, isPublic: !isPrivate)
+            
+            print("✅ Challenge created successfully in database")
             createdChallenge = challenge
         } catch {
-            errorMessage = error.localizedDescription
+            let errorMsg = error.localizedDescription
+            print("❌ Challenge creation failed: \(errorMsg)")
+            errorMessage = errorMsg
+            // Also print the full error for debugging
+            #if canImport(Supabase)
+            if let supabaseError = error as? PostgrestError {
+                print("   Supabase error code: \(supabaseError.code ?? "unknown")")
+                print("   Supabase error message: \(supabaseError.message)")
+                print("   Supabase error hint: \(supabaseError.hint ?? "none")")
+            }
+            #endif
         }
         
         isLoading = false

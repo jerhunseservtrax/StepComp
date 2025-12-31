@@ -6,13 +6,23 @@
 //
 
 import SwiftUI
+import Combine
 
 struct ProfileFriendsSection: View {
     let onAddFriends: () -> Void
+    let sessionViewModel: SessionViewModel
     
+    @StateObject private var friendsViewModel: FriendsViewModel
     @EnvironmentObject var friendsService: FriendsService
     
     private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
+    
+    init(sessionViewModel: SessionViewModel, onAddFriends: @escaping () -> Void) {
+        self.sessionViewModel = sessionViewModel
+        self.onAddFriends = onAddFriends
+        let myUserId = sessionViewModel.currentUser?.id ?? ""
+        _friendsViewModel = StateObject(wrappedValue: FriendsViewModel(service: FriendsService(), myUserId: myUserId))
+    }
     
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -37,7 +47,7 @@ struct ProfileFriendsSection: View {
                 }
             }
             
-            if friendsService.friends.isEmpty {
+            if friendsViewModel.friendItems.isEmpty {
                 VStack(spacing: 12) {
                     Image(systemName: "person.2.fill")
                         .font(.system(size: 32))
@@ -57,8 +67,8 @@ struct ProfileFriendsSection: View {
             } else {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 12) {
-                        ForEach(friendsService.friends.prefix(10)) { friend in
-                            FriendAvatarCard(friend: friend)
+                        ForEach(friendsViewModel.friendItems.prefix(10).filter { $0.status == .accepted }) { item in
+                            FriendAvatarCard(profile: item.profile)
                         }
                     }
                     .padding(.horizontal, 4)
@@ -69,21 +79,27 @@ struct ProfileFriendsSection: View {
         .background(Color(.systemBackground))
         .cornerRadius(20)
         .shadow(color: Color.black.opacity(0.04), radius: 12, x: 0, y: 4)
+        .onAppear {
+            friendsViewModel.updateService(service: friendsService, myUserId: sessionViewModel.currentUser?.id ?? "")
+            Task {
+                try? await friendsViewModel.refreshFriendships()
+            }
+        }
     }
 }
 
 struct FriendAvatarCard: View {
-    let friend: User
+    let profile: Profile
     
     var body: some View {
         VStack(spacing: 8) {
             AvatarView(
-                displayName: friend.displayName,
-                avatarURL: friend.avatarURL,
+                displayName: profile.displayName ?? profile.username,
+                avatarURL: profile.avatarUrl,
                 size: 56
             )
             
-            Text(friend.displayName)
+            Text(profile.displayName ?? profile.username)
                 .font(.system(size: 12, weight: .medium))
                 .lineLimit(1)
                 .frame(width: 60)

@@ -10,492 +10,305 @@ import Combine
 
 struct FriendsView: View {
     @ObservedObject var sessionViewModel: SessionViewModel
-    @StateObject private var viewModel: FriendsViewModel
     @EnvironmentObject var friendsService: FriendsService
-    @EnvironmentObject var healthKitService: HealthKitService
-    
-    @State private var searchText: String = ""
-    @State private var showingAddFriends = false
-    
-    private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
-    
+    @StateObject private var vm: FriendsViewModel
+
     init(sessionViewModel: SessionViewModel) {
         self.sessionViewModel = sessionViewModel
-        let userId = sessionViewModel.currentUser?.id ?? ""
-        _viewModel = StateObject(
-            wrappedValue: FriendsViewModel(
-                friendsService: FriendsService(),
-                healthKitService: HealthKitService(),
-                currentUserId: userId
-            )
-        )
+        let myUserId = sessionViewModel.currentUser?.id ?? ""
+        // Create temporary service for initialization, will be updated in onAppear
+        _vm = StateObject(wrappedValue: FriendsViewModel(service: FriendsService(), myUserId: myUserId))
     }
-    
-    var filteredFriends: [User] {
-        if searchText.isEmpty {
-            return viewModel.friends
-        }
-        return viewModel.friends.filter { friend in
-            friend.displayName.localizedCaseInsensitiveContains(searchText) ||
-            friend.username.localizedCaseInsensitiveContains(searchText)
-        }
-    }
-    
+
     var body: some View {
-        ZStack {
-            ScrollView {
-                VStack(spacing: 0) {
-                    // Header
-                    FriendsHeader(onAddFriends: {
-                        showingAddFriends = true
-                    })
-                    
-                    // Search Bar (if there are any friends)
-                    if !viewModel.friends.isEmpty || !viewModel.incomingRequests.isEmpty || !viewModel.outgoingRequests.isEmpty {
-                        SearchBar(text: $searchText)
-                            .padding(.horizontal)
-                            .padding(.top, 16)
+        NavigationStack {
+            VStack(spacing: 12) {
+                // Tabs
+                Picker("", selection: $vm.selectedTab) {
+                    Text("Friends").tag(FriendsViewModel.Tab.friends)
+                    Text("Discover").tag(FriendsViewModel.Tab.discover)
+                }
+                .pickerStyle(.segmented)
+                .padding(.horizontal)
+
+                switch vm.selectedTab {
+                case .friends:
+                    friendsTab
+                case .discover:
+                    discoverTab
+                }
+            }
+            .navigationTitle("Friends")
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button(vm.isEditing ? "Done" : "Edit") {
+                        vm.isEditing.toggle()
                     }
-                    
-                    // Content
-                    if viewModel.isLoading {
-                        ProgressView()
-                            .padding(.top, 40)
-                    } else if viewModel.friends.isEmpty && viewModel.incomingRequests.isEmpty && viewModel.outgoingRequests.isEmpty && searchText.isEmpty {
-                        EmptyFriendsView(
-                            hasSearchText: false,
-                            onAddFriends: {
-                                showingAddFriends = true
-                            }
-                        )
-                        .padding(.top, 60)
-                    } else {
-                        VStack(spacing: 24) {
-                            // Friends Section
-                            if !filteredFriends.isEmpty {
-                                FriendsSection(
-                                    title: "Friends",
-                                    friends: filteredFriends,
-                                    viewModel: viewModel
-                                )
-                            }
-                            
-                            // Incoming Requests Section
-                            if !viewModel.incomingRequests.isEmpty {
-                                IncomingRequestsSection(
-                                    requests: viewModel.incomingRequests,
-                                    viewModel: viewModel
-                                )
-                            }
-                            
-                            // Outgoing Requests Section
-                            if !viewModel.outgoingRequests.isEmpty {
-                                OutgoingRequestsSection(
-                                    requests: viewModel.outgoingRequests,
-                                    viewModel: viewModel
-                                )
-                            }
-                            
-                            // No results for search
-                            if searchText.isEmpty == false && filteredFriends.isEmpty && viewModel.incomingRequests.isEmpty && viewModel.outgoingRequests.isEmpty {
-                                EmptyFriendsView(
-                                    hasSearchText: true,
-                                    onAddFriends: {
-                                        showingAddFriends = true
-                                    }
-                                )
-                                .padding(.top, 20)
-                            }
+                }
+            }
+            .task { await vm.load() }
+            .onAppear {
+                // Update ViewModel with the environment service
+                let myUserId = sessionViewModel.currentUser?.id ?? ""
+                vm.updateService(service: friendsService, myUserId: myUserId)
+            }
+            .alert("Error", isPresented: Binding(
+                get: { vm.errorMessage != nil },
+                set: { _ in vm.errorMessage = nil }
+            )) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text(vm.errorMessage ?? "")
+            }
+        }
+    }
+
+    private var friendsTab: some View {
+        List {
+            Section {
+                if vm.friendItems.isEmpty {
+                    Text("No friends yet. Switch to Discover or share an invite link.")
+                        .foregroundStyle(.secondary)
+                } else {
+                    ForEach(vm.friendItems) { item in
+                        FriendRow(item: item, isEditing: vm.isEditing) {
+                            Task { await vm.remove(friendshipId: item.id) }
+                        } onAccept: {
+                            Task { await vm.accept(friendshipId: item.id) }
                         }
-                        .padding(.horizontal)
-                        .padding(.top, 16)
-                        .padding(.bottom, 24)
                     }
                 }
+            } header: {
+                Text("Your Friends")
             }
-            .navigationBarHidden(true)
-            .refreshable {
-                viewModel.refresh()
-            }
-        }
-        .onAppear {
-            viewModel.updateServices(friendsService: friendsService, healthKitService: healthKitService)
-        }
-        .sheet(isPresented: $showingAddFriends) {
-            AddFriendsView(sessionViewModel: sessionViewModel)
-        }
-    }
-}
 
-// MARK: - Header
-
-struct FriendsHeader: View {
-    let onAddFriends: () -> Void
-    
-    private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
-    
-    var body: some View {
-        VStack(spacing: 8) {
-            HStack {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Friends")
-                        .font(.system(size: 32, weight: .bold))
-                    
-                    Text("See how your friends are doing today")
-                        .font(.system(size: 14))
-                        .foregroundColor(.secondary)
-                }
-                
-                Spacer()
-                
-                // Add Friends Button
-                Button(action: onAddFriends) {
-                    HStack(spacing: 6) {
-                        Image(systemName: "person.badge.plus")
-                            .font(.system(size: 14, weight: .semibold))
-                        Text("Add Friends")
-                            .font(.system(size: 14, weight: .semibold))
+            Section {
+                PrivateDiscoveryCard(onShareInvite: {
+                    Task {
+                        if let url = await vm.createInviteLink() {
+                            share(url: url)
+                        }
                     }
-                    .foregroundColor(.black)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 10)
-                    .background(primaryYellow)
-                    .cornerRadius(20)
-                }
+                })
+            } header: {
+                Text("Invite Link")
             }
-            .padding(.horizontal)
-            .padding(.top, 16)
-            .padding(.bottom, 8)
         }
-        .background(Color(.systemBackground))
+        .listStyle(.insetGrouped)
     }
-}
 
-// MARK: - Search Bar
+    private var discoverTab: some View {
+        VStack(spacing: 10) {
+            TextField("Search profiles…", text: $vm.discoverQuery)
+                .textFieldStyle(.roundedBorder)
+                .padding(.horizontal)
+                .onChange(of: vm.discoverQuery) { _, _ in
+                    Task { 
+                        try? await Task.sleep(nanoseconds: 350_000_000)
+                        try? await vm.refreshDiscover() 
+                    }
+                }
 
-struct SearchBar: View {
-    @Binding var text: String
-    
-    var body: some View {
-        HStack {
-            Image(systemName: "magnifyingglass")
-                .foregroundColor(.secondary)
-                .font(.system(size: 16))
-            
-            TextField("Search friends...", text: $text)
-                .textFieldStyle(PlainTextFieldStyle())
-            
-            if !text.isEmpty {
-                Button(action: { text = "" }) {
-                    Image(systemName: "xmark.circle.fill")
-                        .foregroundColor(.secondary)
-                        .font(.system(size: 16))
+            List {
+                ForEach(vm.discoverResults) { profile in
+                    DiscoverProfileRow(
+                        profile: profile,
+                        friendshipStatus: vm.getFriendshipStatus(for: profile.id)
+                    ) {
+                        Task { await vm.sendRequest(to: profile) }
+                    }
+                }
+
+                if vm.discoverResults.isEmpty && !vm.discoverQuery.isEmpty {
+                    Text("No public profiles found.")
+                        .foregroundStyle(.secondary)
                 }
             }
+            .listStyle(.plain)
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
-        .background(Color(.systemGray6))
-        .cornerRadius(12)
+        .dismissKeyboardOnTap()
+    }
+
+    // MARK: - Sharing helper
+
+    private func share(url: URL) {
+        #if os(iOS)
+        let av = UIActivityViewController(activityItems: [url], applicationActivities: nil)
+        if let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+           let root = scene.windows.first?.rootViewController {
+            root.present(av, animated: true)
+        }
+        #endif
     }
 }
 
 // MARK: - Friend Row
 
 struct FriendRow: View {
-    let friend: User
-    let todaySteps: Int
-    
-    private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
-    
+    let item: FriendListItem
+    let isEditing: Bool
+    let onRemove: () -> Void
+    let onAccept: () -> Void
+
     var body: some View {
-        HStack(spacing: 16) {
-            // Avatar
-            AsyncImage(url: URL(string: friend.avatarURL ?? "")) { image in
-                image
-                    .resizable()
-                    .aspectRatio(contentMode: .fill)
-            } placeholder: {
-                ZStack {
-                    Circle()
-                        .fill(Color(.systemGray5))
-                    Text(friend.displayName.prefix(1).uppercased())
-                        .font(.system(size: 20, weight: .bold))
-                        .foregroundColor(.secondary)
-                }
+        HStack(spacing: 12) {
+            AvatarCircle(url: item.profile.avatarUrl, fallback: String(item.profile.username.prefix(1)).uppercased())
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(item.profile.displayName ?? item.profile.username)
+                    .font(.headline)
+                Text("@\(item.profile.username)")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
             }
-            .frame(width: 56, height: 56)
-            .clipShape(Circle())
-            .overlay(
-                Circle()
-                    .stroke(Color(.systemBackground), lineWidth: 2)
-            )
-            
-            // Friend Info
-            VStack(alignment: .leading, spacing: 6) {
-                Text(friend.displayName)
-                    .font(.system(size: 18, weight: .semibold))
-                
-                HStack(spacing: 8) {
-                    Image(systemName: "figure.walk")
-                        .font(.system(size: 12))
-                        .foregroundColor(.secondary)
-                    
-                    Text("\(todaySteps.formatted()) steps today")
-                        .font(.system(size: 14))
-                        .foregroundColor(.secondary)
-                }
-            }
-            
+
             Spacer()
-            
-            // Steps Badge
-            VStack(spacing: 4) {
-                Text("\(todaySteps.formatted())")
-                    .font(.system(size: 20, weight: .bold))
-                    .foregroundColor(.black)
-                
-                Text("steps")
-                    .font(.system(size: 10, weight: .medium))
-                    .foregroundColor(.black.opacity(0.6))
-                    .textCase(.uppercase)
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 10)
-            .background(primaryYellow)
-            .cornerRadius(12)
-        }
-        .padding(16)
-        .background(Color(.systemBackground))
-        .cornerRadius(16)
-        .shadow(color: Color.black.opacity(0.04), radius: 8, x: 0, y: 2)
-    }
-}
 
-// MARK: - Empty State
-
-struct EmptyFriendsView: View {
-    let hasSearchText: Bool
-    let onAddFriends: () -> Void
-    
-    private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
-    
-    var body: some View {
-        VStack(spacing: 24) {
-            Image(systemName: hasSearchText ? "magnifyingglass" : "person.2.fill")
-                .font(.system(size: 64))
-                .foregroundColor(.secondary)
-            
-            VStack(spacing: 8) {
-                Text(hasSearchText ? "No friends found" : "No friends yet")
-                    .font(.system(size: 20, weight: .bold))
-                
-                Text(hasSearchText ? "Try a different search term" : "Add friends to see their daily step progress")
-                    .font(.system(size: 14))
-                    .foregroundColor(.secondary)
-                    .multilineTextAlignment(.center)
-            }
-            
-            if !hasSearchText {
-                Button(action: onAddFriends) {
-                    HStack(spacing: 8) {
-                        Image(systemName: "person.badge.plus")
-                            .font(.system(size: 16, weight: .semibold))
-                        Text("Add Friends")
-                            .font(.system(size: 16, weight: .semibold))
-                    }
-                    .foregroundColor(.black)
-                    .padding(.horizontal, 24)
-                    .padding(.vertical, 14)
-                    .background(primaryYellow)
-                    .cornerRadius(24)
-                }
-            }
-        }
-        .padding(.horizontal, 40)
-    }
-}
-
-// MARK: - Friends Section
-
-struct FriendsSection: View {
-    let title: String
-    let friends: [User]
-    let viewModel: FriendsViewModel
-    
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text(title)
-                .font(.system(size: 20, weight: .bold))
-                .padding(.horizontal, 4)
-            
-            LazyVStack(spacing: 12) {
-                ForEach(friends) { friend in
-                    FriendRow(
-                        friend: friend,
-                        todaySteps: viewModel.getTodaySteps(for: friend.id)
-                    )
-                }
-            }
-        }
-    }
-}
-
-// MARK: - Incoming Requests Section
-
-struct IncomingRequestsSection: View {
-    let requests: [User]
-    let viewModel: FriendsViewModel
-    
-    private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
-    
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Requests")
-                .font(.system(size: 20, weight: .bold))
-                .padding(.horizontal, 4)
-            
-            LazyVStack(spacing: 12) {
-                ForEach(requests) { user in
-                    FriendRequestRow(
-                        user: user,
-                        isIncoming: true,
-                        onAccept: {
-                            viewModel.acceptFriendRequest(from: user.id)
-                        },
-                        onDecline: {
-                            viewModel.declineFriendRequest(from: user.id)
-                        },
-                        onCancel: nil
-                    )
-                }
-            }
-        }
-    }
-}
-
-// MARK: - Outgoing Requests Section
-
-struct OutgoingRequestsSection: View {
-    let requests: [User]
-    let viewModel: FriendsViewModel
-    
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Pending")
-                .font(.system(size: 20, weight: .bold))
-                .padding(.horizontal, 4)
-            
-            LazyVStack(spacing: 12) {
-                ForEach(requests) { user in
-                    FriendRequestRow(
-                        user: user,
-                        isIncoming: false,
-                        onAccept: nil,
-                        onDecline: nil,
-                        onCancel: {
-                            viewModel.cancelFriendRequest(to: user.id)
-                        }
-                    )
-                }
-            }
-        }
-    }
-}
-
-// MARK: - Friend Request Row
-
-struct FriendRequestRow: View {
-    let user: User
-    let isIncoming: Bool
-    let onAccept: (() -> Void)?
-    let onDecline: (() -> Void)?
-    let onCancel: (() -> Void)?
-    
-    private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
-    
-    var body: some View {
-        HStack(spacing: 16) {
-            // Avatar
-            AvatarView(
-                displayName: user.displayName,
-                avatarURL: user.avatarURL,
-                size: 56
-            )
-            
-            // User Info
-            VStack(alignment: .leading, spacing: 4) {
-                Text(user.displayName)
-                    .font(.system(size: 18, weight: .semibold))
-                
-                if isIncoming {
-                    Text("Wants to be friends")
-                        .font(.system(size: 14))
-                        .foregroundColor(.secondary)
-                } else {
-                    Text("Waiting")
-                        .font(.system(size: 14))
-                        .foregroundColor(.secondary)
-                }
-            }
-            
-            Spacer()
-            
-            // Action Buttons
-            if isIncoming {
-                // Accept/Decline buttons
-                HStack(spacing: 8) {
-                    Button(action: {
-                        onAccept?()
-                    }) {
-                        HStack(spacing: 4) {
-                            Image(systemName: "checkmark")
-                                .font(.system(size: 12, weight: .semibold))
-                            Text("Accept")
-                                .font(.system(size: 14, weight: .semibold))
-                        }
-                        .foregroundColor(.black)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 10)
-                        .background(primaryYellow)
-                        .cornerRadius(20)
-                    }
-                    
-                    Button(action: {
-                        onDecline?()
-                    }) {
-                        HStack(spacing: 4) {
-                            Image(systemName: "xmark")
-                                .font(.system(size: 12, weight: .semibold))
-                            Text("Decline")
-                                .font(.system(size: 14, weight: .medium))
-                        }
-                        .foregroundColor(.secondary)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 10)
-                        .background(Color(.systemGray6))
-                        .cornerRadius(20)
-                    }
-                }
+            if item.isIncomingRequest {
+                Button("Accept") { onAccept() }
+                    .buttonStyle(.borderedProminent)
+            } else if item.isOutgoingRequest {
+                Text("Requested")
+                    .foregroundStyle(.secondary)
             } else {
-                // Cancel button for outgoing requests
-                Button(action: {
-                    onCancel?()
-                }) {
-                    Text("Cancel")
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundColor(.secondary)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 10)
-                        .background(Color(.systemGray6))
-                        .cornerRadius(20)
+                Text("Friend")
+                    .foregroundStyle(.secondary)
+            }
+
+            if isEditing, item.status == .accepted {
+                Button(role: .destructive) {
+                    onRemove()
+                } label: {
+                    Image(systemName: "minus.circle.fill")
                 }
+                .buttonStyle(.plain)
             }
         }
-        .padding(16)
-        .background(Color(.systemBackground))
-        .cornerRadius(16)
-        .shadow(color: Color.black.opacity(0.04), radius: 8, x: 0, y: 2)
+        .padding(.vertical, 6)
     }
 }
 
+// MARK: - Discover Profile Row
+
+struct DiscoverProfileRow: View {
+    let profile: Profile
+    let friendshipStatus: DiscoverFriendshipStatus
+    let onAdd: () -> Void
+    
+    // Check if this is a test account
+    private var isTestAccount: Bool {
+        // Test account IDs from CREATE_AUTH_TEST_ACCOUNTS.sql
+        let testAccountIds: Set<String> = [
+            "11111111-1111-1111-1111-111111111111",
+            "22222222-2222-2222-2222-222222222222",
+            "33333333-3333-3333-3333-333333333333",
+            "44444444-4444-4444-4444-444444444444",
+            "55555555-5555-5555-5555-555555555555"
+        ]
+        return testAccountIds.contains(profile.id)
+    }
+
+    var body: some View {
+        HStack(spacing: 12) {
+            AvatarCircle(url: profile.avatarUrl, fallback: String(profile.username.prefix(1)).uppercased())
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(profile.displayName ?? profile.username)
+                    .font(.headline)
+                    .foregroundColor(.primary)
+                Text("@\(profile.username)")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer()
+
+            Button(action: {
+                onAdd()
+            }) {
+                Group {
+                    switch friendshipStatus {
+                    case .none:
+                        Text("Add")
+                            .foregroundColor(.black)
+                            .font(.system(size: 15, weight: .medium))
+                    case .pending:
+                        Text("Pending")
+                            .foregroundColor(.secondary)
+                            .font(.system(size: 15, weight: .medium))
+                    case .accepted:
+                        Text("Friend")
+                            .foregroundColor(.secondary)
+                            .font(.system(size: 15, weight: .medium))
+                    }
+                }
+            }
+            .buttonStyle(.bordered)
+            .disabled(friendshipStatus == .accepted || friendshipStatus == .pending)
+        }
+        .padding(.vertical, 6)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            // Make entire row clickable to add friend
+            if friendshipStatus == .none {
+                onAdd()
+            }
+        }
+    }
+}
+
+enum DiscoverFriendshipStatus {
+    case none
+    case pending
+    case accepted
+}
+
+// MARK: - Private Discovery Card
+
+struct PrivateDiscoveryCard: View {
+    let onShareInvite: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Keep your profile private")
+                .font(.headline)
+
+            Text("If your Public Profile toggle is OFF, people can only add you using your invite link.")
+                .foregroundStyle(.secondary)
+
+            Button {
+                onShareInvite()
+            } label: {
+                Label("Share Friend Invite Link", systemImage: "link")
+            }
+            .buttonStyle(.borderedProminent)
+        }
+        .padding(.vertical, 8)
+    }
+}
+
+// MARK: - Avatar Circle
+
+struct AvatarCircle: View {
+    let url: String?
+    let fallback: String
+
+    var body: some View {
+        ZStack {
+            Circle().fill(.thinMaterial)
+                .frame(width: 42, height: 42)
+
+            if let url, let u = URL(string: url) {
+                AsyncImage(url: u) { img in
+                    img.resizable().scaledToFill()
+                } placeholder: {
+                    Text(fallback).font(.headline)
+                }
+                .frame(width: 42, height: 42)
+                .clipShape(Circle())
+            } else {
+                Text(fallback).font(.headline)
+            }
+        }
+    }
+}

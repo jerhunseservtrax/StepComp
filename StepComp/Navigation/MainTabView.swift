@@ -7,6 +7,9 @@
 
 import SwiftUI
 import Combine
+#if os(iOS)
+import UIKit
+#endif
 
 class TabSelectionManager: ObservableObject {
     @Published var selectedTab: Int = 0
@@ -24,6 +27,8 @@ struct MainTabView: View {
     init(sessionViewModel: SessionViewModel) {
         _sessionViewModel = StateObject(wrappedValue: sessionViewModel)
     }
+    
+    private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
     
     var body: some View {
         TabView(selection: $tabManager.selectedTab) {
@@ -50,6 +55,10 @@ struct MainTabView: View {
                     Label("Settings", systemImage: "gearshape.fill")
                 }
                 .tag(3)
+        }
+        .tint(primaryYellow)
+        .onAppear {
+            setupTabBarAppearance()
         }
         .environmentObject(tabManager)
         .simultaneousGesture(
@@ -115,6 +124,31 @@ struct MainTabView: View {
                     }
                 }
             }
+        }
+        #endif
+    }
+    
+    private func setupTabBarAppearance() {
+        #if os(iOS)
+        let appearance = UITabBarAppearance()
+        appearance.configureWithOpaqueBackground()
+        
+        // Set selected item color to yellow
+        appearance.stackedLayoutAppearance.selected.iconColor = UIColor(primaryYellow)
+        appearance.stackedLayoutAppearance.selected.titleTextAttributes = [
+            .foregroundColor: UIColor(primaryYellow)
+        ]
+        
+        // Set unselected item color
+        appearance.stackedLayoutAppearance.normal.iconColor = UIColor.secondaryLabel
+        appearance.stackedLayoutAppearance.normal.titleTextAttributes = [
+            .foregroundColor: UIColor.secondaryLabel
+        ]
+        
+        // Apply to all tab bar instances
+        UITabBar.appearance().standardAppearance = appearance
+        if #available(iOS 15.0, *) {
+            UITabBar.appearance().scrollEdgeAppearance = appearance
         }
         #endif
     }

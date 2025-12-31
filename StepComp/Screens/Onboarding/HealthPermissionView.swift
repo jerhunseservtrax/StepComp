@@ -26,21 +26,11 @@ struct HealthPermissionOnboardingView: View {
                 
                 // Permission Visual
                 ZStack {
-                    // Ripple effects
+                    // Glowing background circle
                     Circle()
-                        .fill(primaryYellow.opacity(0.05))
+                        .fill(primaryYellow.opacity(0.2))
                         .frame(width: 256, height: 256)
-                        .scaleEffect(isAnimating ? 1.2 : 1.0)
-                        .opacity(isAnimating ? 0 : 1)
-                        .animation(
-                            Animation.easeOut(duration: 3.0)
-                                .repeatForever(autoreverses: false),
-                            value: isAnimating
-                        )
-                    
-                    Circle()
-                        .fill(primaryYellow.opacity(0.1))
-                        .frame(width: 200, height: 200)
+                        .blur(radius: 40)
                         .scaleEffect(isAnimating ? 1.1 : 1.0)
                         .animation(
                             Animation.easeInOut(duration: 2.0)
@@ -48,72 +38,82 @@ struct HealthPermissionOnboardingView: View {
                             value: isAnimating
                         )
                     
-                    // Main icon container
+                    // Main icon container - white circle with yellow glow
                     ZStack {
                         Circle()
-                            .fill(
-                                LinearGradient(
-                                    colors: [primaryYellow, Color.yellow],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                )
-                            )
-                            .frame(width: 128, height: 128)
+                            .fill(Color(.systemBackground))
+                            .frame(width: 256, height: 256)
                             .shadow(color: primaryYellow.opacity(0.3), radius: 20, x: 0, y: 8)
-                            .overlay(
-                                Circle()
-                                    .stroke(Color(.systemBackground), lineWidth: 4)
-                            )
                         
+                        // Red heart icon
                         Image(systemName: "heart.fill")
-                            .font(.system(size: 64))
-                            .foregroundColor(.black)
-                    }
-                    
-                    // Floating badge
-                    VStack {
-                        HStack {
+                            .font(.system(size: 120))
+                            .foregroundColor(.red)
+                            .symbolEffect(.pulse, value: isAnimating)
+                        
+                        // Green lightning bolt badge at bottom right
+                        VStack {
                             Spacer()
-                            HStack(spacing: 8) {
-                                Image(systemName: "checkmark.circle.fill")
-                                    .font(.system(size: 20))
-                                    .foregroundColor(.green)
-                                Text("Verified")
-                                    .font(.system(size: 11, weight: .bold))
+                            HStack {
+                                Spacer()
+                                ZStack {
+                                    RoundedRectangle(cornerRadius: 16)
+                                        .fill(Color(.systemBackground))
+                                        .frame(width: 48, height: 48)
+                                        .shadow(color: Color.black.opacity(0.1), radius: 8, x: 0, y: 4)
+                                    
+                                    Image(systemName: "bolt.fill")
+                                        .font(.system(size: 24))
+                                        .foregroundColor(.green)
+                                }
+                                .offset(x: -20, y: -20)
                             }
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 8)
-                            .background(Color(.systemBackground))
-                            .cornerRadius(16)
-                            .shadow(color: Color.black.opacity(0.1), radius: 8, x: 0, y: 4)
                         }
-                        Spacer()
                     }
-                    .padding(.top, 32)
-                    .padding(.trailing, 32)
-                    .offset(y: isAnimating ? -5 : 5)
-                    .animation(
-                        Animation.easeInOut(duration: 2.5)
-                            .repeatForever(autoreverses: true),
-                        value: isAnimating
-                    )
                 }
                 .frame(height: 256)
                 .padding(.bottom, 40)
                 
                 // Text Content
                 VStack(spacing: 16) {
-                    Text("Sync your steps")
+                    Text("Sync your stride")
                         .font(.system(size: 32, weight: .bold))
                     
-                    Text("To make the game fair for everyone, we need to verify your movement with HealthKit. Your data stays private on your device. 🔒")
+                    Text("We need access to your Health data including steps, distance, calories, height, weight, and age to provide accurate fitness tracking and personalized insights.")
                         .font(.system(size: 16))
                         .foregroundColor(.secondary)
                         .multilineTextAlignment(.center)
                         .lineSpacing(4)
                         .padding(.horizontal, 24)
                 }
-                .padding(.bottom, 40)
+                .padding(.bottom, 24)
+                
+                // Apple Health Card Preview
+                HStack(spacing: 12) {
+                    Image(systemName: "heart.text.square.fill")
+                        .font(.system(size: 24))
+                        .foregroundColor(.red)
+                    
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Apple Health")
+                            .font(.system(size: 14, weight: .bold))
+                            .foregroundColor(.primary)
+                        Text("Steps, Distance, Energy, Height, Weight, Age")
+                            .font(.system(size: 12))
+                            .foregroundColor(.secondary)
+                    }
+                    
+                    Spacer()
+                    
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 20))
+                        .foregroundColor(.green)
+                }
+                .padding(16)
+                .background(Color(.systemGray6))
+                .cornerRadius(16)
+                .padding(.horizontal, 24)
+                .padding(.bottom, 24)
                 
                 Spacer()
                 
@@ -124,29 +124,25 @@ struct HealthPermissionOnboardingView: View {
                             await requestAuthorization()
                         }
                     }) {
-                        HStack(spacing: 12) {
-                            Image(systemName: "heart.text.square.fill")
-                                .font(.system(size: 20))
-                            Text("Enable Health Access")
-                                .font(.system(size: 18, weight: .bold))
-                        }
-                        .foregroundColor(.black)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 64)
-                        .background(primaryYellow)
-                        .cornerRadius(999)
-                        .shadow(color: primaryYellow.opacity(0.3), radius: 16, x: 0, y: 8)
+                        Text("Enable Health Access")
+                            .font(.system(size: 18, weight: .bold))
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 56)
+                            .background(Color.black)
+                            .cornerRadius(999)
+                            .shadow(color: Color.black.opacity(0.1), radius: 8, x: 0, y: 4)
                     }
                     .disabled(isLoading)
                     
                     Button(action: {
-                        currentStep = .avatarSelection
+                        withAnimation {
+                            currentStep = .avatarSelection
+                        }
                     }) {
                         Text("Skip for now")
                             .font(.system(size: 14, weight: .semibold))
                             .foregroundColor(.secondary)
-                            .frame(maxWidth: .infinity)
-                            .frame(height: 48)
                     }
                 }
                 .padding(.horizontal, 24)

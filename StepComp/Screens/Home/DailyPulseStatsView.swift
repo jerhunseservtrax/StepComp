@@ -9,8 +9,17 @@ import SwiftUI
 
 struct DailyPulseStatsView: View {
     let calories: Int
-    let distance: Double
-    let streak: Int
+    let distanceMiles: Double
+    let steps: Int
+    
+    private func formatSteps(_ steps: Int) -> String {
+        if steps >= 1_000_000 {
+            return String(format: "%.1fM", Double(steps) / 1_000_000.0)
+        } else if steps >= 1_000 {
+            return String(format: "%.1fK", Double(steps) / 1_000.0)
+        }
+        return "\(steps)"
+    }
     
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -30,27 +39,28 @@ struct DailyPulseStatsView: View {
             }
             .padding(.horizontal, 4)
             
-            // Stats Grid
-            VStack(spacing: 12) {
-                // Top row: Calories and Distance
-                HStack(spacing: 12) {
-                    DailyStatCard(
-                        icon: "flame.fill",
-                        value: "\(calories)",
-                        label: "kcal burned",
-                        color: .orange
-                    )
-                    
-                    DailyStatCard(
-                        icon: "figure.walk",
-                        value: String(format: "%.1f", distance),
-                        label: "km distance",
-                        color: .blue
-                    )
-                }
+            // Stats Grid - All three cards in one row
+            HStack(spacing: 12) {
+                DailyStatCard(
+                    icon: "figure.walk",
+                    value: formatSteps(steps),
+                    label: "steps",
+                    color: .green
+                )
                 
-                // Streak card (full width)
-                StreakCard(days: streak)
+                DailyStatCard(
+                    icon: "figure.walk",
+                    value: String(format: "%.1f", distanceMiles),
+                    label: "miles",
+                    color: .blue
+                )
+                
+                DailyStatCard(
+                    icon: "flame.fill",
+                    value: "\(calories)",
+                    label: "kcal",
+                    color: .orange
+                )
             }
         }
     }
@@ -92,53 +102,42 @@ struct DailyStatCard: View {
     }
 }
 
-struct StreakCard: View {
-    let days: Int
+struct StepsCard: View {
+    let steps: Int
     
-    private let weekDays = ["M", "T", "W", "T", "F", "S", "S"]
+    var formattedSteps: String {
+        if steps >= 1_000_000 {
+            return String(format: "%.1fM", Double(steps) / 1_000_000.0)
+        } else if steps >= 1_000 {
+            return String(format: "%.1fK", Double(steps) / 1_000.0)
+        }
+        return "\(steps)"
+    }
     
     var body: some View {
         HStack {
             HStack(spacing: 12) {
                 ZStack {
                     Circle()
-                        .fill(Color.purple.opacity(0.15))
+                        .fill(Color.green.opacity(0.15))
                         .frame(width: 40, height: 40)
                     
-                    Image(systemName: "bolt.fill")
-                        .foregroundColor(.purple)
+                    Image(systemName: "figure.walk")
+                        .foregroundColor(.green)
                         .font(.system(size: 18))
                 }
                 
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("\(days) Days")
+                    Text(formattedSteps)
                         .font(.system(size: 20, weight: .bold, design: .rounded))
                     
-                    Text("Current Streak")
+                    Text("Steps Today")
                         .font(.system(size: 11, weight: .medium))
                         .foregroundColor(.secondary)
                 }
             }
             
             Spacer()
-            
-            // Week day indicators
-            HStack(spacing: -4) {
-                ForEach(Array(weekDays.prefix(4).enumerated()), id: \.offset) { index, day in
-                    Circle()
-                        .fill(index < 3 ? Color(red: 0.976, green: 0.961, blue: 0.024) : Color(.systemGray5))
-                        .frame(width: 24, height: 24)
-                        .overlay(
-                            Text(day)
-                                .font(.system(size: 10, weight: .bold))
-                                .foregroundColor(index < 3 ? .black : .secondary)
-                        )
-                        .overlay(
-                            Circle()
-                                .stroke(Color(.systemBackground), lineWidth: 2)
-                        )
-                }
-            }
         }
         .padding(16)
         .background(Color(.systemBackground))
