@@ -14,6 +14,7 @@ import UIKit
 struct SettingsView: View {
     @ObservedObject var sessionViewModel: SessionViewModel
     @EnvironmentObject var healthKitService: HealthKitService
+    @EnvironmentObject var themeManager: ThemeManager
     @Environment(\.dismiss) var dismiss
     @Environment(\.colorScheme) var colorScheme
     
@@ -130,11 +131,15 @@ struct SettingsView: View {
         }
         .onAppear {
             healthKitEnabled = healthKitService.isAuthorized
-            darkMode = colorScheme == .dark
+            darkMode = themeManager.isDarkMode
             startAutoRefresh()
         }
         .onDisappear {
             stopAutoRefresh()
+        }
+        .onChange(of: darkMode) { oldValue, newValue in
+            // Update theme when dark mode toggle changes
+            themeManager.setColorScheme(newValue ? .dark : .light)
         }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
             // Refresh when app comes to foreground
@@ -721,6 +726,7 @@ struct PreferencesCard: View {
                     icon: "moon.fill",
                     iconBackground: Color.black,
                     title: "Dark Mode",
+                    subtitle: "Change app appearance",
                     trailing: {
                         Toggle("", isOn: $darkMode)
                             .toggleStyle(SwitchToggleStyle(tint: Color(red: 0.976, green: 0.961, blue: 0.024)))
