@@ -207,6 +207,12 @@ struct CreateChallengeView: View {
                 print("✅ User authenticated and ready to create challenges")
             }
         }
+        .onDisappear {
+            // Always reset the form when view disappears
+            // This ensures clean state for next challenge creation
+            print("🔄 CreateChallengeView disappeared - resetting form")
+            viewModel.reset()
+        }
         .onChange(of: challengeService.challenges.count) {
             // Update viewModel when challenges change
             viewModel.updateService(challengeService)

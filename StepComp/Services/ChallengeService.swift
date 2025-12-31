@@ -56,7 +56,11 @@ final class ChallengeService: ObservableObject {
     #if canImport(Supabase)
     private func createChallengeInSupabase(_ challenge: Challenge, isPublic: Bool) async throws {
         // Generate invite code if not provided (only for private challenges)
-        let inviteCode = isPublic ? nil : (challenge.inviteCode ?? generateInviteCode())
+        // For public challenges, invite code is nil
+        var inviteCode: String? = nil
+        if !isPublic {
+            inviteCode = challenge.inviteCode ?? generateInviteCode()
+        }
         
         // Convert Challenge to SupabaseChallenge
         // isPublic = true means anyone can join, false means private (only invited can join)
@@ -73,17 +77,53 @@ final class ChallengeService: ObservableObject {
             updatedAt: Date()
         )
         
-        // Insert challenge into database
+        // Insert challenge into database with retry logic for invite code collision
         print("📤 Inserting challenge into database...")
-        do {
-            try await supabase
-                .from("challenges")
-                .insert(supabaseChallenge)
-                .execute()
-            print("✅ Challenge inserted into database")
-        } catch {
-            print("❌ Failed to insert challenge: \(error.localizedDescription)")
-            throw error
+        var retryCount = 0
+        let maxRetries = 3
+        
+        while retryCount < maxRetries {
+            do {
+                try await supabase
+                    .from("challenges")
+                    .insert(supabaseChallenge)
+                    .execute()
+                print("✅ Challenge inserted into database")
+                break // Success - exit retry loop
+            } catch {
+                let errorMsg = error.localizedDescription
+                print("❌ Failed to insert challenge: \(errorMsg)")
+                
+                // Check if it's an invite code collision for private challenges
+                if !isPublic && errorMsg.contains("invite_code") && errorMsg.contains("unique") && retryCount < maxRetries - 1 {
+                    print("⚠️ Invite code collision detected - generating new code and retrying...")
+                    retryCount += 1
+                    // Generate a new invite code and update the challenge
+                    let newInviteCode = generateInviteCode()
+                    let updatedChallenge = SupabaseChallenge(
+                        id: supabaseChallenge.id,
+                        name: supabaseChallenge.name,
+                        description: supabaseChallenge.description,
+                        startDate: supabaseChallenge.startDate,
+                        endDate: supabaseChallenge.endDate,
+                        createdBy: supabaseChallenge.createdBy,
+                        isPublic: supabaseChallenge.isPublic,
+                        inviteCode: newInviteCode,
+                        createdAt: supabaseChallenge.createdAt,
+                        updatedAt: Date()
+                    )
+                    // Try again with new code in next iteration
+                    try await supabase
+                        .from("challenges")
+                        .insert(updatedChallenge)
+                        .execute()
+                    print("✅ Challenge inserted with new invite code")
+                    break
+                } else {
+                    // Not an invite code issue, or max retries reached
+                    throw error
+                }
+            }
         }
         
         // Add creator as challenge member
@@ -111,9 +151,10 @@ final class ChallengeService: ObservableObject {
     }
     
     private func generateInviteCode() -> String {
-        // Generate a 6-character alphanumeric code
+        // Generate an 8-character alphanumeric code for better uniqueness
+        // 36^8 = 2.8 trillion possible codes - virtually no collision risk
         let characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-        return String((0..<6).map { _ in characters.randomElement()! })
+        return String((0..<8).map { _ in characters.randomElement()! })
     }
     
     private func addChallengeMember(challengeId: String, userId: String) async throws {
