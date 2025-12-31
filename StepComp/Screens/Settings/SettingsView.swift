@@ -30,6 +30,8 @@ struct SettingsView: View {
     @State private var todaySteps: Int = 0
     @State private var currentStreak: Int = 0
     @State private var totalSteps: Int = 0
+    @State private var totalDistanceMiles: Double = 0.0
+    @State private var averageStepsThisMonth: Int = 0
     @State private var refreshTimer: Timer?
     
     private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
@@ -48,7 +50,9 @@ struct SettingsView: View {
                     SettingsSidebar(
                         user: sessionViewModel.currentUser,
                         totalSteps: totalSteps,
-                        currentStreak: currentStreak
+                        currentStreak: currentStreak,
+                        totalDistanceMiles: totalDistanceMiles,
+                        averageStepsThisMonth: averageStepsThisMonth
                     )
                     .frame(width: 320)
                     
@@ -79,7 +83,9 @@ struct SettingsView: View {
                             SettingsProfileSection(
                                 user: sessionViewModel.currentUser,
                                 totalSteps: totalSteps,
-                                currentStreak: currentStreak
+                                currentStreak: currentStreak,
+                                totalDistanceMiles: totalDistanceMiles,
+                                averageStepsThisMonth: averageStepsThisMonth
                             )
                             .padding()
                             
@@ -180,12 +186,29 @@ struct SettingsView: View {
             // This is stored in the profiles table and synced from HealthKit
             totalSteps = sessionViewModel.currentUser?.totalSteps ?? 0
             print("✅ Total steps since joining: \(totalSteps)")
+            
+            // Calculate total distance in miles (estimated: 2000 steps ≈ 1 mile)
+            totalDistanceMiles = Double(totalSteps) / 2000.0
+            print("✅ Total distance: \(String(format: "%.1f", totalDistanceMiles)) miles")
+            
+            // Calculate average steps for current month
+            let calendar = Calendar.current
+            let now = Date()
+            let monthStart = calendar.date(from: calendar.dateComponents([.year, .month], from: now)) ?? now
+            let monthStats = try await healthKitService.getSteps(from: monthStart, to: now)
+            
+            let totalStepsThisMonth = monthStats.reduce(0) { $0 + $1.steps }
+            let daysInMonth = calendar.dateComponents([.day], from: monthStart, to: now).day ?? 1
+            averageStepsThisMonth = daysInMonth > 0 ? totalStepsThisMonth / daysInMonth : 0
+            print("✅ Average steps this month: \(averageStepsThisMonth)")
         } catch {
             print("⚠️ Error loading HealthKit data in Settings: \(error.localizedDescription)")
             // Fallback to user's stored total steps
             totalSteps = sessionViewModel.currentUser?.totalSteps ?? 0
+            totalDistanceMiles = Double(totalSteps) / 2000.0
             todaySteps = 0
             currentStreak = 0
+            averageStepsThisMonth = 0
         }
     }
     
@@ -282,6 +305,8 @@ struct SettingsSidebar: View {
     let user: User?
     let totalSteps: Int
     let currentStreak: Int
+    let totalDistanceMiles: Double
+    let averageStepsThisMonth: Int
     
     private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
     
@@ -293,7 +318,9 @@ struct SettingsSidebar: View {
                     SettingsProfileSection(
                         user: user,
                         totalSteps: totalSteps,
-                        currentStreak: currentStreak
+                        currentStreak: currentStreak,
+                        totalDistanceMiles: totalDistanceMiles,
+                        averageStepsThisMonth: averageStepsThisMonth
                     )
                     .padding(32)
                     
@@ -321,6 +348,8 @@ struct SettingsProfileSection: View {
     let user: User?
     let totalSteps: Int
     let currentStreak: Int
+    let totalDistanceMiles: Double
+    let averageStepsThisMonth: Int
     
     private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
     
@@ -335,6 +364,17 @@ struct SettingsProfileSection: View {
             return String(format: "%.1fK", Double(totalSteps) / 1_000.0)
         }
         return "\(totalSteps)"
+    }
+    
+    var formattedDistance: String {
+        return String(format: "%.1f mi", totalDistanceMiles)
+    }
+    
+    var formattedAverageSteps: String {
+        if averageStepsThisMonth >= 1_000 {
+            return String(format: "%.1fK", Double(averageStepsThisMonth) / 1_000.0)
+        }
+        return "\(averageStepsThisMonth)"
     }
     
     var body: some View {
@@ -386,17 +426,31 @@ struct SettingsProfileSection: View {
                 .cornerRadius(999)
             }
             
-            // Mini Stats
-            HStack(spacing: 12) {
-                MiniStatCard(
-                    label: "All-Time Steps",
-                    value: formattedSteps
-                )
+            // Mini Stats - 2x2 Grid
+            VStack(spacing: 12) {
+                HStack(spacing: 12) {
+                    MiniStatCard(
+                        label: "Total Steps",
+                        value: formattedSteps
+                    )
+                    
+                    MiniStatCard(
+                        label: "Total Distance",
+                        value: formattedDistance
+                    )
+                }
                 
-                MiniStatCard(
-                    label: "Current Streak",
-                    value: "\(currentStreak) Days"
-                )
+                HStack(spacing: 12) {
+                    MiniStatCard(
+                        label: "Current Streak",
+                        value: "\(currentStreak) Days"
+                    )
+                    
+                    MiniStatCard(
+                        label: "Avg Steps/Month",
+                        value: formattedAverageSteps
+                    )
+                }
             }
         }
     }
