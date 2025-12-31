@@ -83,6 +83,12 @@ struct WelcomeOnboardingView: View {
                         .multilineTextAlignment(.center)
                         .lineSpacing(4)
                         .padding(.horizontal, 24)
+                    
+                    // Social Proof
+                    Text("Join thousands of walkers competing daily")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(.secondary)
+                        .opacity(0.8)
                 }
                 .padding(.bottom, 32)
                 

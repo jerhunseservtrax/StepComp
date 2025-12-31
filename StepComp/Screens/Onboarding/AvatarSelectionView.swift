@@ -97,14 +97,14 @@ struct AvatarSelectionOnboardingView: View {
         }
     }
     
-    private func completeOnboarding() {
+    private func saveAvatarAndContinue() {
         // Store selected avatar emoji temporarily
         // Will be applied when user signs in
         UserDefaults.standard.set(avatarOptions[selectedAvatarIndex].emoji, forKey: "selectedAvatarEmoji")
         
-        // Move to sign in step
+        // Move to first win step
         withAnimation {
-            currentStep = .signIn
+            currentStep = .firstWin
         }
     }
 }

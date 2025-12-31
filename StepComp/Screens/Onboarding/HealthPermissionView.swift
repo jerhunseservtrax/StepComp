@@ -137,7 +137,7 @@ struct HealthPermissionOnboardingView: View {
                     
                     Button(action: {
                         withAnimation {
-                            currentStep = .avatarSelection
+                            currentStep = .goalSetting
                         }
                     }) {
                         Text("Skip for now")
@@ -160,14 +160,14 @@ struct HealthPermissionOnboardingView: View {
         
         do {
             try await sessionViewModel.requestHealthKitAuthorization()
-            // Always proceed to avatar selection, even if HealthKit authorization failed
+            // Always proceed to goal setting, even if HealthKit authorization failed
             // The app can work without HealthKit (with mock data)
-            currentStep = .avatarSelection
+            currentStep = .goalSetting
         } catch {
             // Log error but don't block - allow user to continue
             errorMessage = error.localizedDescription
             // Still proceed to next step
-            currentStep = .avatarSelection
+            currentStep = .goalSetting
         }
         
         isLoading = false

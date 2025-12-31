@@ -15,12 +15,14 @@ struct OnboardingFlowView: View {
     enum OnboardingStep: Int, CaseIterable {
         case welcome = 0
         case healthPermission = 1
-        case avatarSelection = 2
-        case signIn = 3
+        case goalSetting = 2
+        case avatarSelection = 3
+        case firstWin = 4
+        case signIn = 5
         
         var stepIndex: Int { rawValue }
         
-        static var totalSteps: Int { 4 }
+        static var totalSteps: Int { 6 }
     }
     
     var body: some View {
@@ -37,8 +39,18 @@ struct OnboardingFlowView: View {
                         sessionViewModel: sessionViewModel,
                         currentStep: $currentStep
                     )
+                case .goalSetting:
+                    GoalSettingOnboardingView(
+                        sessionViewModel: sessionViewModel,
+                        currentStep: $currentStep
+                    )
                 case .avatarSelection:
                     AvatarSelectionOnboardingView(
+                        sessionViewModel: sessionViewModel,
+                        currentStep: $currentStep
+                    )
+                case .firstWin:
+                    FirstWinOnboardingView(
                         sessionViewModel: sessionViewModel,
                         currentStep: $currentStep
                     )
@@ -88,7 +100,7 @@ struct OnboardingFlowView: View {
 
 struct StepIndicator: View {
     let currentStep: Int
-    let totalSteps: Int = 4
+    let totalSteps: Int = 6
     
     private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
     
