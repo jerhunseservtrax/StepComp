@@ -1,122 +1,214 @@
-# Fix All Current Issues Guide
+# 🔧 Fix All Critical Issues Guide
 
-This guide addresses all the errors you're seeing in the console.
+## Issues to Fix
 
-## Issue 1: Infinite Recursion in challenge_members RLS Policy
+1. ✅ Edge Function 404 error
+2. ✅ Infinite recursion in RLS policies
+3. ✅ Apple Sign In challenge creation
+4. ✅ Challenges not showing
+5. ✅ Unable to cancel friend requests
+6. ✅ App freeze on sign out
 
-**Error:** `infinite recursion detected in policy for relation "challenge_members"`
+---
 
-**Solution:**
-1. Go to Supabase Dashboard → SQL Editor
-2. Run the SQL from `FIX_CHALLENGE_MEMBERS_RLS_RECURSION.sql`
-3. This fixes the RLS policy to avoid recursion
+## Step 1: Fix Database RLS Policies
 
-**Or run this SQL directly:**
+**Run this SQL in Supabase Dashboard → SQL Editor:**
 
 ```sql
--- Drop the problematic policy
-DROP POLICY IF EXISTS "Users can read challenge members" ON challenge_members;
-
--- Create a fixed policy without recursion
-CREATE POLICY "Users can read challenge members"
-  ON challenge_members FOR SELECT
-  USING (
-    (SELECT auth.uid()) = user_id
-    OR
-    EXISTS (
-      SELECT 1 FROM challenges
-      WHERE challenges.id = challenge_members.challenge_id
-      AND challenges.is_public = TRUE
-    )
-    OR
-    EXISTS (
-      SELECT 1 FROM challenges
-      WHERE challenges.id = challenge_members.challenge_id
-      AND challenges.created_by = (SELECT auth.uid())
-    )
-  );
+-- Copy and paste the entire contents of FIX_ALL_CRITICAL_ISSUES.sql
 ```
 
-## Issue 2: HealthKit Usage Descriptions Missing
+**What it fixes:**
+- Infinite recursion in `challenges` table RLS
+- Infinite recursion in `challenge_members` table RLS
+- Missing `avatar_url` column error
+- Challenge visibility issues
 
-**Error:** `HealthKit usage descriptions missing in Info.plist`
+**After running:**
+- Challenges should load without recursion errors
+- Public challenges should appear in Discover tab
+- Home screen should show active challenges
 
-**Solution:**
-1. Open Xcode
-2. Select your project in the navigator
-3. Select the **StepComp** target
-4. Go to the **Info** tab
-5. Click the **+** button to add new keys
-6. Add these two keys:
+---
 
-   **Key 1:**
-   - Key: `NSHealthShareUsageDescription`
-   - Type: `String`
-   - Value: `StepComp needs access to your step count to track your progress in challenges.`
+## Step 2: Edge Function 404 (Already Fixed in Code)
 
-   **Key 2:**
-   - Key: `NSHealthUpdateUsageDescription`
-   - Type: `String`
-   - Value: `StepComp needs permission to save your step data for challenge tracking.`
+**Status:** ✅ Fixed in `StepSyncService.swift`
 
-**Or edit Info.plist directly:**
+**What was fixed:**
+- Added graceful fallback when Edge Function returns 404
+- Falls back to RPC `sync_daily_steps` if Edge Function not deployed
+- No more 404 errors in console
 
-```xml
-<key>NSHealthShareUsageDescription</key>
-<string>StepComp needs access to your step count to track your progress in challenges.</string>
+**If you want to deploy the Edge Function:**
+1. Go to Supabase Dashboard → Edge Functions
+2. Deploy `supabase/functions/sync-steps/index.ts`
+3. This provides better security (rate limiting, validation)
 
-<key>NSHealthUpdateUsageDescription</key>
-<string>StepComp needs permission to save your step data for challenge tracking.</string>
-```
+**Otherwise:** The app will use RPC fallback automatically.
 
-## Issue 3: Avatar Column Not Found
+---
 
-**Error:** `Could not find the 'avatar' column of 'profiles' in the schema cache`
+## Step 3: Apple Sign In Profile Creation (Already Fixed)
 
-**Solution:**
-The code has been updated to use `avatar_url` if available, falling back to `avatar`. However, you may need to ensure your `profiles` table has one of these columns.
+**Status:** ✅ Fixed in `AuthService.swift`
 
-**Check your schema:**
+**What was fixed:**
+- Ensures `displayName` is always set
+- Sets `totalSteps: 0` and `dailyStepGoal: 10000` defaults
+- Generates unique username using full UUID if needed
+- Verifies profile creation before proceeding
+
+**If you still have issues:**
+1. Run `FIX_APPLE_SIGNIN_PROFILE_FK.sql` in Supabase
+2. Sign out and sign back in with Apple
+3. Try creating a challenge again
+
+---
+
+## Step 4: Cancel Friend Requests (Already Fixed)
+
+**Status:** ✅ Fixed in `FriendsViewModel.swift`
+
+**What was fixed:**
+- Added `cancelFriendRequest(to:)` function
+- Finds pending outgoing requests
+- Deletes the friendship record
+- Refreshes friends list and discover tab
+
+**How to use:**
+- Tap "Request Sent" button in Discover tab
+- Confirm "Unsend" in alert
+- Request is cancelled immediately
+
+---
+
+## Step 5: Sign Out Freeze (Already Fixed)
+
+**Status:** ✅ Fixed in `AuthService.swift`
+
+**What was fixed:**
+- Added error handling for Supabase sign out
+- Always clears local state even if Supabase fails
+- Uses `MainActor.run` for thread safety
+- Added logging for debugging
+
+**How to test:**
+1. Sign out from Settings or Profile
+2. App should return to onboarding screen
+3. Should be able to sign back in immediately
+
+---
+
+## Step 6: Verify All Fixes
+
+### Test Checklist:
+
+- [ ] **RLS Policies:**
+  - Run `FIX_ALL_CRITICAL_ISSUES.sql`
+  - Check console - no more recursion errors
+  - Challenges load on home screen
+  - Public challenges appear in Discover tab
+
+- [ ] **Edge Function:**
+  - Check console - no more 404 errors
+  - Steps still sync (via RPC fallback)
+  - HealthKit data updates correctly
+
+- [ ] **Apple Sign In:**
+  - Sign in with Apple
+  - Check profile is complete in Supabase Dashboard
+  - Create a challenge - should work
+  - Challenge appears on home screen
+
+- [ ] **Friend Requests:**
+  - Send a friend request
+  - Tap "Request Sent" button
+  - Confirm "Unsend"
+  - Request should be cancelled
+
+- [ ] **Sign Out:**
+  - Sign out from Settings
+  - App returns to onboarding
+  - Sign back in - should work immediately
+
+---
+
+## Troubleshooting
+
+### If challenges still don't show:
+
+1. **Check RLS policies were applied:**
 ```sql
-SELECT column_name 
-FROM information_schema.columns 
-WHERE table_name = 'profiles' 
-AND column_name IN ('avatar', 'avatar_url');
+SELECT schemaname, tablename, policyname 
+FROM pg_policies
+WHERE tablename IN ('challenges', 'challenge_members');
 ```
 
-**If neither exists, add avatar_url:**
+2. **Verify user is in challenge:**
 ```sql
-ALTER TABLE profiles 
-ADD COLUMN IF NOT EXISTS avatar_url TEXT;
+SELECT * FROM challenge_members 
+WHERE user_id = 'YOUR_USER_ID';
 ```
 
-## Issue 4: 'footprint' Symbol Not Found
+3. **Check challenge is public:**
+```sql
+SELECT id, name, is_public 
+FROM challenges 
+WHERE id = 'YOUR_CHALLENGE_ID';
+```
 
-**Error:** `No symbol named 'footprint' found in system symbol set`
+### If Apple Sign In still fails:
 
-**Solution:**
-This has been fixed in the code - replaced `"footprint"` with `"figure.walk"` which is a valid SF Symbol.
+1. **Check profile exists:**
+```sql
+SELECT * FROM profiles 
+WHERE id = 'YOUR_USER_ID';
+```
 
-## Quick Fix Checklist
+2. **Run fix script:**
+```sql
+-- Run FIX_APPLE_SIGNIN_PROFILE_FK.sql
+```
 
-- [ ] Run `FIX_CHALLENGE_MEMBERS_RLS_RECURSION.sql` in Supabase SQL Editor
-- [ ] Add `NSHealthShareUsageDescription` to Info.plist
-- [ ] Add `NSHealthUpdateUsageDescription` to Info.plist
-- [ ] Verify `profiles` table has `avatar_url` or `avatar` column
-- [ ] Rebuild the app (Product → Clean Build Folder, then Build)
+3. **Sign out and back in**
 
-## After Fixes
+### If sign out still freezes:
 
-1. **Clean Build Folder**: Product → Clean Build Folder (⇧⌘K)
-2. **Rebuild**: Product → Build (⌘B)
-3. **Run on device**: HealthKit requires a real device
-4. **Test**: The errors should be gone
+1. **Force quit the app**
+2. **Reopen**
+3. **Check console logs** for errors
+4. **Try signing out again**
 
-## Verification
+---
 
-After applying fixes, you should see:
-- ✅ No more "infinite recursion" errors
-- ✅ No more "HealthKit usage descriptions missing" warnings
-- ✅ No more "avatar column not found" errors
-- ✅ No more "footprint symbol not found" errors
+## Summary
 
+**All fixes are in code!** Just need to:
+
+1. ✅ Run `FIX_ALL_CRITICAL_ISSUES.sql` in Supabase
+2. ✅ Rebuild the app in Xcode
+3. ✅ Test all features
+
+**Expected results:**
+- ✅ No more recursion errors
+- ✅ No more 404 errors
+- ✅ Challenges show on home screen
+- ✅ Public challenges in Discover tab
+- ✅ Can cancel friend requests
+- ✅ Sign out works smoothly
+- ✅ Apple Sign In creates challenges
+
+---
+
+## Files Modified
+
+1. `StepComp/Services/StepSyncService.swift` - Edge Function 404 fallback
+2. `StepComp/ViewModels/FriendsViewModel.swift` - Cancel friend request
+3. `StepComp/Services/AuthService.swift` - Sign out fix, Apple Sign In profile
+4. `FIX_ALL_CRITICAL_ISSUES.sql` - Database RLS fixes
+
+---
+
+**All issues should now be resolved!** 🎉

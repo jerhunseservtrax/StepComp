@@ -431,12 +431,12 @@ struct SettingsProfileSection: View {
             
             // Mini Stats - 2x2 Grid
             VStack(spacing: 12) {
-                HStack(spacing: 12) {
-                    MiniStatCard(
+            HStack(spacing: 12) {
+                MiniStatCard(
                         label: "Total Steps",
-                        value: formattedSteps
-                    )
-                    
+                    value: formattedSteps
+                )
+                
                     MiniStatCard(
                         label: "Total Distance",
                         value: formattedDistance
@@ -444,10 +444,10 @@ struct SettingsProfileSection: View {
                 }
                 
                 HStack(spacing: 12) {
-                    MiniStatCard(
-                        label: "Current Streak",
-                        value: "\(currentStreak) Days"
-                    )
+                MiniStatCard(
+                    label: "Current Streak",
+                    value: "\(currentStreak) Days"
+                )
                     
                     MiniStatCard(
                         label: "Avg Steps/Month",
@@ -1076,18 +1076,18 @@ struct DeveloperCard: View {
             iconColor: .orange,
             title: "Developer Tools"
         ) {
-                    VStack(spacing: 8) {
-                        Button(action: {
-                            showingSupabaseTest = true
-                        }) {
-                            HStack {
-                                Image(systemName: "network")
-                                    .font(.system(size: 18))
-                                
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text("Test Supabase Connection")
-                                        .font(.system(size: 16, weight: .semibold))
-                                        .foregroundColor(.primary)
+            VStack(spacing: 8) {
+                Button(action: {
+                    showingSupabaseTest = true
+                }) {
+                    HStack {
+                        Image(systemName: "network")
+                            .font(.system(size: 18))
+                        
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Test Supabase Connection")
+                                .font(.system(size: 16, weight: .semibold))
+                                .foregroundColor(.primary)
                                 }
                                 
                                 Spacer()
@@ -1116,26 +1116,26 @@ struct DeveloperCard: View {
                                         .foregroundColor(.primary)
                                     
                                     Text("Test Apple Health integration")
-                                        .font(.system(size: 12))
-                                        .foregroundColor(.secondary)
-                                }
-                                
-                                Spacer()
-                                
-                                Image(systemName: "chevron.right")
-                                    .font(.system(size: 14))
-                                    .foregroundColor(.secondary)
-                            }
+                                .font(.system(size: 12))
+                                .foregroundColor(.secondary)
+                        }
+                        
+                        Spacer()
+                        
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 14))
+                            .foregroundColor(.secondary)
+                    }
                             .padding()
                             .background(Color(.systemGray6))
                             .cornerRadius(12)
-                        }
-                        .buttonStyle(PlainButtonStyle())
-                    }
                 }
-            .sheet(isPresented: $showingSupabaseTest) {
-                SupabaseTestView()
+                .buttonStyle(PlainButtonStyle())
             }
+        }
+        .sheet(isPresented: $showingSupabaseTest) {
+            SupabaseTestView()
+        }
             .sheet(isPresented: $showingHealthKitTest) {
                 HealthKitTestView()
                     .environmentObject(healthKitService)

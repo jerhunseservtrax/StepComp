@@ -95,21 +95,34 @@ final class StepSyncService: ObservableObject {
         }
         
         // Call Edge Function and decode JSON response
-        let response: EdgeFunctionResponse = try await supabase.functions
-            .invoke("sync-steps", options: FunctionInvokeOptions(body: payload))
-        
-        if response.success {
-            print("✅ Edge Function sync successful")
-            if let isSuspicious = response.data?.is_suspicious, isSuspicious {
-                print("⚠️ Steps flagged as suspicious - under review")
+        do {
+            let response: EdgeFunctionResponse = try await supabase.functions
+                .invoke("sync-steps", options: FunctionInvokeOptions(body: payload))
+            
+            if response.success {
+                print("✅ Edge Function sync successful")
+                if let isSuspicious = response.data?.is_suspicious, isSuspicious {
+                    print("⚠️ Steps flagged as suspicious - under review")
+                }
+            } else if let errorMessage = response.error {
+                print("❌ Edge Function error: \(errorMessage)")
+                throw NSError(
+                    domain: "StepSyncError",
+                    code: 400,
+                    userInfo: [NSLocalizedDescriptionKey: errorMessage]
+                )
             }
-        } else if let errorMessage = response.error {
-            print("❌ Edge Function error: \(errorMessage)")
-            throw NSError(
-                domain: "StepSyncError",
-                code: 400,
-                userInfo: [NSLocalizedDescriptionKey: errorMessage]
-            )
+        } catch {
+            // Handle 404 (Edge Function not deployed) gracefully
+            if let error = error as? NSError,
+               error.localizedDescription.contains("404") ||
+               error.localizedDescription.contains("not found") {
+                print("⚠️ Edge Function 'sync-steps' not deployed. Steps will sync via RPC fallback.")
+                // Fallback: Call RPC directly (less secure but works)
+                try await syncStepsViaRPCFallback(steps: steps, day: day, deviceId: deviceId)
+            } else {
+                throw error
+            }
         }
     }
     
@@ -122,6 +135,20 @@ final class StepSyncService: ObservableObject {
         #else
         return "unknown"
         #endif
+    }
+    
+    /// Fallback: Sync steps via RPC if Edge Function is not deployed
+    private func syncStepsViaRPCFallback(steps: Int, day: String, deviceId: String) async throws {
+        print("🔄 Using RPC fallback for step sync")
+        let _ = try await supabase.rpc("sync_daily_steps", params: [
+            "p_day": day,
+            "p_steps": steps,
+            "p_source": "healthkit",
+            "p_device_id": deviceId,
+            "p_ip": "unknown",
+            "p_user_agent": "iOS"
+        ])
+        print("✅ Steps synced via RPC fallback")
     }
     #endif
     

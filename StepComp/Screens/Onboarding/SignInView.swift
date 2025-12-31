@@ -60,7 +60,7 @@ struct SignInOnboardingView: View {
                             // Icon Group - Overlapping cards
                             VStack(spacing: 0) {
                                 // Trophy card (top, rotated)
-                                ZStack {
+                                    ZStack {
                                     RoundedRectangle(cornerRadius: 24)
                                         .fill(Color(.systemBackground))
                                         .frame(width: 120, height: 120)
@@ -82,7 +82,7 @@ struct SignInOnboardingView: View {
                                     
                                     Image(systemName: "cloud.upload.fill")
                                         .font(.system(size: 50))
-                                        .foregroundColor(.secondary)
+                                    .foregroundColor(.secondary)
                                 }
                                 .rotationEffect(.degrees(6))
                                 .offset(y: -20)
@@ -103,7 +103,7 @@ struct SignInOnboardingView: View {
                                 .foregroundColor(.secondary)
                                 .multilineTextAlignment(.center)
                                 .lineSpacing(4)
-                                .padding(.horizontal, 24)
+                        .padding(.horizontal, 24)
                         }
                         .frame(maxWidth: .infinity)
                         .padding(.bottom, 32)
@@ -182,11 +182,11 @@ struct SignInOnboardingView: View {
                 
                 // Bottom Section with Terms and Sign In Link
                 VStack(spacing: 16) {
-                    // Terms Text
+                // Terms Text
                     HStack(spacing: 0) {
                         Text("By continuing, you agree to our ")
                             .font(.system(size: 12))
-                            .foregroundColor(.secondary)
+                    .foregroundColor(.secondary)
                         Text("Terms")
                             .font(.system(size: 12))
                             .foregroundColor(.secondary)
@@ -225,7 +225,7 @@ struct SignInOnboardingView: View {
                         .padding(.bottom, 8)
                     }
                 }
-                .padding(.bottom, 32)
+                    .padding(.bottom, 32)
             }
         }
         .sheet(isPresented: $showingEmailAuth) {
@@ -770,7 +770,7 @@ struct SignUpView: View {
                                 // Email icon
                                 Image(systemName: "envelope.fill")
                                     .font(.system(size: 52, weight: .medium))
-                                    .foregroundColor(primaryYellow)
+                                        .foregroundColor(primaryYellow)
                             }
                             
                             // Title and Subtitle
@@ -1258,7 +1258,7 @@ struct SignInView: View {
                                 // Email icon
                                 Image(systemName: "envelope.fill")
                                     .font(.system(size: 52, weight: .medium))
-                                    .foregroundColor(primaryYellow)
+                                        .foregroundColor(primaryYellow)
                             }
                             
                             // Title and Subtitle
@@ -1523,9 +1523,9 @@ struct ForgotPasswordSheet: View {
                             Text("Forgot Password?")
                                 .font(.system(size: 32, weight: .bold))
                             
-                            Text("Enter your email address and we'll send you a link to reset your password.")
+                    Text("Enter your email address and we'll send you a link to reset your password.")
                                 .font(.system(size: 16))
-                                .foregroundColor(.secondary)
+                        .foregroundColor(.secondary)
                                 .multilineTextAlignment(.center)
                                 .padding(.horizontal, 24)
                         }
@@ -1542,9 +1542,9 @@ struct ForgotPasswordSheet: View {
                                     .frame(width: 24)
                                 
                                 TextField("your.email@example.com", text: $resetEmail)
-                                    .textContentType(.emailAddress)
+                        .textContentType(.emailAddress)
                                     .autocapitalization(.none)
-                                    .autocorrectionDisabled(true)
+                        .autocorrectionDisabled(true)
                             }
                             .padding()
                             .background(Color(.systemGray6))
@@ -1591,27 +1591,27 @@ struct ForgotPasswordSheet: View {
                         
                         // Send Reset Link Button
                         if successMessage == nil {
-                            Button(action: {
-                                Task {
-                                    await resetPassword()
-                                }
-                            }) {
-                                HStack {
-                                    if isLoading {
-                                        ProgressView()
+                    Button(action: {
+                        Task {
+                            await resetPassword()
+                        }
+                    }) {
+                        HStack {
+                            if isLoading {
+                                ProgressView()
                                             .progressViewStyle(CircularProgressViewStyle())
                                             .tint(.black)
-                                    }
-                                    Text("Send Reset Link")
+                            }
+                            Text("Send Reset Link")
                                         .font(.system(size: 16, weight: .bold))
-                                }
-                                .frame(maxWidth: .infinity)
+                        }
+                        .frame(maxWidth: .infinity)
                                 .padding(.vertical, 16)
                                 .background(primaryYellow)
                                 .foregroundColor(.black)
                                 .cornerRadius(12)
-                            }
-                            .disabled(isLoading || resetEmail.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    }
+                    .disabled(isLoading || resetEmail.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                             .opacity((isLoading || resetEmail.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty) ? 0.5 : 1.0)
                             .padding(.horizontal, 24)
                             .padding(.top, 8)
@@ -1795,25 +1795,25 @@ struct PasswordResetView: View {
                         .padding(.horizontal, 24)
                         
                         // Error Message
-                        if let errorMessage = errorMessage {
-                            HStack {
-                                Image(systemName: "exclamationmark.triangle.fill")
-                                    .foregroundColor(.red)
-                                Text(errorMessage)
+                if let errorMessage = errorMessage {
+                        HStack {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .foregroundColor(.red)
+                            Text(errorMessage)
                                     .font(.system(size: 14))
-                                    .foregroundColor(.red)
-                            }
-                            .padding(.horizontal, 24)
+                                .foregroundColor(.red)
                         }
-                        
+                            .padding(.horizontal, 24)
+                }
+                
                         // Success Message
-                        if let successMessage = successMessage {
-                            HStack {
-                                Image(systemName: "checkmark.circle.fill")
-                                    .foregroundColor(.green)
-                                Text(successMessage)
+                if let successMessage = successMessage {
+                        HStack {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundColor(.green)
+                            Text(successMessage)
                                     .font(.system(size: 14))
-                                    .foregroundColor(.green)
+                                .foregroundColor(.green)
                             }
                             .padding(.horizontal, 24)
                         }

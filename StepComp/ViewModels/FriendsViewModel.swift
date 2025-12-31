@@ -188,6 +188,24 @@ final class FriendsViewModel: ObservableObject {
             errorMessage = error.localizedDescription
         }
     }
+    
+    func cancelFriendRequest(to userId: String) async {
+        do {
+            // Find the pending outgoing request
+            if let friendship = friendships.first(where: {
+                $0.requesterId == myUserId &&
+                $0.addresseeId == userId &&
+                $0.status == .pending
+            }) {
+                try await service.removeFriendship(friendshipId: friendship.id)
+                try await refreshFriendships()
+                try await refreshDiscover()
+            }
+        } catch {
+            errorMessage = "Failed to cancel request: \(error.localizedDescription)"
+            print("⚠️ Error cancelling friend request: \(error.localizedDescription)")
+        }
+    }
 
     // MARK: - Mapping helpers
 

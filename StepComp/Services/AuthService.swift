@@ -266,6 +266,10 @@ final class AuthService: ObservableObject {
                 username = "apple_\(userId)"
             }
             
+            // Generate display name
+            let displayName = [firstName, lastName].compactMap { $0 }.joined(separator: " ").trimmingCharacters(in: .whitespacesAndNewlines)
+            let finalDisplayName = displayName.isEmpty ? username : displayName
+            
             let profile = UserProfile(
                 id: userId,
                 username: username,
@@ -273,7 +277,7 @@ final class AuthService: ObservableObject {
                 lastName: lastName,
                 avatar: nil,
                 avatarUrl: nil,
-                displayName: [firstName, lastName].compactMap { $0 }.joined(separator: " ").isEmpty ? nil : [firstName, lastName].compactMap { $0 }.joined(separator: " "),
+                displayName: finalDisplayName,
                 isPremium: false,
                 height: nil,
                 weight: nil,
@@ -405,15 +409,26 @@ final class AuthService: ObservableObject {
     }
     
     func signOut() async throws {
+        print("🔵 Signing out user...")
         #if canImport(Supabase)
         if useSupabase {
-            try await supabase.auth.signOut()
+            do {
+                try await supabase.auth.signOut()
+                print("✅ Supabase sign out successful")
+            } catch {
+                print("⚠️ Error during Supabase sign out: \(error.localizedDescription)")
+                // Continue with local cleanup even if Supabase sign out fails
+            }
         }
         #endif
         
-        currentUser = nil
-        isAuthenticated = false
-        UserDefaults.standard.removeObject(forKey: userDefaultsKey)
+        // Always clear local state, even if Supabase sign out fails
+        await MainActor.run {
+            currentUser = nil
+            isAuthenticated = false
+            UserDefaults.standard.removeObject(forKey: userDefaultsKey)
+            print("✅ Local state cleared")
+        }
     }
     
     func updatePassword(newPassword: String) async throws {
