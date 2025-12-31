@@ -74,6 +74,38 @@ final class FriendsViewModel: ObservableObject {
         }
     }
 
+    // MARK: - Invite Links
+    
+    func createInviteLink() async -> URL? {
+        do {
+            let result = try await service.createInviteRPC(expiresInHours: 168) // 7 days
+            
+            // Create deep link URL with custom scheme
+            // Format: je.stepcomp://friend-invite?token=ABC123
+            let urlString = "je.stepcomp://friend-invite?token=\(result.token)"
+            print("✅ Created invite link: \(urlString)")
+            return URL(string: urlString)
+        } catch {
+            errorMessage = "Failed to create invite link: \(error.localizedDescription)"
+            print("❌ Error creating invite link: \(error)")
+            return nil
+        }
+    }
+    
+    func consumeInviteToken(_ token: String) async -> Bool {
+        do {
+            let result = try await service.consumeInviteRPC(token: token)
+            print("✅ Invite consumed! Friend request from \(result.inviterUsername)")
+            // Refresh friendships to show the new request
+            try await refreshFriendships()
+            return true
+        } catch {
+            errorMessage = "Failed to accept invite: \(error.localizedDescription)"
+            print("❌ Error consuming invite: \(error)")
+            return false
+        }
+    }
+    
     func sendRequest(to profile: Profile) async {
         do {
             // Check if this is a test account (auto-accept)
