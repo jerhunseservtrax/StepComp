@@ -768,15 +768,15 @@ struct PreferencesCard: View {
                         trailing: {
                             Toggle("", isOn: Binding(
                                 get: {
-                                    // Read from current user's profile
-                                    return sessionViewModel.currentUser != nil
+                                    // Read actual publicProfile value from current user
+                                    return sessionViewModel.currentUser?.publicProfile ?? false
                                 },
                                 set: { newValue in
                                     Task {
                                         if let userId = sessionViewModel.currentUser?.id {
                                             let service = FriendsService()
                                             try? await service.setPublicProfile(newValue, myUserId: userId)
-                                            // Refresh user profile
+                                            // Refresh user profile to reflect change
                                             await sessionViewModel.checkSession()
                                         }
                                     }

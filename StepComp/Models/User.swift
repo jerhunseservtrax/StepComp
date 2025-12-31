@@ -17,6 +17,7 @@ struct User: Identifiable, Codable, Equatable {
     }
     var avatarURL: String?
     var email: String?
+    var publicProfile: Bool // Whether user appears in public search
     var totalSteps: Int
     var totalChallenges: Int
     var badges: [Badge]
@@ -30,6 +31,7 @@ struct User: Identifiable, Codable, Equatable {
         displayName: String? = nil, // For backward compatibility
         avatarURL: String? = nil,
         email: String? = nil,
+        publicProfile: Bool = false,
         totalSteps: Int = 0,
         totalChallenges: Int = 0,
         badges: [Badge] = [],
@@ -48,6 +50,7 @@ struct User: Identifiable, Codable, Equatable {
         }
         self.avatarURL = avatarURL
         self.email = email
+        self.publicProfile = publicProfile
         self.totalSteps = totalSteps
         self.totalChallenges = totalChallenges
         self.badges = badges

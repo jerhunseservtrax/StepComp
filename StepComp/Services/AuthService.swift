@@ -577,6 +577,7 @@ final class AuthService: ObservableObject {
                 firstName: firstName,
                 lastName: lastName,
                 email: email,
+                publicProfile: false, // Default to private
                 totalSteps: 0,
                 totalChallenges: 0
             )
@@ -640,6 +641,7 @@ final class AuthService: ObservableObject {
                 lastName: lastName,
                 avatarURL: avatarURL,
                 email: email, // Email from auth session
+                publicProfile: profile.publicProfile, // Load from profiles.public_profile
                 totalSteps: profile.totalSteps ?? 0, // Load from profiles.total_steps
                 totalChallenges: 0 // Would come from challenge_members count
             )
@@ -681,6 +683,7 @@ final class AuthService: ObservableObject {
                 firstName: "User",
                 lastName: "",
                 email: email,
+                publicProfile: false, // Default to private
                 totalSteps: 0,
                 totalChallenges: 0
             )
