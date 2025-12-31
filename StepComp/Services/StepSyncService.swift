@@ -140,7 +140,8 @@ final class StepSyncService: ObservableObject {
     private func syncStepsViaRPCFallback(steps: Int, day: String, deviceId: String) async throws {
         print("🔄 Using RPC fallback for step sync")
         // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/b8b862b9-9e43-4088-a2ac-ca12c7f30ef9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'StepSyncService.swift:142',message:'RPC params BEFORE call',data:{day:day,steps:steps,deviceId:deviceId,ip:"unknown"},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+        let logEntry8 = "{\"location\":\"StepSyncService.swift:142\",\"message\":\"RPC params BEFORE call\",\"data\":{\"day\":\"\(day)\",\"steps\":\(steps),\"deviceId\":\"\(deviceId)\",\"ip\":\"unknown\"},\"timestamp\":\(Int(Date().timeIntervalSince1970 * 1000)),\"sessionId\":\"debug-session\",\"runId\":\"run1\",\"hypothesisId\":\"D\"}\n"
+        try? logEntry8.appendLineToFile(filePath: "/Users/jefferyerhunse/GitRepos/StepComp/.cursor/debug.log")
         // #endregion
         do {
             _ = try await supabase.rpc("sync_daily_steps", params: [
@@ -153,11 +154,13 @@ final class StepSyncService: ObservableObject {
             ]).execute()
             print("✅ Steps synced via RPC fallback")
             // #region agent log
-            fetch('http://127.0.0.1:7242/ingest/b8b862b9-9e43-4088-a2ac-ca12c7f30ef9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'StepSyncService.swift:156',message:'RPC call SUCCESS',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+            let logEntry9 = "{\"location\":\"StepSyncService.swift:158\",\"message\":\"RPC call SUCCESS\",\"data\":{},\"timestamp\":\(Int(Date().timeIntervalSince1970 * 1000)),\"sessionId\":\"debug-session\",\"runId\":\"run1\",\"hypothesisId\":\"D\"}\n"
+            try? logEntry9.appendLineToFile(filePath: "/Users/jefferyerhunse/GitRepos/StepComp/.cursor/debug.log")
             // #endregion
         } catch {
             // #region agent log
-            fetch('http://127.0.0.1:7242/ingest/b8b862b9-9e43-4088-a2ac-ca12c7f30ef9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'StepSyncService.swift:162',message:'RPC call ERROR',data:{error:error.localizedDescription,errorType:String(describing:type(of:error))},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+            let logEntry10 = "{\"location\":\"StepSyncService.swift:165\",\"message\":\"RPC call ERROR\",\"data\":{\"error\":\"\(error.localizedDescription.replacingOccurrences(of: "\"", with: "\\\""))\"},\"timestamp\":\(Int(Date().timeIntervalSince1970 * 1000)),\"sessionId\":\"debug-session\",\"runId\":\"run1\",\"hypothesisId\":\"D\"}\n"
+            try? logEntry10.appendLineToFile(filePath: "/Users/jefferyerhunse/GitRepos/StepComp/.cursor/debug.log")
             // #endregion
             throw error
         }
