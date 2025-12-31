@@ -739,50 +739,6 @@ struct FriendAvatarButton: View {
     }
 }
 
-// MARK: - Privacy Toggle
-
-struct PrivacyToggleView: View {
-    @Binding var isPrivate: Bool
-    
-    private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
-    
-    var body: some View {
-        HStack {
-            HStack(spacing: 12) {
-                ZStack {
-                    Circle()
-                        .fill(primaryYellow.opacity(0.2))
-                        .frame(width: 40, height: 40)
-                    
-                    Image(systemName: "lock.fill")
-                        .foregroundColor(primaryYellow)
-                        .font(.system(size: 16))
-                }
-                
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Private Challenge")
-                        .font(.system(size: 14, weight: .bold))
-                    
-                    Text("Only invited friends can join")
-                        .font(.system(size: 12))
-                        .foregroundColor(.secondary)
-                }
-            }
-            
-            Spacer()
-            
-            Toggle("", isOn: $isPrivate)
-                .toggleStyle(SwitchToggleStyle(tint: Color(red: 0.976, green: 0.961, blue: 0.024)))
-        }
-        .padding(16)
-        .background(Color(.systemBackground))
-        .cornerRadius(16)
-        .shadow(color: Color.black.opacity(0.02), radius: 4, x: 0, y: 2)
-    }
-}
-
-// CustomToggleStyle is defined in ProfileView.swift to avoid duplication
-
 // MARK: - Custom Duration Sheet
 
 struct CustomDurationSheet: View {
