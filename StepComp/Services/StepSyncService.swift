@@ -139,15 +139,28 @@ final class StepSyncService: ObservableObject {
     /// Fallback: Sync steps via RPC if Edge Function is not deployed
     private func syncStepsViaRPCFallback(steps: Int, day: String, deviceId: String) async throws {
         print("🔄 Using RPC fallback for step sync")
-        _ = try await supabase.rpc("sync_daily_steps", params: [
-            "p_day": day,
-            "p_steps": String(steps),
-            "p_source": "healthkit",
-            "p_device_id": deviceId,
-            "p_ip": "unknown",
-            "p_user_agent": "iOS"
-        ]).execute()
-        print("✅ Steps synced via RPC fallback")
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/b8b862b9-9e43-4088-a2ac-ca12c7f30ef9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'StepSyncService.swift:142',message:'RPC params BEFORE call',data:{day:day,steps:steps,deviceId:deviceId,ip:"unknown"},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+        // #endregion
+        do {
+            _ = try await supabase.rpc("sync_daily_steps", params: [
+                "p_day": day,
+                "p_steps": String(steps),
+                "p_source": "healthkit",
+                "p_device_id": deviceId,
+                "p_ip": "unknown",
+                "p_user_agent": "iOS"
+            ]).execute()
+            print("✅ Steps synced via RPC fallback")
+            // #region agent log
+            fetch('http://127.0.0.1:7242/ingest/b8b862b9-9e43-4088-a2ac-ca12c7f30ef9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'StepSyncService.swift:156',message:'RPC call SUCCESS',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+            // #endregion
+        } catch {
+            // #region agent log
+            fetch('http://127.0.0.1:7242/ingest/b8b862b9-9e43-4088-a2ac-ca12c7f30ef9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'StepSyncService.swift:162',message:'RPC call ERROR',data:{error:error.localizedDescription,errorType:String(describing:type(of:error))},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+            // #endregion
+            throw error
+        }
     }
     #endif
     

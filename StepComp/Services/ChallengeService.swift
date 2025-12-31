@@ -128,11 +128,20 @@ final class ChallengeService: ObservableObject {
         
         // Add creator as challenge member
         print("👤 Adding creator as challenge member...")
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/b8b862b9-9e43-4088-a2ac-ca12c7f30ef9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ChallengeService.swift:129',message:'BEFORE addChallengeMember',data:{challengeId:challenge.id,userId:challenge.creatorId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
+        // #endregion
         do {
             try await addChallengeMember(challengeId: challenge.id, userId: challenge.creatorId)
             print("✅ Creator added as challenge member")
+            // #region agent log
+            fetch('http://127.0.0.1:7242/ingest/b8b862b9-9e43-4088-a2ac-ca12c7f30ef9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ChallengeService.swift:137',message:'AFTER addChallengeMember SUCCESS',data:{challengeId:challenge.id},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
+            // #endregion
         } catch {
             print("⚠️ Failed to add creator as member: \(error.localizedDescription)")
+            // #region agent log
+            fetch('http://127.0.0.1:7242/ingest/b8b862b9-9e43-4088-a2ac-ca12c7f30ef9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ChallengeService.swift:144',message:'AFTER addChallengeMember ERROR',data:{error:error.localizedDescription,challengeId:challenge.id,userId:challenge.creatorId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A,B,E'})}).catch(()=>{});
+            // #endregion
             // Don't throw - challenge was created, we can try to add member later
         }
         
@@ -561,18 +570,29 @@ final class ChallengeService: ObservableObject {
     
     private func loadChallengesFromSupabase() async {
         do {
+            // #region agent log
+            fetch('http://127.0.0.1:7242/ingest/b8b862b9-9e43-4088-a2ac-ca12c7f30ef9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ChallengeService.swift:562',message:'loadChallengesFromSupabase ENTRY',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A,B,C'})}).catch(()=>{});
+            // #endregion
+            
             // Check if user is authenticated before trying to load challenges
             do {
                 _ = try await supabase.auth.session
             } catch {
                 // No session - user not authenticated yet, skip loading challenges
                 print("ℹ️ Skipping challenge load - user not authenticated yet")
+                // #region agent log
+                fetch('http://127.0.0.1:7242/ingest/b8b862b9-9e43-4088-a2ac-ca12c7f30ef9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ChallengeService.swift:573',message:'No session - skipping load',data:{error:error.localizedDescription},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+                // #endregion
                 return
             }
             
             // Get current user ID from session
             let session = try await supabase.auth.session
             let userId = session.user.id.uuidString
+            
+            // #region agent log
+            fetch('http://127.0.0.1:7242/ingest/b8b862b9-9e43-4088-a2ac-ca12c7f30ef9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ChallengeService.swift:583',message:'Session valid - loading challenges',data:{userId:userId,sessionExpired:session.isExpired},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+            // #endregion
             
             // Load challenges where user is creator
             let createdChallenges: [SupabaseChallenge] = try await supabase
@@ -657,6 +677,9 @@ final class ChallengeService: ObservableObject {
             }
         } catch {
             print("⚠️ Error loading challenges from Supabase: \(error.localizedDescription)")
+            // #region agent log
+            fetch('http://127.0.0.1:7242/ingest/b8b862b9-9e43-4088-a2ac-ca12c7f30ef9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ChallengeService.swift:660',message:'loadChallengesFromSupabase ERROR',data:{error:error.localizedDescription,errorType:String(describing:type(of:error))},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A,B'})}).catch(()=>{});
+            // #endregion
             // Fallback to local storage
             loadChallenges()
         }
