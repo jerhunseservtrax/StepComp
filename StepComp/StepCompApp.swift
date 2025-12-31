@@ -37,18 +37,16 @@ struct StepCompApp: App {
         print("🔵 App-level callback received: \(url)")
         
         // Check if this is a password reset callback
-        if url.absoluteString.contains("type=recovery") || url.absoluteString.contains("recovery") {
-            print("🔵 Password reset callback detected")
-            // Post notification to show password reset screen
-            NotificationCenter.default.post(
-                name: NSNotification.Name("PasswordResetCallback"),
-                object: nil,
-                userInfo: ["url": url]
-            )
+        // Supabase password reset URLs contain type=recovery or access_token with type=recovery
+        let urlString = url.absoluteString
+        if urlString.contains("type=recovery") || urlString.contains("reset-password") {
+            print("🔑 Password reset callback detected")
+            // Let DeepLinkRouter handle it (it will set pendingPasswordResetURL)
+            // No need to post notification - RootView observes DeepLinkRouter directly
             return
         }
         
-        // Process OAuth callback with Supabase
+        // Process OAuth callback with Supabase (for Apple/Google sign-in)
         // The Supabase SDK should automatically handle the callback URL
         // We just need to check for the session
         do {

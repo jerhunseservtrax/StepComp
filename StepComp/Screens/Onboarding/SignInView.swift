@@ -1500,81 +1500,144 @@ struct ForgotPasswordSheet: View {
     
     @Environment(\.dismiss) var dismiss
     
+    private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
+    
     var body: some View {
         NavigationStack {
-            Form {
-                Section {
-                    Text("Enter your email address and we'll send you a link to reset your password.")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                    
-                    TextField("Email", text: $resetEmail)
-                        .textContentType(.emailAddress)
-                        #if os(iOS)
-                        .textInputAutocapitalization(.never)
-                        #endif
-                        .autocorrectionDisabled(true)
-                        .onAppear {
-                            resetEmail = email
-                        }
-                }
+            ZStack {
+                Color(.systemBackground)
+                    .ignoresSafeArea()
                 
-                Section {
-                    Button(action: {
-                        Task {
-                            await resetPassword()
+                ScrollView {
+                    VStack(spacing: 24) {
+                        // Header Icon
+                        ZStack {
+                            Circle()
+                                .fill(primaryYellow.opacity(0.2))
+                                .frame(width: 128, height: 128)
+                            
+                            Image(systemName: "key.fill")
+                                .font(.system(size: 52, weight: .medium))
+                                .foregroundColor(primaryYellow)
                         }
-                    }) {
-                        HStack {
-                            if isLoading {
-                                ProgressView()
-                                    .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                        .padding(.top, 40)
+                        
+                        // Title and Description
+                        VStack(spacing: 12) {
+                            Text("Forgot Password?")
+                                .font(.system(size: 32, weight: .bold))
+                            
+                            Text("Enter your email address and we'll send you a link to reset your password.")
+                                .font(.system(size: 16))
+                                .foregroundColor(.secondary)
+                                .multilineTextAlignment(.center)
+                                .padding(.horizontal, 24)
+                        }
+                        
+                        // Email Field
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Email Address")
+                                .font(.system(size: 14, weight: .semibold))
+                                .padding(.horizontal, 24)
+                            
+                            HStack {
+                                Image(systemName: "envelope")
+                                    .foregroundColor(.secondary)
+                                    .frame(width: 24)
+                                
+                                TextField("your.email@example.com", text: $resetEmail)
+                                    .textContentType(.emailAddress)
+                                    .autocapitalization(.none)
+                                    .autocorrectionDisabled(true)
                             }
-                            Text("Send Reset Link")
-                                .fontWeight(.semibold)
+                            .padding()
+                            .background(Color(.systemGray6))
+                            .cornerRadius(12)
+                            .padding(.horizontal, 24)
                         }
-                        .frame(maxWidth: .infinity)
-                        .foregroundColor(.white)
-                    }
-                    .disabled(isLoading || resetEmail.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                    .buttonStyle(.borderedProminent)
-                    .tint(.blue)
-                }
-                
-                if let errorMessage = errorMessage {
-                    Section {
-                        HStack {
-                            Image(systemName: "exclamationmark.triangle.fill")
-                                .foregroundColor(.red)
-                            Text(errorMessage)
-                                .foregroundColor(.red)
-                                .font(.caption)
+                        
+                        // Error or Success Message
+                        if let errorMessage = errorMessage {
+                            HStack {
+                                Image(systemName: "exclamationmark.triangle.fill")
+                                    .foregroundColor(.red)
+                                Text(errorMessage)
+                                    .font(.system(size: 14))
+                                    .foregroundColor(.red)
+                            }
+                            .padding(.horizontal, 24)
                         }
-                    }
-                }
-                
-                if let successMessage = successMessage {
-                    Section {
-                        HStack {
-                            Image(systemName: "checkmark.circle.fill")
-                                .foregroundColor(.green)
-                            Text(successMessage)
-                                .foregroundColor(.green)
-                                .font(.caption)
+                        
+                        if let successMessage = successMessage {
+                            VStack(spacing: 12) {
+                                HStack {
+                                    Image(systemName: "checkmark.circle.fill")
+                                        .foregroundColor(.green)
+                                    Text(successMessage)
+                                        .font(.system(size: 14))
+                                        .foregroundColor(.green)
+                                }
+                                
+                                Button(action: {
+                                    dismiss()
+                                }) {
+                                    Text("Got it")
+                                        .font(.system(size: 16, weight: .semibold))
+                                        .foregroundColor(.primary)
+                                        .padding(.horizontal, 32)
+                                        .padding(.vertical, 12)
+                                        .background(Color(.systemGray6))
+                                        .cornerRadius(8)
+                                }
+                            }
+                            .padding(.horizontal, 24)
                         }
+                        
+                        // Send Reset Link Button
+                        if successMessage == nil {
+                            Button(action: {
+                                Task {
+                                    await resetPassword()
+                                }
+                            }) {
+                                HStack {
+                                    if isLoading {
+                                        ProgressView()
+                                            .progressViewStyle(CircularProgressViewStyle())
+                                            .tint(.black)
+                                    }
+                                    Text("Send Reset Link")
+                                        .font(.system(size: 16, weight: .bold))
+                                }
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 16)
+                                .background(primaryYellow)
+                                .foregroundColor(.black)
+                                .cornerRadius(12)
+                            }
+                            .disabled(isLoading || resetEmail.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                            .opacity((isLoading || resetEmail.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty) ? 0.5 : 1.0)
+                            .padding(.horizontal, 24)
+                            .padding(.top, 8)
+                        }
+                        
+                        Spacer()
                     }
                 }
             }
-            .navigationTitle("Reset Password")
-            #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
-            #endif
             .toolbar {
-                ToolbarItem(placement: .primaryAction) {
-                    Button("Done") {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button(action: {
                         dismiss()
+                    }) {
+                        Image(systemName: "xmark")
+                            .foregroundColor(.primary)
                     }
                 }
+            }
+            .onAppear {
+                resetEmail = email
             }
         }
     }
@@ -1592,22 +1655,37 @@ struct ForgotPasswordSheet: View {
             return
         }
         
+        // Validate email format
+        let emailRegex = "^[A-Z0-9a-z._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,64}$"
+        let emailPredicate = NSPredicate(format: "SELF MATCHES %@", emailRegex)
+        guard emailPredicate.evaluate(with: trimmedEmail) else {
+            errorMessage = "Please enter a valid email address."
+            isLoading = false
+            return
+        }
+        
         do {
             #if canImport(Supabase)
-            // Include redirect URL so the app can handle the callback
-            let redirectURL = SupabaseConfig.oauthRedirectURL
+            // Use custom URL scheme for deep link
+            let redirectURL = URL(string: "je.stepcomp://reset-password")!
             try await supabase.auth.resetPasswordForEmail(
                 trimmedEmail,
                 redirectTo: redirectURL
             )
-            successMessage = "Password reset link sent! Check your email and click the link to reset your password."
+            
+            // ✅ Security Best Practice: Never reveal if email exists
+            // Always show success message regardless of whether account exists
+            successMessage = "If an account with that email exists, you'll receive a password reset link shortly. Please check your inbox and spam folder."
             #else
             // Mock implementation
             try? await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
-            successMessage = "Password reset link sent! Check your email."
+            successMessage = "If an account with that email exists, you'll receive a password reset link shortly."
             #endif
         } catch {
-            errorMessage = error.localizedDescription.isEmpty ? "Failed to send reset link. Please try again." : error.localizedDescription
+            // ✅ Security Best Practice: Generic error message
+            // Don't reveal specific errors that might leak information
+            print("⚠️ Password reset error: \(error.localizedDescription)")
+            successMessage = "If an account with that email exists, you'll receive a password reset link shortly."
         }
         
         isLoading = false
@@ -1775,7 +1853,15 @@ struct PasswordResetView: View {
                                 .font(.system(size: 12, weight: .semibold))
                                 .foregroundColor(.secondary)
                             
-                            Text("• At least 6 characters")
+                            Text("• At least 8 characters")
+                                .font(.system(size: 12))
+                                .foregroundColor(.secondary)
+                            
+                            Text("• At least one letter")
+                                .font(.system(size: 12))
+                                .foregroundColor(.secondary)
+                            
+                            Text("• At least one number")
                                 .font(.system(size: 12))
                                 .foregroundColor(.secondary)
                         }
@@ -1809,8 +1895,19 @@ struct PasswordResetView: View {
             return
         }
         
-        guard newPassword.count >= 6 else {
-            errorMessage = "Password must be at least 6 characters"
+        // ✅ Security Best Practice: Enforce strong password requirements
+        guard newPassword.count >= 8 else {
+            errorMessage = "Password must be at least 8 characters"
+            isLoading = false
+            return
+        }
+        
+        // Validate password strength
+        let hasLetter = newPassword.rangeOfCharacter(from: .letters) != nil
+        let hasNumber = newPassword.rangeOfCharacter(from: .decimalDigits) != nil
+        
+        guard hasLetter && hasNumber else {
+            errorMessage = "Password must contain at least one letter and one number"
             isLoading = false
             return
         }
@@ -1871,9 +1968,21 @@ struct PasswordResetView: View {
             try? await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
             
             // Update the password
-            try await authService.updatePassword(newPassword: newPassword)
+            try await supabase.auth.update(
+                user: UserAttributes(password: newPassword)
+            )
             
-            successMessage = "Password reset successfully! You can now sign in with your new password."
+            successMessage = "Password updated successfully! You can now sign in with your new password."
+            
+            // ✅ Security Best Practice: Invalidate old sessions after password reset
+            // Supabase automatically invalidates old sessions when password is updated
+            
+            // Wait to show success message
+            try? await Task.sleep(nanoseconds: 2_000_000_000) // 2 seconds
+            
+            await MainActor.run {
+                onComplete()
+            }
             
             // Sign out after password reset (user needs to sign in again)
             try? await authService.signOut()

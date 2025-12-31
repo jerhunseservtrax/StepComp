@@ -57,10 +57,12 @@ struct RootView: View {
             // Update SessionViewModel with the actual service instances
             sessionViewModel.updateServices(authService: authService, healthKitService: healthKitService)
         }
-        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("PasswordResetCallback"))) { notification in
-            if let url = notification.userInfo?["url"] as? URL {
+        .onReceive(router.$pendingPasswordResetURL) { url in
+            if let url = url {
                 passwordResetURL = url
                 showingPasswordReset = true
+                // Clear the pending URL after handling
+                router.pendingPasswordResetURL = nil
             }
         }
         .sheet(item: Binding(
