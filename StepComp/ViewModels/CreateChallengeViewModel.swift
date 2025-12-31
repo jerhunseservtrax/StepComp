@@ -112,6 +112,14 @@ final class CreateChallengeViewModel: ObservableObject {
             return
         }
         
+        // Validate creator ID exists
+        guard !creatorId.isEmpty else {
+            errorMessage = "Unable to create challenge: User not authenticated"
+            print("❌ Challenge creation failed: creatorId is empty")
+            print("   This usually means currentUser is nil or user is not properly signed in")
+            return
+        }
+        
         isLoading = true
         errorMessage = nil
         

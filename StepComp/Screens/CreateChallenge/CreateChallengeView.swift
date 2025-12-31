@@ -192,6 +192,20 @@ struct CreateChallengeView: View {
         .dismissKeyboardOnTap()
         .onAppear {
             viewModel.updateService(challengeService)
+            
+            // Debug logging for user state
+            print("🔍 CreateChallengeView appeared")
+            print("   currentUser: \(sessionViewModel.currentUser?.username ?? "nil")")
+            print("   currentUser.id: \(sessionViewModel.currentUser?.id ?? "nil")")
+            print("   isAuthenticated: \(sessionViewModel.isAuthenticated)")
+            
+            if sessionViewModel.currentUser == nil {
+                print("⚠️ WARNING: currentUser is nil! Challenge creation will fail.")
+            } else if sessionViewModel.currentUser?.id.isEmpty ?? true {
+                print("⚠️ WARNING: currentUser.id is empty! Challenge creation will fail.")
+            } else {
+                print("✅ User authenticated and ready to create challenges")
+            }
         }
         .onChange(of: challengeService.challenges.count) {
             // Update viewModel when challenges change

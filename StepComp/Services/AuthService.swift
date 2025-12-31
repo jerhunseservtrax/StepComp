@@ -257,15 +257,30 @@ final class AuthService: ObservableObject {
             }
             
             // Create or update profile with user information
-            let username = email?.components(separatedBy: "@").first?.lowercased() ?? "user_\(userId.prefix(8))"
+            // Generate unique username - use email prefix if available, otherwise use full UUID for uniqueness
+            let username: String
+            if let email = email, !email.isEmpty {
+                username = email.components(separatedBy: "@").first?.lowercased() ?? "apple_\(userId)"
+            } else {
+                // No email provided - use full UUID to ensure uniqueness
+                username = "apple_\(userId)"
+            }
+            
             let profile = UserProfile(
                 id: userId,
                 username: username,
                 firstName: firstName,
                 lastName: lastName,
                 avatar: nil,
+                avatarUrl: nil,
+                displayName: [firstName, lastName].compactMap { $0 }.joined(separator: " ").isEmpty ? nil : [firstName, lastName].compactMap { $0 }.joined(separator: " "),
                 isPremium: false,
-                publicProfile: false // Default to private
+                height: nil,
+                weight: nil,
+                email: email,
+                publicProfile: false, // Default to private
+                totalSteps: 0,
+                dailyStepGoal: 10000
             )
             
             if profileExists {
@@ -275,18 +290,33 @@ final class AuthService: ObservableObject {
                     .update(profile)
                     .eq("id", value: userId)
                     .execute()
-                print("✅ Profile updated")
+                print("✅ Profile updated for Apple Sign-In user")
             } else {
                 // Create new profile
-                try await supabase
-                    .from("profiles")
-                    .insert(profile)
-                    .execute()
-                print("✅ Profile created")
+                do {
+                    try await supabase
+                        .from("profiles")
+                        .insert(profile)
+                        .execute()
+                    print("✅ Profile created for Apple Sign-In user: \(username)")
+                } catch {
+                    print("❌ Failed to create profile: \(error.localizedDescription)")
+                    print("❌ Profile data: username=\(username), firstName=\(firstName ?? "nil"), lastName=\(lastName ?? "nil")")
+                    // This is critical - if profile creation fails, challenge creation will fail
+                    throw error
+                }
             }
             
-            // Load user profile
+            // Load user profile to ensure currentUser is set correctly
             await loadUserProfile(userId: userId)
+            
+            // Verify currentUser was set
+            guard currentUser != nil else {
+                print("❌ Failed to load user profile after Apple Sign-In")
+                throw AuthError.invalidResponse
+            }
+            
+            print("✅ Apple Sign-In complete - currentUser set: \(currentUser?.username ?? "unknown")")
         } catch {
             print("❌ Apple Sign-In error: \(error.localizedDescription)")
             print("❌ Error details: \(error)")
