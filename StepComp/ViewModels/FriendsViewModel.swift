@@ -123,7 +123,18 @@ final class FriendsViewModel: ObservableObject {
             try await refreshFriendships()
             try await refreshDiscover()
         } catch {
-            errorMessage = error.localizedDescription
+            let errorMsg = error.localizedDescription
+            print("❌ Error sending friend request: \(errorMsg)")
+            
+            // Check for foreign key constraint error (profile doesn't exist)
+            if errorMsg.contains("foreign key constraint") || errorMsg.contains("requester_id_fkey") {
+                errorMessage = "Unable to send friend request. Please try signing out and signing back in to refresh your profile."
+                print("⚠️ Foreign key constraint error - user profile may not exist in database")
+                print("   This usually happens with Apple Sign In if profile creation failed")
+                print("   Solution: Sign out and sign back in, or run FIX_APPLE_SIGNIN_PROFILE_FK.sql")
+            } else {
+                errorMessage = errorMsg
+            }
         }
     }
     
