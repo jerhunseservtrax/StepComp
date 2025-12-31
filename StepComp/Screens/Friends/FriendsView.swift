@@ -21,48 +21,38 @@ struct FriendsView: View {
     }
 
     var body: some View {
-        NavigationStack {
-            VStack(spacing: 12) {
-                // Tabs
-                Picker("", selection: $vm.selectedTab) {
-                    Text("Friends").tag(FriendsViewModel.Tab.friends)
-                    Text("Discover").tag(FriendsViewModel.Tab.discover)
-                }
-                .pickerStyle(.segmented)
-                .padding(.horizontal)
-
-                // TabView with swipe gesture between tabs
-                TabView(selection: $vm.selectedTab) {
-                    friendsTab
-                        .tag(FriendsViewModel.Tab.friends)
-                    
-                    discoverTab
-                        .tag(FriendsViewModel.Tab.discover)
-                }
-                .tabViewStyle(.page(indexDisplayMode: .never)) // Enable swipe, hide page indicator
+        VStack(spacing: 0) {
+            // Custom Header matching ChallengesView
+            FriendsHeader(
+                user: sessionViewModel.currentUser,
+                selectedTab: $vm.selectedTab,
+                isEditing: $vm.isEditing
+            )
+            
+            // TabView with swipe gesture between tabs
+            TabView(selection: $vm.selectedTab) {
+                friendsTab
+                    .tag(FriendsViewModel.Tab.friends)
+                
+                discoverTab
+                    .tag(FriendsViewModel.Tab.discover)
             }
-            .navigationTitle("Friends")
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button(vm.isEditing ? "Done" : "Edit") {
-                        vm.isEditing.toggle()
-                    }
-                }
-            }
-            .task { await vm.load() }
-            .onAppear {
-                // Update ViewModel with the environment service
-                let myUserId = sessionViewModel.currentUser?.id ?? ""
-                vm.updateService(service: friendsService, myUserId: myUserId)
-            }
-            .alert("Error", isPresented: Binding(
-                get: { vm.errorMessage != nil },
-                set: { _ in vm.errorMessage = nil }
-            )) {
-                Button("OK", role: .cancel) {}
-            } message: {
-                Text(vm.errorMessage ?? "")
-            }
+            .tabViewStyle(.page(indexDisplayMode: .never)) // Enable swipe, hide page indicator
+        }
+        .navigationBarHidden(true)
+        .task { await vm.load() }
+        .onAppear {
+            // Update ViewModel with the environment service
+            let myUserId = sessionViewModel.currentUser?.id ?? ""
+            vm.updateService(service: friendsService, myUserId: myUserId)
+        }
+        .alert("Error", isPresented: Binding(
+            get: { vm.errorMessage != nil },
+            set: { _ in vm.errorMessage = nil }
+        )) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(vm.errorMessage ?? "")
         }
     }
 
@@ -315,3 +305,119 @@ struct AvatarCircle: View {
         }
     }
 }
+
+// MARK: - Friends Header
+
+struct FriendsHeader: View {
+    let user: User?
+    @Binding var selectedTab: FriendsViewModel.Tab
+    @Binding var isEditing: Bool
+    
+    private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
+    
+    var body: some View {
+        VStack(spacing: 0) {
+            // Top section with avatar and title
+            HStack(spacing: 16) {
+                // Avatar with online indicator
+                ZStack(alignment: .bottomTrailing) {
+                    AvatarView(
+                        displayName: user?.displayName ?? "User",
+                        avatarURL: user?.avatarURL,
+                        size: 48
+                    )
+                    .overlay(
+                        Circle()
+                            .stroke(primaryYellow, lineWidth: 2)
+                    )
+                    
+                    // Online indicator
+                    Circle()
+                        .fill(Color.green)
+                        .frame(width: 12, height: 12)
+                        .overlay(
+                            Circle()
+                                .stroke(Color.white, lineWidth: 2)
+                        )
+                }
+                
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(selectedTab == .friends ? "Friends" : "Discover")
+                        .font(.system(size: 20, weight: .bold))
+                    
+                    Text(selectedTab == .friends ? "Your circle" : "Find new friends")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor(Color(red: 0.620, green: 0.616, blue: 0.278))
+                }
+                
+                Spacer()
+                
+                // Edit/Done button
+                Button(action: {
+                    isEditing.toggle()
+                }) {
+                    Text(isEditing ? "Done" : "Edit")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(primaryYellow)
+                }
+            }
+            .padding(.horizontal, 24)
+            .padding(.vertical, 16)
+            
+            // Tab Selector
+            HStack(spacing: 0) {
+                FriendsTabButton(
+                    title: "Friends",
+                    isSelected: selectedTab == .friends,
+                    action: {
+                        withAnimation {
+                            selectedTab = .friends
+                        }
+                    }
+                )
+                
+                FriendsTabButton(
+                    title: "Discover",
+                    isSelected: selectedTab == .discover,
+                    action: {
+                        withAnimation {
+                            selectedTab = .discover
+                        }
+                    }
+                )
+            }
+            .padding(.horizontal, 24)
+            .padding(.bottom, 8)
+        }
+        .background(
+            Color(.systemBackground)
+                .opacity(0.95)
+                .background(.ultraThinMaterial)
+        )
+    }
+}
+
+struct FriendsTabButton: View {
+    let title: String
+    let isSelected: Bool
+    let action: () -> Void
+    
+    private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
+    
+    var body: some View {
+        Button(action: action) {
+            VStack(spacing: 4) {
+                Text(title)
+                    .font(.system(size: 16, weight: isSelected ? .bold : .medium))
+                    .foregroundColor(isSelected ? .black : .secondary)
+                
+                Rectangle()
+                    .fill(isSelected ? primaryYellow : Color.clear)
+                    .frame(height: 3)
+                    .cornerRadius(1.5)
+            }
+            .frame(maxWidth: .infinity)
+        }
+    }
+}
+
