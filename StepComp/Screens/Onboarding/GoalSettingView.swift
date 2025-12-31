@@ -188,7 +188,7 @@ struct GoalOptionButton: View {
             }
             .foregroundColor(.primary)
             .padding(.horizontal, 20)
-            .padding(.vertical: 16)
+            .padding(.vertical, 16)
             .background(
                 RoundedRectangle(cornerRadius: 16)
                     .fill(isSelected ? primaryYellow.opacity(0.15) : Color(.systemGray6))
