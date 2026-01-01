@@ -49,7 +49,7 @@ struct MainTabView: View {
                 }
                 .tag(2)
             
-            ProfileView(sessionViewModel: sessionViewModel)
+            SettingsView(sessionViewModel: sessionViewModel)
                 .tabItem {
                     Label("Settings", systemImage: "gearshape.fill")
                 }
