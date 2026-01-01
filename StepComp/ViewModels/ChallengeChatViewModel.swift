@@ -46,20 +46,113 @@ final class ChallengeChatViewModel: ObservableObject {
         
         #if canImport(Supabase)
         do {
-            let response: [ServerChallengeMessage] = try await supabase
-                .from("challenge_messages")
-                .select("""
-                    *,
-                    profiles(username, display_name, avatar_url)
-                """)
-                .eq("challenge_id", value: challengeId)
-                .eq("is_deleted", value: false)
-                .order("created_at", ascending: true)
-                .execute()
-                .value
-            
-            messages = response.map { $0.toChallengeMessage() }
-            print("✅ Loaded \(messages.count) messages for challenge \(challengeId)")
+            // First, try with profile join
+            do {
+                let response: [ServerChallengeMessage] = try await supabase
+                    .from("challenge_messages")
+                    .select("""
+                        *,
+                        profiles(username, display_name, avatar_url)
+                    """)
+                    .eq("challenge_id", value: challengeId)
+                    .eq("is_deleted", value: false)
+                    .order("created_at", ascending: true)
+                    .execute()
+                    .value
+                
+                messages = response.map { $0.toChallengeMessage() }
+                print("✅ Loaded \(messages.count) messages for challenge \(challengeId)")
+                
+            } catch {
+                // Fallback: Load messages without profile join, then fetch profiles separately
+                print("⚠️ Profile join failed, using fallback method")
+                
+                struct SimpleMessage: Codable {
+                    let id: String
+                    let challengeId: String
+                    let userId: String
+                    let content: String
+                    let messageType: String
+                    let createdAt: String
+                    let editedAt: String?
+                    let isDeleted: Bool
+                    
+                    enum CodingKeys: String, CodingKey {
+                        case id
+                        case challengeId = "challenge_id"
+                        case userId = "user_id"
+                        case content
+                        case messageType = "message_type"
+                        case createdAt = "created_at"
+                        case editedAt = "edited_at"
+                        case isDeleted = "is_deleted"
+                    }
+                }
+                
+                let simpleMessages: [SimpleMessage] = try await supabase
+                    .from("challenge_messages")
+                    .select()
+                    .eq("challenge_id", value: challengeId)
+                    .eq("is_deleted", value: false)
+                    .order("created_at", ascending: true)
+                    .execute()
+                    .value
+                
+                // Get unique user IDs
+                let userIds = Array(Set(simpleMessages.map { $0.userId }))
+                
+                // Fetch profiles for these users
+                var profilesMap: [String: ProfileInfo] = [:]
+                if !userIds.isEmpty {
+                    struct ProfileRow: Codable {
+                        let id: String
+                        let username: String?
+                        let displayName: String?
+                        let avatarUrl: String?
+                        
+                        enum CodingKeys: String, CodingKey {
+                            case id
+                            case username
+                            case displayName = "display_name"
+                            case avatarUrl = "avatar_url"
+                        }
+                    }
+                    
+                    let profiles: [ProfileRow] = try await supabase
+                        .from("profiles")
+                        .select()
+                        .in("id", values: userIds)
+                        .execute()
+                        .value
+                    
+                    for profile in profiles {
+                        profilesMap[profile.id] = ProfileInfo(
+                            username: profile.username,
+                            displayName: profile.displayName,
+                            avatarUrl: profile.avatarUrl
+                        )
+                    }
+                }
+                
+                // Combine messages with profiles
+                messages = simpleMessages.map { msg in
+                    let profile = profilesMap[msg.userId]
+                    let isSystem = msg.messageType == "system"
+                    
+                    return ChallengeMessage(
+                        id: msg.id,
+                        challengeId: msg.challengeId,
+                        userId: msg.userId,
+                        content: msg.content,
+                        createdAt: msg.createdAt,
+                        isSystemMessage: isSystem,
+                        senderName: profile?.displayName ?? profile?.username ?? "Unknown",
+                        senderAvatarURL: profile?.avatarUrl
+                    )
+                }
+                
+                print("✅ Loaded \(messages.count) messages using fallback method")
+            }
             
             // Subscribe to realtime after loading
             subscribeToRealtime()
