@@ -21,8 +21,8 @@ final class ChallengeChatViewModel: ObservableObject {
     @Published var errorMessage: String?
     @Published var unreadCount: Int = 0
     
-    private let challengeId: String
-    private let currentUserId: String
+    let challengeId: String
+    let currentUserId: String
     
     #if canImport(Supabase)
     private var channel: RealtimeChannelV2?
