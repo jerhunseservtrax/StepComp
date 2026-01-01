@@ -187,7 +187,11 @@ $$;
 -- Grant with explicit argument types to avoid ambiguity
 GRANT EXECUTE ON FUNCTION public.send_challenge_message(UUID, TEXT) TO authenticated;
 
-RAISE NOTICE '✅ Recreated send_challenge_message function with correct signature';
+-- Confirm creation
+DO $$ 
+BEGIN
+    RAISE NOTICE '✅ Recreated send_challenge_message function with correct signature';
+END $$;
 
 -- ============================================================
 -- VERIFICATION QUERIES
