@@ -49,15 +49,8 @@ final class ChallengeChatViewModel: ObservableObject {
             let response: [ServerChallengeMessage] = try await supabase
                 .from("challenge_messages")
                 .select("""
-                    id,
-                    challenge_id,
-                    user_id,
-                    content,
-                    message_type,
-                    created_at,
-                    edited_at,
-                    is_deleted,
-                    profiles!challenge_messages_user_id_fkey(username, display_name, avatar_url)
+                    *,
+                    profiles(username, display_name, avatar_url)
                 """)
                 .eq("challenge_id", value: challengeId)
                 .eq("is_deleted", value: false)
