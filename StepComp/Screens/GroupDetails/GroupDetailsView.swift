@@ -16,6 +16,7 @@ struct GroupDetailsView: View {
     @Environment(\.dismiss) var dismiss
     
     @State private var selectedTab: GroupDetailTab = .leaderboard
+    @State private var showingChat = false
     
     private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
     
@@ -95,7 +96,22 @@ struct GroupDetailsView: View {
             .navigationBarHidden(true)
             
             // Fixed Bottom Action
-            GroupChatButton()
+            GroupChatButton(
+                challengeName: viewModel.challenge?.name ?? "Challenge",
+                onTap: {
+                    showingChat = true
+                }
+            )
+        }
+        .navigationBarHidden(true)
+        .sheet(isPresented: $showingChat) {
+            NavigationStack {
+                ChallengeChatView(
+                    challengeId: challengeId,
+                    currentUserId: sessionViewModel.currentUser?.id ?? "",
+                    challengeName: viewModel.challenge?.name ?? "Challenge"
+                )
+            }
         }
         .onAppear {
             // Update ViewModel with the actual environment object
@@ -674,13 +690,17 @@ struct SettingsTabView: View {
 // MARK: - Group Chat Button
 
 struct GroupChatButton: View {
-    @State private var unreadCount = 3
+    let challengeName: String
+    let onTap: () -> Void
+    @State private var unreadCount = 0 // Will be updated via ViewModel
+    
+    private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
     
     var body: some View {
         VStack {
             Spacer()
             
-            Button(action: {}) {
+            Button(action: onTap) {
                 HStack(spacing: 8) {
                     Image(systemName: "message.fill")
                         .font(.system(size: 18))
