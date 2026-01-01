@@ -62,6 +62,7 @@ final class ChallengesViewModel: ObservableObject {
             
             // Get all challenges the user is participating in (via challenge_members)
             let userChallengeIds = await getUserChallengeIds()
+            print("🔍 ChallengesVM: User has \(userChallengeIds.count) challenge IDs from challenge_members")
             
             // Also get challenges the user created (they might not be in challenge_members yet due to timing)
             let createdChallenges: [SupabaseChallenge] = try await supabase
@@ -71,6 +72,7 @@ final class ChallengesViewModel: ObservableObject {
                 .gte("end_date", value: ISO8601DateFormatter().string(from: Date()))
                 .execute()
                 .value
+            print("🔍 ChallengesVM: User created \(createdChallenges.count) challenges")
             
             // Get challenges user is a member of
             var memberChallenges: [SupabaseChallenge] = []
@@ -82,6 +84,9 @@ final class ChallengesViewModel: ObservableObject {
                     .gte("end_date", value: ISO8601DateFormatter().string(from: Date()))
                     .execute()
                     .value
+                print("🔍 ChallengesVM: User is member of \(memberChallenges.count) challenges")
+            } else {
+                print("🔍 ChallengesVM: No member challenge IDs to fetch")
             }
             
             // Combine and deduplicate
@@ -114,10 +119,15 @@ final class ChallengesViewModel: ObservableObject {
             // Filter public challenges for Discover tab:
             // Show ALL public challenges, including ones user created
             // Only exclude challenges where user is already a participant (joined via challenge_members)
+            print("🔍 ChallengesVM: Filtering \(allPublic.count) public challenges")
+            for challenge in allPublic {
+                let isParticipant = challenge.participantIds.contains(userId)
+                print("   - \(challenge.name): participantIds=\(challenge.participantIds.count), userIsParticipant=\(isParticipant)")
+            }
             publicChallenges = allPublic.filter { challenge in
                 !challenge.participantIds.contains(userId)
             }
-            print("📊 ChallengesViewModel: Loaded \(publicChallenges.count) discover challenges (including user's own public challenges)")
+            print("📊 ChallengesViewModel: Loaded \(publicChallenges.count) discover challenges")
             print("   Total public challenges in DB: \(allPublic.count)")
             print("   User is participating in: \(activeChallenges.count)")
             
