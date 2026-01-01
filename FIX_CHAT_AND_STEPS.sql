@@ -46,6 +46,23 @@ BEGIN
     END IF;
 END $$;
 
+-- Also ensure user_agent exists
+DO $$ 
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 
+        FROM information_schema.columns 
+        WHERE table_schema = 'public' 
+        AND table_name = 'daily_steps' 
+        AND column_name = 'user_agent'
+    ) THEN
+        ALTER TABLE public.daily_steps ADD COLUMN user_agent TEXT;
+        RAISE NOTICE '✅ Added user_agent column to daily_steps';
+    ELSE
+        RAISE NOTICE '✅ user_agent column already exists';
+    END IF;
+END $$;
+
 -- ============================================================
 -- ISSUE 2: Fix challenge_messages foreign key to profiles
 -- ============================================================
@@ -201,11 +218,12 @@ END $$;
 SELECT 
     'daily_steps columns' AS check_type,
     COUNT(*) FILTER (WHERE column_name = 'ip_address') AS has_ip_address,
-    COUNT(*) FILTER (WHERE column_name = 'device_id') AS has_device_id
+    COUNT(*) FILTER (WHERE column_name = 'device_id') AS has_device_id,
+    COUNT(*) FILTER (WHERE column_name = 'user_agent') AS has_user_agent
 FROM information_schema.columns
 WHERE table_schema = 'public' 
 AND table_name = 'daily_steps'
-AND column_name IN ('ip_address', 'device_id');
+AND column_name IN ('ip_address', 'device_id', 'user_agent');
 
 -- Verify challenge_messages table
 SELECT 
