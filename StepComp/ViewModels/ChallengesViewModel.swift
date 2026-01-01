@@ -96,10 +96,11 @@ final class ChallengesViewModel: ObservableObject {
                     allUserChallenges.append(memberChallenge)
                 }
             }
+            print("🔍 ChallengesVM: Combined total: \(allUserChallenges.count) challenges before conversion")
             
             // Convert to Challenge models - these are the user's active challenges
             activeChallenges = try await convertToChallenges(allUserChallenges)
-            print("📊 ChallengesViewModel: Loaded \(activeChallenges.count) active challenges for user")
+            print("📊 ChallengesViewModel: Loaded \(activeChallenges.count) active challenges for user (after conversion)")
             
             // Get all public challenges that haven't ended yet
             let allPublicChallenges: [SupabaseChallenge] = try await supabase
