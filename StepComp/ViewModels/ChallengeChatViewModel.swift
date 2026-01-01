@@ -137,15 +137,22 @@ final class ChallengeChatViewModel: ObservableObject {
                 // Combine messages with profiles
                 messages = simpleMessages.map { msg in
                     let profile = profilesMap[msg.userId]
-                    let isSystem = msg.messageType == "system"
+                    let messageType = ChallengeMessage.MessageType(rawValue: msg.messageType) ?? .text
+                    
+                    // Parse date from string
+                    let dateFormatter = ISO8601DateFormatter()
+                    let createdDate = dateFormatter.date(from: msg.createdAt) ?? Date()
+                    let editedDate: Date? = msg.editedAt.flatMap { dateFormatter.date(from: $0) }
                     
                     return ChallengeMessage(
                         id: msg.id,
                         challengeId: msg.challengeId,
                         userId: msg.userId,
                         content: msg.content,
-                        createdAt: msg.createdAt,
-                        isSystemMessage: isSystem,
+                        messageType: messageType,
+                        createdAt: createdDate,
+                        editedAt: editedDate,
+                        isDeleted: msg.isDeleted,
                         senderName: profile?.displayName ?? profile?.username ?? "Unknown",
                         senderAvatarURL: profile?.avatarUrl
                     )
@@ -322,12 +329,8 @@ final class ChallengeChatViewModel: ObservableObject {
         // TODO: Update to proper realtime when API is confirmed
         
         Task {
-            do {
-                try await channel?.subscribe()
-                print("✅ Subscribed to realtime chat for challenge \(challengeId)")
-            } catch {
-                print("⚠️ Failed to subscribe to realtime: \(error.localizedDescription)")
-            }
+            await channel?.subscribe()
+            print("✅ Subscribed to realtime chat for challenge \(challengeId)")
         }
         #endif
     }
