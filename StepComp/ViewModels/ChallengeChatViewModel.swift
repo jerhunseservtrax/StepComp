@@ -102,7 +102,7 @@ final class ChallengeChatViewModel: ObservableObject {
                 let userIds = Array(Set(simpleMessages.map { $0.userId }))
                 
                 // Fetch profiles for these users
-                var profilesMap: [String: ProfileInfo] = [:]
+                var profilesMap: [String: ServerChallengeMessage.ProfileInfo] = [:]
                 if !userIds.isEmpty {
                     struct ProfileRow: Codable {
                         let id: String
@@ -126,7 +126,7 @@ final class ChallengeChatViewModel: ObservableObject {
                         .value
                     
                     for profile in profiles {
-                        profilesMap[profile.id] = ProfileInfo(
+                        profilesMap[profile.id] = ServerChallengeMessage.ProfileInfo(
                             username: profile.username,
                             displayName: profile.displayName,
                             avatarUrl: profile.avatarUrl
@@ -322,8 +322,12 @@ final class ChallengeChatViewModel: ObservableObject {
         // TODO: Update to proper realtime when API is confirmed
         
         Task {
-            await channel?.subscribe()
-            print("✅ Subscribed to realtime chat for challenge \(challengeId)")
+            do {
+                try await channel?.subscribe()
+                print("✅ Subscribed to realtime chat for challenge \(challengeId)")
+            } catch {
+                print("⚠️ Failed to subscribe to realtime: \(error.localizedDescription)")
+            }
         }
         #endif
     }
