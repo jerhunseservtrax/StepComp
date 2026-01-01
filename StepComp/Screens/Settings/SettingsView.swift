@@ -704,6 +704,7 @@ struct PreferencesCard: View {
     let sessionViewModel: SessionViewModel?
     @State private var showingHeightWeightEditor = false
     @State private var showingDailyStepGoalEditor = false
+    @EnvironmentObject var themeManager: ThemeManager
     
     // Helper function to convert cm to feet/inches
     private func heightInImperial(_ cm: Int) -> (feet: Int, inches: Int) {
@@ -726,7 +727,13 @@ struct PreferencesCard: View {
                     title: "Dark Mode",
                     subtitle: "Change app appearance",
                     trailing: {
-                        Toggle("", isOn: $darkMode)
+                        Toggle("", isOn: Binding(
+                            get: { themeManager.isDarkMode },
+                            set: { newValue in
+                                darkMode = newValue
+                                themeManager.isDarkMode = newValue
+                            }
+                        ))
                             .toggleStyle(SwitchToggleStyle(tint: Color(red: 0.976, green: 0.961, blue: 0.024)))
                     }
                 )

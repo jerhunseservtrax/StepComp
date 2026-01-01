@@ -42,20 +42,25 @@ final class ThemeManager: ObservableObject {
     }
     
     var isDarkMode: Bool {
-        switch colorScheme {
-        case .dark:
-            return true
-        case .light:
-            return false
-        case .none:
-            // Use system setting
-            #if os(iOS)
-            return UITraitCollection.current.userInterfaceStyle == .dark
-            #else
-            return false
-            #endif
-        @unknown default:
-            return false
+        get {
+            switch colorScheme {
+            case .dark:
+                return true
+            case .light:
+                return false
+            case .none:
+                // Use system setting
+                #if os(iOS)
+                return UITraitCollection.current.userInterfaceStyle == .dark
+                #else
+                return false
+                #endif
+            @unknown default:
+                return false
+            }
+        }
+        set {
+            setColorScheme(newValue ? .dark : .light)
         }
     }
     

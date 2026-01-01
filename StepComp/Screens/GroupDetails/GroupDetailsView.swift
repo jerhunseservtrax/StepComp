@@ -193,6 +193,11 @@ struct HeroStatusSection: View {
         return (components.day ?? 0) + 1
     }
     
+    var challengeProgress: Double {
+        guard totalDays > 0 else { return 0 }
+        return min(Double(daysElapsed) / Double(totalDays), 1.0)
+    }
+    
     var hoursRemaining: Int {
         let calendar = Calendar.current
         let now = Date()
@@ -201,8 +206,10 @@ struct HeroStatusSection: View {
         return components.hour ?? 0
     }
     
+    private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
+    
     var body: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: 16) {
             Text("Challenge Status")
                 .font(.system(size: 11, weight: .bold))
                 .foregroundColor(.secondary)
@@ -215,6 +222,38 @@ struct HeroStatusSection: View {
             
             Text("Day \(daysElapsed) of \(totalDays)")
                 .font(.system(size: 32, weight: .bold))
+            
+            // Animated Progress Bar
+            VStack(spacing: 8) {
+                GeometryReader { geometry in
+                    ZStack(alignment: .leading) {
+                        // Background
+                        RoundedRectangle(cornerRadius: 8)
+                            .fill(Color(.systemGray5))
+                            .frame(height: 8)
+                        
+                        // Progress fill with animation
+                        RoundedRectangle(cornerRadius: 8)
+                            .fill(
+                                LinearGradient(
+                                    colors: [primaryYellow, primaryYellow.opacity(0.7)],
+                                    startPoint: .leading,
+                                    endPoint: .trailing
+                                )
+                            )
+                            .frame(width: geometry.size.width * challengeProgress, height: 8)
+                            .shadow(color: primaryYellow.opacity(0.5), radius: 4, x: 0, y: 0)
+                            .animation(.spring(response: 0.6, dampingFraction: 0.7), value: challengeProgress)
+                    }
+                }
+                .frame(height: 8)
+                
+                // Progress label
+                Text("\(Int(challengeProgress * 100))% Complete")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundColor(.secondary)
+            }
+            .padding(.horizontal)
             
             HStack(spacing: 4) {
                 Image(systemName: "clock.fill")
