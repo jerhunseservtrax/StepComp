@@ -25,7 +25,7 @@ final class ChallengeChatViewModel: ObservableObject {
     private let currentUserId: String
     
     #if canImport(Supabase)
-    private let supabase = SupabaseClient.shared.client
+    private let supabase = supabase // Use global instance
     private var channel: RealtimeChannelV2?
     #endif
     
@@ -35,7 +35,9 @@ final class ChallengeChatViewModel: ObservableObject {
     }
     
     deinit {
-        unsubscribeFromRealtime()
+        Task { @MainActor in
+            unsubscribeFromRealtime()
+        }
     }
     
     // MARK: - Load Messages
@@ -231,16 +233,14 @@ final class ChallengeChatViewModel: ObservableObject {
         
         channel = supabase.channel(channelName)
         
-        let messageChanges = PostgresChangeConfig(
-            event: .insert,
-            schema: "public",
-            table: "challenge_messages",
-            filter: "challenge_id=eq.\(challengeId)"
-        )
-        
-        channel?.onPostgresChange(
-            AnyAction.self,
-            config: messageChanges
+        // Subscribe to new messages
+        channel = channel?.on(
+            .postgresChanges(
+                event: .insert,
+                schema: "public",
+                table: "challenge_messages",
+                filter: "challenge_id=eq.\(challengeId)"
+            )
         ) { [weak self] payload in
             Task { @MainActor [weak self] in
                 await self?.handleRealtimeInsert(payload)
@@ -248,12 +248,8 @@ final class ChallengeChatViewModel: ObservableObject {
         }
         
         Task {
-            do {
-                try await channel?.subscribe()
-                print("✅ Subscribed to realtime chat for challenge \(challengeId)")
-            } catch {
-                print("⚠️ Failed to subscribe to realtime: \(error.localizedDescription)")
-            }
+            await channel?.subscribe()
+            print("✅ Subscribed to realtime chat for challenge \(challengeId)")
         }
         #endif
     }
@@ -261,22 +257,17 @@ final class ChallengeChatViewModel: ObservableObject {
     private func unsubscribeFromRealtime() {
         #if canImport(Supabase)
         Task {
-            do {
-                try await channel?.unsubscribe()
-                print("✅ Unsubscribed from realtime chat")
-            } catch {
-                print("⚠️ Error unsubscribing: \(error.localizedDescription)")
-            }
+            await channel?.unsubscribe()
+            print("✅ Unsubscribed from realtime chat")
         }
         #endif
     }
     
     #if canImport(Supabase)
-    private func handleRealtimeInsert(_ payload: AnyAction) async {
+    private func handleRealtimeInsert(_ payload: RealtimePostgresInsertPayload) async {
         // Realtime sends us a new message
         // We need to fetch it with profile data
-        guard let newRecord = payload.record as? [String: Any],
-              let messageId = newRecord["id"] as? String else {
+        guard let messageId = payload.record["id"]?.value as? String else {
             return
         }
         
