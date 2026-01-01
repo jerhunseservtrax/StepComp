@@ -144,7 +144,7 @@ final class ChallengesViewModel: ObservableObject {
         do {
             let members: [ChallengeMember] = try await supabase
                 .from("challenge_members")
-                .select("challenge_id")
+                .select()
                 .eq("user_id", value: userId)
                 .execute()
                 .value
@@ -160,10 +160,10 @@ final class ChallengesViewModel: ObservableObject {
         var challenges: [Challenge] = []
         
         for supabaseChallenge in supabaseChallenges {
-            // Get participants
+            // Get participants - select all fields to avoid decoding errors
             let members: [ChallengeMember] = try await supabase
                 .from("challenge_members")
-                .select("user_id")
+                .select()
                 .eq("challenge_id", value: supabaseChallenge.id)
                 .execute()
                 .value
