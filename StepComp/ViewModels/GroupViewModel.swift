@@ -8,6 +8,9 @@
 import Foundation
 import SwiftUI
 import Combine // Required for @Published and ObservableObject
+#if canImport(Supabase)
+import Supabase
+#endif
 
 @MainActor
 final class GroupViewModel: ObservableObject {
@@ -61,17 +64,28 @@ final class GroupViewModel: ObservableObject {
     }
     
     func leaveChallenge() async {
-        guard var challenge = challenge else { return }
+        guard challenge != nil else { return }
         
         isLoading = true
         errorMessage = nil
         
+        #if canImport(Supabase)
         do {
-            challenge.participantIds.removeAll { $0 == currentUserId }
-            try await challengeService.updateChallenge(challenge)
+            // Delete from challenge_members table
+            try await supabase
+                .from("challenge_members")
+                .delete()
+                .eq("challenge_id", value: challengeId)
+                .eq("user_id", value: currentUserId)
+                .execute()
+            
+            print("✅ Successfully left challenge \(challengeId)")
+            
         } catch {
+            print("⚠️ Error leaving challenge: \(error.localizedDescription)")
             errorMessage = error.localizedDescription
         }
+        #endif
         
         isLoading = false
     }
