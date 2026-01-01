@@ -128,23 +128,11 @@ final class ChallengeService: ObservableObject {
         
         // Add creator as challenge member
         print("👤 Adding creator as challenge member...")
-        // #region agent log
-        let logEntry5 = "{\"location\":\"ChallengeService.swift:129\",\"message\":\"BEFORE addChallengeMember\",\"data\":{\"challengeId\":\"\(challenge.id)\",\"userId\":\"\(challenge.creatorId)\"},\"timestamp\":\(Int(Date().timeIntervalSince1970 * 1000)),\"sessionId\":\"debug-session\",\"runId\":\"run1\",\"hypothesisId\":\"E\"}\n"
-        try? logEntry5.appendLineToFile(filePath: "/Users/jefferyerhunse/GitRepos/StepComp/.cursor/debug.log")
-        // #endregion
         do {
             try await addChallengeMember(challengeId: challenge.id, userId: challenge.creatorId)
             print("✅ Creator added as challenge member")
-            // #region agent log
-            let logEntry6 = "{\"location\":\"ChallengeService.swift:139\",\"message\":\"AFTER addChallengeMember SUCCESS\",\"data\":{\"challengeId\":\"\(challenge.id)\"},\"timestamp\":\(Int(Date().timeIntervalSince1970 * 1000)),\"sessionId\":\"debug-session\",\"runId\":\"run1\",\"hypothesisId\":\"E\"}\n"
-            try? logEntry6.appendLineToFile(filePath: "/Users/jefferyerhunse/GitRepos/StepComp/.cursor/debug.log")
-            // #endregion
         } catch {
             print("⚠️ Failed to add creator as member: \(error.localizedDescription)")
-            // #region agent log
-            let logEntry7 = "{\"location\":\"ChallengeService.swift:148\",\"message\":\"AFTER addChallengeMember ERROR\",\"data\":{\"error\":\"\(error.localizedDescription.replacingOccurrences(of: "\"", with: "\\\""))\",\"challengeId\":\"\(challenge.id)\",\"userId\":\"\(challenge.creatorId)\"},\"timestamp\":\(Int(Date().timeIntervalSince1970 * 1000)),\"sessionId\":\"debug-session\",\"runId\":\"run1\",\"hypothesisId\":\"A,B,E\"}\n"
-            try? logEntry7.appendLineToFile(filePath: "/Users/jefferyerhunse/GitRepos/StepComp/.cursor/debug.log")
-            // #endregion
             // Don't throw - challenge was created, we can try to add member later
         }
         
@@ -573,32 +561,18 @@ final class ChallengeService: ObservableObject {
     
     private func loadChallengesFromSupabase() async {
         do {
-            // #region agent log
-            let logEntry1 = "{\"location\":\"ChallengeService.swift:571\",\"message\":\"loadChallengesFromSupabase ENTRY\",\"data\":{},\"timestamp\":\(Int(Date().timeIntervalSince1970 * 1000)),\"sessionId\":\"debug-session\",\"runId\":\"run1\",\"hypothesisId\":\"A,B,C\"}\n"
-            try? logEntry1.appendLineToFile(filePath: "/Users/jefferyerhunse/GitRepos/StepComp/.cursor/debug.log")
-            // #endregion
-            
             // Check if user is authenticated before trying to load challenges
             do {
                 _ = try await supabase.auth.session
             } catch {
                 // No session - user not authenticated yet, skip loading challenges
                 print("ℹ️ Skipping challenge load - user not authenticated yet")
-                // #region agent log
-                let logEntry2 = "{\"location\":\"ChallengeService.swift:583\",\"message\":\"No session - skipping load\",\"data\":{\"error\":\"\(error.localizedDescription.replacingOccurrences(of: "\"", with: "\\\""))\"},\"timestamp\":\(Int(Date().timeIntervalSince1970 * 1000)),\"sessionId\":\"debug-session\",\"runId\":\"run1\",\"hypothesisId\":\"C\"}\n"
-                try? logEntry2.appendLineToFile(filePath: "/Users/jefferyerhunse/GitRepos/StepComp/.cursor/debug.log")
-                // #endregion
                 return
             }
             
             // Get current user ID from session
             let session = try await supabase.auth.session
             let userId = session.user.id.uuidString
-            
-            // #region agent log
-            let logEntry3 = "{\"location\":\"ChallengeService.swift:595\",\"message\":\"Session valid - loading challenges\",\"data\":{\"userId\":\"\(userId)\",\"sessionExpired\":\(session.isExpired)},\"timestamp\":\(Int(Date().timeIntervalSince1970 * 1000)),\"sessionId\":\"debug-session\",\"runId\":\"run1\",\"hypothesisId\":\"C\"}\n"
-            try? logEntry3.appendLineToFile(filePath: "/Users/jefferyerhunse/GitRepos/StepComp/.cursor/debug.log")
-            // #endregion
             
             // Load challenges where user is creator
             let createdChallenges: [SupabaseChallenge] = try await supabase
@@ -683,10 +657,6 @@ final class ChallengeService: ObservableObject {
             }
         } catch {
             print("⚠️ Error loading challenges from Supabase: \(error.localizedDescription)")
-            // #region agent log
-            let logEntry4 = "{\"location\":\"ChallengeService.swift:672\",\"message\":\"loadChallengesFromSupabase ERROR\",\"data\":{\"error\":\"\(error.localizedDescription.replacingOccurrences(of: "\"", with: "\\\""))\"},\"timestamp\":\(Int(Date().timeIntervalSince1970 * 1000)),\"sessionId\":\"debug-session\",\"runId\":\"run1\",\"hypothesisId\":\"A,B\"}\n"
-            try? logEntry4.appendLineToFile(filePath: "/Users/jefferyerhunse/GitRepos/StepComp/.cursor/debug.log")
-            // #endregion
             // Fallback to local storage
             loadChallenges()
         }
