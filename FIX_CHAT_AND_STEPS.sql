@@ -108,7 +108,25 @@ END $$;
 -- ISSUE 3: Fix ambiguous created_at in send_challenge_message
 -- ============================================================
 
-CREATE OR REPLACE FUNCTION public.send_challenge_message(
+-- First, drop ALL existing overloads of send_challenge_message
+DO $$ 
+DECLARE
+    func_record RECORD;
+BEGIN
+    FOR func_record IN 
+        SELECT p.oid::regprocedure AS func_signature
+        FROM pg_proc p
+        JOIN pg_namespace n ON p.pronamespace = n.oid
+        WHERE n.nspname = 'public'
+        AND p.proname = 'send_challenge_message'
+    LOOP
+        EXECUTE 'DROP FUNCTION ' || func_record.func_signature;
+        RAISE NOTICE '✅ Dropped function: %', func_record.func_signature;
+    END LOOP;
+END $$;
+
+-- Now create the correct version
+CREATE FUNCTION public.send_challenge_message(
     p_challenge_id UUID,
     p_content TEXT
 )
@@ -166,7 +184,10 @@ BEGIN
 END;
 $$;
 
-GRANT EXECUTE ON FUNCTION public.send_challenge_message TO authenticated;
+-- Grant with explicit argument types to avoid ambiguity
+GRANT EXECUTE ON FUNCTION public.send_challenge_message(UUID, TEXT) TO authenticated;
+
+RAISE NOTICE '✅ Recreated send_challenge_message function with correct signature';
 
 -- ============================================================
 -- VERIFICATION QUERIES
