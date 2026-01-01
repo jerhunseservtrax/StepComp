@@ -899,6 +899,14 @@ struct SupportLegalCard: View {
         ) {
             VStack(spacing: 8) {
                 SupportLinkRow(
+                    icon: "bubble.left.and.bubble.right.fill",
+                    title: "Feedback Board"
+                )
+                
+                Divider()
+                    .background(Color(.systemGray5))
+                
+                SupportLinkRow(
                     icon: "questionmark.circle.fill",
                     title: "FAQ / Help Center"
                 )
