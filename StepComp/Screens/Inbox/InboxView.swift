@@ -106,7 +106,7 @@ struct InboxNotificationRow: View {
                 Text(notification.title)
                     .font(.system(size: 16, weight: .semibold))
                 
-                Text(notification.body)
+                Text(notification.message)
                     .font(.system(size: 14))
                     .foregroundColor(.secondary)
                     .lineLimit(2)
@@ -130,23 +130,27 @@ struct InboxNotificationRow: View {
     
     private var iconName: String {
         switch notification.type {
-        case "friend_request":
+        case .friendRequest:
             return "person.fill.badge.plus"
-        case "challenge_invite":
+        case .challengeInvite:
             return "trophy.fill"
-        default:
+        case .challengeUpdate:
             return "bell.fill"
+        case .achievement:
+            return "star.fill"
         }
     }
     
     private var iconColor: Color {
         switch notification.type {
-        case "friend_request":
+        case .friendRequest:
             return .blue
-        case "challenge_invite":
+        case .challengeInvite:
             return primaryYellow
-        default:
-            return .gray
+        case .challengeUpdate:
+            return .purple
+        case .achievement:
+            return .orange
         }
     }
     
