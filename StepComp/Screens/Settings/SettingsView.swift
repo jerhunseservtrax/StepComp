@@ -1204,6 +1204,7 @@ struct EditHeightWeightSheet: View {
     
     @State private var editingHeight: String = ""
     @State private var editingWeight: String = ""
+    @State private var isLoadingHealthKit = false
     @State private var unitSystem: UnitSystem = {
         // Default to imperial (feet/inches, lbs)
         if let saved = UserDefaults.standard.string(forKey: "unitSystem"),
@@ -1213,6 +1214,7 @@ struct EditHeightWeightSheet: View {
         return .imperial
     }()
     @Environment(\.dismiss) var dismiss
+    @EnvironmentObject var healthKitService: HealthKitService
     
     enum UnitSystem {
         case metric
@@ -1315,7 +1317,24 @@ struct EditHeightWeightSheet: View {
                 }
                 
                 Section(footer: Text("These values are used for calculating calories burned and other health metrics.")) {
-                    EmptyView()
+                    Button(action: {
+                        Task {
+                            await loadFromHealthKit()
+                        }
+                    }) {
+                        HStack {
+                            Image(systemName: "heart.text.square.fill")
+                                .foregroundColor(.red)
+                            Text("Sync from HealthKit")
+                                .foregroundColor(.blue)
+                            Spacer()
+                            if isLoadingHealthKit {
+                                ProgressView()
+                                    .progressViewStyle(CircularProgressViewStyle())
+                            }
+                        }
+                    }
+                    .disabled(isLoadingHealthKit)
                 }
             }
             .navigationTitle("Height & Weight")
@@ -1341,8 +1360,38 @@ struct EditHeightWeightSheet: View {
         .onAppear {
             let height = UserDefaults.standard.integer(forKey: "userHeight")
             let weight = UserDefaults.standard.integer(forKey: "userWeight")
-            editingHeight = height > 0 ? "\(height)" : ""
-            editingWeight = weight > 0 ? "\(weight)" : ""
+            
+            // If not set in UserDefaults, try to load from HealthKit
+            if height == 0 || weight == 0 {
+                Task {
+                    await loadFromHealthKit()
+                }
+            } else {
+                editingHeight = height > 0 ? "\(height)" : ""
+                editingWeight = weight > 0 ? "\(weight)" : ""
+            }
+        }
+    }
+    
+    // Load height and weight from HealthKit
+    private func loadFromHealthKit() async {
+        isLoadingHealthKit = true
+        defer { isLoadingHealthKit = false }
+        
+        do {
+            // Load height (in cm)
+            if let heightCm = try await healthKitService.getMostRecentHeight() {
+                print("✅ Loaded height from HealthKit: \(heightCm) cm")
+                editingHeight = "\(Int(heightCm))"
+            }
+            
+            // Load weight (in kg)
+            if let weightKg = try await healthKitService.getMostRecentWeight() {
+                print("✅ Loaded weight from HealthKit: \(Int(weightKg)) kg")
+                editingWeight = "\(Int(weightKg))"
+            }
+        } catch {
+            print("⚠️ Error loading from HealthKit: \(error.localizedDescription)")
         }
     }
 }
