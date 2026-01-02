@@ -178,9 +178,9 @@ final class DashboardViewModel: ObservableObject {
     // MARK: - Auto Refresh
     
     private func startAutoRefresh() {
-        // Refresh every 30 seconds to keep data up-to-date in real-time
+        // Refresh every 60 seconds to keep data up-to-date from HealthKit
         // This balances real-time updates with battery efficiency
-        refreshTimer = Timer.scheduledTimer(withTimeInterval: 30.0, repeats: true) { [weak self] _ in
+        refreshTimer = Timer.scheduledTimer(withTimeInterval: 60.0, repeats: true) { [weak self] _ in
             Task { @MainActor [weak self] in
                 guard let self = self, !self.userId.isEmpty else { return }
                 print("🔄 Auto-refreshing HealthKit data...")

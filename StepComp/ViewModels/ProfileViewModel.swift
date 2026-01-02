@@ -349,8 +349,8 @@ final class ProfileViewModel: ObservableObject {
     // MARK: - Auto Refresh
     
     private func startAutoRefresh() {
-        // Refresh every 30 seconds to keep HealthKit data up-to-date
-        refreshTimer = Timer.scheduledTimer(withTimeInterval: 30.0, repeats: true) { [weak self] _ in
+        // Refresh every 60 seconds to keep HealthKit data up-to-date
+        refreshTimer = Timer.scheduledTimer(withTimeInterval: 60.0, repeats: true) { [weak self] _ in
             Task { @MainActor [weak self] in
                 guard let self = self, let healthKitService = self.healthKitService, healthKitService.isAuthorized else { return }
                 print("🔄 Auto-refreshing HealthKit data in Profile...")
