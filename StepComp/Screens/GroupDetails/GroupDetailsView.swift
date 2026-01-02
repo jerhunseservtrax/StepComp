@@ -17,6 +17,7 @@ struct GroupDetailsView: View {
     
     @State private var selectedTab: GroupDetailTab = .leaderboard
     @State private var showingChat = false
+    @State private var showingInvite = false
     
     private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
     
@@ -41,7 +42,9 @@ struct GroupDetailsView: View {
                     GroupDetailsHeader(
                         challengeName: viewModel.challenge?.name ?? "Challenge",
                         onBack: { dismiss() },
-                        onInvite: {}
+                        onInvite: {
+                            showingInvite = true
+                        }
                     )
                     
                     // Main Content
@@ -112,6 +115,13 @@ struct GroupDetailsView: View {
                     challengeName: viewModel.challenge?.name ?? "Challenge"
                 )
             }
+        }
+        .sheet(isPresented: $showingInvite) {
+            InviteFriendsToChallenge View(
+                challengeId: challengeId,
+                challengeName: viewModel.challenge?.name ?? "Challenge",
+                currentUserId: sessionViewModel.currentUser?.id ?? ""
+            )
         }
         .onAppear {
             // Update ViewModel with the actual environment object
