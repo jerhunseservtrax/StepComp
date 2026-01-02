@@ -197,7 +197,8 @@ final class ChallengeChatViewModel: ObservableObject {
             
             print("✅ Message sent successfully")
             
-            // Message will appear via realtime subscription
+            // Reload messages to get the new message with profile data
+            await loadMessages()
             
         } catch {
             print("⚠️ Error sending message: \(error.localizedDescription)")
