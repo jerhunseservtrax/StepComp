@@ -594,6 +594,29 @@ struct SettingsMainContent: View {
                         
                         // Developer/Test Card (always visible for HealthKit testing)
                         DeveloperCard()
+                        
+                        // Logout Button
+                        Button(action: {
+                            showingSignOutAlert = true
+                        }) {
+                            HStack {
+                                Spacer()
+                                Image(systemName: "rectangle.portrait.and.arrow.right")
+                                    .font(.system(size: 16, weight: .semibold))
+                                Text("Log Out")
+                                    .font(.system(size: 16, weight: .semibold))
+                                Spacer()
+                            }
+                            .foregroundColor(.red)
+                            .padding()
+                            .background(Color(.systemBackground))
+                            .cornerRadius(12)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .stroke(Color.red.opacity(0.3), lineWidth: 1)
+                            )
+                        }
+                        .buttonStyle(PlainButtonStyle())
                     }
                     .padding(.horizontal, 32)
                     .padding(.top, 16)
