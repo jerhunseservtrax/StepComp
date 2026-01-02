@@ -73,7 +73,11 @@ struct SettingsView: View {
                         sessionViewModel: sessionViewModel,
                         onSignOut: {
                             showingSignOutAlert = true
-                        }
+                        },
+                        onDeleteAccount: {
+                            showingDeleteAccountAlert = true
+                        },
+                        isDeletingAccount: isDeletingAccount
                     )
                 }
             } else {
@@ -106,7 +110,11 @@ struct SettingsView: View {
                                 sessionViewModel: sessionViewModel,
                                 onSignOut: {
                                     showingSignOutAlert = true
-                                }
+                                },
+                                onDeleteAccount: {
+                                    showingDeleteAccountAlert = true
+                                },
+                                isDeletingAccount: isDeletingAccount
                             )
                         }
                     }
@@ -157,6 +165,28 @@ struct SettingsView: View {
         .onAppear {
             healthKitEnabled = healthKitService.isAuthorized
             darkMode = themeManager.isDarkMode
+            
+            // Load notification preferences from UserDefaults
+            dailyRecap = UserDefaults.standard.bool(forKey: "notif_dailyRecap")
+            leaderboardAlerts = UserDefaults.standard.bool(forKey: "notif_leaderboardAlerts")
+            motivationalNudges = UserDefaults.standard.bool(forKey: "notif_motivationalNudges")
+            
+            // If never set before, set defaults
+            if !UserDefaults.standard.bool(forKey: "notif_prefsInitialized") {
+                dailyRecap = true
+                leaderboardAlerts = false
+                motivationalNudges = true
+                UserDefaults.standard.set(true, forKey: "notif_dailyRecap")
+                UserDefaults.standard.set(false, forKey: "notif_leaderboardAlerts")
+                UserDefaults.standard.set(true, forKey: "notif_motivationalNudges")
+                UserDefaults.standard.set(true, forKey: "notif_prefsInitialized")
+            }
+            
+            // Load unit system from UserDefaults
+            if let savedUnit = UserDefaults.standard.string(forKey: "unitSystem") {
+                unitSystem = savedUnit == "metric" ? .metric : .imperial
+            }
+            
             startAutoRefresh()
         }
         .onDisappear {
@@ -165,6 +195,21 @@ struct SettingsView: View {
         .onChange(of: darkMode) { oldValue, newValue in
             // Update theme when dark mode toggle changes
             themeManager.setColorScheme(newValue ? .dark : .light)
+        }
+        .onChange(of: dailyRecap) { _, newValue in
+            UserDefaults.standard.set(newValue, forKey: "notif_dailyRecap")
+        }
+        .onChange(of: leaderboardAlerts) { _, newValue in
+            UserDefaults.standard.set(newValue, forKey: "notif_leaderboardAlerts")
+        }
+        .onChange(of: motivationalNudges) { _, newValue in
+            UserDefaults.standard.set(newValue, forKey: "notif_motivationalNudges")
+        }
+        .onChange(of: unitSystem) { _, newValue in
+            UserDefaults.standard.set(
+                newValue == .metric ? "metric" : "imperial",
+                forKey: "unitSystem"
+            )
         }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
             // Refresh when app comes to foreground
@@ -580,6 +625,8 @@ struct SettingsMainContent: View {
     
     let sessionViewModel: SessionViewModel?
     let onSignOut: () -> Void
+    let onDeleteAccount: () -> Void
+    let isDeletingAccount: Bool
     
     private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
     
@@ -667,9 +714,7 @@ struct SettingsMainContent: View {
                         DeveloperCard()
                         
                         // Logout Button
-                        Button(action: {
-                            showingSignOutAlert = true
-                        }) {
+                        Button(action: onSignOut) {
                             HStack {
                                 Spacer()
                                 Image(systemName: "rectangle.portrait.and.arrow.right")
@@ -690,9 +735,7 @@ struct SettingsMainContent: View {
                         .buttonStyle(PlainButtonStyle())
                         
                         // Delete Account Button
-                        Button(action: {
-                            showingDeleteAccountAlert = true
-                        }) {
+                        Button(action: onDeleteAccount) {
                             HStack {
                                 Spacer()
                                 Image(systemName: "trash.fill")
@@ -728,6 +771,7 @@ struct SettingsMainContent: View {
 struct ConnectivityCard: View {
     @Binding var healthKitEnabled: Bool
     @Binding var appleWatchSetup: Bool
+    @EnvironmentObject var healthKitService: HealthKitService
     
     private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
     
@@ -742,9 +786,27 @@ struct ConnectivityCard: View {
                 SettingItemRow(
                     icon: "heart.fill",
                     title: "HealthKit Sync",
-                    subtitle: "Permissions Granted",
+                    subtitle: healthKitEnabled ? "Permissions Granted" : "Not Authorized",
                     trailing: {
-                        Toggle("", isOn: $healthKitEnabled)
+                        Toggle("", isOn: Binding(
+                            get: { healthKitEnabled },
+                            set: { newValue in
+                                if newValue {
+                                    Task {
+                                        await healthKitService.requestAuthorization()
+                                        await MainActor.run {
+                                            healthKitEnabled = healthKitService.isAuthorized
+                                        }
+                                    }
+                                } else {
+                                    // Can't revoke HealthKit permissions from app
+                                    // Redirect to Settings
+                                    if let url = URL(string: UIApplication.openSettingsURLString) {
+                                        UIApplication.shared.open(url)
+                                    }
+                                }
+                            }
+                        ))
                             .toggleStyle(SwitchToggleStyle(tint: Color(red: 0.976, green: 0.961, blue: 0.024)))
                     }
                 )
@@ -753,21 +815,20 @@ struct ConnectivityCard: View {
                 SettingItemRow(
                     icon: "applewatch",
                     title: "Apple Watch",
-                    subtitle: appleWatchSetup ? "Connected" : "Not setup",
+                    subtitle: appleWatchSetup ? "Connected" : "Coming Soon",
                     trailing: {
                         if !appleWatchSetup {
-                            Button("Setup") {
-                                appleWatchSetup = true
-                            }
-                            .font(.system(size: 11, weight: .bold))
-                            .foregroundColor(.black)
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 6)
-                            .background(Color(.systemGray6))
-                            .cornerRadius(999)
+                            Text("Soon")
+                                .font(.system(size: 11, weight: .bold))
+                                .foregroundColor(.secondary)
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 6)
+                                .background(Color(.systemGray6))
+                                .cornerRadius(999)
                         } else {
                             Toggle("", isOn: $appleWatchSetup)
                                 .toggleStyle(SwitchToggleStyle(tint: Color(red: 0.976, green: 0.961, blue: 0.024)))
+                                .disabled(true)
                         }
                     }
                 )
