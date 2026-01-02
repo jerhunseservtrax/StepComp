@@ -1391,13 +1391,13 @@ struct EditHeightWeightSheet: View {
         
         do {
             // Load height (in cm)
-            if let heightCm = try await healthKitService.getMostRecentHeight() {
+            if let heightCm = try await healthKitService.getHeight() {
                 print("✅ Loaded height from HealthKit: \(heightCm) cm")
                 editingHeight = "\(Int(heightCm))"
             }
             
             // Load weight (in kg)
-            if let weightKg = try await healthKitService.getMostRecentWeight() {
+            if let weightKg = try await healthKitService.getWeight() {
                 print("✅ Loaded weight from HealthKit: \(Int(weightKg)) kg")
                 editingWeight = "\(Int(weightKg))"
             }
