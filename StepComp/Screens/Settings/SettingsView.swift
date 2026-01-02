@@ -7,6 +7,7 @@
 
 import SwiftUI
 import Combine
+import Supabase
 #if canImport(UIKit)
 import UIKit
 #endif
@@ -47,113 +48,92 @@ struct SettingsView: View {
     }
     
     var body: some View {
+        contentView
+            .navigationBarHidden(true)
+            .task {
+                await loadHealthKitData()
+            }
+            .onChange(of: healthKitService.isAuthorized) { _, _ in
+                Task {
+                    await loadHealthKitData()
+                }
+            }
+            .alert("Sign Out", isPresented: $showingSignOutAlert) {
+                Button("Cancel", role: .cancel) { }
+                Button("Sign Out", role: .destructive) {
+                    Task {
+                        await sessionViewModel.signOut()
+                        dismiss()
+                    }
+                }
+            } message: {
+                Text("Are you sure you want to sign out?")
+            }
+            .alert("Delete Account", isPresented: $showingDeleteAccountAlert) {
+                Button("Cancel", role: .cancel) { }
+                Button("Continue", role: .destructive) {
+                    showingDeleteAccountConfirmation = true
+                }
+            } message: {
+                Text("This action cannot be undone. Your account, friendships, challenge memberships, and all data will be permanently deleted.")
+            }
+            .sheet(isPresented: $showingDeleteAccountConfirmation) {
+                DeleteAccountConfirmationView(
+                    confirmationText: $deleteAccountConfirmationText,
+                    onConfirm: {
+                        Task {
+                            await deleteAccount()
+                            showingDeleteAccountConfirmation = false
+                        }
+                    },
+                    isDeletingAccount: isDeletingAccount
+                )
+                .interactiveDismissDisabled(isDeletingAccount)
+            }
+            .onAppear {
+                setupInitialState()
+            }
+            .onDisappear {
+                stopAutoRefresh()
+            }
+            .onChange(of: darkMode) { oldValue, newValue in
+                themeManager.setColorScheme(newValue ? .dark : .light)
+            }
+            .onChange(of: dailyRecap) { _, newValue in
+                UserDefaults.standard.set(newValue, forKey: "notif_dailyRecap")
+            }
+            .onChange(of: leaderboardAlerts) { _, newValue in
+                UserDefaults.standard.set(newValue, forKey: "notif_leaderboardAlerts")
+            }
+            .onChange(of: motivationalNudges) { _, newValue in
+                UserDefaults.standard.set(newValue, forKey: "notif_motivationalNudges")
+            }
+            .onChange(of: unitSystem) { _, newValue in
+                UserDefaults.standard.set(
+                    newValue == .metric ? "metric" : "imperial",
+                    forKey: "unitSystem"
+                )
+            }
+            .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
+                Task {
+                    await loadHealthKitData()
+                }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("RefreshHealthKitData"))) { _ in
+                Task {
+                    await loadHealthKitData()
+                }
+            }
+    }
+    
+    // MARK: - Content View
+    
+    private var contentView: some View {
         GeometryReader { geometry in
             if geometry.size.width > 768 {
                 iPadLayout
             } else {
                 mobileLayout
-            }
-        }
-        .navigationBarHidden(true)
-        .task {
-            await loadHealthKitData()
-        }
-        .onChange(of: healthKitService.isAuthorized) { _, _ in
-            Task {
-                await loadHealthKitData()
-            }
-        }
-        .alert("Sign Out", isPresented: $showingSignOutAlert) {
-            Button("Cancel", role: .cancel) { }
-            Button("Sign Out", role: .destructive) {
-                Task {
-                    await sessionViewModel.signOut()
-                    dismiss()
-                }
-            }
-        } message: {
-            Text("Are you sure you want to sign out?")
-        }
-        .alert("Delete Account", isPresented: $showingDeleteAccountAlert) {
-            Button("Cancel", role: .cancel) { }
-            Button("Continue", role: .destructive) {
-                showingDeleteAccountConfirmation = true
-            }
-        } message: {
-            Text("This action cannot be undone. Your account, friendships, challenge memberships, and all data will be permanently deleted.")
-        }
-        .sheet(isPresented: $showingDeleteAccountConfirmation) {
-            DeleteAccountConfirmationView(
-                confirmationText: $deleteAccountConfirmationText,
-                onConfirm: {
-                    Task {
-                        await deleteAccount()
-                        showingDeleteAccountConfirmation = false
-                    }
-                },
-                isDeletingAccount: isDeletingAccount
-            )
-            .interactiveDismissDisabled(isDeletingAccount)
-        }
-        .onAppear {
-            healthKitEnabled = healthKitService.isAuthorized
-            darkMode = themeManager.isDarkMode
-            
-            // Load notification preferences from UserDefaults
-            dailyRecap = UserDefaults.standard.bool(forKey: "notif_dailyRecap")
-            leaderboardAlerts = UserDefaults.standard.bool(forKey: "notif_leaderboardAlerts")
-            motivationalNudges = UserDefaults.standard.bool(forKey: "notif_motivationalNudges")
-            
-            // If never set before, set defaults
-            if !UserDefaults.standard.bool(forKey: "notif_prefsInitialized") {
-                dailyRecap = true
-                leaderboardAlerts = false
-                motivationalNudges = true
-                UserDefaults.standard.set(true, forKey: "notif_dailyRecap")
-                UserDefaults.standard.set(false, forKey: "notif_leaderboardAlerts")
-                UserDefaults.standard.set(true, forKey: "notif_motivationalNudges")
-                UserDefaults.standard.set(true, forKey: "notif_prefsInitialized")
-            }
-            
-            // Load unit system from UserDefaults
-            if let savedUnit = UserDefaults.standard.string(forKey: "unitSystem") {
-                unitSystem = savedUnit == "metric" ? .metric : .imperial
-            }
-            
-            startAutoRefresh()
-        }
-        .onDisappear {
-            stopAutoRefresh()
-        }
-        .onChange(of: darkMode) { oldValue, newValue in
-            // Update theme when dark mode toggle changes
-            themeManager.setColorScheme(newValue ? .dark : .light)
-        }
-        .onChange(of: dailyRecap) { _, newValue in
-            UserDefaults.standard.set(newValue, forKey: "notif_dailyRecap")
-        }
-        .onChange(of: leaderboardAlerts) { _, newValue in
-            UserDefaults.standard.set(newValue, forKey: "notif_leaderboardAlerts")
-        }
-        .onChange(of: motivationalNudges) { _, newValue in
-            UserDefaults.standard.set(newValue, forKey: "notif_motivationalNudges")
-        }
-        .onChange(of: unitSystem) { _, newValue in
-            UserDefaults.standard.set(
-                newValue == .metric ? "metric" : "imperial",
-                forKey: "unitSystem"
-            )
-        }
-        .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
-            // Refresh when app comes to foreground
-            Task {
-                await loadHealthKitData()
-            }
-        }
-        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("RefreshHealthKitData"))) { _ in
-            // Refresh when timer fires
-            Task {
-                await loadHealthKitData()
             }
         }
     }
@@ -307,6 +287,34 @@ struct SettingsView: View {
     }
     
     // MARK: - Auto Refresh
+    
+    private func setupInitialState() {
+        healthKitEnabled = healthKitService.isAuthorized
+        darkMode = themeManager.isDarkMode
+        
+        // Load notification preferences from UserDefaults
+        dailyRecap = UserDefaults.standard.bool(forKey: "notif_dailyRecap")
+        leaderboardAlerts = UserDefaults.standard.bool(forKey: "notif_leaderboardAlerts")
+        motivationalNudges = UserDefaults.standard.bool(forKey: "notif_motivationalNudges")
+        
+        // If never set before, set defaults
+        if !UserDefaults.standard.bool(forKey: "notif_prefsInitialized") {
+            dailyRecap = true
+            leaderboardAlerts = false
+            motivationalNudges = true
+            UserDefaults.standard.set(true, forKey: "notif_dailyRecap")
+            UserDefaults.standard.set(false, forKey: "notif_leaderboardAlerts")
+            UserDefaults.standard.set(true, forKey: "notif_motivationalNudges")
+            UserDefaults.standard.set(true, forKey: "notif_prefsInitialized")
+        }
+        
+        // Load unit system from UserDefaults
+        if let savedUnit = UserDefaults.standard.string(forKey: "unitSystem") {
+            unitSystem = savedUnit == "metric" ? .metric : .imperial
+        }
+        
+        startAutoRefresh()
+    }
     
     private func startAutoRefresh() {
         // Refresh every 30 seconds to keep HealthKit data up-to-date
