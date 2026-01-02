@@ -18,14 +18,14 @@ struct PendingRequestRow: View {
         HStack(spacing: 12) {
             // Avatar
             AvatarView(
-                displayName: item.profile.displayName,
-                avatarURL: item.profile.avatarURL,
+                displayName: item.profile.displayName ?? item.profile.username,
+                avatarURL: item.profile.avatarUrl,
                 size: 48
             )
             
             // Name and info
             VStack(alignment: .leading, spacing: 4) {
-                Text(item.profile.displayName)
+                Text(item.profile.displayName ?? item.profile.username)
                     .font(.system(size: 16, weight: .semibold))
                 
                 if let username = item.profile.username {
