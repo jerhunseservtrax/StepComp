@@ -354,6 +354,8 @@ struct SettingsProfileSection: View {
     let totalDistanceMiles: Double
     let averageStepsThisMonth: Int
     
+    @State private var showingProfileEditor = false
+    
     private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
     
     var displayName: String {
@@ -396,19 +398,28 @@ struct SettingsProfileSection: View {
                 .shadow(color: primaryYellow.opacity(0.1), radius: 10, x: 0, y: 4)
                 
                 // Edit button
-                ZStack {
-                    Circle()
-                        .fill(primaryYellow)
-                        .frame(width: 36, height: 36)
-                    
-                    Image(systemName: "pencil")
-                        .font(.system(size: 16, weight: .bold))
-                        .foregroundColor(.black)
+                Button(action: {
+                    showingProfileEditor = true
+                }) {
+                    ZStack {
+                        Circle()
+                            .fill(primaryYellow)
+                            .frame(width: 36, height: 36)
+                        
+                        Image(systemName: "pencil")
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundColor(.black)
+                    }
+                    .overlay(
+                        Circle()
+                            .stroke(Color(.systemBackground), lineWidth: 4)
+                    )
                 }
-                .overlay(
-                    Circle()
-                        .stroke(Color(.systemBackground), lineWidth: 4)
-                )
+            }
+            .sheet(isPresented: $showingProfileEditor) {
+                if let user = user {
+                    ProfileSettingsView(user: user)
+                }
             }
             
             // User Info
