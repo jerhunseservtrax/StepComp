@@ -835,11 +835,11 @@ struct CustomDurationSheet: View {
                             .foregroundColor(.secondary)
                         
                         HStack(spacing: 12) {
-                            QuickSelectButton(title: "7", days: 7, selectedText: $daysText)
-                            QuickSelectButton(title: "14", days: 14, selectedText: $daysText)
-                            QuickSelectButton(title: "30", days: 30, selectedText: $daysText)
-                            QuickSelectButton(title: "60", days: 60, selectedText: $daysText)
-                            QuickSelectButton(title: "90", days: 90, selectedText: $daysText)
+                            DurationQuickSelectButton(title: "7", days: 7, selectedText: $daysText)
+                            DurationQuickSelectButton(title: "14", days: 14, selectedText: $daysText)
+                            DurationQuickSelectButton(title: "30", days: 30, selectedText: $daysText)
+                            DurationQuickSelectButton(title: "60", days: 60, selectedText: $daysText)
+                            DurationQuickSelectButton(title: "90", days: 90, selectedText: $daysText)
                         }
                     }
                     .padding(.top, 16)
@@ -884,7 +884,7 @@ struct CustomDurationSheet: View {
     
 }
 
-struct QuickSelectButton: View {
+struct DurationQuickSelectButton: View {
     let title: String
     let days: Int
     @Binding var selectedText: String
