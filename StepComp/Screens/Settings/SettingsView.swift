@@ -49,76 +49,9 @@ struct SettingsView: View {
     var body: some View {
         GeometryReader { geometry in
             if geometry.size.width > 768 {
-                // iPad/Desktop Layout with Sidebar
-                HStack(spacing: 0) {
-                    // Sidebar
-                    SettingsSidebar(
-                        user: sessionViewModel.currentUser,
-                        totalSteps: totalSteps,
-                        currentStreak: currentStreak,
-                        totalDistanceMiles: totalDistanceMiles,
-                        averageStepsThisMonth: averageStepsThisMonth
-                    )
-                    .frame(width: 320)
-                    
-                    // Main Content
-                    SettingsMainContent(
-                        healthKitEnabled: $healthKitEnabled,
-                        appleWatchSetup: $appleWatchSetup,
-                        dailyRecap: $dailyRecap,
-                        leaderboardAlerts: $leaderboardAlerts,
-                        motivationalNudges: $motivationalNudges,
-                        darkMode: $darkMode,
-                        unitSystem: $unitSystem,
-                        sessionViewModel: sessionViewModel,
-                        onSignOut: {
-                            showingSignOutAlert = true
-                        },
-                        onDeleteAccount: {
-                            showingDeleteAccountAlert = true
-                        },
-                        isDeletingAccount: isDeletingAccount
-                    )
-                }
+                iPadLayout
             } else {
-                // Mobile Layout
-                VStack(spacing: 0) {
-                    // Mobile Header
-                    SettingsMobileHeader(onBack: { dismiss() })
-                    
-                    ScrollView {
-                        VStack(spacing: 0) {
-                            // Profile Section (Mobile)
-                            SettingsProfileSection(
-                                user: sessionViewModel.currentUser,
-                                totalSteps: totalSteps,
-                                currentStreak: currentStreak,
-                                totalDistanceMiles: totalDistanceMiles,
-                                averageStepsThisMonth: averageStepsThisMonth
-                            )
-                            .padding()
-                            
-                            // Settings Cards
-                            SettingsMainContent(
-                                healthKitEnabled: $healthKitEnabled,
-                                appleWatchSetup: $appleWatchSetup,
-                                dailyRecap: $dailyRecap,
-                                leaderboardAlerts: $leaderboardAlerts,
-                                motivationalNudges: $motivationalNudges,
-                                darkMode: $darkMode,
-                                unitSystem: $unitSystem,
-                                sessionViewModel: sessionViewModel,
-                                onSignOut: {
-                                    showingSignOutAlert = true
-                                },
-                                onDeleteAccount: {
-                                    showingDeleteAccountAlert = true
-                                },
-                                isDeletingAccount: isDeletingAccount
-                            )
-                        }
-                    }
-                }
+                mobileLayout
             }
         }
         .navigationBarHidden(true)
@@ -223,6 +156,69 @@ struct SettingsView: View {
                 await loadHealthKitData()
             }
         }
+    }
+    
+    // MARK: - Layout Components
+    
+    private var iPadLayout: some View {
+        HStack(spacing: 0) {
+            // Sidebar
+            SettingsSidebar(
+                user: sessionViewModel.currentUser,
+                totalSteps: totalSteps,
+                currentStreak: currentStreak,
+                totalDistanceMiles: totalDistanceMiles,
+                averageStepsThisMonth: averageStepsThisMonth
+            )
+            .frame(width: 320)
+            
+            // Main Content
+            mainContent
+        }
+    }
+    
+    private var mobileLayout: some View {
+        VStack(spacing: 0) {
+            // Mobile Header
+            SettingsMobileHeader(onBack: { dismiss() })
+            
+            ScrollView {
+                VStack(spacing: 0) {
+                    // Profile Section (Mobile)
+                    SettingsProfileSection(
+                        user: sessionViewModel.currentUser,
+                        totalSteps: totalSteps,
+                        currentStreak: currentStreak,
+                        totalDistanceMiles: totalDistanceMiles,
+                        averageStepsThisMonth: averageStepsThisMonth
+                    )
+                    .padding()
+                    
+                    // Settings Cards
+                    mainContent
+                }
+            }
+        }
+    }
+    
+    private var mainContent: some View {
+        SettingsMainContent(
+            healthKitEnabled: $healthKitEnabled,
+            appleWatchSetup: $appleWatchSetup,
+            dailyRecap: $dailyRecap,
+            leaderboardAlerts: $leaderboardAlerts,
+            motivationalNudges: $motivationalNudges,
+            darkMode: $darkMode,
+            unitSystem: $unitSystem,
+            sessionViewModel: sessionViewModel,
+            onSignOut: {
+                showingSignOutAlert = true
+            },
+            onDeleteAccount: {
+                showingDeleteAccountAlert = true
+            },
+            isDeletingAccount: isDeletingAccount
+        )
     }
     
     // MARK: - HealthKit Data Loading
@@ -358,7 +354,7 @@ struct SettingsView: View {
             // - profiles
             // - auth.users (final deletion)
             try await supabase
-                .rpc("delete_user_account", params: [:])
+                .rpc("delete_user_account")
                 .execute()
             
             print("✅ Account deleted successfully")
@@ -793,9 +789,13 @@ struct ConnectivityCard: View {
                             set: { newValue in
                                 if newValue {
                                     Task {
-                                        await healthKitService.requestAuthorization()
-                                        await MainActor.run {
-                                            healthKitEnabled = healthKitService.isAuthorized
+                                        do {
+                                            try await healthKitService.requestAuthorization()
+                                            await MainActor.run {
+                                                healthKitEnabled = healthKitService.isAuthorized
+                                            }
+                                        } catch {
+                                            print("⚠️ Error requesting HealthKit authorization: \(error.localizedDescription)")
                                         }
                                     }
                                 } else {
