@@ -28,11 +28,9 @@ struct PendingRequestRow: View {
                 Text(item.profile.displayName ?? item.profile.username)
                     .font(.system(size: 16, weight: .semibold))
                 
-                if let username = item.profile.username {
-                    Text("@\(username)")
-                        .font(.system(size: 14))
-                        .foregroundColor(.secondary)
-                }
+                Text("@\(item.profile.username)")
+                    .font(.system(size: 14))
+                    .foregroundColor(.secondary)
             }
             
             Spacer()

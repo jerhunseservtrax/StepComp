@@ -186,13 +186,11 @@ struct ProfileSettingsView: View {
     ProfileSettingsView(
         user: User(
             id: "123",
-            email: "user@example.com",
-            displayName: "John Doe",
             username: "johndoe",
+            firstName: "John",
+            lastName: "Doe",
             avatarURL: "👽",
-            totalSteps: 50000,
-            dailyStepGoal: 10000,
-            currentStreak: 5,
+            email: "user@example.com",
             publicProfile: true
         )
     )
