@@ -1891,9 +1891,37 @@ struct SettingsPreferencesModifiers: ViewModifier {
     
     func body(content: Content) -> some View {
         content
+            .modifier(ThemePreferenceModifier(darkMode: darkMode, themeManager: themeManager))
+            .modifier(NotificationPreferencesModifier(
+                dailyRecap: dailyRecap,
+                leaderboardAlerts: leaderboardAlerts,
+                motivationalNudges: motivationalNudges
+            ))
+            .modifier(UnitSystemPreferenceModifier(unitSystem: unitSystem))
+    }
+}
+
+// MARK: - Sub-Modifiers
+
+struct ThemePreferenceModifier: ViewModifier {
+    let darkMode: Bool
+    let themeManager: ThemeManager
+    
+    func body(content: Content) -> some View {
+        content
             .onChange(of: darkMode) { _, newValue in
                 themeManager.setColorScheme(newValue ? .dark : .light)
             }
+    }
+}
+
+struct NotificationPreferencesModifier: ViewModifier {
+    let dailyRecap: Bool
+    let leaderboardAlerts: Bool
+    let motivationalNudges: Bool
+    
+    func body(content: Content) -> some View {
+        content
             .onChange(of: dailyRecap) { _, newValue in
                 UserDefaults.standard.set(newValue, forKey: "notif_dailyRecap")
             }
@@ -1903,11 +1931,17 @@ struct SettingsPreferencesModifiers: ViewModifier {
             .onChange(of: motivationalNudges) { _, newValue in
                 UserDefaults.standard.set(newValue, forKey: "notif_motivationalNudges")
             }
+    }
+}
+
+struct UnitSystemPreferenceModifier: ViewModifier {
+    let unitSystem: SettingsView.UnitSystem
+    
+    func body(content: Content) -> some View {
+        content
             .onChange(of: unitSystem) { _, newValue in
-                UserDefaults.standard.set(
-                    newValue == .metric ? "metric" : "imperial",
-                    forKey: "unitSystem"
-                )
+                let value = newValue == .metric ? "metric" : "imperial"
+                UserDefaults.standard.set(value, forKey: "unitSystem")
             }
     }
 }
