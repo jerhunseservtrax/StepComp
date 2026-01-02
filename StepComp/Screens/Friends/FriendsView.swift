@@ -58,6 +58,32 @@ struct FriendsView: View {
 
     private var friendsTab: some View {
         List {
+            // Pending Friend Requests Section
+            if !vm.pendingRequests.isEmpty {
+                Section {
+                    ForEach(vm.pendingRequests) { item in
+                        PendingRequestRow(item: item) {
+                            Task { await vm.accept(friendshipId: item.id) }
+                        } onDecline: {
+                            Task { await vm.remove(friendshipId: item.id) }
+                        }
+                    }
+                } header: {
+                    HStack {
+                        Text("Pending Requests")
+                        Spacer()
+                        Text("\(vm.pendingRequests.count)")
+                            .font(.caption)
+                            .fontWeight(.bold)
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(Color.red)
+                            .clipShape(Capsule())
+                    }
+                }
+            }
+            
             Section {
                 if vm.friendItems.isEmpty {
                     Text("No friends yet. Switch to Discover or share an invite link.")

@@ -21,6 +21,11 @@ final class FriendsViewModel: ObservableObject {
     @Published var myProfile: Profile?
     @Published var friendships: [Friendship] = []
     @Published var friendItems: [FriendListItem] = []
+    
+    // Computed property for pending incoming requests
+    var pendingRequests: [FriendListItem] {
+        friendItems.filter { $0.isIncomingRequest && $0.status == .pending }
+    }
 
     @Published var discoverQuery: String = ""
     @Published var discoverResults: [Profile] = []
