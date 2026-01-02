@@ -891,6 +891,11 @@ struct PreferencesCard: View {
 // MARK: - Support & Legal Card
 
 struct SupportLegalCard: View {
+    @State private var showingFeedback = false
+    @State private var showingFAQ = false
+    @State private var showingPrivacy = false
+    @State private var showingAbout = false
+    
     var body: some View {
         SettingsCard(
             icon: "questionmark.circle.fill",
@@ -898,35 +903,67 @@ struct SupportLegalCard: View {
             title: "Support & Legal"
         ) {
             VStack(spacing: 8) {
-                SupportLinkRow(
-                    icon: "bubble.left.and.bubble.right.fill",
-                    title: "Feedback Board"
-                )
+                Button(action: {
+                    showingFeedback = true
+                }) {
+                    SupportLinkRow(
+                        icon: "bubble.left.and.bubble.right.fill",
+                        title: "Feedback Board"
+                    )
+                }
+                .buttonStyle(PlainButtonStyle())
                 
                 Divider()
                     .background(Color(.systemGray5))
                 
-                SupportLinkRow(
-                    icon: "questionmark.circle.fill",
-                    title: "FAQ / Help Center"
-                )
+                Button(action: {
+                    showingFAQ = true
+                }) {
+                    SupportLinkRow(
+                        icon: "questionmark.circle.fill",
+                        title: "FAQ / Help Center"
+                    )
+                }
+                .buttonStyle(PlainButtonStyle())
                 
                 Divider()
                     .background(Color(.systemGray5))
                 
-                SupportLinkRow(
-                    icon: "lock.fill",
-                    title: "Privacy Policy"
-                )
+                Button(action: {
+                    showingPrivacy = true
+                }) {
+                    SupportLinkRow(
+                        icon: "lock.fill",
+                        title: "Privacy Policy"
+                    )
+                }
+                .buttonStyle(PlainButtonStyle())
                 
                 Divider()
                     .background(Color(.systemGray5))
                 
-                SupportLinkRow(
-                    icon: "info.circle.fill",
-                    title: "About Us"
-                )
+                Button(action: {
+                    showingAbout = true
+                }) {
+                    SupportLinkRow(
+                        icon: "info.circle.fill",
+                        title: "About Us"
+                    )
+                }
+                .buttonStyle(PlainButtonStyle())
             }
+        }
+        .sheet(isPresented: $showingFeedback) {
+            FeedbackBoardView()
+        }
+        .sheet(isPresented: $showingFAQ) {
+            FAQView()
+        }
+        .sheet(isPresented: $showingPrivacy) {
+            PrivacyPolicyView()
+        }
+        .sheet(isPresented: $showingAbout) {
+            AboutUsView()
         }
     }
 }
