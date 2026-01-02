@@ -19,6 +19,10 @@ struct SettingsView: View {
     @Environment(\.colorScheme) var colorScheme
     
     @State private var showingSignOutAlert = false
+    @State private var showingDeleteAccountAlert = false
+    @State private var showingDeleteAccountConfirmation = false
+    @State private var deleteAccountConfirmationText = ""
+    @State private var isDeletingAccount = false
     @State private var healthKitEnabled = true
     @State private var appleWatchSetup = false
     @State private var dailyRecap = true
@@ -128,6 +132,27 @@ struct SettingsView: View {
             }
         } message: {
             Text("Are you sure you want to sign out?")
+        }
+        .alert("Delete Account", isPresented: $showingDeleteAccountAlert) {
+            Button("Cancel", role: .cancel) { }
+            Button("Continue", role: .destructive) {
+                showingDeleteAccountConfirmation = true
+            }
+        } message: {
+            Text("This action cannot be undone. Your account, friendships, challenge memberships, and all data will be permanently deleted.")
+        }
+        .sheet(isPresented: $showingDeleteAccountConfirmation) {
+            DeleteAccountConfirmationView(
+                confirmationText: $deleteAccountConfirmationText,
+                onConfirm: {
+                    Task {
+                        await deleteAccount()
+                        showingDeleteAccountConfirmation = false
+                    }
+                },
+                isDeletingAccount: isDeletingAccount
+            )
+            .interactiveDismissDisabled(isDeletingAccount)
         }
         .onAppear {
             healthKitEnabled = healthKitService.isAuthorized
@@ -261,6 +286,52 @@ struct SettingsView: View {
     private func stopAutoRefresh() {
         refreshTimer?.invalidate()
         refreshTimer = nil
+    }
+    
+    // MARK: - Account Deletion
+    
+    private func deleteAccount() async {
+        guard let userId = sessionViewModel.currentUser?.id else {
+            print("⚠️ Cannot delete account: No user ID found")
+            return
+        }
+        
+        isDeletingAccount = true
+        defer { isDeletingAccount = false }
+        
+        do {
+            print("🗑️ Starting account deletion for user: \(userId)")
+            
+            // Call the delete_user_account RPC function
+            // This will cascade delete all related data:
+            // - friendships (both directions)
+            // - challenge_members (removes from all challenges)
+            // - daily_steps
+            // - challenge_messages
+            // - challenge_invites
+            // - inbox_notifications
+            // - profiles
+            // - auth.users (final deletion)
+            try await supabase
+                .rpc("delete_user_account", params: [:])
+                .execute()
+            
+            print("✅ Account deleted successfully")
+            
+            // Sign out locally
+            await sessionViewModel.signOut()
+            
+            // Dismiss the settings view
+            await MainActor.run {
+                dismiss()
+            }
+        } catch {
+            print("❌ Error deleting account: \(error.localizedDescription)")
+            await MainActor.run {
+                // Show error alert
+                // TODO: Add error handling UI
+            }
+        }
     }
 }
 
@@ -617,6 +688,26 @@ struct SettingsMainContent: View {
                             )
                         }
                         .buttonStyle(PlainButtonStyle())
+                        
+                        // Delete Account Button
+                        Button(action: {
+                            showingDeleteAccountAlert = true
+                        }) {
+                            HStack {
+                                Spacer()
+                                Image(systemName: "trash.fill")
+                                    .font(.system(size: 16, weight: .semibold))
+                                Text("Delete Account")
+                                    .font(.system(size: 16, weight: .semibold))
+                                Spacer()
+                            }
+                            .foregroundColor(.white)
+                            .padding()
+                            .background(Color.red)
+                            .cornerRadius(12)
+                        }
+                        .buttonStyle(PlainButtonStyle())
+                        .disabled(isDeletingAccount)
                     }
                     .padding(.horizontal, 32)
                     .padding(.top, 16)
