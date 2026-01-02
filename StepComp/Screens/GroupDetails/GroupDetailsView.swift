@@ -117,7 +117,7 @@ struct GroupDetailsView: View {
             }
         }
         .sheet(isPresented: $showingInvite) {
-            InviteFriendsToChallenge View(
+            InviteFriendsToChallengeView(
                 challengeId: challengeId,
                 challengeName: viewModel.challenge?.name ?? "Challenge",
                 currentUserId: sessionViewModel.currentUser?.id ?? ""
