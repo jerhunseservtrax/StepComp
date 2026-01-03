@@ -25,7 +25,7 @@ struct TermsOfServiceView: View {
                         .foregroundColor(.secondary)
                 }
                 
-                Text("Welcome to StepComp. By accessing or using the StepComp app, you agree to these Terms of Service ("Terms"). If you do not agree, please do not use the app.")
+                Text("Welcome to StepComp. By accessing or using the StepComp app, you agree to these Terms of Service (\"Terms\"). If you do not agree, please do not use the app.")
                     .font(.system(size: 15))
                 
                 // Section 1
@@ -505,19 +505,3 @@ struct AppVersionView: View {
         .navigationTitle("App Version")
     }
 }
-
-// MARK: - Bullet Point Helper
-
-struct BulletPoint: View {
-    let text: String
-    
-    var body: some View {
-        HStack(alignment: .top, spacing: 8) {
-            Text("•")
-                .font(.system(size: 15, weight: .bold))
-            Text(text)
-                .font(.system(size: 15))
-        }
-    }
-}
-
