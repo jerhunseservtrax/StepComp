@@ -145,7 +145,10 @@ WHERE is_public = TRUE
 ORDER BY created_at DESC 
 LIMIT 10;
 
-RAISE NOTICE '✅ Challenge categories system successfully installed!';
-RAISE NOTICE 'Categories available: short_term, friends, corporate, marathon, fun';
-RAISE NOTICE 'Use get_public_challenges_by_category() to query public challenges by category';
-
+DO $$
+BEGIN
+    RAISE NOTICE '✅ Challenge categories system successfully installed!';
+    RAISE NOTICE 'Categories available: short_term, friends, corporate, marathon, fun';
+    RAISE NOTICE 'Use get_public_challenges_by_category() to query public challenges by category';
+END;
+$$ LANGUAGE plpgsql;
