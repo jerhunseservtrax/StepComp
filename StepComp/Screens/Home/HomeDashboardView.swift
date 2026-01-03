@@ -21,6 +21,8 @@ struct HomeDashboardView: View {
     @State private var navigationPath = NavigationPath()
     @State private var showingAddFriends = false
     @State private var showingCreateChallenge = false
+    @State private var dailyGoal: Int = 10000 // Default goal
+    @State private var yesterdaySteps: Int = 0
     
     init(sessionViewModel: SessionViewModel, tabManager: TabSelectionManager) {
         self.sessionViewModel = sessionViewModel
@@ -41,6 +43,13 @@ struct HomeDashboardView: View {
                 VStack(spacing: 24) {
                     // Header
                     DashboardHeader(user: sessionViewModel.currentUser)
+                    
+                    // Speedometer - Step Progress
+                    StepSpeedometerView(
+                        currentSteps: viewModel.todaySteps,
+                        dailyGoal: dailyGoal,
+                        percentageChange: calculatePercentageChange()
+                    )
                     
                     // Active Challenges Section
                     if viewModel.activeChallenges.isEmpty {
@@ -106,6 +115,8 @@ struct HomeDashboardView: View {
             }
         }
         .onAppear {
+            loadDailyGoal()
+            loadYesterdaySteps()
             updateViewModel()
             // Ensure HealthKit is initialized
             _ = healthKitService.isHealthKitAvailable
@@ -167,6 +178,39 @@ struct HomeDashboardView: View {
     private func updateViewModel() {
         guard let userId = sessionViewModel.currentUser?.id else { return }
         viewModel.updateServices(challengeService: challengeService, healthKitService: healthKitService, userId: userId)
+    }
+    
+    private func loadDailyGoal() {
+        dailyGoal = UserDefaults.standard.integer(forKey: "dailyStepGoal")
+        if dailyGoal == 0 {
+            dailyGoal = 10000 // Default if not set
+        }
+    }
+    
+    private func loadYesterdaySteps() {
+        Task {
+            do {
+                let calendar = Calendar.current
+                let yesterday = calendar.date(byAdding: .day, value: -1, to: Date())!
+                let startOfYesterday = calendar.startOfDay(for: yesterday)
+                let endOfYesterday = calendar.date(byAdding: .day, value: 1, to: startOfYesterday)!
+                
+                if let steps = try await healthKitService.getStepCount(
+                    from: startOfYesterday,
+                    to: endOfYesterday
+                ) {
+                    yesterdaySteps = Int(steps)
+                }
+            } catch {
+                print("Failed to load yesterday's steps: \(error)")
+            }
+        }
+    }
+    
+    private func calculatePercentageChange() -> Double {
+        guard yesterdaySteps > 0 else { return 0 }
+        let change = Double(viewModel.todaySteps - yesterdaySteps)
+        return (change / Double(yesterdaySteps)) * 100.0
     }
     
     @ViewBuilder
