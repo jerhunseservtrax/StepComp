@@ -31,6 +31,7 @@ final class CreateChallengeViewModel: ObservableObject {
     @Published var isPrivate: Bool = true
     @Published var isFriendsOnly: Bool = false // Only friends can join
     @Published var selectedParticipants: [String] = [] // User IDs
+    @Published var selectedCategory: Challenge.ChallengeCategory? = nil // Category for public challenges
     
     private var challengeService: ChallengeService
     private let creatorId: String
@@ -120,6 +121,13 @@ final class CreateChallengeViewModel: ObservableObject {
             return
         }
         
+        // Validate category is selected for public challenges
+        if !isPrivate && selectedCategory == nil {
+            errorMessage = "Please select a category for public challenges"
+            print("⚠️ Challenge creation failed: No category selected for public challenge")
+            return
+        }
+        
         isLoading = true
         errorMessage = nil
         
@@ -127,6 +135,7 @@ final class CreateChallengeViewModel: ObservableObject {
         print("   Name: \(name)")
         print("   Is Private: \(isPrivate)")
         print("   Is Public: \(!isPrivate)")
+        print("   Category: \(selectedCategory?.displayName ?? "None")")
         print("   Creator ID: \(creatorId)")
         
         do {
@@ -141,7 +150,8 @@ final class CreateChallengeViewModel: ObservableObject {
                 endDate: endDate,
                 targetSteps: targetSteps,
                 creatorId: creatorId,
-                participantIds: participantIds
+                participantIds: participantIds,
+                category: !isPrivate ? selectedCategory : nil // Only set category for public challenges
             )
             
             print("📝 Challenge object created: \(challenge.id)")
@@ -178,6 +188,7 @@ final class CreateChallengeViewModel: ObservableObject {
         startDateMode = .today
         isPrivate = true
         selectedParticipants = []
+        selectedCategory = nil
         errorMessage = nil
         createdChallenge = nil
     }

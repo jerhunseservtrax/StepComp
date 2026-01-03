@@ -70,6 +70,17 @@ struct CreateChallengeView: View {
                         }
                         .padding(.horizontal)
                         
+                        // Privacy Setting (moved to top after name)
+                        PrivacyToggleView(isPrivate: $viewModel.isPrivate)
+                            .padding(.horizontal)
+                        
+                        // Category Selection (only for public challenges)
+                        if !viewModel.isPrivate {
+                            CategorySelectorView(selectedCategory: $viewModel.selectedCategory)
+                                .padding(.horizontal)
+                                .transition(.opacity.combined(with: .move(edge: .top)))
+                        }
+                        
                         // Duration Selector
                         DurationSelectorView(
                             selectedDuration: $viewModel.selectedDuration,
@@ -103,10 +114,6 @@ struct CreateChallengeView: View {
                             isFriendsOnly: $viewModel.isFriendsOnly
                         )
                         .padding(.horizontal)
-                        
-                        // Privacy Setting
-                        PrivacyToggleView(isPrivate: $viewModel.isPrivate)
-                            .padding(.horizontal)
                         
                         // Spacer for bottom button
                         Spacer()
@@ -969,6 +976,113 @@ struct StickyFooterButton: View {
                 Color(.systemBackground)
                     .opacity(0.9)
                     .background(.ultraThinMaterial)
+            )
+        }
+    }
+}
+
+// MARK: - Category Selector
+
+struct CategorySelectorView: View {
+    @Binding var selectedCategory: Challenge.ChallengeCategory?
+    
+    private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                Image(systemName: "tag.fill")
+                    .font(.system(size: 16))
+                    .foregroundColor(primaryYellow)
+                
+                Text("Choose a Category")
+                    .font(.system(size: 16, weight: .bold))
+                
+                Spacer()
+                
+                Text("Required for public")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(.secondary)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 4)
+                    .background(Color(.systemGray6))
+                    .cornerRadius(8)
+            }
+            
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 12) {
+                    ForEach(Challenge.ChallengeCategory.allCases, id: \.self) { category in
+                        CategoryButton(
+                            category: category,
+                            isSelected: selectedCategory == category,
+                            action: {
+                                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                    selectedCategory = category
+                                }
+                            }
+                        )
+                    }
+                }
+                .padding(.horizontal, 4)
+            }
+        }
+        .padding(.vertical, 16)
+        .padding(.horizontal, 16)
+        .background(Color(.systemGray6).opacity(0.5))
+        .cornerRadius(16)
+    }
+}
+
+struct CategoryButton: View {
+    let category: Challenge.ChallengeCategory
+    let isSelected: Bool
+    let action: () -> Void
+    
+    private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
+    
+    var body: some View {
+        Button(action: action) {
+            VStack(spacing: 8) {
+                Image(systemName: category.icon)
+                    .font(.system(size: 24, weight: .semibold))
+                    .foregroundColor(isSelected ? .black : .secondary)
+                    .frame(width: 48, height: 48)
+                    .background(
+                        Circle()
+                            .fill(isSelected ? primaryYellow : Color(.systemBackground))
+                    )
+                    .overlay(
+                        Circle()
+                            .stroke(isSelected ? Color.clear : Color(.systemGray4), lineWidth: 1)
+                    )
+                
+                VStack(spacing: 2) {
+                    Text(category.displayName)
+                        .font(.system(size: 13, weight: isSelected ? .bold : .semibold))
+                        .foregroundColor(isSelected ? .primary : .secondary)
+                    
+                    Text(category.description)
+                        .font(.system(size: 10))
+                        .foregroundColor(.secondary)
+                        .lineLimit(2)
+                        .multilineTextAlignment(.center)
+                }
+                .frame(width: 100)
+            }
+            .padding(12)
+            .background(
+                isSelected ? Color(.systemBackground) : Color.clear
+            )
+            .cornerRadius(12)
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(isSelected ? primaryYellow : Color.clear, lineWidth: 2)
+            )
+            .shadow(
+                color: isSelected ? primaryYellow.opacity(0.2) : Color.clear,
+                radius: isSelected ? 8 : 0,
+                x: 0,
+                y: isSelected ? 4 : 0
             )
         }
     }

@@ -19,6 +19,45 @@ struct Challenge: Identifiable, Codable, Equatable {
     var isActive: Bool
     var createdAt: Date
     var inviteCode: String?
+    var category: ChallengeCategory?
+    
+    enum ChallengeCategory: String, Codable, CaseIterable {
+        case shortTerm = "short_term"
+        case friends = "friends"
+        case corporate = "corporate"
+        case marathon = "marathon"
+        case fun = "fun"
+        
+        var displayName: String {
+            switch self {
+            case .shortTerm: return "Short Term"
+            case .friends: return "Friends"
+            case .corporate: return "Corporate"
+            case .marathon: return "Marathon"
+            case .fun: return "Fun"
+            }
+        }
+        
+        var icon: String {
+            switch self {
+            case .shortTerm: return "bolt.fill"
+            case .friends: return "person.3.fill"
+            case .corporate: return "building.2.fill"
+            case .marathon: return "figure.run"
+            case .fun: return "party.popper.fill"
+            }
+        }
+        
+        var description: String {
+            switch self {
+            case .shortTerm: return "Quick burst challenges"
+            case .friends: return "Compete with friends"
+            case .corporate: return "Company team challenges"
+            case .marathon: return "Long-term endurance"
+            case .fun: return "Casual & entertaining"
+            }
+        }
+    }
     
     init(
         id: String = UUID().uuidString,
@@ -31,7 +70,8 @@ struct Challenge: Identifiable, Codable, Equatable {
         participantIds: [String] = [],
         isActive: Bool = true,
         createdAt: Date = Date(),
-        inviteCode: String? = nil
+        inviteCode: String? = nil,
+        category: ChallengeCategory? = nil
     ) {
         self.id = id
         self.name = name
@@ -44,6 +84,7 @@ struct Challenge: Identifiable, Codable, Equatable {
         self.isActive = isActive
         self.createdAt = createdAt
         self.inviteCode = inviteCode
+        self.category = category
     }
     
     var isOngoing: Bool {
