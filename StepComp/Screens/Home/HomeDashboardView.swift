@@ -66,6 +66,7 @@ struct HomeDashboardView: View {
                             calories: selectedDateCalories,
                             distanceKm: selectedDateDistance,
                             activeHours: Double(selectedDateSteps) / 6500.0, // Approximate active hours
+                            weeklyStepData: weeklyStepData,
                             onRefresh: {
                                 // Manual refresh: sync steps and update display
                                 await loadStepsForSelectedDate()
