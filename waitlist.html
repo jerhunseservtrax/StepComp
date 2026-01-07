@@ -185,20 +185,34 @@
 
     <!-- Form Handler -->
     <script>
+        // Debug: Check if Supabase loaded
+        console.log('🔍 Supabase library loaded:', typeof supabase !== 'undefined');
+        console.log('🔍 SUPABASE_URL:', SUPABASE_URL);
+        console.log('🔍 SUPABASE_ANON_KEY exists:', SUPABASE_ANON_KEY ? 'Yes' : 'No');
+        
+        // Initialize Supabase client
         const { createClient } = supabase;
         const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        
+        console.log('✅ Supabase client initialized:', supabaseClient ? 'Yes' : 'No');
 
         // Load waitlist count on page load
         async function loadWaitlistCount() {
             try {
+                console.log('📊 Loading waitlist count...');
                 const { data, error } = await supabaseClient.rpc('get_waitlist_count');
-                if (error) throw error;
+                
+                if (error) {
+                    console.error('❌ Error loading count:', error);
+                    throw error;
+                }
                 
                 const count = data || 0;
+                console.log('✅ Waitlist count:', count);
                 document.getElementById('waitlistCount').innerHTML = 
                     `<span class="text-black font-bold">${count.toLocaleString()}</span> people waiting`;
             } catch (error) {
-                console.error('Error loading waitlist count:', error);
+                console.error('❌ Error loading waitlist count:', error);
                 document.getElementById('waitlistCount').innerHTML = 
                     '<span class="text-black font-bold">Join the</span> waitlist';
             }
@@ -215,6 +229,8 @@
             const buttonLoader = document.getElementById('buttonLoader');
             const messageContainer = document.getElementById('messageContainer');
             
+            console.log('📧 Attempting to join waitlist with email:', email);
+            
             // Disable button and show loader
             button.disabled = true;
             buttonText.classList.add('hidden');
@@ -222,6 +238,8 @@
             messageContainer.classList.add('hidden');
             
             try {
+                console.log('🔄 Inserting into database...');
+                
                 // Insert email into waitlist table
                 const { data, error } = await supabaseClient
                     .from('waitlist')
@@ -234,7 +252,10 @@
                     ])
                     .select();
                 
+                console.log('📊 Insert result:', { data, error });
+                
                 if (error) {
+                    console.error('❌ Insert error:', error);
                     // Check for duplicate email
                     if (error.code === '23505' || error.message.includes('duplicate') || error.message.includes('unique')) {
                         showMessage('You\'re already on the waitlist! We\'ll notify you when the app launches. 🎉', 'success');
@@ -243,6 +264,7 @@
                     }
                 } else {
                     // Success
+                    console.log('✅ Successfully joined waitlist!');
                     showMessage('🎉 You\'re on the list! We\'ll email you when StepComp launches.', 'success');
                     emailInput.value = '';
                     
@@ -250,7 +272,7 @@
                     await loadWaitlistCount();
                 }
             } catch (error) {
-                console.error('Error joining waitlist:', error);
+                console.error('❌ Error joining waitlist:', error);
                 showMessage('Oops! Something went wrong. Please try again.', 'error');
             } finally {
                 // Re-enable button
