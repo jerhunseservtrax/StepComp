@@ -757,6 +757,12 @@ struct BarView: View {
                     RoundedRectangle(cornerRadius: 8)
                         .fill(barColor(for: steps))
                         .frame(height: barHeight * barAnimationProgress)
+                        .shadow(
+                            color: isToday ? barColor(for: steps).stops.last?.color.opacity(0.6) ?? .clear : .clear,
+                            radius: isToday ? 12 : 0,
+                            x: 0,
+                            y: 0
+                        )
                         .overlay(
                             // Selected date highlight border
                             isSelected ? RoundedRectangle(cornerRadius: 8)
