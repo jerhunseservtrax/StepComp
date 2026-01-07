@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StepComp - Join the Waitlist</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+    
+    <script id="tailwind-config">
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#F9F506",        // App's primary yellow
+                        "primary-hover": "#FFE74C",  // Lighter yellow on hover
+                        "background": "#FDFDFD",     // Light background
+                        "surface": "#F4F4F5",        // Surface/card color
+                    },
+                    fontFamily: {
+                        "sans": ["Manrope", "sans-serif"]
+                    },
+                },
+            },
+        }
+    </script>
+    
+    <style>
+        body {
+            font-family: 'Manrope', sans-serif;
+            min-height: 100vh;
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .btn-glow:hover {
+            box-shadow: 0 0 20px rgba(249, 245, 6, 0.4);
+        }
+        .hero-glow {
+            box-shadow: 0 0 100px rgba(249, 245, 6, 0.15);
+        }
+    </style>
+</head>
+<body class="bg-background text-gray-900 antialiased">
+    <!-- Navigation -->
+    <nav class="flex items-center justify-between p-6 w-full max-w-6xl mx-auto">
+        <div class="flex items-center gap-3 group cursor-pointer">
+            <div class="flex items-center justify-center size-12 rounded-full bg-primary text-black group-hover:scale-110 transition-transform duration-300">
+                <span class="material-symbols-outlined text-3xl">directions_walk</span>
+            </div>
+            <h2 class="text-black text-2xl font-black tracking-tight">StepComp</h2>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="flex-1 flex flex-col items-center justify-center px-4 py-12 md:py-20">
+        <div class="w-full max-w-4xl mx-auto">
+            <div class="flex flex-col gap-10 md:gap-16 items-center text-center">
+                <!-- Badge -->
+                <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-surface border-2 border-primary/20 shadow-sm animate-pulse">
+                    <span class="relative flex h-2 w-2">
+                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+                        <span class="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
+                    </span>
+                    <span class="text-sm font-bold text-black uppercase tracking-wider">Coming Soon to iOS</span>
+                </div>
+
+                <!-- Hero Text -->
+                <div class="flex flex-col gap-6 max-w-3xl">
+                    <h1 class="text-black text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-black leading-[1.05] tracking-tight">
+                        Walk more.<br/>
+                        <span class="text-transparent bg-clip-text bg-gradient-to-r from-primary via-yellow-400 to-orange-400 hero-glow">
+                            Compete harder.
+                        </span>
+                    </h1>
+                    
+                    <p class="text-gray-600 text-lg sm:text-xl md:text-2xl font-medium leading-relaxed max-w-2xl mx-auto">
+                        Join the waitlist for the step tracker that turns every walk into a competition with friends.
+                    </p>
+                </div>
+
+                <!-- Email Form -->
+                <div class="w-full max-w-md flex flex-col gap-6">
+                    <form id="waitlistForm" class="flex flex-col gap-4">
+                        <div class="flex flex-col sm:flex-row gap-3 items-stretch">
+                            <div class="relative flex-1">
+                                <div class="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none">
+                                    <span class="material-symbols-outlined text-gray-400">mail</span>
+                                </div>
+                                <input 
+                                    id="emailInput"
+                                    type="email" 
+                                    placeholder="your.email@example.com" 
+                                    required
+                                    class="w-full h-14 pl-12 pr-4 rounded-xl bg-surface border-2 border-gray-200 focus:border-primary focus:ring-2 focus:ring-primary/20 text-black placeholder:text-gray-400 font-medium text-base transition-all outline-none"
+                                />
+                            </div>
+                            <button 
+                                type="submit"
+                                class="btn-glow h-14 px-8 rounded-xl bg-primary hover:bg-primary-hover text-black font-bold text-base tracking-wide shadow-lg shadow-primary/30 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+                            >
+                                <span id="buttonText">Get Early Access</span>
+                                <span id="buttonLoader" class="hidden">
+                                    <svg class="animate-spin h-5 w-5 mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
+                                </span>
+                            </button>
+                        </div>
+                        
+                        <!-- Success/Error Messages -->
+                        <div id="messageContainer" class="hidden"></div>
+                    </form>
+
+                    <!-- Social Proof -->
+                    <div class="flex items-center justify-center gap-3 pt-2">
+                        <div class="flex -space-x-3">
+                            <div class="inline-block h-8 w-8 rounded-full ring-2 ring-white bg-gradient-to-br from-blue-400 to-blue-600"></div>
+                            <div class="inline-block h-8 w-8 rounded-full ring-2 ring-white bg-gradient-to-br from-green-400 to-green-600"></div>
+                            <div class="inline-block h-8 w-8 rounded-full ring-2 ring-white bg-gradient-to-br from-purple-400 to-purple-600"></div>
+                            <div class="inline-block h-8 w-8 rounded-full ring-2 ring-white bg-gradient-to-br from-orange-400 to-orange-600"></div>
+                        </div>
+                        <p id="waitlistCount" class="text-gray-600 text-sm font-semibold">
+                            <span class="text-black font-bold">Loading...</span> people waiting
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Features Grid -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8 w-full max-w-4xl">
+                    <div class="flex flex-col items-center gap-3 p-6 rounded-2xl bg-surface border border-gray-200">
+                        <div class="flex items-center justify-center size-14 rounded-full bg-primary/20">
+                            <span class="material-symbols-outlined text-3xl text-black">trophy</span>
+                        </div>
+                        <h3 class="font-bold text-lg">Compete Daily</h3>
+                        <p class="text-gray-600 text-sm text-center">Challenge friends to step battles and climb the leaderboard</p>
+                    </div>
+                    
+                    <div class="flex flex-col items-center gap-3 p-6 rounded-2xl bg-surface border border-gray-200">
+                        <div class="flex items-center justify-center size-14 rounded-full bg-primary/20">
+                            <span class="material-symbols-outlined text-3xl text-black">health_and_safety</span>
+                        </div>
+                        <h3 class="font-bold text-lg">Apple Health</h3>
+                        <p class="text-gray-600 text-sm text-center">Syncs automatically with your iPhone's health data</p>
+                    </div>
+                    
+                    <div class="flex flex-col items-center gap-3 p-6 rounded-2xl bg-surface border border-gray-200">
+                        <div class="flex items-center justify-center size-14 rounded-full bg-primary/20">
+                            <span class="material-symbols-outlined text-3xl text-black">group</span>
+                        </div>
+                        <h3 class="font-bold text-lg">Social Fun</h3>
+                        <p class="text-gray-600 text-sm text-center">Add friends, create groups, and track progress together</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Background Elements -->
+        <div class="absolute inset-0 -z-10 overflow-hidden pointer-events-none">
+            <div class="absolute top-1/4 left-1/4 w-96 h-96 bg-primary/10 rounded-full blur-[120px] -translate-x-1/2 -translate-y-1/2 animate-pulse"></div>
+            <div class="absolute bottom-1/4 right-1/4 w-96 h-96 bg-yellow-400/10 rounded-full blur-[120px] translate-x-1/2 translate-y-1/2 animate-pulse" style="animation-delay: 1s;"></div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="w-full py-8 text-center px-4 border-t border-gray-200">
+        <p class="text-gray-500 text-sm font-medium">
+            © 2025 StepComp. No spam, just steps. 🚶‍♂️
+        </p>
+    </footer>
+
+    <!-- Supabase Configuration -->
+    <script>
+        // Supabase credentials
+        const SUPABASE_URL = 'https://cwrirmowykxajumjokjj.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN3cmlybW93eWt4YWp1bWpva2pqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY2MDcwMTcsImV4cCI6MjA4MjE4MzAxN30.MmuI9evAbWX5jIIAIyEbaf9OolPjExqool7TcYbbCg8';
+    </script>
+
+    <!-- Supabase Client -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <!-- Form Handler -->
+    <script>
+        const { createClient } = supabase;
+        const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        // Load waitlist count on page load
+        async function loadWaitlistCount() {
+            try {
+                const { data, error } = await supabaseClient.rpc('get_waitlist_count');
+                if (error) throw error;
+                
+                const count = data || 0;
+                document.getElementById('waitlistCount').innerHTML = 
+                    `<span class="text-black font-bold">${count.toLocaleString()}</span> people waiting`;
+            } catch (error) {
+                console.error('Error loading waitlist count:', error);
+                document.getElementById('waitlistCount').innerHTML = 
+                    '<span class="text-black font-bold">Join the</span> waitlist';
+            }
+        }
+
+        // Handle form submission
+        document.getElementById('waitlistForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const emailInput = document.getElementById('emailInput');
+            const email = emailInput.value.trim();
+            const button = e.target.querySelector('button[type="submit"]');
+            const buttonText = document.getElementById('buttonText');
+            const buttonLoader = document.getElementById('buttonLoader');
+            const messageContainer = document.getElementById('messageContainer');
+            
+            // Disable button and show loader
+            button.disabled = true;
+            buttonText.classList.add('hidden');
+            buttonLoader.classList.remove('hidden');
+            messageContainer.classList.add('hidden');
+            
+            try {
+                // Insert email into waitlist table
+                const { data, error } = await supabaseClient
+                    .from('waitlist')
+                    .insert([
+                        {
+                            email: email,
+                            referral_source: document.referrer || 'direct',
+                            user_agent: navigator.userAgent
+                        }
+                    ])
+                    .select();
+                
+                if (error) {
+                    // Check for duplicate email
+                    if (error.code === '23505' || error.message.includes('duplicate') || error.message.includes('unique')) {
+                        showMessage('You\'re already on the waitlist! We\'ll notify you when the app launches. 🎉', 'success');
+                    } else {
+                        throw error;
+                    }
+                } else {
+                    // Success
+                    showMessage('🎉 You\'re on the list! We\'ll email you when StepComp launches.', 'success');
+                    emailInput.value = '';
+                    
+                    // Reload count
+                    await loadWaitlistCount();
+                }
+            } catch (error) {
+                console.error('Error joining waitlist:', error);
+                showMessage('Oops! Something went wrong. Please try again.', 'error');
+            } finally {
+                // Re-enable button
+                button.disabled = false;
+                buttonText.classList.remove('hidden');
+                buttonLoader.classList.add('hidden');
+            }
+        });
+
+        function showMessage(text, type) {
+            const messageContainer = document.getElementById('messageContainer');
+            const bgColor = type === 'success' ? 'bg-green-50 border-green-200 text-green-800' : 'bg-red-50 border-red-200 text-red-800';
+            const icon = type === 'success' ? 'check_circle' : 'error';
+            
+            messageContainer.innerHTML = `
+                <div class="flex items-center gap-3 px-4 py-3 rounded-xl border-2 ${bgColor}">
+                    <span class="material-symbols-outlined">${icon}</span>
+                    <span class="font-medium text-sm">${text}</span>
+                </div>
+            `;
+            messageContainer.classList.remove('hidden');
+        }
+
+        // Load count on page load
+        loadWaitlistCount();
+    </script>
+</body>
+</html>
+
