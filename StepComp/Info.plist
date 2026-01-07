@@ -15,5 +15,11 @@
 			</array>
 		</dict>
 	</array>
+	<key>NSHealthShareUsageDescription</key>
+	<string>StepComp needs access to your step count to track your progress in challenges and display your activity on leaderboards.</string>
+	<key>NSHealthUpdateUsageDescription</key>
+	<string>StepComp needs permission to save your step data for challenge tracking and progress updates.</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 </dict>
 </plist>
