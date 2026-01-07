@@ -249,11 +249,10 @@
                 fetch('http://127.0.0.1:7242/ingest/b8b862b9-9e43-4088-a2ac-ca12c7f30ef9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'waitlist.html:234',message:'Insert payload prepared',data:{payload:insertPayload},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'E'})}).catch(()=>{});
                 // #endregion
                 
-                // Insert email into waitlist table
+                // Insert email into waitlist table (removed .select() to avoid SELECT policy conflict)
                 const { data, error } = await supabaseClient
                     .from('waitlist')
-                    .insert([insertPayload])
-                    .select();
+                    .insert([insertPayload]);
                 
                 // #region agent log
                 fetch('http://127.0.0.1:7242/ingest/b8b862b9-9e43-4088-a2ac-ca12c7f30ef9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'waitlist.html:242',message:'Insert completed',data:{hasData:!!data,hasError:!!error,dataCount:data?.length,errorCode:error?.code,errorMessage:error?.message,errorDetails:error?.details,errorHint:error?.hint},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'D'})}).catch(()=>{});
