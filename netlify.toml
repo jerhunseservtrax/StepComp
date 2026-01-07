@@ -1,0 +1,20 @@
+[build]
+  # No build command needed for static HTML
+  publish = "."
+  
+[build.environment]
+  # You can add environment variables here if needed
+
+[[redirects]]
+  from = "/*"
+  to = "/waitlist.html"
+  status = 200
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-XSS-Protection = "1; mode=block"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+
