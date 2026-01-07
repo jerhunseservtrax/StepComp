@@ -13,7 +13,8 @@ struct DailyGoalCard: View {
     let calories: Int
     let distanceKm: Double
     let activeHours: Double
-    let weeklyStepData: [Int]  // NEW: Weekly step data for bar chart
+    let weeklyStepData: [Int]  // Weekly step data for bar chart (last 7 days)
+    var selectedDate: Date = Date()  // NEW: Date selected in calendar
     var onRefresh: (() async -> Void)? = nil
     var celebrationManager: GoalCelebrationManager? = nil
     
@@ -28,7 +29,7 @@ struct DailyGoalCard: View {
     @State private var fireworksTimer: Timer?
     @State private var isRefreshing = false
     
-    // NEW: Toggle view mode
+    // Toggle view mode
     @State private var viewMode: ViewMode = .circular
     @State private var barAnimationProgress: Double = 0
     
@@ -409,6 +410,7 @@ struct DailyGoalCard: View {
                             dayLabel: dayLabel(for: index),
                             distanceLabel: distanceLabel(for: steps),
                             isToday: isToday(index),
+                            isSelected: isSelectedDate(index),
                             colorScheme: colorScheme
                         )
                         .frame(maxWidth: .infinity)
@@ -518,6 +520,19 @@ struct DailyGoalCard: View {
     private func isToday(_ index: Int) -> Bool {
         // Index 6 represents today in a 7-day array
         return index == 6
+    }
+    
+    private func isSelectedDate(_ index: Int) -> Bool {
+        // Check if this bar's date matches the selected date from the calendar
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        
+        guard let barDate = calendar.date(byAdding: .day, value: index - 6, to: today) else {
+            return false
+        }
+        
+        let normalizedSelectedDate = calendar.startOfDay(for: selectedDate)
+        return calendar.isDate(barDate, inSameDayAs: normalizedSelectedDate)
     }
     
     private func distanceLabel(for steps: Int) -> String {
@@ -718,6 +733,7 @@ struct BarView: View {
     let dayLabel: String
     let distanceLabel: String
     let isToday: Bool
+    let isSelected: Bool  // NEW: Highlight if selected in calendar
     let colorScheme: ColorScheme
     
     @State private var barScale: CGFloat = 1.0
@@ -741,6 +757,13 @@ struct BarView: View {
                     RoundedRectangle(cornerRadius: 8)
                         .fill(barColor(for: steps))
                         .frame(height: barHeight * barAnimationProgress)
+                        .overlay(
+                            // Selected date highlight border
+                            isSelected ? RoundedRectangle(cornerRadius: 8)
+                                .strokeBorder(StepCompColors.primary, lineWidth: 3)
+                                .shadow(color: StepCompColors.primary.opacity(0.5), radius: 8, x: 0, y: 0)
+                            : nil
+                        )
                 }
                 
                 // Value label
@@ -751,7 +774,7 @@ struct BarView: View {
                         .padding(.bottom, 4)
                 }
             }
-            .scaleEffect(barScale)
+            .scaleEffect(isSelected ? 1.08 : barScale)  // Scale up if selected
             .onTapGesture {
                 // Tap animation
                 HapticManager.shared.light()
@@ -786,8 +809,8 @@ struct BarView: View {
             
             // Day label
             Text(dayLabel)
-                .font(.system(size: 11, weight: .medium))
-                .foregroundColor(isToday ? StepCompColors.textPrimary : StepCompColors.textSecondary)
+                .font(.system(size: 11, weight: isSelected ? .bold : .medium))
+                .foregroundColor(isSelected ? StepCompColors.primary : (isToday ? StepCompColors.textPrimary : StepCompColors.textSecondary))
             
             // Distance label
             Text(distanceLabel)

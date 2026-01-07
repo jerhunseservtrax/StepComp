@@ -67,6 +67,7 @@ struct HomeDashboardView: View {
                             distanceKm: selectedDateDistance,
                             activeHours: Double(selectedDateSteps) / 6500.0, // Approximate active hours
                             weeklyStepData: weeklyStepData,
+                            selectedDate: selectedDate,  // Pass selected date for bar highlighting
                             onRefresh: {
                                 // Manual refresh: sync steps and update display
                                 await loadStepsForSelectedDate()
