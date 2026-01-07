@@ -758,7 +758,7 @@ struct BarView: View {
                         .fill(barColor(for: steps))
                         .frame(height: barHeight * barAnimationProgress)
                         .shadow(
-                            color: isToday ? barColor(for: steps).stops.last?.color.opacity(0.6) ?? .clear : .clear,
+                            color: isToday ? glowColor(for: steps) : .clear,
                             radius: isToday ? 12 : 0,
                             x: 0,
                             y: 0
@@ -874,6 +874,22 @@ struct BarView: View {
                 startPoint: .top,
                 endPoint: .bottom
             )
+        }
+    }
+    
+    private func glowColor(for steps: Int) -> Color {
+        let percentage = Double(steps) / Double(dailyGoal)
+        
+        if percentage >= 1.0 {
+            return Color.green.opacity(0.6)
+        } else if percentage >= 0.75 {
+            return StepCompColors.primary.opacity(0.6)
+        } else if percentage >= 0.5 {
+            return Color.orange.opacity(0.6)
+        } else if percentage >= 0.25 {
+            return Color.red.opacity(0.5)
+        } else {
+            return Color.red.opacity(0.4)
         }
     }
     

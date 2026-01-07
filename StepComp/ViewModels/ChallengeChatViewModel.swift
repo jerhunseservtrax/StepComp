@@ -312,29 +312,24 @@ final class ChallengeChatViewModel: ObservableObject {
             print("⚠️ RPC method failed, trying direct upsert: \(rpcError.localizedDescription)")
             
             // Fallback to direct upsert
-            do {
-                var successCount = 0
-                for message in messages where message.userId != currentUserId {
-                    do {
-                        try await supabase
-                            .from("challenge_message_reads")
-                            .upsert([
-                                "user_id": currentUserId,
-                                "message_id": message.id
-                            ])
-                            .execute()
-                        successCount += 1
-                    } catch {
-                        print("⚠️ Failed to mark message as read: \(error.localizedDescription)")
-                    }
+            var successCount = 0
+            for message in messages where message.userId != currentUserId {
+                do {
+                    try await supabase
+                        .from("challenge_message_reads")
+                        .upsert([
+                            "user_id": currentUserId,
+                            "message_id": message.id
+                        ])
+                        .execute()
+                    successCount += 1
+                } catch {
+                    print("⚠️ Failed to mark message as read: \(error.localizedDescription)")
                 }
-                
-                unreadCount = 0
-                print("✅ Marked \(successCount) messages as read")
-                
-            } catch {
-                print("❌ Error in fallback upsert: \(error.localizedDescription)")
             }
+            
+            unreadCount = 0
+            print("✅ Marked \(successCount) messages as read")
         }
         #endif
     }
