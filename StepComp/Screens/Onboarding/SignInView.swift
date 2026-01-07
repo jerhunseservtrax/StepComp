@@ -559,8 +559,8 @@ struct SignInOnboardingView: View {
                 try await supabase.storage
                     .from("avatars")
                     .upload(
-                        path: fileName,
-                        file: photoData,
+                        fileName,
+                        data: photoData,
                         options: FileOptions(contentType: "image/jpeg", upsert: true)
                     )
                 

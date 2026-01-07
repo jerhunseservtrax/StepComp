@@ -269,8 +269,12 @@ final class GroupViewModel: ObservableObject {
         // TODO: Update to proper postgres_changes when API is confirmed
         
         Task {
-            await realtimeChannel?.subscribe()
-            print("✅ Subscribed to realtime leaderboard channel for challenge \(challengeId)")
+            do {
+                try await realtimeChannel?.subscribeWithError()
+                print("✅ Subscribed to realtime leaderboard channel for challenge \(challengeId)")
+            } catch {
+                print("⚠️ Error subscribing to realtime leaderboard: \(error.localizedDescription)")
+            }
         }
         #endif
     }

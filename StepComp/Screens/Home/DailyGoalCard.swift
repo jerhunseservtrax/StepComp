@@ -78,7 +78,7 @@ struct DailyGoalCard: View {
                 
                 Spacer()
                 
-                // NEW: View toggle button
+                // View toggle button - more prominent design
                 Button(action: {
                     withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
                         viewMode = viewMode == .circular ? .barChart : .circular
@@ -94,16 +94,32 @@ struct DailyGoalCard: View {
                     }
                     HapticManager.shared.light()
                 }) {
-                    Image(systemName: viewMode == .circular ? "chart.bar.fill" : "circle.circle.fill")
-                        .font(.system(size: 18, weight: .semibold))
-                        .foregroundColor(StepCompColors.primary)
-                        .frame(width: 32, height: 32)
-                        .background(
-                            Circle()
-                                .fill(StepCompColors.primary.opacity(0.15))
-                        )
+                    HStack(spacing: 6) {
+                        Image(systemName: viewMode == .circular ? "chart.bar.fill" : "chart.pie.fill")
+                            .font(.system(size: 16, weight: .bold))
+                        
+                        Text(viewMode == .circular ? "Chart" : "Ring")
+                            .font(.system(size: 13, weight: .semibold))
+                    }
+                    .foregroundColor(StepCompColors.buttonTextOnPrimary)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .background(
+                        Capsule()
+                            .fill(
+                                LinearGradient(
+                                    colors: [
+                                        StepCompColors.primary.opacity(0.9),
+                                        StepCompColors.primary
+                                    ],
+                                    startPoint: .leading,
+                                    endPoint: .trailing
+                                )
+                            )
+                            .shadow(color: StepCompColors.primary.opacity(0.3), radius: 4, x: 0, y: 2)
+                    )
                 }
-                .padding(.trailing, 4)
+                .padding(.trailing, 8)
                 
                 // Percentage badge
                 Text("\(percentage)%")

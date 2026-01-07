@@ -333,7 +333,7 @@ final class ChallengeChatViewModel: ObservableObject {
                 print("✅ Marked \(successCount) messages as read")
                 
             } catch {
-                print("❌ Error marking messages as read: \(error.localizedDescription)")
+                print("❌ Error in fallback upsert: \(error.localizedDescription)")
             }
         }
         #endif
@@ -352,8 +352,12 @@ final class ChallengeChatViewModel: ObservableObject {
         // TODO: Update to proper realtime when API is confirmed
         
         Task {
-            await channel?.subscribe()
-            print("✅ Subscribed to realtime chat for challenge \(challengeId)")
+            do {
+                try await channel?.subscribeWithError()
+                print("✅ Subscribed to realtime chat for challenge \(challengeId)")
+            } catch {
+                print("⚠️ Error subscribing to realtime chat: \(error.localizedDescription)")
+            }
         }
         
         // Post notification for badge updates
