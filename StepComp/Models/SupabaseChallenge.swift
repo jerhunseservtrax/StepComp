@@ -20,6 +20,7 @@ struct SupabaseChallenge: Codable, Identifiable {
     var isPublic: Bool
     var inviteCode: String?
     var category: String? // Challenge category
+    var imageUrl: String? // Background image URL
     var createdAt: Date
     var updatedAt: Date
     
@@ -33,6 +34,7 @@ struct SupabaseChallenge: Codable, Identifiable {
         case isPublic = "is_public"
         case inviteCode = "invite_code"
         case category
+        case imageUrl = "image_url"
         case createdAt = "created_at"
         case updatedAt = "updated_at"
     }

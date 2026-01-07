@@ -20,6 +20,7 @@ struct Challenge: Identifiable, Codable, Equatable {
     var createdAt: Date
     var inviteCode: String?
     var category: ChallengeCategory?
+    var imageUrl: String? // Background image URL
     
     enum ChallengeCategory: String, Codable, CaseIterable {
         case shortTerm = "short_term"
@@ -71,7 +72,8 @@ struct Challenge: Identifiable, Codable, Equatable {
         isActive: Bool = true,
         createdAt: Date = Date(),
         inviteCode: String? = nil,
-        category: ChallengeCategory? = nil
+        category: ChallengeCategory? = nil,
+        imageUrl: String? = nil
     ) {
         self.id = id
         self.name = name
@@ -85,6 +87,7 @@ struct Challenge: Identifiable, Codable, Equatable {
         self.createdAt = createdAt
         self.inviteCode = inviteCode
         self.category = category
+        self.imageUrl = imageUrl
     }
     
     var isOngoing: Bool {

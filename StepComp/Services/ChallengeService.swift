@@ -74,6 +74,7 @@ final class ChallengeService: ObservableObject {
             isPublic: isPublic,
             inviteCode: inviteCode,
             category: challenge.category?.rawValue,
+            imageUrl: challenge.imageUrl,
             createdAt: challenge.createdAt,
             updatedAt: Date()
         )
@@ -289,7 +290,8 @@ final class ChallengeService: ObservableObject {
                     isActive: true,
                     createdAt: supabaseChallenge.createdAt,
                     inviteCode: supabaseChallenge.inviteCode,
-                    category: category
+                    category: category,
+                    imageUrl: supabaseChallenge.imageUrl
                 )
                 
                 // Add to cache for future use
@@ -693,7 +695,8 @@ final class ChallengeService: ObservableObject {
                     isActive: true,
                     createdAt: supabaseChallenge.createdAt,
                     inviteCode: supabaseChallenge.inviteCode,
-                    category: category
+                    category: category,
+                    imageUrl: supabaseChallenge.imageUrl
                 )
                 
                 loadedChallenges.append(challenge)

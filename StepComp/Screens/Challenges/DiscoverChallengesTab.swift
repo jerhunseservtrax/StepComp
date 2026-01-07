@@ -332,32 +332,93 @@ struct DiscoverChallengeCard: View {
         Button(action: onTap) {
             GeometryReader { geometry in
                 ZStack {
-                    // Background gradient
-                    LinearGradient(
-                        colors: gradientColors,
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
+                    // Background: User uploaded image OR gradient
+                    if let imageUrl = challenge.imageUrl, !imageUrl.isEmpty {
+                        // User uploaded image with reduced opacity gradient overlay
+                        ZStack {
+                            // Challenge image
+                            AsyncImage(url: URL(string: imageUrl)) { phase in
+                                switch phase {
+                                case .success(let image):
+                                    image
+                                        .resizable()
+                                        .aspectRatio(contentMode: .fill)
+                                case .failure:
+                                    // Fallback gradient on image load failure
+                                    LinearGradient(
+                                        colors: gradientColors,
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    )
+                                case .empty:
+                                    // Loading state - show gradient
+                                    LinearGradient(
+                                        colors: gradientColors,
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    )
+                                @unknown default:
+                                    LinearGradient(
+                                        colors: gradientColors,
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    )
+                                }
+                            }
+                            
+                            // Gradient overlay for better text readability (reduced opacity)
+                            LinearGradient(
+                                colors: [
+                                    gradientColors[0].opacity(0.5),
+                                    gradientColors[1].opacity(0.5)
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                            .blendMode(.multiply)
+                            
+                            // Edge gradient blur for seamless blending
+                            LinearGradient(
+                                colors: [
+                                    StepCompColors.background.opacity(0),
+                                    StepCompColors.background.opacity(0),
+                                    StepCompColors.background.opacity(0.1),
+                                    StepCompColors.background.opacity(0.3)
+                                ],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            )
+                        }
+                    } else {
+                        // Default gradient background
+                        LinearGradient(
+                            colors: gradientColors,
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    }
                     
-                    // Decorative blur circles
-                    Circle()
-                        .fill(isYellowBackground ? Color.white.opacity(0.3) : Color.white.opacity(0.1))
-                        .frame(width: 150, height: 150)
-                        .blur(radius: 40)
-                        .offset(x: 60, y: -60)
-                    
-                    Circle()
-                        .fill(Color.black.opacity(0.1))
-                        .frame(width: 150, height: 150)
-                        .blur(radius: 40)
-                        .offset(x: -60, y: 60)
-                    
-                    // Large icon watermark
-                    Image(systemName: iconName)
-                        .font(.system(size: 140, weight: .medium))
-                        .foregroundColor((isYellowBackground ? Color.black : Color.white).opacity(0.1))
-                        .rotationEffect(.degrees(-10))
-                        .offset(x: 40, y: 50)
+                    // Decorative blur circles (only if no custom image)
+                    if challenge.imageUrl == nil || challenge.imageUrl!.isEmpty {
+                        Circle()
+                            .fill(isYellowBackground ? Color.white.opacity(0.3) : Color.white.opacity(0.1))
+                            .frame(width: 150, height: 150)
+                            .blur(radius: 40)
+                            .offset(x: 60, y: -60)
+                        
+                        Circle()
+                            .fill(Color.black.opacity(0.1))
+                            .frame(width: 150, height: 150)
+                            .blur(radius: 40)
+                            .offset(x: -60, y: 60)
+                        
+                        // Large icon watermark
+                        Image(systemName: iconName)
+                            .font(.system(size: 140, weight: .medium))
+                            .foregroundColor((isYellowBackground ? Color.black : Color.white).opacity(0.1))
+                            .rotationEffect(.degrees(-10))
+                            .offset(x: 40, y: 50)
+                    }
                     
                     // Content
                     VStack(alignment: .leading, spacing: 0) {

@@ -242,6 +242,14 @@ final class CreateChallengeViewModel: ObservableObject {
         print("   Creator ID: \(creatorId)")
         
         do {
+            // Upload challenge image if provided
+            var imageUrl: String? = nil
+            if let imageData = challengeImageData {
+                print("📸 Uploading challenge image...")
+                imageUrl = try await uploadChallengeImage(imageData: imageData)
+                print("✅ Challenge image uploaded: \(imageUrl ?? "nil")")
+            }
+            
             // Include creator and selected participants
             var participantIds = [creatorId]
             participantIds.append(contentsOf: selectedParticipants)
@@ -254,7 +262,8 @@ final class CreateChallengeViewModel: ObservableObject {
                 targetSteps: targetSteps,
                 creatorId: creatorId,
                 participantIds: participantIds,
-                category: !isPrivate ? selectedCategory : nil // Only set category for public challenges
+                category: !isPrivate ? selectedCategory : nil, // Only set category for public challenges
+                imageUrl: imageUrl
             )
             
             print("📝 Challenge object created: \(challenge.id)")
@@ -279,6 +288,38 @@ final class CreateChallengeViewModel: ObservableObject {
         }
         
         isLoading = false
+    }
+    
+    // MARK: - Image Upload
+    
+    private func uploadChallengeImage(imageData: Data) async throws -> String? {
+        #if canImport(Supabase)
+        let fileName = "\(UUID().uuidString).jpg"
+        let filePath = "challenge-images/\(fileName)"
+        
+        print("📤 Uploading image to path: \(filePath)")
+        
+        // Upload to Supabase Storage
+        try await supabase
+            .storage
+            .from("challenges")
+            .upload(
+                filePath,
+                data: imageData,
+                options: FileOptions(contentType: "image/jpeg", upsert: false)
+            )
+        
+        // Get public URL
+        let publicURL = try supabase
+            .storage
+            .from("challenges")
+            .getPublicURL(path: filePath)
+        
+        print("✅ Image uploaded successfully: \(publicURL)")
+        return publicURL.absoluteString
+        #else
+        return nil
+        #endif
     }
     
     func reset() {
