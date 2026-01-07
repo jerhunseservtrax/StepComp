@@ -44,6 +44,7 @@ struct SettingsView: View {
     @State private var totalDistanceMiles: Double = 0.0
     @State private var averageStepsThisMonth: Int = 0
     @State private var refreshTimer: Timer?
+    @State private var dailyStepGoal: Int = 10000
     
     
     var body: some View {
@@ -180,6 +181,15 @@ struct SettingsView: View {
         
         do {
             print("🔄 Loading HealthKit data in Settings...")
+            
+            // Load daily step goal from UserDefaults
+            var goal = UserDefaults.standard.integer(forKey: "dailyStepGoal")
+            if goal <= 0 {
+                goal = 10000 // Default
+            }
+            dailyStepGoal = goal
+            print("🎯 Daily step goal: \(dailyStepGoal)")
+            
             // Get today's steps
             todaySteps = try await healthKitService.getTodaySteps()
             print("✅ Today's steps: \(todaySteps)")
@@ -669,6 +679,46 @@ struct SettingsMainContent: View {
                         
                         // Support & Legal Card
                         SupportLegalCard()
+                        
+                        // Test Goal Celebration Button (for testing)
+                        #if DEBUG
+                        Button(action: {
+                            // Get daily goal from UserDefaults
+                            var goal = UserDefaults.standard.integer(forKey: "dailyStepGoal")
+                            if goal <= 0 {
+                                goal = 10000 // Default
+                            }
+                            
+                            // Trigger goal celebration
+                            let goalManager = GoalCelebrationManager.shared
+                            goalManager.forceTriggerCelebration(
+                                steps: goal + 500,
+                                goal: goal
+                            )
+                            HapticManager.shared.success()
+                        }) {
+                            HStack {
+                                Spacer()
+                                Image(systemName: "trophy.fill")
+                                    .font(.system(size: 16, weight: .semibold))
+                                Text("Test Goal Celebration")
+                                    .font(.system(size: 16, weight: .semibold))
+                                Spacer()
+                            }
+                            .foregroundColor(.white)
+                            .padding()
+                            .background(
+                                LinearGradient(
+                                    colors: [Color.yellow, Color.orange],
+                                    startPoint: .leading,
+                                    endPoint: .trailing
+                                )
+                            )
+                            .cornerRadius(12)
+                            .shadow(color: Color.yellow.opacity(0.4), radius: 8, x: 0, y: 4)
+                        }
+                        .buttonStyle(PlainButtonStyle())
+                        #endif
                         
                         // Logout Button
                         Button(action: onSignOut) {
