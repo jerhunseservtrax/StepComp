@@ -55,7 +55,6 @@ struct MainTabView: View {
                 }
                 .tag(3)
         }
-        .tint(StepCompColors.primary) // Use adaptive primary color (yellow in light, coral in dark)
         .onAppear {
             setupTabBarAppearance(for: colorScheme)
         }
