@@ -188,6 +188,9 @@ struct GoalCelebrationView: View {
         // Haptic feedback
         HapticManager.shared.achievement()
         
+        // Trigger full-screen fireworks effect (iMessage-style)
+        ReactionEffectManager.shared.trigger(.fireworks)
+        
         // Bounce in animation (Duolingo style)
         withAnimation(.spring(response: 0.6, dampingFraction: 0.6, blendDuration: 0)) {
             cardScale = 1.0
