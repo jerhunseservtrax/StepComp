@@ -185,34 +185,20 @@
 
     <!-- Form Handler -->
     <script>
-        // Debug: Check if Supabase loaded
-        console.log('🔍 Supabase library loaded:', typeof supabase !== 'undefined');
-        console.log('🔍 SUPABASE_URL:', SUPABASE_URL);
-        console.log('🔍 SUPABASE_ANON_KEY exists:', SUPABASE_ANON_KEY ? 'Yes' : 'No');
-        
-        // Initialize Supabase client
         const { createClient } = supabase;
         const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-        
-        console.log('✅ Supabase client initialized:', supabaseClient ? 'Yes' : 'No');
 
         // Load waitlist count on page load
         async function loadWaitlistCount() {
             try {
-                console.log('📊 Loading waitlist count...');
                 const { data, error } = await supabaseClient.rpc('get_waitlist_count');
-                
-                if (error) {
-                    console.error('❌ Error loading count:', error);
-                    throw error;
-                }
+                if (error) throw error;
                 
                 const count = data || 0;
-                console.log('✅ Waitlist count:', count);
                 document.getElementById('waitlistCount').innerHTML = 
                     `<span class="text-black font-bold">${count.toLocaleString()}</span> people waiting`;
             } catch (error) {
-                console.error('❌ Error loading waitlist count:', error);
+                console.error('Error loading waitlist count:', error);
                 document.getElementById('waitlistCount').innerHTML = 
                     '<span class="text-black font-bold">Join the</span> waitlist';
             }
@@ -229,8 +215,6 @@
             const buttonLoader = document.getElementById('buttonLoader');
             const messageContainer = document.getElementById('messageContainer');
             
-            console.log('📧 Attempting to join waitlist with email:', email);
-            
             // Disable button and show loader
             button.disabled = true;
             buttonText.classList.add('hidden');
@@ -238,33 +222,16 @@
             messageContainer.classList.add('hidden');
             
             try {
-                console.log('🔄 Inserting into database...');
-                
-                // #region agent log
-                const insertPayload = {
-                    email: email,
-                    referral_source: document.referrer || 'direct',
-                    user_agent: navigator.userAgent
-                };
-                fetch('http://127.0.0.1:7242/ingest/b8b862b9-9e43-4088-a2ac-ca12c7f30ef9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'waitlist.html:234',message:'Insert payload prepared',data:{payload:insertPayload},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'E'})}).catch(()=>{});
-                // #endregion
-                
-                // Insert email into waitlist table (removed .select() to avoid SELECT policy conflict)
-                const { data, error } = await supabaseClient
+                // Insert email into waitlist table
+                const { error } = await supabaseClient
                     .from('waitlist')
-                    .insert([insertPayload]);
-                
-                // #region agent log
-                fetch('http://127.0.0.1:7242/ingest/b8b862b9-9e43-4088-a2ac-ca12c7f30ef9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'waitlist.html:242',message:'Insert completed',data:{hasData:!!data,hasError:!!error,dataCount:data?.length,errorCode:error?.code,errorMessage:error?.message,errorDetails:error?.details,errorHint:error?.hint},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'D'})}).catch(()=>{});
-                // #endregion
-                
-                console.log('📊 Insert result:', { data, error });
+                    .insert([{
+                        email: email,
+                        referral_source: document.referrer || 'direct',
+                        user_agent: navigator.userAgent
+                    }]);
                 
                 if (error) {
-                    // #region agent log
-                    fetch('http://127.0.0.1:7242/ingest/b8b862b9-9e43-4088-a2ac-ca12c7f30ef9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'waitlist.html:258',message:'Full error object',data:{errorCode:error.code,errorMessage:error.message,errorDetails:error.details,errorHint:error.hint,statusCode:error.statusCode,statusText:error.statusText},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'A,B,C'})}).catch(()=>{});
-                    // #endregion
-                    console.error('❌ Insert error:', error);
                     // Check for duplicate email
                     if (error.code === '23505' || error.message.includes('duplicate') || error.message.includes('unique')) {
                         showMessage('You\'re already on the waitlist! We\'ll notify you when the app launches. 🎉', 'success');
@@ -273,7 +240,6 @@
                     }
                 } else {
                     // Success
-                    console.log('✅ Successfully joined waitlist!');
                     showMessage('🎉 You\'re on the list! We\'ll email you when StepComp launches.', 'success');
                     emailInput.value = '';
                     
@@ -281,7 +247,7 @@
                     await loadWaitlistCount();
                 }
             } catch (error) {
-                console.error('❌ Error joining waitlist:', error);
+                console.error('Error joining waitlist:', error);
                 showMessage('Oops! Something went wrong. Please try again.', 'error');
             } finally {
                 // Re-enable button
