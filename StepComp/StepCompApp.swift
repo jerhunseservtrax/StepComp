@@ -13,7 +13,7 @@ import Supabase
 
 @main
 struct StepCompApp: App {
-    @StateObject private var authService = AuthService()
+    @ObservedObject private var authService = AuthService.shared
     
     init() {
         // Initialize notification managers

@@ -15,7 +15,7 @@ import UserNotifications
 #endif
 
 struct RootView: View {
-    @StateObject private var authService = AuthService()
+    @ObservedObject private var authService = AuthService.shared
     @StateObject private var healthKitService = HealthKitService()
     @StateObject private var challengeService = ChallengeService()
     @StateObject private var friendsService = FriendsService()
@@ -27,13 +27,11 @@ struct RootView: View {
     @State private var passwordResetURL: URL?
     
     init() {
-        // Create temporary instances for SessionViewModel initialization
-        let tempAuthService = AuthService()
-        let tempHealthKitService = HealthKitService()
+        // Use the shared AuthService instance
         _sessionViewModel = StateObject(
             wrappedValue: SessionViewModel(
-                authService: tempAuthService,
-                healthKitService: tempHealthKitService
+                authService: AuthService.shared,
+                healthKitService: HealthKitService()
             )
         )
     }
@@ -62,9 +60,6 @@ struct RootView: View {
         .onAppear {
             // Initialize notification service to request permissions
             _ = StepGoalNotificationService.shared
-            
-            // Update SessionViewModel with the actual service instances
-            sessionViewModel.updateServices(authService: authService, healthKitService: healthKitService)
             
             // Clear delivered notifications and badge when app opens
             clearDeliveredNotificationsAndBadge()

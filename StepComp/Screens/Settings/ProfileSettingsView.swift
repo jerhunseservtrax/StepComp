@@ -1057,7 +1057,7 @@ struct ChangePasswordView: View {
             publicProfile: true
         )
     )
-    .environmentObject(AuthService())
+    .environmentObject(AuthService.shared)
     .environmentObject(HealthKitService())
 }
 

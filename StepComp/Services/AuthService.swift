@@ -13,6 +13,8 @@ import Supabase
 
 @MainActor
 final class AuthService: ObservableObject {
+    static let shared = AuthService()
+    
     @Published var currentUser: User?
     @Published var isAuthenticated: Bool = false
     
@@ -31,7 +33,7 @@ final class AuthService: ObservableObject {
     private let testAccountPassword = "test123"
     private let testAccountDisplayName = "Test User"
     
-    init() {
+    private init() {
         if useSupabase {
             checkSupabaseSession()
         } else {

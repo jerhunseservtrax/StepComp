@@ -35,7 +35,7 @@ struct ProfileView: View {
             wrappedValue: ProfileViewModel(
                 user: user,
                 challengeService: ChallengeService(),
-                authService: AuthService(),
+                authService: AuthService.shared,
                 healthKitService: nil // Will be updated in onAppear
             )
         )
