@@ -398,8 +398,7 @@ struct DailyGoalCard: View {
                             dayLabel: dayLabel(for: index),
                             distanceLabel: distanceLabel(for: steps),
                             isToday: isToday(index),
-                            colorScheme: colorScheme,
-                            rainbowPhase: rainbowPhase
+                            colorScheme: colorScheme
                         )
                         .frame(maxWidth: .infinity)
                     }
@@ -709,7 +708,6 @@ struct BarView: View {
     let distanceLabel: String
     let isToday: Bool
     let colorScheme: ColorScheme
-    let rainbowPhase: Double
     
     @State private var barScale: CGFloat = 1.0
     @State private var barAnimationProgress: CGFloat = 0
@@ -725,26 +723,13 @@ struct BarView: View {
                         : Color.black.opacity(0.05))
                     .frame(height: 140)
                 
-                // Goal portion (below goal line)
+                // Animated bar with color based on progress
                 if steps > 0 {
-                    let goalPortion = min(steps, dailyGoal)
-                    let goalHeight = CGFloat(goalPortion) / CGFloat(maxSteps) * 140
+                    let barHeight = CGFloat(steps) / CGFloat(maxSteps) * 140
                     
                     RoundedRectangle(cornerRadius: 8)
-                        .fill(barColor(for: goalPortion))
-                        .frame(height: goalHeight * barAnimationProgress)
-                }
-                
-                // Rainbow portion (above goal line)
-                if steps > dailyGoal {
-                    let excessSteps = steps - dailyGoal
-                    let goalHeight = CGFloat(dailyGoal) / CGFloat(maxSteps) * 140
-                    let excessHeight = CGFloat(excessSteps) / CGFloat(maxSteps) * 140
-                    
-                    RoundedRectangle(cornerRadius: 8)
-                        .fill(rainbowGradient)
-                        .frame(height: excessHeight * barAnimationProgress)
-                        .offset(y: -goalHeight * barAnimationProgress)
+                        .fill(barColor(for: steps))
+                        .frame(height: barHeight * barAnimationProgress)
                 }
                 
                 // Value label
@@ -801,15 +786,19 @@ struct BarView: View {
     }
     
     private func barColor(for steps: Int) -> LinearGradient {
-        if steps >= dailyGoal {
+        let percentage = Double(steps) / Double(dailyGoal)
+        
+        if percentage >= 1.0 {
+            // 100%+ - Bright green (goal met/exceeded)
             return LinearGradient(
                 colors: colorScheme == .dark 
                     ? [Color.green.opacity(0.7), Color.green]
-                    : [Color.green.opacity(0.6), Color.green.opacity(0.8)],
+                    : [Color.green.opacity(0.6), Color.green.opacity(0.9)],
                 startPoint: .top,
                 endPoint: .bottom
             )
-        } else if steps >= Int(Double(dailyGoal) * 0.5) {
+        } else if percentage >= 0.75 {
+            // 75-99% - Primary color (yellow/coral) - almost there!
             return LinearGradient(
                 colors: [
                     StepCompColors.primary.opacity(0.6),
@@ -818,33 +807,34 @@ struct BarView: View {
                 startPoint: .top,
                 endPoint: .bottom
             )
-        } else {
+        } else if percentage >= 0.5 {
+            // 50-74% - Orange - halfway there
+            return LinearGradient(
+                colors: colorScheme == .dark
+                    ? [Color.orange.opacity(0.6), Color.orange.opacity(0.8)]
+                    : [Color.orange.opacity(0.7), Color.orange],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+        } else if percentage >= 0.25 {
+            // 25-49% - Orange-red - need more steps
             return LinearGradient(
                 colors: colorScheme == .dark
                     ? [Color.orange.opacity(0.6), Color.red.opacity(0.6)]
-                    : [Color.orange.opacity(0.7), Color.red.opacity(0.8)],
+                    : [Color.orange.opacity(0.7), Color.red.opacity(0.7)],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+        } else {
+            // 0-24% - Red - just getting started
+            return LinearGradient(
+                colors: colorScheme == .dark
+                    ? [Color.red.opacity(0.5), Color.red.opacity(0.7)]
+                    : [Color.red.opacity(0.6), Color.red.opacity(0.8)],
                 startPoint: .top,
                 endPoint: .bottom
             )
         }
-    }
-    
-    private var rainbowGradient: AngularGradient {
-        AngularGradient(
-            gradient: Gradient(colors: [
-                Color(red: 1.0, green: 0.0, blue: 0.0),
-                Color(red: 1.0, green: 0.5, blue: 0.0),
-                Color(red: 1.0, green: 1.0, blue: 0.0),
-                Color(red: 0.0, green: 1.0, blue: 0.0),
-                Color(red: 0.0, green: 0.5, blue: 1.0),
-                Color(red: 0.5, green: 0.0, blue: 1.0),
-                Color(red: 1.0, green: 0.0, blue: 0.5),
-                Color(red: 1.0, green: 0.0, blue: 0.0)
-            ]),
-            center: .center,
-            startAngle: .degrees(rainbowPhase * 360),
-            endAngle: .degrees(rainbowPhase * 360 + 360)
-        )
     }
     
     private func formatNumberShort(_ number: Int) -> String {
