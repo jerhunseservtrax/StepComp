@@ -27,6 +27,8 @@ final class ChallengeNotificationService {
         content.title = title
         content.body = body
         content.sound = .default
+        content.badge = 1  // Show badge for app icon in notification
+        content.categoryIdentifier = "challenge_update"  // Category for better organization
         
         if let challengeId = challengeId {
             content.userInfo = ["challengeId": challengeId]

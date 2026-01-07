@@ -141,6 +141,7 @@ final class NotificationManager: NSObject, ObservableObject {
             content.title = motivationalMessages[index].0
             content.body = motivationalMessages[index].1
             content.sound = .default
+            content.badge = 1  // Show badge for app icon in notification
             content.categoryIdentifier = "motivationalNudge"
             
             var dateComponents = DateComponents()

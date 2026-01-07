@@ -13,6 +13,7 @@ import Supabase
 
 @main
 struct StepCompApp: App {
+    @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @ObservedObject private var authService = AuthService.shared
     
     init() {
