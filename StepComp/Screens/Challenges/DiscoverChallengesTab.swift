@@ -332,6 +332,9 @@ struct DiscoverChallengeCard: View {
         Button(action: onTap) {
             GeometryReader { geometry in
                 ZStack {
+                    // Debug: Print image URL
+                    let _ = print("🖼️ Challenge '\(challenge.name)' imageUrl: \(challenge.imageUrl ?? "nil")")
+                    
                     // Background: User uploaded image OR gradient
                     if let imageUrl = challenge.imageUrl, !imageUrl.isEmpty {
                         // User uploaded image with reduced opacity gradient overlay
@@ -343,13 +346,19 @@ struct DiscoverChallengeCard: View {
                                     image
                                         .resizable()
                                         .aspectRatio(contentMode: .fill)
-                                case .failure:
+                                        .onAppear {
+                                            print("✅ Image loaded successfully: \(imageUrl)")
+                                        }
+                                case .failure(let error):
                                     // Fallback gradient on image load failure
                                     LinearGradient(
                                         colors: gradientColors,
                                         startPoint: .topLeading,
                                         endPoint: .bottomTrailing
                                     )
+                                    .onAppear {
+                                        print("❌ Image failed to load: \(error.localizedDescription)")
+                                    }
                                 case .empty:
                                     // Loading state - show gradient
                                     LinearGradient(
@@ -357,6 +366,9 @@ struct DiscoverChallengeCard: View {
                                         startPoint: .topLeading,
                                         endPoint: .bottomTrailing
                                     )
+                                    .onAppear {
+                                        print("⏳ Image loading...")
+                                    }
                                 @unknown default:
                                     LinearGradient(
                                         colors: gradientColors,
