@@ -631,21 +631,21 @@ struct ProfileSettingsView: View {
     private static func cmToImperial(_ cm: Int) -> (feet: Int, inches: Int) {
         let totalInches = Double(cm) / 2.54
         let feet = Int(totalInches / 12)
-        let inches = Int(totalInches.truncatingRemainder(dividingBy: 12))
+        let inches = Int(totalInches.truncatingRemainder(dividingBy: 12).rounded())
         return (feet, inches)
     }
     
     private static func imperialToCm(feet: Int, inches: Int) -> Int {
         let totalInches = Double(feet * 12 + inches)
-        return Int(totalInches * 2.54)
+        return Int((totalInches * 2.54).rounded())
     }
     
     private static func kgToLbs(_ kg: Int) -> Int {
-        return Int(Double(kg) * 2.20462)
+        return Int((Double(kg) * 2.20462).rounded())
     }
     
     private static func lbsToKg(_ lbs: Int) -> Int {
-        return Int(Double(lbs) / 2.20462)
+        return Int((Double(lbs) / 2.20462).rounded())
     }
     
     private func syncFromAppleHealth() async {
