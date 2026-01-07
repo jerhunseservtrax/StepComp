@@ -142,17 +142,19 @@ struct DailyGoalCard: View {
                 barChartView
             }
             
-            // Stats row
-            HStack(spacing: 12) {
-                StatBox(label: "Cal", value: "\(calories)")
-                StatBox(
-                    label: unitPreference.distanceUnit,
-                    value: unitPreference.formatDistance(distanceKm)
-                )
-                StatBox(label: "Hrs", value: String(format: "%.1f", activeHours))
+            // Stats row - only show for circular view (bar chart has its own)
+            if viewMode == .circular {
+                HStack(spacing: 12) {
+                    StatBox(label: "Cal", value: "\(calories)")
+                    StatBox(
+                        label: unitPreference.distanceUnit,
+                        value: unitPreference.formatDistance(distanceKm)
+                    )
+                    StatBox(label: "Hrs", value: String(format: "%.1f", activeHours))
+                }
+                .padding(.horizontal, 20)
+                .padding(.bottom, 20)
             }
-            .padding(.horizontal, 20)
-            .padding(.bottom, 20)
         }
         .background(
             RoundedRectangle(cornerRadius: 32)
@@ -356,60 +358,68 @@ struct DailyGoalCard: View {
             }
             .padding(.horizontal, 20)
             
-            // Bar chart
-            HStack(alignment: .bottom, spacing: 8) {
-                ForEach(Array(weeklyStepData.enumerated()), id: \.offset) { index, steps in
-                    VStack(spacing: 4) {
-                        // Bar
-                        ZStack(alignment: .bottom) {
-                            // Background (goal line)
-                            RoundedRectangle(cornerRadius: 8)
-                                .fill(colorScheme == .dark 
-                                    ? Color.white.opacity(0.05) 
-                                    : Color.black.opacity(0.05))
-                                .frame(height: 140)
-                            
-                            // Animated bar
-                            RoundedRectangle(cornerRadius: 8)
-                                .fill(barColor(for: steps, goal: dailyGoal))
-                                .frame(height: barHeight(for: steps, maxSteps: weeklyStepData.max() ?? 1) * barAnimationProgress)
-                            
-                            // Value label
-                            if steps > 0 {
-                                Text(formatNumberShort(steps))
-                                    .font(.system(size: 11, weight: .bold))
-                                    .foregroundColor(steps >= dailyGoal ? .white : StepCompColors.textSecondary)
-                                    .padding(.bottom, 4)
+            // Bar chart with goal line
+            ZStack(alignment: .bottom) {
+                // Goal line indicator
+                GeometryReader { geometry in
+                    let maxSteps = max(weeklyStepData.max() ?? 1, dailyGoal)
+                    let goalHeight = CGFloat(dailyGoal) / CGFloat(maxSteps) * 140
+                    
+                    // Goal line
+                    Rectangle()
+                        .fill(StepCompColors.primary.opacity(0.3))
+                        .frame(height: 2)
+                        .overlay(
+                            HStack {
+                                Text("GOAL")
+                                    .font(.system(size: 8, weight: .bold))
+                                    .foregroundColor(StepCompColors.primary)
+                                    .padding(.horizontal, 6)
+                                    .padding(.vertical, 2)
+                                    .background(
+                                        Capsule()
+                                            .fill(StepCompColors.primary.opacity(0.15))
+                                    )
+                                Spacer()
                             }
-                        }
-                        
-                        // Day label
-                        Text(dayLabel(for: index))
-                            .font(.system(size: 11, weight: .medium))
-                            .foregroundColor(isToday(index) ? StepCompColors.textPrimary : StepCompColors.textSecondary)
-                        
-                        // Distance label
-                        Text(distanceLabel(for: steps))
-                            .font(.system(size: 10))
-                            .foregroundColor(StepCompColors.textTertiary)
-                    }
-                    .frame(maxWidth: .infinity)
+                            .offset(x: -8)
+                        )
+                        .position(x: geometry.size.width / 2, y: 140 - goalHeight + 90)
                 }
+                
+                // Bars
+                HStack(alignment: .bottom, spacing: 8) {
+                    ForEach(Array(weeklyStepData.enumerated()), id: \.offset) { index, steps in
+                        BarView(
+                            steps: steps,
+                            dailyGoal: dailyGoal,
+                            maxSteps: max(weeklyStepData.max() ?? 1, dailyGoal),
+                            animationProgress: barAnimationProgress,
+                            dayLabel: dayLabel(for: index),
+                            distanceLabel: distanceLabel(for: steps),
+                            isToday: isToday(index),
+                            colorScheme: colorScheme,
+                            rainbowPhase: rainbowPhase
+                        )
+                        .frame(maxWidth: .infinity)
+                    }
+                }
+                .padding(.horizontal, 16)
             }
-            .frame(height: 180)
-            .padding(.horizontal, 16)
+            .frame(height: 230)
             
-            // Weekly summary
-            HStack {
-                Spacer()
-                Text("\(formatNumber(weeklyStepData.reduce(0, +))) · \(weeklyDistance) · \(goalPercentage)% of Goal")
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundColor(StepCompColors.textSecondary)
-                Spacer()
+            // Stats row (Cal, Mi, Hrs) - moved inside bar chart view
+            HStack(spacing: 12) {
+                StatBox(label: "Cal", value: "\(calories)")
+                StatBox(
+                    label: unitPreference.distanceUnit,
+                    value: unitPreference.formatDistance(distanceKm)
+                )
+                StatBox(label: "Hrs", value: String(format: "%.1f", activeHours))
             }
-            .padding(.bottom, 8)
+            .padding(.horizontal, 20)
+            .padding(.bottom, 12)
         }
-        .frame(height: 280)
     }
     
     // MARK: - Bar Chart Helper Functions
@@ -685,6 +695,165 @@ struct StatBox: View {
             RoundedRectangle(cornerRadius: 16)
                 .fill(StepCompColors.surfaceElevated)
         )
+    }
+}
+
+// MARK: - Individual Bar View with Tap Animation
+
+struct BarView: View {
+    let steps: Int
+    let dailyGoal: Int
+    let maxSteps: Int
+    let animationProgress: CGFloat
+    let dayLabel: String
+    let distanceLabel: String
+    let isToday: Bool
+    let colorScheme: ColorScheme
+    let rainbowPhase: Double
+    
+    @State private var barScale: CGFloat = 1.0
+    @State private var barAnimationProgress: CGFloat = 0
+    
+    var body: some View {
+        VStack(spacing: 4) {
+            // Bar
+            ZStack(alignment: .bottom) {
+                // Background track
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(colorScheme == .dark 
+                        ? Color.white.opacity(0.05) 
+                        : Color.black.opacity(0.05))
+                    .frame(height: 140)
+                
+                // Goal portion (below goal line)
+                if steps > 0 {
+                    let goalPortion = min(steps, dailyGoal)
+                    let goalHeight = CGFloat(goalPortion) / CGFloat(maxSteps) * 140
+                    
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(barColor(for: goalPortion))
+                        .frame(height: goalHeight * barAnimationProgress)
+                }
+                
+                // Rainbow portion (above goal line)
+                if steps > dailyGoal {
+                    let excessSteps = steps - dailyGoal
+                    let goalHeight = CGFloat(dailyGoal) / CGFloat(maxSteps) * 140
+                    let excessHeight = CGFloat(excessSteps) / CGFloat(maxSteps) * 140
+                    
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(rainbowGradient)
+                        .frame(height: excessHeight * barAnimationProgress)
+                        .offset(y: -goalHeight * barAnimationProgress)
+                }
+                
+                // Value label
+                if steps > 0 {
+                    Text(formatNumberShort(steps))
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundColor(steps >= dailyGoal ? .white : StepCompColors.textSecondary)
+                        .padding(.bottom, 4)
+                }
+            }
+            .scaleEffect(barScale)
+            .onTapGesture {
+                // Tap animation
+                HapticManager.shared.light()
+                
+                // Scale bounce
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.5)) {
+                    barScale = 1.1
+                }
+                
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                        barScale = 1.0
+                    }
+                }
+                
+                // Refill animation
+                barAnimationProgress = 0
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                    withAnimation(.spring(response: 0.8, dampingFraction: 0.7)) {
+                        barAnimationProgress = 1.0
+                    }
+                }
+            }
+            .onAppear {
+                barAnimationProgress = animationProgress
+            }
+            .onChange(of: animationProgress) { _, newValue in
+                withAnimation(.spring(response: 0.8, dampingFraction: 0.7)) {
+                    barAnimationProgress = newValue
+                }
+            }
+            
+            // Day label
+            Text(dayLabel)
+                .font(.system(size: 11, weight: .medium))
+                .foregroundColor(isToday ? StepCompColors.textPrimary : StepCompColors.textSecondary)
+            
+            // Distance label
+            Text(distanceLabel)
+                .font(.system(size: 10))
+                .foregroundColor(StepCompColors.textTertiary)
+        }
+    }
+    
+    private func barColor(for steps: Int) -> LinearGradient {
+        if steps >= dailyGoal {
+            return LinearGradient(
+                colors: colorScheme == .dark 
+                    ? [Color.green.opacity(0.7), Color.green]
+                    : [Color.green.opacity(0.6), Color.green.opacity(0.8)],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+        } else if steps >= Int(Double(dailyGoal) * 0.5) {
+            return LinearGradient(
+                colors: [
+                    StepCompColors.primary.opacity(0.6),
+                    StepCompColors.primary
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+        } else {
+            return LinearGradient(
+                colors: colorScheme == .dark
+                    ? [Color.orange.opacity(0.6), Color.red.opacity(0.6)]
+                    : [Color.orange.opacity(0.7), Color.red.opacity(0.8)],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+        }
+    }
+    
+    private var rainbowGradient: AngularGradient {
+        AngularGradient(
+            gradient: Gradient(colors: [
+                Color(red: 1.0, green: 0.0, blue: 0.0),
+                Color(red: 1.0, green: 0.5, blue: 0.0),
+                Color(red: 1.0, green: 1.0, blue: 0.0),
+                Color(red: 0.0, green: 1.0, blue: 0.0),
+                Color(red: 0.0, green: 0.5, blue: 1.0),
+                Color(red: 0.5, green: 0.0, blue: 1.0),
+                Color(red: 1.0, green: 0.0, blue: 0.5),
+                Color(red: 1.0, green: 0.0, blue: 0.0)
+            ]),
+            center: .center,
+            startAngle: .degrees(rainbowPhase * 360),
+            endAngle: .degrees(rainbowPhase * 360 + 360)
+        )
+    }
+    
+    private func formatNumberShort(_ number: Int) -> String {
+        if number >= 10000 {
+            return String(format: "%.0fk", Double(number) / 1000)
+        } else if number >= 1000 {
+            return String(format: "%.1fk", Double(number) / 1000)
+        }
+        return "\(number)"
     }
 }
 
