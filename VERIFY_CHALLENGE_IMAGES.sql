@@ -47,7 +47,11 @@ WHERE bucket_id = 'challenges'
 ORDER BY created_at DESC
 LIMIT 5;
 
-PRINT '✅ If image_url column exists and challenges bucket is set up, everything is ready!';
-PRINT '⚠️ If image_url is NULL for existing challenges, they need to be recreated with images.';
-PRINT '💡 New challenges with images will display correctly.';
+-- Success messages
+DO $$
+BEGIN
+  RAISE NOTICE '✅ If image_url column exists and challenges bucket is set up, everything is ready!';
+  RAISE NOTICE '⚠️ If image_url is NULL for existing challenges, they need to be recreated with images.';
+  RAISE NOTICE '💡 New challenges with images will display correctly.';
+END $$;
 

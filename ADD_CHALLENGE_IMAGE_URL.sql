@@ -23,35 +23,44 @@ VALUES ('challenges', 'challenges', true)
 ON CONFLICT (id) DO NOTHING;
 
 -- 4️⃣ Set up RLS policies for challenge images storage
+-- Drop existing policies if they exist (to make script idempotent)
+DROP POLICY IF EXISTS "Authenticated users can upload challenge images" ON storage.objects;
+DROP POLICY IF EXISTS "Public can view challenge images" ON storage.objects;
+DROP POLICY IF EXISTS "Users can update their own challenge images" ON storage.objects;
+DROP POLICY IF EXISTS "Users can delete their own challenge images" ON storage.objects;
+
 -- Allow authenticated users to upload challenge images
-CREATE POLICY IF NOT EXISTS "Authenticated users can upload challenge images"
+CREATE POLICY "Authenticated users can upload challenge images"
 ON storage.objects FOR INSERT
 TO authenticated
 WITH CHECK (bucket_id = 'challenges' AND (storage.foldername(name))[1] = 'challenge-images');
 
 -- Allow public read access to challenge images
-CREATE POLICY IF NOT EXISTS "Public can view challenge images"
+CREATE POLICY "Public can view challenge images"
 ON storage.objects FOR SELECT
 TO public
 USING (bucket_id = 'challenges');
 
 -- Allow users to update their own challenge images
-CREATE POLICY IF NOT EXISTS "Users can update their own challenge images"
+CREATE POLICY "Users can update their own challenge images"
 ON storage.objects FOR UPDATE
 TO authenticated
 USING (bucket_id = 'challenges' AND owner = auth.uid());
 
 -- Allow users to delete their own challenge images
-CREATE POLICY IF NOT EXISTS "Users can delete their own challenge images"
+CREATE POLICY "Users can delete their own challenge images"
 ON storage.objects FOR DELETE
 TO authenticated
 USING (bucket_id = 'challenges' AND owner = auth.uid());
 
 -- ✅ COMPLETE
-PRINT '✅ image_url column added to challenges table';
-PRINT '✅ Storage bucket "challenges" created';
-PRINT '✅ RLS policies set up for challenge images';
-PRINT '';
-PRINT '📸 Users can now upload custom images when creating challenges!';
-PRINT '🎨 Images will be displayed as gradient backgrounds in discover cards';
+DO $$
+BEGIN
+  RAISE NOTICE '✅ image_url column added to challenges table';
+  RAISE NOTICE '✅ Storage bucket "challenges" created';
+  RAISE NOTICE '✅ RLS policies set up for challenge images';
+  RAISE NOTICE '';
+  RAISE NOTICE '📸 Users can now upload custom images when creating challenges!';
+  RAISE NOTICE '🎨 Images will be displayed as gradient backgrounds in discover cards';
+END $$;
 
