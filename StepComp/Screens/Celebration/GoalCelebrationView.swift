@@ -22,11 +22,17 @@ struct GoalCelebrationView: View {
     @State private var showConfetti = false
     @State private var confettiTrigger = 0
     @State private var pulseAnimation = false
+    @State private var numberScale: CGFloat = 1.0
+    @State private var numberOpacity: Double = 0
+    
+    // Floating decorative elements
+    @State private var floatingStars: [(x: CGFloat, y: CGFloat, rotation: Double)] = []
+    @State private var floatingCircles: [(x: CGFloat, y: CGFloat, color: Color)] = []
     
     var body: some View {
         ZStack {
-            // Semi-transparent background
-            Color.black.opacity(0.4)
+            // Semi-transparent background with blur
+            Color.black.opacity(0.5)
                 .ignoresSafeArea()
                 .onTapGesture {
                     dismissWithAnimation()
@@ -39,24 +45,44 @@ struct GoalCelebrationView: View {
                     .zIndex(10) // Above everything
             }
             
-            // Compact celebration card
-            VStack(spacing: 16) {
-                // Trophy icon with glow
+            // Floating decorative elements
+            ForEach(floatingStars.indices, id: \.self) { index in
+                Image(systemName: "star.fill")
+                    .font(.system(size: 20))
+                    .foregroundColor(.yellow)
+                    .rotationEffect(.degrees(floatingStars[index].rotation))
+                    .position(x: floatingStars[index].x, y: floatingStars[index].y)
+                    .opacity(0.6)
+                    .zIndex(4)
+            }
+            
+            ForEach(floatingCircles.indices, id: \.self) { index in
+                Circle()
+                    .fill(floatingCircles[index].color)
+                    .frame(width: 12, height: 12)
+                    .position(x: floatingCircles[index].x, y: floatingCircles[index].y)
+                    .opacity(0.5)
+                    .zIndex(4)
+            }
+            
+            // Compact glassmorphic celebration card
+            VStack(spacing: 20) {
+                // Trophy icon with glow (compact)
                 ZStack {
                     // Pulsing glow
                     Circle()
                         .fill(
                             RadialGradient(
                                 colors: [
-                                    StepCompColors.accent.opacity(0.6),
-                                    StepCompColors.accent.opacity(0)
+                                    Color.yellow.opacity(0.6),
+                                    Color.yellow.opacity(0)
                                 ],
                                 center: .center,
                                 startRadius: 10,
-                                endRadius: 80
+                                endRadius: 60
                             )
                         )
-                        .frame(width: 140, height: 140)
+                        .frame(width: 100, height: 100)
                         .scaleEffect(pulseAnimation ? 1.2 : 0.9)
                         .animation(
                             .easeInOut(duration: 1.5).repeatForever(autoreverses: true),
@@ -67,99 +93,145 @@ struct GoalCelebrationView: View {
                     Circle()
                         .fill(
                             LinearGradient(
-                                colors: [StepCompColors.accent, Color.orange],
+                                colors: [Color.yellow, Color.orange],
                                 startPoint: .topLeading,
                                 endPoint: .bottomTrailing
                             )
                         )
-                        .frame(width: 80, height: 80)
-                        .shadow(color: StepCompColors.accent.opacity(0.5), radius: 20, x: 0, y: 10)
+                        .frame(width: 64, height: 64)
+                        .shadow(color: Color.yellow.opacity(0.6), radius: 16, x: 0, y: 8)
                     
                     // Trophy icon
                     Image(systemName: "trophy.fill")
-                        .font(.system(size: 38, weight: .bold))
+                        .font(.system(size: 30, weight: .bold))
                         .foregroundColor(.white)
+                    
+                    // Small sparkle star (top right)
+                    Image(systemName: "star.fill")
+                        .font(.system(size: 14))
+                        .foregroundColor(.yellow)
+                        .offset(x: 30, y: -25)
                 }
+                .padding(.top, 8)
                 
-                // Small decorative stars
-                HStack(spacing: 48) {
-                    ForEach(0..<3) { index in
-                        Image(systemName: "star.fill")
-                            .font(.system(size: index == 1 ? 16 : 12))
-                            .foregroundColor(.orange)
-                            .offset(y: index == 1 ? -8 : 0)
-                    }
-                }
-                .padding(.vertical, 4)
-                
-                // Title with better contrast
-                Text("Goal Achieved!")
-                    .font(.system(size: 28, weight: .black, design: .rounded))
+                // Title with 3D raised effect
+                Text("Goal\nAchieved!")
+                    .font(.system(size: 32, weight: .black, design: .rounded))
                     .foregroundColor(StepCompColors.textPrimary)
-                    .shadow(color: StepCompColors.shadowSecondary, radius: 1, x: 0, y: 1)
+                    .multilineTextAlignment(.center)
+                    .lineSpacing(-8)
+                    .shadow(color: Color.black.opacity(0.3), radius: 2, x: 0, y: 3) // 3D raised effect
+                    .shadow(color: Color.white.opacity(0.2), radius: 1, x: 0, y: -1) // Highlight
                 
-                // Subtitle with better readability
-                Text("You've absolutely crushed your daily goal.\nOutstanding performance!")
-                    .font(.system(size: 14, weight: .medium, design: .rounded))
+                // Subtitle with raised effect
+                Text("You've absolutely crushed it today.\nKeep up the momentum!")
+                    .font(.system(size: 13, weight: .medium))
                     .foregroundColor(StepCompColors.textSecondary)
                     .multilineTextAlignment(.center)
                     .lineSpacing(4)
-                    .shadow(color: StepCompColors.shadowSecondary, radius: 1, x: 0, y: 1)
+                    .shadow(color: Color.black.opacity(0.2), radius: 1, x: 0, y: 2)
                 
-                // Steps card with dark background
-                VStack(spacing: 8) {
-                    Text("TOTAL STEPS")
-                        .font(.system(size: 11, weight: .bold, design: .rounded))
-                        .foregroundColor(.gray)
-                        .tracking(1.5)
+                // Steps card with glassmorphic effect and yellow accent
+                HStack(spacing: 0) {
+                    // Yellow accent bar
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(Color.yellow)
+                        .frame(width: 4)
+                        .padding(.vertical, 4)
                     
-                    HStack(spacing: 12) {
-                        Text(formatNumber(steps))
-                            .font(.system(size: 40, weight: .black, design: .rounded))
-                            .foregroundColor(.white)
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("TOTAL STEPS")
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundColor(.gray)
+                            .tracking(1.2)
                         
-                        // Green checkmark
-                        Circle()
-                            .fill(StepCompColors.green)
-                            .frame(width: 40, height: 40)
-                            .overlay(
-                                Image(systemName: "checkmark")
-                                    .font(.system(size: 18, weight: .bold))
-                                    .foregroundColor(.white)
-                            )
+                        HStack(spacing: 12) {
+                            // Animated number
+                            Text(formatNumber(steps))
+                                .font(.system(size: 36, weight: .black, design: .rounded))
+                                .foregroundColor(StepCompColors.textPrimary)
+                                .scaleEffect(numberScale)
+                                .opacity(numberOpacity)
+                                .shadow(color: Color.black.opacity(0.3), radius: 2, x: 0, y: 2)
+                            
+                            Spacer()
+                            
+                            // Green checkmark
+                            Circle()
+                                .fill(Color.green)
+                                .frame(width: 36, height: 36)
+                                .overlay(
+                                    Image(systemName: "checkmark")
+                                        .font(.system(size: 16, weight: .bold))
+                                        .foregroundColor(.white)
+                                )
+                                .shadow(color: Color.green.opacity(0.5), radius: 8, x: 0, y: 4)
+                        }
                     }
+                    .padding(.leading, 16)
+                    .padding(.trailing, 12)
                 }
                 .frame(maxWidth: .infinity)
-                .padding(.vertical, 24)
+                .padding(.vertical, 16)
                 .background(
-                    RoundedRectangle(cornerRadius: 20)
-                        .fill(Color.black.opacity(0.8))
+                    RoundedRectangle(cornerRadius: 16)
+                        .fill(.ultraThinMaterial)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 16)
+                                .stroke(Color.white.opacity(0.2), lineWidth: 1)
+                        )
+                        .shadow(color: Color.black.opacity(0.1), radius: 8, x: 0, y: 4)
                 )
-                .padding(.vertical, 8)
                 
-                // Continue button
+                // Continue button with 3D effect
                 Button(action: {
                     dismissWithAnimation()
                 }) {
                     Text("Awesome, continue!")
-                        .font(.system(size: 17, weight: .bold, design: .rounded))
+                        .font(.system(size: 16, weight: .bold, design: .rounded))
                         .foregroundColor(.black)
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 18)
+                        .padding(.vertical, 16)
                         .background(
                             Capsule()
-                                .fill(StepCompColors.accent)
+                                .fill(
+                                    LinearGradient(
+                                        colors: [Color.yellow, Color.orange],
+                                        startPoint: .leading,
+                                        endPoint: .trailing
+                                    )
+                                )
+                                .shadow(color: Color.yellow.opacity(0.4), radius: 12, x: 0, y: 6)
                         )
                 }
             }
-            .padding(28)
-            .background(
-                RoundedRectangle(cornerRadius: 32)
-                    .fill(StepCompColors.surface)
-                    .shadow(color: .black.opacity(0.3), radius: 30, x: 0, y: 15)
-            )
-            .frame(maxWidth: 400)
             .padding(.horizontal, 24)
+            .padding(.vertical, 28)
+            .background(
+                // Glassmorphic background
+                RoundedRectangle(cornerRadius: 32)
+                    .fill(.ultraThinMaterial)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 32)
+                            .fill(
+                                LinearGradient(
+                                    colors: [
+                                        Color.white.opacity(0.15),
+                                        Color.white.opacity(0.05)
+                                    ],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 32)
+                            .stroke(Color.white.opacity(0.3), lineWidth: 1.5)
+                    )
+                    .shadow(color: Color.black.opacity(0.25), radius: 30, x: 0, y: 15)
+            )
+            .frame(maxWidth: 360)
+            .padding(.horizontal, 32)
             .scaleEffect(cardScale)
             .rotation3DEffect(
                 .degrees(cardRotationY),
@@ -176,6 +248,8 @@ struct GoalCelebrationView: View {
         }
         .onAppear {
             startCelebration()
+            generateFloatingElements()
+            animateNumbers()
         }
     }
     
@@ -216,6 +290,62 @@ struct GoalCelebrationView: View {
         }
     }
     
+    private func animateNumbers() {
+        // Fade in and scale animation for numbers
+        withAnimation(.spring(response: 0.6, dampingFraction: 0.7).delay(0.5)) {
+            numberOpacity = 1.0
+        }
+        
+        // Bouncy scale effect
+        withAnimation(.spring(response: 0.4, dampingFraction: 0.5).delay(0.6)) {
+            numberScale = 1.15
+        }
+        
+        withAnimation(.spring(response: 0.4, dampingFraction: 0.6).delay(0.8)) {
+            numberScale = 1.0
+        }
+    }
+    
+    private func generateFloatingElements() {
+        let screenWidth = UIScreen.main.bounds.width
+        let screenHeight = UIScreen.main.bounds.height
+        
+        // Generate floating stars
+        floatingStars = (0..<5).map { _ in
+            (
+                x: CGFloat.random(in: 40...(screenWidth - 40)),
+                y: CGFloat.random(in: 100...(screenHeight - 200)),
+                rotation: Double.random(in: 0...360)
+            )
+        }
+        
+        // Generate floating circles
+        floatingCircles = (0..<8).map { _ in
+            let colors: [Color] = [.red, .orange, .yellow, .green, .blue, .purple, .pink]
+            return (
+                x: CGFloat.random(in: 40...(screenWidth - 40)),
+                y: CGFloat.random(in: 100...(screenHeight - 200)),
+                color: colors.randomElement() ?? .yellow
+            )
+        }
+        
+        // Animate floating elements
+        animateFloatingElements()
+    }
+    
+    private func animateFloatingElements() {
+        // Animate stars rotation
+        for index in floatingStars.indices {
+            withAnimation(
+                .linear(duration: Double.random(in: 3...6))
+                .repeatForever(autoreverses: false)
+                .delay(Double.random(in: 0...1))
+            ) {
+                floatingStars[index].rotation += 360
+            }
+        }
+    }
+    
     private func triggerSpinAndConfetti() {
         HapticManager.shared.success()
         
@@ -227,6 +357,14 @@ struct GoalCelebrationView: View {
         // Trigger new confetti burst
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
             confettiTrigger += 1
+        }
+        
+        // Re-animate numbers
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.5)) {
+            numberScale = 1.2
+        }
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.6).delay(0.2)) {
+            numberScale = 1.0
         }
     }
     
