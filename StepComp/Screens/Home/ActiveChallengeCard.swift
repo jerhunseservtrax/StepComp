@@ -7,6 +7,9 @@
 
 import SwiftUI
 import Combine
+#if canImport(Supabase)
+import Supabase
+#endif
 
 struct ActiveChallengeCard: View {
     let challenge: Challenge
@@ -15,137 +18,146 @@ struct ActiveChallengeCard: View {
     let onViewLeaderboard: () -> Void
     
     // Primary yellow color matching design (#f9f506)
-    private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
     
-    private var progress: Double {
-        min(Double(currentSteps) / Double(challenge.targetSteps), 1.0)
-    }
-    
-    private var progressPercentage: Int {
-        Int(progress * 100)
-    }
+    @State private var memberProfiles: [MemberProfile] = []
     
     var body: some View {
         Button(action: onTap) {
-            ZStack {
-                // Background decoration
-                Circle()
-                    .fill(primaryYellow.opacity(0.1))
-                    .frame(width: 150, height: 150)
-                    .blur(radius: 40)
-                    .offset(x: 80, y: -60)
-                
-                VStack(alignment: .leading, spacing: 16) {
-                    // Header
-                    HStack(alignment: .top) {
-                        HStack(spacing: 12) {
-                            ZStack {
-                                RoundedRectangle(cornerRadius: 12)
-                                    .fill(primaryYellow.opacity(0.2))
-                                    .frame(width: 40, height: 40)
-                                
-                                Image(systemName: "trophy.fill")
-                                    .foregroundColor(primaryYellow)
-                                    .font(.system(size: 18))
-                            }
-                            
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("ACTIVE CHALLENGE")
-                                    .font(.system(size: 9, weight: .bold))
-                                    .foregroundColor(.secondary)
-                                    .tracking(1)
-                                
-                                Text(challenge.name)
-                                    .font(.system(size: 16, weight: .bold))
-                                    .foregroundColor(.primary)
-                            }
-                        }
-                        
-                        Spacer()
-                        
-                        // Timer badge
-                        HStack(spacing: 4) {
-                            Image(systemName: "timer")
-                                .font(.system(size: 11))
-                            Text("\(challenge.daysRemaining)d")
-                                .font(.system(size: 10, weight: .bold))
-                        }
-                        .foregroundColor(.black)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 5)
-                        .background(primaryYellow)
-                        .cornerRadius(16)
-                    }
+            HStack(spacing: 16) {
+                // Left side - Challenge name and member avatars
+                VStack(alignment: .leading, spacing: 12) {
+                    Text(challenge.name)
+                        .font(.system(size: 18, weight: .bold))
+                        .foregroundColor(.primary)
+                        .lineLimit(2)
                     
-                    // Progress Section
-                    VStack(alignment: .leading, spacing: 8) {
-                        HStack(alignment: .firstTextBaseline, spacing: 8) {
-                            Text("\(currentSteps.formatted())")
-                                .font(.system(size: 28, weight: .bold, design: .rounded))
-                            
-                            Text("/ \(challenge.targetSteps.formatted()) steps")
-                                .font(.system(size: 13, weight: .medium))
-                                .foregroundColor(.secondary)
-                        }
-                        
-                        // Progress bar
-                        GeometryReader { geometry in
-                            ZStack(alignment: .leading) {
-                                RoundedRectangle(cornerRadius: 6)
-                                    .fill(Color(.systemGray6))
-                                    .frame(height: 12)
-                                
-                                RoundedRectangle(cornerRadius: 6)
-                                    .fill(primaryYellow)
-                                    .frame(width: geometry.size.width * progress, height: 12)
-                            }
-                        }
-                        .frame(height: 12)
-                        
-                        Text("\(progressPercentage)% complete")
-                            .font(.system(size: 12))
-                            .foregroundColor(.secondary)
-                            .padding(.top, 2)
-                    }
-                    
-                    // Participants count
-                    HStack {
-                        Image(systemName: "person.2.fill")
-                            .font(.system(size: 12))
-                            .foregroundColor(.secondary)
-                        Text("\(challenge.participantIds.count) participants")
-                            .font(.system(size: 12))
-                            .foregroundColor(.secondary)
-                        
-                        Spacer()
-                        
-                        Button(action: {
-                            onViewLeaderboard()
-                        }) {
-                            HStack(spacing: 4) {
-                                Text("Leaderboard")
-                                    .font(.system(size: 12, weight: .semibold))
-                                Image(systemName: "arrow.right")
-                                    .font(.system(size: 10))
-                            }
-                            .foregroundColor(.black)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 6)
-                            .background(primaryYellow)
-                            .cornerRadius(16)
-                        }
-                        .buttonStyle(PlainButtonStyle())
-                    }
+                    // Overlapping member avatars
+                    OverlappingAvatars(profiles: memberProfiles)
                 }
-                .padding(20)
+                
+                Spacer()
+                
+                // Right side - Days remaining
+                VStack(spacing: 4) {
+                    Text("\(challenge.daysRemaining)")
+                        .font(.system(size: 32, weight: .black))
+                        .foregroundColor(.primary)
+                    
+                    Text("days left")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(.secondary)
+                }
             }
+            .padding(20)
             .background(Color(.systemBackground))
             .cornerRadius(24)
             .shadow(color: Color.black.opacity(0.04), radius: 16, x: 0, y: 2)
         }
         .buttonStyle(PlainButtonStyle())
         .padding(.horizontal)
+        .task {
+            await loadMemberProfiles()
+        }
     }
+    
+    private func loadMemberProfiles() async {
+        #if canImport(Supabase)
+        do {
+            // Fetch profiles for participant IDs
+            struct ProfileRow: Codable {
+                let id: String
+                let username: String?
+                let displayName: String?
+                let avatarUrl: String?
+                
+                enum CodingKeys: String, CodingKey {
+                    case id
+                    case username
+                    case displayName = "display_name"
+                    case avatarUrl = "avatar_url"
+                }
+            }
+            
+            let profiles: [ProfileRow] = try await supabase
+                .from("profiles")
+                .select()
+                .in("id", values: challenge.participantIds)
+                .limit(5) // Only fetch first 5 for display
+                .execute()
+                .value
+            
+            memberProfiles = profiles.map { profile in
+                MemberProfile(
+                    id: profile.id,
+                    displayName: profile.displayName ?? profile.username ?? "User",
+                    avatarUrl: profile.avatarUrl
+                )
+            }
+        } catch {
+            print("❌ Failed to load member profiles: \(error)")
+        }
+        #endif
+    }
+}
+
+// MARK: - Overlapping Avatars Component
+
+struct OverlappingAvatars: View {
+    let profiles: [MemberProfile]
+    private let avatarSize: CGFloat = 40
+    private let overlap: CGFloat = 12
+    
+    var body: some View {
+        HStack(spacing: -overlap) {
+            ForEach(Array(profiles.prefix(4).enumerated()), id: \.element.id) { index, profile in
+                AsyncImage(url: URL(string: profile.avatarUrl ?? "")) { image in
+                    image
+                        .resizable()
+                        .scaledToFill()
+                } placeholder: {
+                    Circle()
+                        .fill(Color(.systemGray5))
+                        .overlay(
+                            Text(profile.displayName.prefix(1).uppercased())
+                                .font(.system(size: 16, weight: .semibold))
+                                .foregroundColor(.secondary)
+                        )
+                }
+                .frame(width: avatarSize, height: avatarSize)
+                .clipShape(Circle())
+                .overlay(
+                    Circle()
+                        .stroke(Color(.systemBackground), lineWidth: 2)
+                )
+                .zIndex(Double(profiles.count - index))
+            }
+            
+            // "+X more" indicator if more than 4 members
+            if profiles.count > 4 {
+                Circle()
+                    .fill(Color(.systemGray5))
+                    .frame(width: avatarSize, height: avatarSize)
+                    .overlay(
+                        Text("+\(profiles.count - 4)")
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundColor(.secondary)
+                    )
+                    .overlay(
+                        Circle()
+                            .stroke(Color(.systemBackground), lineWidth: 2)
+                    )
+                    .zIndex(0)
+            }
+        }
+    }
+}
+
+// MARK: - Member Profile Model
+
+struct MemberProfile: Identifiable {
+    let id: String
+    let displayName: String
+    let avatarUrl: String?
 }
 
 // Keep the hero card for backward compatibility
@@ -155,7 +167,6 @@ struct ActiveChallengeHeroCard: View {
     let onViewLeaderboard: () -> Void
     
     // Primary yellow color matching design (#f9f506)
-    private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
     
     private var progress: Double {
         min(Double(currentSteps) / Double(challenge.targetSteps), 1.0)
@@ -169,7 +180,7 @@ struct ActiveChallengeHeroCard: View {
         ZStack {
             // Background decoration
             Circle()
-                .fill(primaryYellow.opacity(0.1))
+                .fill(StepCompColors.primary.opacity(0.1))
                 .frame(width: 200, height: 200)
                 .blur(radius: 60)
                 .offset(x: 100, y: -100)
@@ -180,11 +191,11 @@ struct ActiveChallengeHeroCard: View {
                     HStack(spacing: 12) {
                         ZStack {
                             RoundedRectangle(cornerRadius: 16)
-                                .fill(primaryYellow.opacity(0.2))
+                                .fill(StepCompColors.primary.opacity(0.2))
                                 .frame(width: 44, height: 44)
                             
                             Image(systemName: "trophy.fill")
-                                .foregroundColor(primaryYellow)
+                                .foregroundColor(StepCompColors.primary)
                                 .font(.system(size: 20))
                         }
                         
@@ -211,7 +222,7 @@ struct ActiveChallengeHeroCard: View {
                     .foregroundColor(.black)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 6)
-                    .background(primaryYellow)
+                    .background(StepCompColors.primary)
                     .cornerRadius(20)
                 }
                 
@@ -234,9 +245,9 @@ struct ActiveChallengeHeroCard: View {
                                 .frame(height: 16)
                             
                             RoundedRectangle(cornerRadius: 8)
-                                .fill(primaryYellow)
+                                .fill(StepCompColors.primary)
                                 .frame(width: geometry.size.width * progress, height: 16)
-                                .shadow(color: primaryYellow.opacity(0.5), radius: 8, x: 0, y: 0)
+                                .shadow(color: StepCompColors.primary.opacity(0.5), radius: 8, x: 0, y: 0)
                         }
                     }
                     .frame(height: 16)
@@ -258,9 +269,9 @@ struct ActiveChallengeHeroCard: View {
                     .foregroundColor(.black)
                     .padding()
                     .frame(maxWidth: .infinity)
-                    .background(primaryYellow)
+                    .background(StepCompColors.primary)
                     .cornerRadius(12)
-                    .shadow(color: primaryYellow.opacity(0.3), radius: 8, x: 0, y: 4)
+                    .shadow(color: StepCompColors.primary.opacity(0.3), radius: 8, x: 0, y: 4)
                 }
             }
             .padding(24)

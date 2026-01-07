@@ -13,7 +13,6 @@ struct DeleteAccountConfirmationView: View {
     let onConfirm: () -> Void
     let isDeletingAccount: Bool
     
-    private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
     
     var body: some View {
         NavigationView {

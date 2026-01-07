@@ -12,29 +12,35 @@ struct LeaderboardEntry: Identifiable, Codable, Equatable {
     var id: String
     var userId: String
     var challengeId: String
+    var username: String
     var displayName: String
     var avatarURL: String?
     var steps: Int
     var rank: Int
+    var rankChange: Int? // Positive = moved up, Negative = moved down
     var lastUpdated: Date
     
     init(
         id: String = UUID().uuidString,
         userId: String,
         challengeId: String,
+        username: String = "",
         displayName: String,
         avatarURL: String? = nil,
         steps: Int,
         rank: Int,
+        rankChange: Int? = nil,
         lastUpdated: Date = Date()
     ) {
         self.id = id
         self.userId = userId
         self.challengeId = challengeId
+        self.username = username
         self.displayName = displayName
         self.avatarURL = avatarURL
         self.steps = steps
         self.rank = rank
+        self.rankChange = rankChange
         self.lastUpdated = lastUpdated
     }
 }
@@ -64,6 +70,7 @@ struct ServerLeaderboardEntry: Codable {
             id: UUID().uuidString,
             userId: userId,
             challengeId: challengeId,
+            username: username,
             displayName: displayName ?? username,
             avatarURL: avatarUrl,
             steps: steps,

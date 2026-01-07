@@ -298,21 +298,43 @@ final class ChallengeChatViewModel: ObservableObject {
         // Mark all messages as read
         #if canImport(Supabase)
         do {
-            for message in messages where message.userId != currentUserId {
-                try await supabase
-                    .from("challenge_message_reads")
-                    .upsert([
-                        "user_id": currentUserId,
-                        "message_id": message.id
-                    ])
-                    .execute()
-            }
+            // Try using RPC function for marking messages as read
+            try await supabase
+                .rpc("mark_challenge_messages_read", params: [
+                    "p_challenge_id": challengeId
+                ])
+                .execute()
             
             unreadCount = 0
             print("✅ All messages marked as read")
             
-        } catch {
-            print("⚠️ Error marking messages as read: \(error.localizedDescription)")
+        } catch let rpcError {
+            print("⚠️ RPC method failed, trying direct upsert: \(rpcError.localizedDescription)")
+            
+            // Fallback to direct upsert
+            do {
+                var successCount = 0
+                for message in messages where message.userId != currentUserId {
+                    do {
+                        try await supabase
+                            .from("challenge_message_reads")
+                            .upsert([
+                                "user_id": currentUserId,
+                                "message_id": message.id
+                            ])
+                            .execute()
+                        successCount += 1
+                    } catch {
+                        print("⚠️ Failed to mark message as read: \(error.localizedDescription)")
+                    }
+                }
+                
+                unreadCount = 0
+                print("✅ Marked \(successCount) messages as read")
+                
+            } catch {
+                print("❌ Error marking messages as read: \(error.localizedDescription)")
+            }
         }
         #endif
     }
@@ -333,6 +355,9 @@ final class ChallengeChatViewModel: ObservableObject {
             await channel?.subscribe()
             print("✅ Subscribed to realtime chat for challenge \(challengeId)")
         }
+        
+        // Post notification for badge updates
+        NotificationCenter.default.post(name: .chatMessageReceived, object: nil)
         #endif
     }
     

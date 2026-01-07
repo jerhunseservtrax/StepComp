@@ -6,9 +6,37 @@
 
 import Foundation
 import SwiftUI
+import Combine
 #if canImport(Supabase)
 import Supabase
 #endif
+
+// MARK: - Feedback Parameter Structs
+
+nonisolated struct FeedbackParams: Encodable, Sendable {
+    let p_sort_by: String
+    let p_limit: Int
+    let p_offset: Int
+    let p_search: String?
+    let p_category: String?
+    let p_status: String?
+}
+
+nonisolated struct NewFeedbackPost: Encodable, Sendable {
+    let user_id: String
+    let title: String
+    let description: String
+    let category: String
+}
+
+nonisolated struct UpdateFeedbackPost: Encodable, Sendable {
+    let title: String
+    let description: String
+    let category: String
+    let updated_at: String
+}
+
+// MARK: - View Model
 
 @MainActor
 final class FeedbackBoardViewModel: ObservableObject {
@@ -28,28 +56,101 @@ final class FeedbackBoardViewModel: ObservableObject {
         
         do {
             #if canImport(Supabase)
+            // #region agent log
+            let logData1 = "{\"location\":\"FeedbackBoardViewModel.swift:53\",\"message\":\"loadFeedback called\",\"data\":{\"searchText\":\"\(searchText)\",\"category\":\"\(selectedCategory?.rawValue ?? "nil")\"},\"timestamp\":\(Int(Date().timeIntervalSince1970 * 1000)),\"sessionId\":\"debug-session\",\"runId\":\"initial\",\"hypothesisId\":\"A,B,C\"}\n"
+            try? logData1.write(toFile: "/Users/jefferyerhunse/GitRepos/StepComp/.cursor/debug.log", atomically: false, encoding: .utf8)
+            // #endregion
+            
             let search = searchText.isEmpty ? nil : searchText
             let category = selectedCategory?.rawValue
             
+            let params = FeedbackParams(
+                p_sort_by: selectedSort.rawValue,
+                p_limit: limit,
+                p_offset: offset,
+                p_search: search,
+                p_category: category,
+                p_status: nil // Don't filter by status by default
+            )
+            
+            // #region agent log
+            let logData2 = "{\"location\":\"FeedbackBoardViewModel.swift:71\",\"message\":\"Calling RPC get_feedback_posts\",\"data\":{\"sort\":\"\(selectedSort.rawValue)\",\"limit\":\(limit)},\"timestamp\":\(Int(Date().timeIntervalSince1970 * 1000)),\"sessionId\":\"debug-session\",\"runId\":\"initial\",\"hypothesisId\":\"A\"}\n"
+            if let fileHandle = FileHandle(forWritingAtPath: "/Users/jefferyerhunse/GitRepos/StepComp/.cursor/debug.log") { fileHandle.seekToEndOfFile(); fileHandle.write(logData2.data(using: .utf8)!); fileHandle.closeFile() }
+            // #endregion
+            
             let response = try await supabase
-                .rpc("get_feedback_posts", params: [
-                    "p_search": search as Any,
-                    "p_category": category as Any,
-                    "p_status": nil as Any,
-                    "p_sort_by": selectedSort.rawValue,
-                    "p_limit": limit,
-                    "p_offset": offset
-                ])
+                .rpc("get_feedback_posts", params: params)
                 .execute()
             
+            // #region agent log
+            if let rawJSON = String(data: response.data, encoding: .utf8) {
+                let truncated = String(rawJSON.prefix(1000)).replacingOccurrences(of: "\"", with: "\\\"").replacingOccurrences(of: "\n", with: "\\n")
+                let logData3 = "{\"location\":\"FeedbackBoardViewModel.swift:83\",\"message\":\"Raw response from Supabase\",\"data\":{\"rawJSON\":\"\(truncated)\"},\"timestamp\":\(Int(Date().timeIntervalSince1970 * 1000)),\"sessionId\":\"debug-session\",\"runId\":\"initial\",\"hypothesisId\":\"A,B,C,D,E\"}\n"
+                if let fileHandle = FileHandle(forWritingAtPath: "/Users/jefferyerhunse/GitRepos/StepComp/.cursor/debug.log") { fileHandle.seekToEndOfFile(); fileHandle.write(logData3.data(using: .utf8)!); fileHandle.closeFile() }
+            }
+            // #endregion
+            
             let decoder = JSONDecoder()
-            decoder.dateDecodingStrategy = .iso8601
-            decoder.keyDecodingStrategy = .convertFromSnakeCase
+            // Use custom date decoding to handle various formats from PostgreSQL
+            decoder.dateDecodingStrategy = .custom { decoder in
+                let container = try decoder.singleValueContainer()
+                let dateString = try container.decode(String.self)
+                
+                // Try ISO8601 with fractional seconds first (PostgreSQL default)
+                let iso8601Formatter = ISO8601DateFormatter()
+                iso8601Formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+                if let date = iso8601Formatter.date(from: dateString) {
+                    return date
+                }
+                
+                // Try standard ISO8601
+                iso8601Formatter.formatOptions = [.withInternetDateTime]
+                if let date = iso8601Formatter.date(from: dateString) {
+                    return date
+                }
+                
+                // Try PostgreSQL timestamp format with timezone
+                let postgresFormatter = DateFormatter()
+                postgresFormatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss.SSSSSSZ"
+                postgresFormatter.locale = Locale(identifier: "en_US_POSIX")
+                if let date = postgresFormatter.date(from: dateString) {
+                    return date
+                }
+                
+                // Try without fractional seconds
+                postgresFormatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ssZ"
+                if let date = postgresFormatter.date(from: dateString) {
+                    return date
+                }
+                
+                throw DecodingError.dataCorruptedError(
+                    in: container,
+                    debugDescription: "Cannot decode date string: \(dateString)"
+                )
+            }
+            // Don't use convertFromSnakeCase - we have explicit CodingKeys in FeedbackPost
+            
+            // #region agent log
+            let logData4 = "{\"location\":\"FeedbackBoardViewModel.swift:93\",\"message\":\"About to decode with flexible date strategy\",\"data\":{},\"timestamp\":\(Int(Date().timeIntervalSince1970 * 1000)),\"sessionId\":\"debug-session\",\"runId\":\"initial\",\"hypothesisId\":\"B,C\"}\n"
+            if let fileHandle = FileHandle(forWritingAtPath: "/Users/jefferyerhunse/GitRepos/StepComp/.cursor/debug.log") { fileHandle.seekToEndOfFile(); fileHandle.write(logData4.data(using: .utf8)!); fileHandle.closeFile() }
+            // #endregion
             
             feedbackPosts = try decoder.decode([FeedbackPost].self, from: response.data)
+            
+            // #region agent log
+            let logData5 = "{\"location\":\"FeedbackBoardViewModel.swift:100\",\"message\":\"Successfully decoded feedback posts\",\"data\":{\"count\":\(feedbackPosts.count)},\"timestamp\":\(Int(Date().timeIntervalSince1970 * 1000)),\"sessionId\":\"debug-session\",\"runId\":\"initial\",\"hypothesisId\":\"SUCCESS\"}\n"
+            if let fileHandle = FileHandle(forWritingAtPath: "/Users/jefferyerhunse/GitRepos/StepComp/.cursor/debug.log") { fileHandle.seekToEndOfFile(); fileHandle.write(logData5.data(using: .utf8)!); fileHandle.closeFile() }
+            // #endregion
+            
             print("✅ Loaded \(feedbackPosts.count) feedback posts")
             #endif
         } catch {
+            // #region agent log
+            let errorDesc = String(describing: error).replacingOccurrences(of: "\"", with: "\\\"").replacingOccurrences(of: "\n", with: "\\n")
+            let logData6 = "{\"location\":\"FeedbackBoardViewModel.swift:109\",\"message\":\"Error caught during loadFeedback\",\"data\":{\"error\":\"\(errorDesc)\"},\"timestamp\":\(Int(Date().timeIntervalSince1970 * 1000)),\"sessionId\":\"debug-session\",\"runId\":\"initial\",\"hypothesisId\":\"A,B,C,D,E\"}\n"
+            if let fileHandle = FileHandle(forWritingAtPath: "/Users/jefferyerhunse/GitRepos/StepComp/.cursor/debug.log") { fileHandle.seekToEndOfFile(); fileHandle.write(logData6.data(using: .utf8)!); fileHandle.closeFile() }
+            // #endregion
+            
             print("❌ Error loading feedback: \(error)")
             errorMessage = "Failed to load feedback: \(error.localizedDescription)"
         }
@@ -80,12 +181,12 @@ final class FeedbackBoardViewModel: ObservableObject {
             #if canImport(Supabase)
             let userId = try await supabase.auth.session.user.id.uuidString
             
-            let newPost: [String: Any] = [
-                "user_id": userId,
-                "title": title,
-                "description": description,
-                "category": category.rawValue
-            ]
+            let newPost = NewFeedbackPost(
+                user_id: userId,
+                title: title,
+                description: description,
+                category: category.rawValue
+            )
             
             try await supabase
                 .from("feedback_posts")
@@ -119,12 +220,12 @@ final class FeedbackBoardViewModel: ObservableObject {
         
         do {
             #if canImport(Supabase)
-            let updates: [String: Any] = [
-                "title": title,
-                "description": description,
-                "category": category.rawValue,
-                "updated_at": ISO8601DateFormatter().string(from: Date())
-            ]
+            let updates = UpdateFeedbackPost(
+                title: title,
+                description: description,
+                category: category.rawValue,
+                updated_at: ISO8601DateFormatter().string(from: Date())
+            )
             
             try await supabase
                 .from("feedback_posts")
@@ -154,7 +255,7 @@ final class FeedbackBoardViewModel: ObservableObject {
         
         do {
             #if canImport(Supabase)
-            let response = try await supabase
+            _ = try await supabase
                 .rpc("delete_feedback_post", params: ["p_post_id": postId])
                 .execute()
             
@@ -179,7 +280,7 @@ final class FeedbackBoardViewModel: ObservableObject {
             #if canImport(Supabase)
             let voteTypeStr = voteType == nil ? "remove" : voteType!.rawValue
             
-            let response = try await supabase
+            _ = try await supabase
                 .rpc("vote_on_feedback", params: [
                     "p_post_id": postId,
                     "p_vote_type": voteTypeStr

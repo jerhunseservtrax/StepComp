@@ -21,7 +21,6 @@ struct AddFriendsView: View {
     @State private var userIdToCancel: String?
     @State private var userNameToCancel: String?
     
-    private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
     
     init(sessionViewModel: SessionViewModel) {
         self.sessionViewModel = sessionViewModel
@@ -172,7 +171,6 @@ struct SearchResultRow: View {
     let onAddFriend: () -> Void
     let onCancelRequest: () -> Void
     
-    private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
     
     var body: some View {
         HStack(spacing: 16) {
@@ -209,7 +207,7 @@ struct SearchResultRow: View {
                         .foregroundColor(.black)
                         .padding(.horizontal, 16)
                         .padding(.vertical, 10)
-                        .background(primaryYellow)
+                        .background(StepCompColors.primary)
                         .cornerRadius(20)
                     }
                 case .pending:

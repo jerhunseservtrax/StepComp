@@ -12,7 +12,6 @@ struct ChallengeChatView: View {
     @Environment(\.dismiss) var dismiss
     @FocusState private var isInputFocused: Bool
     
-    private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
     
     init(challengeId: String, currentUserId: String, challengeName: String) {
         _viewModel = StateObject(wrappedValue: ChallengeChatViewModel(
@@ -35,7 +34,7 @@ struct ChallengeChatView: View {
             if viewModel.isLoading {
                 Spacer()
                 ProgressView()
-                    .progressViewStyle(CircularProgressViewStyle(tint: primaryYellow))
+                    .progressViewStyle(CircularProgressViewStyle(tint: StepCompColors.primary))
                 Spacer()
             } else if viewModel.messages.isEmpty {
                 EmptyChatView()
@@ -66,6 +65,16 @@ struct ChallengeChatView: View {
                             }
                         }
                     }
+                    .onAppear {
+                        // Scroll to bottom when chat first opens
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                            if let lastMessage = viewModel.messages.last {
+                                withAnimation {
+                                    proxy.scrollTo(lastMessage.id, anchor: .bottom)
+                                }
+                            }
+                        }
+                    }
                 }
             }
             
@@ -83,9 +92,14 @@ struct ChallengeChatView: View {
         }
         .background(Color(.systemGroupedBackground))
         .navigationBarHidden(true)
+        .dismissKeyboardOnTap()
         .task {
             await viewModel.loadMessages()
             await viewModel.markAllAsRead()
+        }
+        .onDisappear {
+            // Notify that we've left the chat so ChatListView can refresh
+            NotificationCenter.default.post(name: .chatViewDismissed, object: nil)
         }
         .alert("Error", isPresented: .constant(viewModel.errorMessage != nil)) {
             Button("OK") {
@@ -105,7 +119,6 @@ struct ChatHeader: View {
     let challengeName: String
     let onBack: () -> Void
     
-    private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
     
     var body: some View {
         HStack(spacing: 16) {
@@ -141,7 +154,6 @@ struct ChatMessageRow: View {
     
     @State private var showingDeleteAlert = false
     
-    private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
     
     var body: some View {
         if message.isSystemMessage {
@@ -160,6 +172,11 @@ struct ChatMessageRow: View {
         } else {
             // Regular message
             HStack(alignment: .top, spacing: 12) {
+                if isCurrentUser {
+                    // Push user's messages to the right
+                    Spacer()
+                }
+                
                 if !isCurrentUser {
                     // Avatar for other users
                     AvatarView(
@@ -184,7 +201,7 @@ struct ChatMessageRow: View {
                         .padding(.horizontal, 16)
                         .padding(.vertical, 10)
                         .background(
-                            isCurrentUser ? primaryYellow : Color(.systemGray6)
+                            isCurrentUser ? StepCompColors.primary : Color(.systemGray6)
                         )
                         .cornerRadius(18)
                         .contextMenu {
@@ -201,10 +218,6 @@ struct ChatMessageRow: View {
                     Text(message.displayTime)
                         .font(.system(size: 10))
                         .foregroundColor(.secondary)
-                }
-                
-                if isCurrentUser {
-                    Spacer()
                 }
             }
             .frame(maxWidth: .infinity, alignment: isCurrentUser ? .trailing : .leading)
@@ -228,7 +241,6 @@ struct ChatInputBar: View {
     @FocusState.Binding var isInputFocused: Bool
     let onSend: () -> Void
     
-    private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
     
     var body: some View {
         VStack(spacing: 0) {
@@ -254,7 +266,7 @@ struct ChatInputBar: View {
                     } else {
                         ZStack {
                             Circle()
-                                .fill(text.trimmingCharacters(in: .whitespaces).isEmpty ? Color(.systemGray5) : primaryYellow)
+                                .fill(text.trimmingCharacters(in: .whitespaces).isEmpty ? Color(.systemGray5) : StepCompColors.primary)
                                 .frame(width: 36, height: 36)
                             
                             Image(systemName: "arrow.up")
@@ -275,13 +287,12 @@ struct ChatInputBar: View {
 // MARK: - Empty Chat View
 
 struct EmptyChatView: View {
-    private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
     
     var body: some View {
         VStack(spacing: 16) {
             Image(systemName: "bubble.left.and.bubble.right")
                 .font(.system(size: 60))
-                .foregroundColor(primaryYellow)
+                .foregroundColor(StepCompColors.primary)
             
             Text("Start the Conversation")
                 .font(.system(size: 20, weight: .bold))

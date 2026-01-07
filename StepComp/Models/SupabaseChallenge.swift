@@ -19,6 +19,7 @@ struct SupabaseChallenge: Codable, Identifiable {
     var createdBy: String // UUID of creator
     var isPublic: Bool
     var inviteCode: String?
+    var category: String? // Challenge category
     var createdAt: Date
     var updatedAt: Date
     
@@ -31,6 +32,7 @@ struct SupabaseChallenge: Codable, Identifiable {
         case createdBy = "created_by"
         case isPublic = "is_public"
         case inviteCode = "invite_code"
+        case category
         case createdAt = "created_at"
         case updatedAt = "updated_at"
     }

@@ -28,9 +28,13 @@ final class DashboardViewModel: ObservableObject {
     private var challengeService: ChallengeService
     private var healthKitService: HealthKitService
     private var stepSyncService: StepSyncService?
+    private var notificationService = StepGoalNotificationService.shared
+    private var celebrationManager = GoalCelebrationManager.shared
     private var userId: String
     private var refreshTimer: Timer?
     private var cancellables = Set<AnyCancellable>()
+    private var lastCheckedSteps: Int = 0
+    private var lastCheckedDate: Date?
     
     init(
         challengeService: ChallengeService,
@@ -97,6 +101,7 @@ final class DashboardViewModel: ObservableObject {
             // Set default values when HealthKit is not authorized
             print("⚠️ HealthKit not authorized, using default values")
             todaySteps = 0
+            lastCheckedSteps = 0
             weeklySteps = 0
             caloriesBurned = 0
             distanceKm = 0.0
@@ -106,10 +111,47 @@ final class DashboardViewModel: ObservableObject {
         
         do {
             print("🔄 Loading HealthKit data...")
-            todaySteps = try await healthKitService.getTodaySteps()
+            let newSteps = try await healthKitService.getTodaySteps()
+            let today = Date()
+            let calendar = Calendar.current
+            let _ = calendar.startOfDay(for: today)
+            
+            // Reset tracking if it's a new day
+            if let lastDate = lastCheckedDate, !calendar.isDate(lastDate, inSameDayAs: today) {
+                lastCheckedSteps = 0
+            }
+            
+            // Only check milestones if steps increased (to avoid duplicate notifications)
+            if newSteps > lastCheckedSteps {
+                let previousSteps = todaySteps
+                todaySteps = newSteps
+                lastCheckedSteps = newSteps
+                lastCheckedDate = today
+                
+                // Get daily goal
+                var dailyGoal = UserDefaults.standard.integer(forKey: "dailyStepGoal")
+                if dailyGoal <= 0 {
+                    dailyGoal = 10000 // Default goal if not set
+                }
+                
+                // Check for milestone notifications
+                notificationService.checkMilestones(currentSteps: todaySteps, dailyGoal: dailyGoal)
+                
+                // Check for goal celebration (full-screen takeover)
+                celebrationManager.checkForCelebration(
+                    previousSteps: previousSteps,
+                    currentSteps: todaySteps,
+                    dailyGoal: dailyGoal
+                )
+            } else {
+                todaySteps = newSteps
+                if lastCheckedDate == nil {
+                    lastCheckedDate = today
+                }
+            }
+            
             print("✅ Today's steps: \(todaySteps)")
             
-            let calendar = Calendar.current
             let now = Date()
             let weekAgo = calendar.date(byAdding: .day, value: -7, to: now) ?? now
             
@@ -136,6 +178,7 @@ final class DashboardViewModel: ObservableObject {
             errorMessage = error.localizedDescription
             // Set default values on error
             todaySteps = 0
+            lastCheckedSteps = 0
             weeklySteps = 0
             caloriesBurned = 0
             distanceKm = 0.0

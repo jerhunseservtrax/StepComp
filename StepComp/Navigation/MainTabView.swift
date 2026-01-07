@@ -27,7 +27,7 @@ struct MainTabView: View {
         _sessionViewModel = StateObject(wrappedValue: sessionViewModel)
     }
     
-    private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
+    @Environment(\.colorScheme) private var colorScheme
     
     var body: some View {
         TabView(selection: $tabManager.selectedTab) {
@@ -55,31 +55,66 @@ struct MainTabView: View {
                 }
                 .tag(3)
         }
-        .tint(primaryYellow)
+        .tint(StepCompColors.primary) // Use adaptive primary color (yellow in light, coral in dark)
         .onAppear {
-            setupTabBarAppearance()
+            setupTabBarAppearance(for: colorScheme)
+        }
+        .onChange(of: colorScheme) { oldValue, newValue in
+            setupTabBarAppearance(for: newValue)
+        }
+        .onChange(of: tabManager.selectedTab) { oldValue, newValue in
+            // Haptic feedback on tab switch
+            HapticManager.shared.soft()
         }
         .environmentObject(tabManager)
     }
     
-    private func setupTabBarAppearance() {
+    private func setupTabBarAppearance(for colorScheme: ColorScheme) {
         #if os(iOS)
         let appearance = UITabBarAppearance()
         appearance.configureWithOpaqueBackground()
         
-        // Set selected item color to yellow
-        appearance.stackedLayoutAppearance.selected.iconColor = UIColor(primaryYellow)
-        appearance.stackedLayoutAppearance.selected.titleTextAttributes = [
-            .foregroundColor: UIColor(primaryYellow)
-        ]
+        // Use colorScheme parameter instead of UITraitCollection
+        let isDarkMode = (colorScheme == .dark)
         
-        // Set unselected item color
-        appearance.stackedLayoutAppearance.normal.iconColor = UIColor.secondaryLabel
-        appearance.stackedLayoutAppearance.normal.titleTextAttributes = [
-            .foregroundColor: UIColor.secondaryLabel
-        ]
+        if isDarkMode {
+            // Dark mode: Dark blue background, coral accent
+            appearance.backgroundColor = UIColor(red: 0.15, green: 0.19, blue: 0.26, alpha: 1.0)
+            appearance.shadowColor = UIColor.black.withAlphaComponent(0.3)
+            
+            // Coral selected color
+            appearance.stackedLayoutAppearance.selected.iconColor = UIColor(red: 1.0, green: 0.42, blue: 0.36, alpha: 1.0)
+            appearance.stackedLayoutAppearance.selected.titleTextAttributes = [
+                .foregroundColor: UIColor(red: 1.0, green: 0.42, blue: 0.36, alpha: 1.0),
+                .font: UIFont.systemFont(ofSize: 11, weight: .semibold)
+            ]
+            
+            // Muted unselected
+            appearance.stackedLayoutAppearance.normal.iconColor = UIColor(red: 0.50, green: 0.54, blue: 0.60, alpha: 1.0)
+            appearance.stackedLayoutAppearance.normal.titleTextAttributes = [
+                .foregroundColor: UIColor(red: 0.50, green: 0.54, blue: 0.60, alpha: 1.0),
+                .font: UIFont.systemFont(ofSize: 11, weight: .medium)
+            ]
+        } else {
+            // Light mode: Light background, yellow accent
+            appearance.backgroundColor = UIColor.systemBackground
+            appearance.shadowColor = UIColor.black.withAlphaComponent(0.1)
+            
+            // Yellow selected color
+            appearance.stackedLayoutAppearance.selected.iconColor = UIColor(red: 0.976, green: 0.961, blue: 0.024, alpha: 1.0)
+            appearance.stackedLayoutAppearance.selected.titleTextAttributes = [
+                .foregroundColor: UIColor(red: 0.976, green: 0.961, blue: 0.024, alpha: 1.0),
+                .font: UIFont.systemFont(ofSize: 11, weight: .semibold)
+            ]
+            
+            // Gray unselected
+            appearance.stackedLayoutAppearance.normal.iconColor = UIColor.systemGray
+            appearance.stackedLayoutAppearance.normal.titleTextAttributes = [
+                .foregroundColor: UIColor.systemGray,
+                .font: UIFont.systemFont(ofSize: 11, weight: .medium)
+            ]
+        }
         
-        // Apply to all tab bar instances
         UITabBar.appearance().standardAppearance = appearance
         if #available(iOS 15.0, *) {
             UITabBar.appearance().scrollEdgeAppearance = appearance

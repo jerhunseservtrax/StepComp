@@ -31,7 +31,7 @@ struct DailyPulseStatsView: View {
                 
                 Text("Today")
                     .font(.system(size: 11, weight: .bold))
-                    .foregroundColor(Color(red: 0.976, green: 0.961, blue: 0.024))
+                    .foregroundColor(StepCompColors.primary)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
                     .background(Color.black.opacity(0.05))

@@ -432,7 +432,7 @@ struct ContactSupportView: View {
                             Spacer()
                         }
                         .padding()
-                        .background(Color(red: 0.976, green: 0.961, blue: 0.024))
+                        .background(StepCompColors.primary)
                         .foregroundColor(.black)
                         .cornerRadius(12)
                     }

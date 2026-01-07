@@ -10,13 +10,13 @@ import Combine
 
 struct WelcomeOnboardingView: View {
     @Binding var currentStep: OnboardingFlowView.OnboardingStep
+    @Environment(\.colorScheme) private var colorScheme
     
-    private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
     
     var body: some View {
         ZStack {
             // Background Image (Running Legs)
-            Image("running-legs")
+            Image("Image")
                 .resizable()
                 .aspectRatio(contentMode: .fill)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -39,7 +39,7 @@ struct WelcomeOnboardingView: View {
                 // Page Indicator
                 HStack(spacing: 8) {
                     Capsule()
-                        .fill(primaryYellow)
+                        .fill(StepCompColors.primary)
                         .frame(width: 40, height: 6)
                     
                     ForEach(1..<4) { _ in
@@ -54,6 +54,7 @@ struct WelcomeOnboardingView: View {
                 
                 // Logo and Content
                 VStack(spacing: 32) {
+                    
                     // Logo
                     VStack(spacing: 0) {
                         Text("STEP")
@@ -63,7 +64,7 @@ struct WelcomeOnboardingView: View {
                         
                         Text("COMP")
                             .font(.system(size: 72, weight: .bold))
-                            .foregroundColor(primaryYellow)
+                            .foregroundColor(StepCompColors.primary)
                             .tracking(-2)
                             .offset(y: -10)
                     }
@@ -100,12 +101,12 @@ struct WelcomeOnboardingView: View {
                             Image(systemName: "arrow.right")
                                 .font(.system(size: 18, weight: .bold))
                         }
-                        .foregroundColor(.black)
+                        .foregroundColor(StepCompColors.buttonTextOnPrimary)
                         .frame(maxWidth: .infinity)
                         .frame(height: 56)
-                        .background(primaryYellow)
+                        .background(StepCompColors.primary)
                         .cornerRadius(16)
-                        .shadow(color: primaryYellow.opacity(0.4), radius: 16, x: 0, y: 8)
+                        .shadow(color: StepCompColors.primary.opacity(0.4), radius: 16, x: 0, y: 8)
                     }
                     
                     // Log In Button
@@ -114,9 +115,15 @@ struct WelcomeOnboardingView: View {
                             currentStep = .signIn
                         }
                     }) {
-                        Text("Already have an account? Log in")
-                            .font(.system(size: 16, weight: .semibold))
-                            .foregroundColor(.white)
+                        HStack(spacing: 4) {
+                            Text("Already have an account?")
+                                .font(.system(size: 16, weight: .semibold))
+                                .foregroundColor(.white)
+                            
+                            Text("Log in")
+                                .font(.system(size: 16, weight: .bold))
+                                .foregroundColor(StepCompColors.primary)
+                        }
                     }
                 }
                 .padding(.horizontal, 40)

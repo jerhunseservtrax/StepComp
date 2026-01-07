@@ -53,10 +53,14 @@ final class ChallengesViewModel: ObservableObject {
             do {
                 _ = try await supabase.auth.session
             } catch {
-                // No session - user not authenticated yet, skip loading challenges
+                // No session - user not authenticated yet
                 print("ℹ️ Skipping challenge load - user not authenticated yet")
-                activeChallenges = []
-                publicChallenges = []
+                // Don't clear existing data during refresh - only skip the update
+                if activeChallenges.isEmpty && publicChallenges.isEmpty {
+                    // First load - can set to empty
+                    activeChallenges = []
+                    publicChallenges = []
+                }
                 return
             }
             
@@ -96,6 +100,9 @@ final class ChallengesViewModel: ObservableObject {
             activeChallenges = try await convertToChallenges(allUserChallenges)
             print("📊 ChallengesViewModel: Loaded \(activeChallenges.count) active challenges for user")
             
+            // Use IDs of challenges user is already participating in
+            let participatingChallengeIds = Set(allUserChallenges.map { $0.id })
+            
             // Get all public challenges that haven't ended yet
             let allPublicChallenges: [SupabaseChallenge] = try await supabase
                 .from("challenges")
@@ -105,25 +112,31 @@ final class ChallengesViewModel: ObservableObject {
                 .execute()
                 .value
             
+            // Filter out challenges user is already participating in
+            let discoverableChallenges = allPublicChallenges.filter { challenge in
+                !participatingChallengeIds.contains(challenge.id)
+            }
+            
             // Sort by created_at descending (newest first)
-            let sortedPublicChallenges = allPublicChallenges.sorted { $0.createdAt > $1.createdAt }
+            let sortedPublicChallenges = discoverableChallenges.sorted { $0.createdAt > $1.createdAt }
             
             // Convert to Challenge models
             let allPublic = try await convertToChallenges(sortedPublicChallenges)
             
-            // Filter public challenges for Discover tab:
-            // Show ALL public challenges, including ones user created
-            // Only exclude challenges where user is already a participant (joined via challenge_members)
-            publicChallenges = allPublic.filter { challenge in
-                !challenge.participantIds.contains(userId)
-            }
-            print("📊 ChallengesViewModel: Loaded \(publicChallenges.count) discover challenges")
+            // Show only public challenges that user is NOT already participating in
+            // This allows users to discover and join new challenges
+            publicChallenges = allPublic            
+            print("📊 ChallengesViewModel: Loaded \(publicChallenges.count) discoverable challenges (excluding \(participatingChallengeIds.count) user is already in)")
             
         } catch {
             print("⚠️ Error loading challenges: \(error.localizedDescription)")
             errorMessage = error.localizedDescription
-            activeChallenges = []
-            publicChallenges = []
+            // Don't clear existing data on error - keep what we have
+            // Only clear on first load if both arrays are empty
+            if activeChallenges.isEmpty && publicChallenges.isEmpty {
+                activeChallenges = []
+                publicChallenges = []
+            }
         }
     }
     
@@ -157,6 +170,12 @@ final class ChallengesViewModel: ObservableObject {
             
             let participantIds = members.map { $0.userId }
             
+            // Convert category string to enum
+            var category: Challenge.ChallengeCategory? = nil
+            if let categoryString = supabaseChallenge.category {
+                category = Challenge.ChallengeCategory(rawValue: categoryString)
+            }
+            
             let challenge = Challenge(
                 id: supabaseChallenge.id,
                 name: supabaseChallenge.name,
@@ -168,7 +187,8 @@ final class ChallengesViewModel: ObservableObject {
                 participantIds: participantIds,
                 isActive: supabaseChallenge.endDate >= Date(),
                 createdAt: supabaseChallenge.createdAt,
-                inviteCode: supabaseChallenge.inviteCode
+                inviteCode: supabaseChallenge.inviteCode,
+                category: category
             )
             
             challenges.append(challenge)

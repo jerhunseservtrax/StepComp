@@ -16,7 +16,6 @@ struct ChallengesView: View {
     @State private var selectedTab: ChallengeTab = .active
     @State private var showingCreateChallenge = false
     
-    private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
     
     enum ChallengeTab {
         case active
@@ -61,6 +60,7 @@ struct ChallengesView: View {
             }
             .tabViewStyle(.page(indexDisplayMode: .never)) // Enable swipe, hide page dots
         }
+        .background(StepCompColors.background.ignoresSafeArea())
         .navigationBarHidden(true)
         .sheet(isPresented: $showingCreateChallenge) {
             CreateChallengeView(sessionViewModel: sessionViewModel)
@@ -102,7 +102,6 @@ struct ChallengesHeader: View {
     @Binding var selectedTab: ChallengesView.ChallengeTab
     let onCreateChallenge: () -> Void
     
-    private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
     
     var body: some View {
         VStack(spacing: 0) {
@@ -117,26 +116,27 @@ struct ChallengesHeader: View {
                     )
                     .overlay(
                         Circle()
-                            .stroke(primaryYellow, lineWidth: 2)
+                            .stroke(StepCompColors.primary, lineWidth: 2)
                     )
                     
                     // Online indicator
                     Circle()
-                        .fill(Color.green)
+                        .fill(StepCompColors.primary)
                         .frame(width: 12, height: 12)
                         .overlay(
                             Circle()
-                                .stroke(Color.white, lineWidth: 2)
+                                .stroke(StepCompColors.background, lineWidth: 2)
                         )
                 }
                 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(selectedTab == .active ? "Active" : "Discover")
                         .font(.system(size: 20, weight: .bold))
+                        .foregroundColor(StepCompColors.textPrimary)
                     
                     Text(selectedTab == .active ? "Your active challenges" : "Find your next battle")
                         .font(.system(size: 14, weight: .medium))
-                        .foregroundColor(Color(red: 0.620, green: 0.616, blue: 0.278))
+                        .foregroundColor(StepCompColors.textSecondary)
                 }
                 
                 Spacer()
@@ -145,7 +145,7 @@ struct ChallengesHeader: View {
                 Button(action: onCreateChallenge) {
                     Image(systemName: "plus.circle.fill")
                         .font(.system(size: 24))
-                        .foregroundColor(primaryYellow)
+                        .foregroundColor(StepCompColors.primary)
                 }
             }
             .padding(.horizontal, 24)
@@ -176,11 +176,7 @@ struct ChallengesHeader: View {
             .padding(.horizontal, 24)
             .padding(.bottom, 8)
         }
-        .background(
-            Color(.systemBackground)
-                .opacity(0.95)
-                .background(.ultraThinMaterial)
-        )
+        .background(StepCompColors.background)
     }
 }
 
@@ -189,17 +185,16 @@ struct TabButton: View {
     let isSelected: Bool
     let action: () -> Void
     
-    private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
     
     var body: some View {
         Button(action: action) {
             VStack(spacing: 4) {
                 Text(title)
                     .font(.system(size: 16, weight: isSelected ? .bold : .medium))
-                    .foregroundColor(isSelected ? .black : .secondary)
+                    .foregroundColor(isSelected ? StepCompColors.textPrimary : StepCompColors.textSecondary)
                 
                 Rectangle()
-                    .fill(isSelected ? primaryYellow : Color.clear)
+                    .fill(isSelected ? StepCompColors.primary : Color.clear)
                     .frame(height: 3)
                     .cornerRadius(1.5)
             }

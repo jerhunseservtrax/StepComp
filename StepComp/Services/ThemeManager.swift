@@ -81,7 +81,9 @@ final class ThemeManager: ObservableObject {
     
     private func loadColorScheme() {
         guard let value = UserDefaults.standard.string(forKey: userDefaultsKey) else {
-            colorScheme = nil // Use system default
+            // On first launch, default to dark mode (matching reference UI)
+            colorScheme = .dark
+            saveColorScheme() // Save the default
             return
         }
         
@@ -93,7 +95,7 @@ final class ThemeManager: ObservableObject {
         case "system":
             colorScheme = nil
         default:
-            colorScheme = nil
+            colorScheme = .dark // Default to dark to match reference UI
         }
     }
 }

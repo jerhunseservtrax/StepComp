@@ -11,6 +11,9 @@ import Supabase
 #if canImport(UIKit)
 import UIKit
 #endif
+#if canImport(UserNotifications)
+import UserNotifications
+#endif
 
 struct SettingsView: View {
     @ObservedObject var sessionViewModel: SessionViewModel
@@ -18,6 +21,9 @@ struct SettingsView: View {
     @EnvironmentObject var themeManager: ThemeManager
     @Environment(\.dismiss) var dismiss
     @Environment(\.colorScheme) var colorScheme
+    
+    @ObservedObject private var unitPreferenceManager = UnitPreferenceManager.shared
+    @StateObject private var notificationManager = NotificationManager.shared
     
     @State private var showingSignOutAlert = false
     @State private var showingDeleteAccountAlert = false
@@ -30,7 +36,6 @@ struct SettingsView: View {
     @State private var leaderboardAlerts = false
     @State private var motivationalNudges = true
     @State private var darkMode = false
-    @State private var unitSystem: UnitSystem = .metric
     
     // HealthKit data
     @State private var todaySteps: Int = 0
@@ -40,12 +45,6 @@ struct SettingsView: View {
     @State private var averageStepsThisMonth: Int = 0
     @State private var refreshTimer: Timer?
     
-    private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
-    
-    enum UnitSystem {
-        case metric
-        case imperial
-    }
     
     var body: some View {
         contentView
@@ -83,7 +82,6 @@ struct SettingsView: View {
                 dailyRecap: dailyRecap,
                 leaderboardAlerts: leaderboardAlerts,
                 motivationalNudges: motivationalNudges,
-                unitSystem: unitSystem,
                 themeManager: themeManager
             ))
             .navigationBarHidden(true)
@@ -123,7 +121,7 @@ struct SettingsView: View {
     private var mobileLayout: some View {
         VStack(spacing: 0) {
             // Mobile Header
-            SettingsMobileHeader(onBack: { dismiss() })
+            SettingsMobileHeader()
             
             ScrollView {
                 VStack(spacing: 0) {
@@ -142,6 +140,7 @@ struct SettingsView: View {
                 }
             }
         }
+        .background(StepCompColors.background.ignoresSafeArea())
     }
     
     private var mainContent: some View {
@@ -152,7 +151,6 @@ struct SettingsView: View {
             leaderboardAlerts: $leaderboardAlerts,
             motivationalNudges: $motivationalNudges,
             darkMode: $darkMode,
-            unitSystem: $unitSystem,
             sessionViewModel: sessionViewModel,
             onSignOut: {
                 showingSignOutAlert = true
@@ -271,10 +269,7 @@ struct SettingsView: View {
             UserDefaults.standard.set(true, forKey: "notif_prefsInitialized")
         }
         
-        // Load unit system from UserDefaults
-        if let savedUnit = UserDefaults.standard.string(forKey: "unitSystem") {
-            unitSystem = savedUnit == "metric" ? .metric : .imperial
-        }
+        // Unit system is now managed by UnitPreferenceManager (loads automatically)
         
         startAutoRefresh()
     }
@@ -352,36 +347,18 @@ struct SettingsView: View {
 // MARK: - Mobile Header
 
 struct SettingsMobileHeader: View {
-    let onBack: () -> Void
-    
     var body: some View {
         HStack {
-            Button(action: onBack) {
-                Image(systemName: "arrow.left")
-                    .font(.system(size: 20))
-                    .foregroundColor(.primary)
-                    .frame(width: 40, height: 40)
-                    .background(Color(.systemGray6))
-                    .clipShape(Circle())
-            }
-            
             Spacer()
             
             Text("Settings")
                 .font(.system(size: 18, weight: .bold))
+                .foregroundColor(StepCompColors.textPrimary)
             
             Spacer()
-            
-            // Spacer for balance
-            Color.clear
-                .frame(width: 40, height: 40)
         }
         .padding()
-        .background(
-            Color(.systemBackground)
-                .opacity(0.95)
-                .background(.ultraThinMaterial)
-        )
+        .background(StepCompColors.background)
     }
 }
 
@@ -394,7 +371,6 @@ struct SettingsSidebar: View {
     let totalDistanceMiles: Double
     let averageStepsThisMonth: Int
     
-    private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
     
     var body: some View {
         VStack(spacing: 0) {
@@ -418,11 +394,11 @@ struct SettingsSidebar: View {
                 }
             }
         }
-        .background(Color(.systemBackground))
+        .background(StepCompColors.background)
         .overlay(
             Rectangle()
                 .frame(width: 1)
-                .foregroundColor(Color(.systemGray5)),
+                .foregroundColor(StepCompColors.cardBorder),
             alignment: .trailing
         )
     }
@@ -439,7 +415,6 @@ struct SettingsProfileSection: View {
     
     @State private var showingProfileEditor = false
     
-    private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
     
     var displayName: String {
         user?.displayName ?? "User"
@@ -476,9 +451,9 @@ struct SettingsProfileSection: View {
                 )
                 .overlay(
                     Circle()
-                        .stroke(primaryYellow, lineWidth: 4)
+                        .stroke(StepCompColors.primary, lineWidth: 4)
                 )
-                .shadow(color: primaryYellow.opacity(0.1), radius: 10, x: 0, y: 4)
+                .shadow(color: StepCompColors.primary.opacity(0.1), radius: 10, x: 0, y: 4)
                 
                 // Edit button
                 Button(action: {
@@ -486,7 +461,7 @@ struct SettingsProfileSection: View {
                 }) {
                     ZStack {
                         Circle()
-                            .fill(primaryYellow)
+                            .fill(StepCompColors.primary)
                             .frame(width: 36, height: 36)
                         
                         Image(systemName: "pencil")
@@ -516,10 +491,10 @@ struct SettingsProfileSection: View {
                     Text("Step Master")
                         .font(.system(size: 14, weight: .semibold))
                 }
-                .foregroundColor(primaryYellow)
+                .foregroundColor(StepCompColors.buttonTextOnPrimary)
                 .padding(.horizontal, 12)
                 .padding(.vertical, 6)
-                .background(primaryYellow.opacity(0.2))
+                .background(StepCompColors.primary.opacity(0.2))
                 .cornerRadius(999)
             }
             
@@ -570,11 +545,11 @@ struct MiniStatCard: View {
         }
         .frame(maxWidth: .infinity)
         .padding(16)
-        .background(Color(.systemGray6))
+        .background(StepCompColors.surfaceElevated)
         .cornerRadius(12)
         .overlay(
             RoundedRectangle(cornerRadius: 12)
-                .stroke(Color(.systemGray5), lineWidth: 1)
+                .stroke(StepCompColors.cardBorder, lineWidth: 1)
         )
     }
 }
@@ -588,14 +563,12 @@ struct SettingsMainContent: View {
     @Binding var leaderboardAlerts: Bool
     @Binding var motivationalNudges: Bool
     @Binding var darkMode: Bool
-    @Binding var unitSystem: SettingsView.UnitSystem
     
     let sessionViewModel: SessionViewModel?
     let onSignOut: () -> Void
     let onDeleteAccount: () -> Void
     let isDeletingAccount: Bool
     
-    private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
     
     var body: some View {
         VStack(spacing: 0) {
@@ -618,11 +591,11 @@ struct SettingsMainContent: View {
                         .foregroundColor(.primary)
                         .padding(.horizontal, 20)
                         .padding(.vertical, 10)
-                        .background(Color(.systemBackground))
+                        .background(StepCompColors.surface)
                         .cornerRadius(999)
                         .overlay(
                             RoundedRectangle(cornerRadius: 999)
-                                .stroke(Color(.systemGray5), lineWidth: 1)
+                                .stroke(StepCompColors.cardBorder, lineWidth: 1)
                         )
                     }
                 }
@@ -642,8 +615,8 @@ struct SettingsMainContent: View {
                     // Settings Grid
                     #if canImport(UIKit)
                     let columns: [GridItem] = UIDevice.current.userInterfaceIdiom == .pad ? [
-                        GridItem(.flexible(), spacing: 24),
-                        GridItem(.flexible(), spacing: 24)
+                        GridItem(.flexible(minimum: 280), spacing: 24),
+                        GridItem(.flexible(minimum: 280), spacing: 24)
                     ] : [
                         GridItem(.flexible())
                     ]
@@ -670,7 +643,6 @@ struct SettingsMainContent: View {
                         // Preferences Card
                         PreferencesCard(
                             darkMode: $darkMode,
-                            unitSystem: $unitSystem,
                             sessionViewModel: sessionViewModel
                         )
                         
@@ -692,7 +664,7 @@ struct SettingsMainContent: View {
                             }
                             .foregroundColor(.red)
                             .padding()
-                            .background(Color(.systemBackground))
+                            .background(StepCompColors.surface)
                             .cornerRadius(12)
                             .overlay(
                                 RoundedRectangle(cornerRadius: 12)
@@ -729,7 +701,7 @@ struct SettingsMainContent: View {
                 }
             }
         }
-        .background(Color(.systemBackground))
+        .background(StepCompColors.surface)
     }
 }
 
@@ -740,7 +712,6 @@ struct ConnectivityCard: View {
     @Binding var appleWatchSetup: Bool
     @EnvironmentObject var healthKitService: HealthKitService
     
-    private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
     
     var body: some View {
         SettingsCard(
@@ -778,7 +749,7 @@ struct ConnectivityCard: View {
                                 }
                             }
                         ))
-                            .toggleStyle(SwitchToggleStyle(tint: Color(red: 0.976, green: 0.961, blue: 0.024)))
+                            .toggleStyle(SwitchToggleStyle(tint: StepCompColors.primary))
                     }
                 )
                 
@@ -794,11 +765,11 @@ struct ConnectivityCard: View {
                                 .foregroundColor(.secondary)
                                 .padding(.horizontal, 16)
                                 .padding(.vertical, 6)
-                                .background(Color(.systemGray6))
+                                .background(StepCompColors.surfaceElevated)
                                 .cornerRadius(999)
                         } else {
                             Toggle("", isOn: $appleWatchSetup)
-                                .toggleStyle(SwitchToggleStyle(tint: Color(red: 0.976, green: 0.961, blue: 0.024)))
+                                .toggleStyle(SwitchToggleStyle(tint: StepCompColors.primary))
                                 .disabled(true)
                         }
                     }
@@ -815,6 +786,9 @@ struct NotificationsCard: View {
     @Binding var leaderboardAlerts: Bool
     @Binding var motivationalNudges: Bool
     
+    @StateObject private var notificationManager = NotificationManager.shared
+    @State private var isRequestingPermission = false
+    
     var body: some View {
         SettingsCard(
             icon: "bell.badge.fill",
@@ -822,32 +796,261 @@ struct NotificationsCard: View {
             title: "Notifications"
         ) {
             VStack(spacing: 16) {
+                // Permission status banner
+                if notificationManager.authorizationStatus == .notDetermined {
+                    Button(action: {
+                        Task {
+                            isRequestingPermission = true
+                            do {
+                                try await notificationManager.requestAuthorization()
+                            } catch {
+                                print("❌ Error requesting notification permission: \(error)")
+                            }
+                            isRequestingPermission = false
+                        }
+                    }) {
+                        HStack(spacing: 12) {
+                            if isRequestingPermission {
+                                ProgressView()
+                                    .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                            } else {
+                                Image(systemName: "bell.badge")
+                                    .font(.system(size: 18))
+                            }
+                            
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Enable Notifications")
+                                    .font(.system(size: 14, weight: .bold))
+                                Text("Get updates on your progress")
+                                    .font(.system(size: 12))
+                                    .opacity(0.8)
+                            }
+                            
+                            Spacer()
+                            
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 12, weight: .semibold))
+                        }
+                        .foregroundColor(.white)
+                        .padding(12)
+                        .background(StepCompColors.primary)
+                        .cornerRadius(12)
+                    }
+                    .disabled(isRequestingPermission)
+                } else if notificationManager.authorizationStatus == .denied {
+                    HStack(spacing: 12) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .font(.system(size: 18))
+                            .foregroundColor(.orange)
+                        
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Notifications Disabled")
+                                .font(.system(size: 13, weight: .semibold))
+                            Text("Enable in Settings app")
+                                .font(.system(size: 11))
+                                .foregroundColor(.secondary)
+                        }
+                        
+                        Spacer()
+                        
+                        Button(action: {
+                            if let url = URL(string: UIApplication.openSettingsURLString) {
+                                UIApplication.shared.open(url)
+                            }
+                        }) {
+                            Text("Open Settings")
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundColor(StepCompColors.primary)
+                        }
+                    }
+                    .padding(12)
+                    .background(StepCompColors.surfaceElevated)
+                    .cornerRadius(12)
+                }
+                
+                // Notification toggles
                 SettingItemRow(
                     icon: "doc.text.fill",
                     title: "Daily Recap",
+                    subtitle: "8 PM summary",
                     trailing: {
                         Toggle("", isOn: $dailyRecap)
-                            .toggleStyle(SwitchToggleStyle(tint: Color(red: 0.976, green: 0.961, blue: 0.024)))
+                            .toggleStyle(SwitchToggleStyle(tint: StepCompColors.primary))
+                            .disabled(!notificationManager.isAuthorized)
                     }
                 )
                 
                 SettingItemRow(
                     icon: "trophy.fill",
                     title: "Leaderboard Alerts",
+                    subtitle: "Rank changes",
                     trailing: {
                         Toggle("", isOn: $leaderboardAlerts)
-                            .toggleStyle(SwitchToggleStyle(tint: Color(red: 0.976, green: 0.961, blue: 0.024)))
+                            .toggleStyle(SwitchToggleStyle(tint: StepCompColors.primary))
+                            .disabled(!notificationManager.isAuthorized)
                     }
                 )
                 
                 SettingItemRow(
                     icon: "bolt.fill",
                     title: "Motivational Nudges",
+                    subtitle: "10 AM, 2 PM, 6 PM",
                     trailing: {
                         Toggle("", isOn: $motivationalNudges)
-                            .toggleStyle(SwitchToggleStyle(tint: Color(red: 0.976, green: 0.961, blue: 0.024)))
+                            .toggleStyle(SwitchToggleStyle(tint: StepCompColors.primary))
+                            .disabled(!notificationManager.isAuthorized)
                     }
                 )
+                
+                // Clear Badge Button
+                Button(action: {
+                    clearBadgeAndNotifications()
+                }) {
+                    HStack(spacing: 12) {
+                        Image(systemName: "app.badge")
+                            .font(.system(size: 18))
+                            .foregroundColor(StepCompColors.primary)
+                        
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Clear Badge")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundColor(StepCompColors.textPrimary)
+                            Text("Remove notification badge from app icon")
+                                .font(.system(size: 12))
+                                .foregroundColor(StepCompColors.textSecondary)
+                        }
+                        
+                        Spacer()
+                        
+                        Image(systemName: "arrow.clockwise")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundColor(StepCompColors.primary)
+                    }
+                    .padding(12)
+                    .background(StepCompColors.surfaceElevated)
+                    .cornerRadius(12)
+                }
+                .buttonStyle(.plain)
+                
+                // Debug/Test buttons (for development)
+                #if DEBUG
+                VStack(spacing: 12) {
+                    // Notification status indicator
+                    HStack {
+                        Image(systemName: notificationManager.isAuthorized ? "checkmark.circle.fill" : "xmark.circle.fill")
+                            .foregroundColor(notificationManager.isAuthorized ? .green : .red)
+                        Text(notificationManager.isAuthorized ? "Notifications Authorized" : "Notifications NOT Authorized")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundColor(notificationManager.isAuthorized ? .green : .red)
+                    }
+                    .padding(.vertical, 4)
+                    
+                    Button(action: {
+                        Task {
+                            // Request permissions first if not authorized
+                            if !notificationManager.isAuthorized {
+                                try? await notificationManager.requestAuthorization()
+                                // Wait a moment for the permission to process
+                                try? await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
+                            }
+                            notificationManager.sendTestNotification()
+                        }
+                    }) {
+                        HStack {
+                            Image(systemName: "bell.badge")
+                                .font(.system(size: 14))
+                            Text(notificationManager.isAuthorized ? "Send Test Notification" : "Request Permission & Test")
+                                .font(.system(size: 13, weight: .semibold))
+                        }
+                        .foregroundColor(StepCompColors.primary)
+                        .padding(.vertical, 8)
+                    }
+                    
+                    Button(action: {
+                        GoalCelebrationManager.shared.resetTodaysCelebration()
+                        // Force trigger celebration with current/test data
+                        GoalCelebrationManager.shared.forceTriggerCelebration(
+                            steps: 10500,
+                            goal: 10000
+                        )
+                    }) {
+                        HStack {
+                            Image(systemName: "party.popper")
+                                .font(.system(size: 14))
+                            Text("Test Goal Celebration")
+                                .font(.system(size: 13, weight: .semibold))
+                        }
+                        .foregroundColor(StepCompColors.coral)
+                        .padding(.vertical, 8)
+                    }
+                    
+                    Button(action: {
+                        GoalCelebrationManager.shared.resetTodaysCelebration()
+                    }) {
+                        HStack {
+                            Image(systemName: "arrow.counterclockwise")
+                                .font(.system(size: 14))
+                            Text("Reset Today's Celebration")
+                                .font(.system(size: 13, weight: .semibold))
+                        }
+                        .foregroundColor(.gray)
+                        .padding(.vertical, 8)
+                    }
+                    
+                    Button(action: {
+                        notificationManager.checkPendingNotifications()
+                    }) {
+                        HStack {
+                            Image(systemName: "list.bullet")
+                                .font(.system(size: 14))
+                            Text("Check Pending Notifications (see console)")
+                                .font(.system(size: 13, weight: .semibold))
+                        }
+                        .foregroundColor(.blue)
+                        .padding(.vertical, 8)
+                    }
+                }
+                #endif
+            }
+        }
+        .onAppear {
+            notificationManager.checkAuthorizationStatus()
+        }
+    }
+    
+    // Clear badge and delivered notifications
+    private func clearBadgeAndNotifications() {
+        Task {
+            let center = UNUserNotificationCenter.current()
+            
+            // Get all delivered notifications
+            let delivered = await center.deliveredNotifications()
+            print("📱 Found \(delivered.count) delivered notifications")
+            
+            // Log them for debugging
+            for notification in delivered {
+                print("  - \(notification.request.identifier): \(notification.request.content.title)")
+            }
+            
+            // Remove all delivered notifications from notification center
+            center.removeAllDeliveredNotifications()
+            print("🧹 Cleared all delivered notifications")
+            
+            // Clear the badge
+            #if canImport(UIKit)
+            if #available(iOS 16.0, *) {
+                try? await center.setBadgeCount(0)
+            } else {
+                await MainActor.run {
+                    UIApplication.shared.applicationIconBadgeNumber = 0
+                }
+            }
+            #endif
+            print("✅ Badge cleared from settings")
+            
+            // Show confirmation via haptic
+            await MainActor.run {
+                HapticManager.shared.success()
             }
         }
     }
@@ -857,19 +1060,11 @@ struct NotificationsCard: View {
 
 struct PreferencesCard: View {
     @Binding var darkMode: Bool
-    @Binding var unitSystem: SettingsView.UnitSystem
+    @ObservedObject private var unitPreferenceManager = UnitPreferenceManager.shared
     let sessionViewModel: SessionViewModel?
-    @State private var showingHeightWeightEditor = false
     @State private var showingDailyStepGoalEditor = false
+    @State private var refreshTrigger = UUID() // Add refresh trigger
     @EnvironmentObject var themeManager: ThemeManager
-    
-    // Helper function to convert cm to feet/inches
-    private func heightInImperial(_ cm: Int) -> (feet: Int, inches: Int) {
-        let totalInches = Double(cm) / 2.54
-        let feet = Int(totalInches / 12)
-        let inches = Int(totalInches.truncatingRemainder(dividingBy: 12))
-        return (feet, inches)
-    }
     
     var body: some View {
         SettingsCard(
@@ -891,7 +1086,7 @@ struct PreferencesCard: View {
                                 themeManager.isDarkMode = newValue
                             }
                         ))
-                            .toggleStyle(SwitchToggleStyle(tint: Color(red: 0.976, green: 0.961, blue: 0.024)))
+                            .toggleStyle(SwitchToggleStyle(tint: StepCompColors.primary))
                     }
                 )
                 
@@ -900,102 +1095,55 @@ struct PreferencesCard: View {
                     title: "Unit System",
                     trailing: {
                         HStack(spacing: 4) {
-                            Button(action: { unitSystem = .metric }) {
+                            Button(action: { 
+                                print("🔘 KM button tapped")
+                                withAnimation(.easeInOut(duration: 0.2)) {
+                                    unitPreferenceManager.unitSystem = .metric
+                                }
+                            }) {
                                 Text("KM")
                                     .font(.system(size: 11, weight: .bold))
-                                    .foregroundColor(unitSystem == .metric ? .black : .secondary)
+                                    .foregroundColor(unitPreferenceManager.unitSystem == .metric ? .black : .secondary)
                                     .padding(.horizontal, 16)
-                                    .padding(.vertical, 4)
-                                    .background(unitSystem == .metric ? Color(.systemBackground) : Color.clear)
+                                    .padding(.vertical, 8)
+                                    .background(
+                                        unitPreferenceManager.unitSystem == .metric 
+                                            ? StepCompColors.primary  // Yellow when selected
+                                            : Color.clear
+                                    )
                                     .cornerRadius(999)
+                                    .contentShape(Rectangle())  // Ensure full tap area
                             }
+                            .buttonStyle(.plain)
+                            .allowsHitTesting(true)
                             
-                            Button(action: { unitSystem = .imperial }) {
+                            Button(action: { 
+                                print("🔘 MI button tapped")
+                                withAnimation(.easeInOut(duration: 0.2)) {
+                                    unitPreferenceManager.unitSystem = .imperial
+                                }
+                            }) {
                                 Text("MI")
                                     .font(.system(size: 11, weight: .bold))
-                                    .foregroundColor(unitSystem == .imperial ? .black : .secondary)
+                                    .foregroundColor(unitPreferenceManager.unitSystem == .imperial ? .black : .secondary)
                                     .padding(.horizontal, 16)
-                                    .padding(.vertical, 4)
-                                    .background(unitSystem == .imperial ? Color(.systemBackground) : Color.clear)
+                                    .padding(.vertical, 8)
+                                    .background(
+                                        unitPreferenceManager.unitSystem == .imperial 
+                                            ? StepCompColors.primary  // Yellow when selected
+                                            : Color.clear
+                                    )
                                     .cornerRadius(999)
+                                    .contentShape(Rectangle())  // Ensure full tap area
                             }
+                            .buttonStyle(.plain)
+                            .allowsHitTesting(true)
                         }
                         .padding(4)
-                        .background(Color(.systemGray6))
+                        .background(StepCompColors.surfaceElevated)
                         .cornerRadius(999)
                     }
                 )
-                
-                // Public Profile Toggle
-                if let sessionViewModel = sessionViewModel {
-                    SettingItemRow(
-                        icon: "person.circle.fill",
-                        iconBackground: .blue,
-                        title: "Public Profile",
-                        subtitle: "Allow others to find you in search",
-                        trailing: {
-                            Toggle("", isOn: Binding(
-                                get: {
-                                    // Read actual publicProfile value from current user
-                                    return sessionViewModel.currentUser?.publicProfile ?? false
-                                },
-                                set: { newValue in
-                                    Task {
-                                        if let userId = sessionViewModel.currentUser?.id {
-                                            let service = FriendsService()
-                                            try? await service.setPublicProfile(newValue, myUserId: userId)
-                                            // Refresh user profile to reflect change
-                                            await sessionViewModel.checkSession()
-                                        }
-                                    }
-                                }
-                            ))
-                            .toggleStyle(SwitchToggleStyle(tint: Color(red: 0.976, green: 0.961, blue: 0.024)))
-                        }
-                    )
-                }
-                
-                // Height and Weight
-                if let sessionViewModel = sessionViewModel {
-                    Button(action: {
-                        showingHeightWeightEditor = true
-                    }) {
-                        SettingItemRow(
-                            icon: "figure.stand",
-                            title: "Height & Weight",
-                            subtitle: {
-                                let height = UserDefaults.standard.integer(forKey: "userHeight")
-                                let weight = UserDefaults.standard.integer(forKey: "userWeight")
-                                
-                                if height > 0 && weight > 0 {
-                                    let imperialHeight = heightInImperial(height)
-                                    let imperialWeight = Int(Double(weight) * 2.20462)
-                                    return "\(imperialHeight.feet)'\(imperialHeight.inches)\", \(imperialWeight) lbs"
-                                } else {
-                                    return "Not set"
-                                }
-                            }(),
-                            trailing: {
-                                Image(systemName: "chevron.right")
-                                    .font(.system(size: 14))
-                                    .foregroundColor(.secondary)
-                            }
-                        )
-                    }
-                    .buttonStyle(PlainButtonStyle())
-                    .sheet(isPresented: $showingHeightWeightEditor) {
-                        if let user = sessionViewModel.currentUser {
-                            EditHeightWeightSheet(
-                                user: user,
-                                onSave: { height, weight in
-                                    Task {
-                                        await sessionViewModel.authServiceAccess.updateUserHeightWeight(height: height, weight: weight)
-                                    }
-                                }
-                            )
-                        }
-                    }
-                }
                 
                 // Daily Step Goal
                 if let sessionViewModel = sessionViewModel {
@@ -1034,6 +1182,10 @@ struct PreferencesCard: View {
                                 onSave: { goal in
                                     Task {
                                         await sessionViewModel.authServiceAccess.updateDailyStepGoal(goal)
+                                        // Trigger view refresh
+                                        DispatchQueue.main.async {
+                                            refreshTrigger = UUID()
+                                        }
                                     }
                                 }
                             )
@@ -1042,6 +1194,7 @@ struct PreferencesCard: View {
                 }
             }
         }
+        .id(refreshTrigger) // Add id modifier to force refresh when trigger changes
     }
 }
 
@@ -1071,7 +1224,7 @@ struct SupportLegalCard: View {
                 .buttonStyle(PlainButtonStyle())
                 
                 Divider()
-                    .background(Color(.systemGray5))
+                    .background(StepCompColors.cardBorder)
                 
                 Button(action: {
                     showingFAQ = true
@@ -1084,7 +1237,7 @@ struct SupportLegalCard: View {
                 .buttonStyle(PlainButtonStyle())
                 
                 Divider()
-                    .background(Color(.systemGray5))
+                    .background(StepCompColors.cardBorder)
                 
                 Button(action: {
                     showingPrivacy = true
@@ -1097,7 +1250,7 @@ struct SupportLegalCard: View {
                 .buttonStyle(PlainButtonStyle())
                 
                 Divider()
-                    .background(Color(.systemGray5))
+                    .background(StepCompColors.cardBorder)
                 
                 Button(action: {
                     showingAbout = true
@@ -1129,36 +1282,32 @@ struct SupportLinkRow: View {
     let icon: String
     let title: String
     
-    private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
     
     var body: some View {
-        Button(action: {}) {
-            HStack {
-                ZStack {
-                    Circle()
-                        .fill(Color(.systemGray6))
-                        .frame(width: 40, height: 40)
-                    
-                    Image(systemName: icon)
-                        .font(.system(size: 18))
-                        .foregroundColor(.primary)
-                }
+        HStack {
+            ZStack {
+                Circle()
+                    .fill(Color(.systemGray6))
+                    .frame(width: 40, height: 40)
                 
-                Text(title)
-                    .font(.system(size: 16, weight: .semibold))
+                Image(systemName: icon)
+                    .font(.system(size: 18))
                     .foregroundColor(.primary)
-                
-                Spacer()
-                
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 14))
-                    .foregroundColor(.secondary)
             }
-            .padding(8)
-            .background(Color(.systemBackground))
-            .cornerRadius(12)
+            
+            Text(title)
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundColor(.primary)
+            
+            Spacer()
+            
+            Image(systemName: "chevron.right")
+                .font(.system(size: 14))
+                .foregroundColor(.secondary)
         }
-        .buttonStyle(PlainButtonStyle())
+        .padding(8)
+        .background(StepCompColors.surface)
+        .cornerRadius(12)
     }
 }
 
@@ -1192,11 +1341,11 @@ struct SettingsCard<Content: View>: View {
             content()
         }
         .padding(24)
-        .background(Color(.systemBackground))
+        .background(StepCompColors.surface)
         .cornerRadius(32)
         .overlay(
             RoundedRectangle(cornerRadius: 32)
-                .stroke(Color(.systemGray5), lineWidth: 1)
+                .stroke(StepCompColors.cardBorder, lineWidth: 1)
         )
         .shadow(color: Color.black.opacity(0.02), radius: 8, x: 0, y: 2)
     }
@@ -1212,7 +1361,7 @@ struct SettingItemRow<Trailing: View>: View {
     @ViewBuilder let trailing: () -> Trailing
     
     var body: some View {
-        HStack(spacing: 16) {
+        HStack(spacing: 12) {
             ZStack {
                 Circle()
                     .fill(iconBackground)
@@ -1222,23 +1371,37 @@ struct SettingItemRow<Trailing: View>: View {
                     .font(.system(size: 18))
                     .foregroundColor(iconBackground == Color.black ? .white : .primary)
             }
+            .flexibleFrame(minWidth: 40)
             
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.system(size: 15, weight: .semibold))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
                 
                 if let subtitle = subtitle {
                     Text(subtitle)
-                        .font(.system(size: 12))
+                        .font(.system(size: 11))
                         .foregroundColor(.secondary)
+                        .lineLimit(2)
+                        .minimumScaleFactor(0.8)
                 }
             }
+            .layoutPriority(1)
             
-            Spacer()
+            Spacer(minLength: 4)
             
             trailing()
+                .flexibleFrame(minWidth: 50)
         }
         .padding(8)
+    }
+}
+
+// Helper extension for flexible frames
+extension View {
+    func flexibleFrame(minWidth: CGFloat) -> some View {
+        self.frame(minWidth: minWidth)
     }
 }
 
@@ -1306,7 +1469,7 @@ struct DeveloperCard: View {
                                     .foregroundColor(.secondary)
                             }
                             .padding()
-                            .background(Color(.systemGray6))
+                            .background(StepCompColors.surfaceElevated)
                             .cornerRadius(12)
                         }
                         .buttonStyle(PlainButtonStyle())
@@ -1336,7 +1499,7 @@ struct DeveloperCard: View {
                             .foregroundColor(.secondary)
                     }
                             .padding()
-                            .background(Color(.systemGray6))
+                            .background(StepCompColors.surfaceElevated)
                             .cornerRadius(12)
                 }
                 .buttonStyle(PlainButtonStyle())
@@ -1483,7 +1646,7 @@ struct EditHeightWeightSheet: View {
                                     }
                                 }
                                 .padding(4)
-                                .background(Color(.systemGray5))
+                                .background(StepCompColors.cardBorder)
                                 .clipShape(Capsule())
                             }
                             
@@ -1545,7 +1708,7 @@ struct EditHeightWeightSheet: View {
                                     }
                                 }
                                 .padding(4)
-                                .background(Color(.systemGray5))
+                                .background(StepCompColors.cardBorder)
                                 .clipShape(Capsule())
                             }
                             
@@ -1640,54 +1803,57 @@ struct HeightPickerImperial: View {
     @Binding var selectedInches: Int
     
     var body: some View {
-        ZStack {
-            // Highlight Rectangle
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Color.yellow)
-                .frame(height: 56)
-                .padding(.horizontal, 16)
-            
-            HStack(spacing: 48) {
-                // Feet Picker
-                VStack {
-                    Picker("Feet", selection: $selectedFeet) {
-                        ForEach(3...8, id: \.self) { foot in
-                            Text("\(foot)")
-                                .font(.system(size: selectedFeet == foot ? 32 : 24, weight: selectedFeet == foot ? .black : .bold))
-                                .foregroundColor(selectedFeet == foot ? .black : .gray.opacity(0.3))
-                                .tag(foot)
-                        }
-                    }
-                    .pickerStyle(.wheel)
-                    .frame(width: 80, height: 192)
-                    .clipped()
-                    
-                    Text("ft")
-                        .font(.system(size: 14, weight: .heavy))
-                        .foregroundColor(.gray)
-                }
+        GeometryReader { geometry in
+            ZStack {
+                // Highlight Rectangle
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(Color.yellow)
+                    .frame(width: geometry.size.width - 32, height: 56)
+                    .position(x: geometry.size.width / 2, y: geometry.size.height / 2)
                 
-                // Inches Picker
-                VStack {
-                    Picker("Inches", selection: $selectedInches) {
-                        ForEach(0...11, id: \.self) { inch in
-                            Text("\(inch)")
-                                .font(.system(size: selectedInches == inch ? 32 : 24, weight: selectedInches == inch ? .black : .bold))
-                                .foregroundColor(selectedInches == inch ? .black : .gray.opacity(0.3))
-                                .tag(inch)
+                HStack(spacing: 0) {
+                    // Feet Picker
+                    VStack(spacing: 4) {
+                        Picker("Feet", selection: $selectedFeet) {
+                            ForEach(3...8, id: \.self) { foot in
+                                Text("\(foot)")
+                                    .font(.system(size: 32, weight: .black))
+                                    .tag(foot)
+                            }
                         }
+                        .pickerStyle(.wheel)
+                        .frame(width: geometry.size.width / 2 - 16, height: 192)
+                        .compositingGroup()
+                        .clipped()
+                        
+                        Text("ft")
+                            .font(.system(size: 14, weight: .heavy))
+                            .foregroundColor(.gray)
                     }
-                    .pickerStyle(.wheel)
-                    .frame(width: 80, height: 192)
-                    .clipped()
                     
-                    Text("in")
-                        .font(.system(size: 14, weight: .heavy))
-                        .foregroundColor(.gray)
+                    // Inches Picker
+                    VStack(spacing: 4) {
+                        Picker("Inches", selection: $selectedInches) {
+                            ForEach(0...11, id: \.self) { inch in
+                                Text("\(inch)")
+                                    .font(.system(size: 32, weight: .black))
+                                    .tag(inch)
+                            }
+                        }
+                        .pickerStyle(.wheel)
+                        .frame(width: geometry.size.width / 2 - 16, height: 192)
+                        .compositingGroup()
+                        .clipped()
+                        
+                        Text("in")
+                            .font(.system(size: 14, weight: .heavy))
+                            .foregroundColor(.gray)
+                    }
                 }
+                .frame(width: geometry.size.width, height: 192)
             }
         }
-        .frame(height: 192)
+        .frame(height: 240)
     }
 }
 
@@ -1733,33 +1899,36 @@ struct WeightPickerImperial: View {
     @Binding var selectedWeight: Int
     
     var body: some View {
-        ZStack {
-            // Highlight Rectangle
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Color.yellow)
-                .frame(height: 56)
-                .padding(.horizontal, 16)
-            
-            HStack {
-                Picker("Weight", selection: $selectedWeight) {
-                    ForEach(80...400, id: \.self) { lbs in
-                        Text("\(lbs)")
-                            .font(.system(size: selectedWeight == lbs ? 32 : 24, weight: selectedWeight == lbs ? .black : .bold))
-                            .foregroundColor(selectedWeight == lbs ? .black : .gray.opacity(0.3))
-                            .tag(lbs)
-                    }
-                }
-                .pickerStyle(.wheel)
-                .frame(width: 140, height: 192)
-                .clipped()
+        GeometryReader { geometry in
+            ZStack {
+                // Highlight Rectangle
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(Color.yellow)
+                    .frame(width: geometry.size.width - 32, height: 56)
+                    .position(x: geometry.size.width / 2, y: geometry.size.height / 2)
                 
-                Text("lbs")
-                    .font(.system(size: 14, weight: .heavy))
-                    .foregroundColor(.gray)
-                    .offset(x: -20)
+                HStack(spacing: 8) {
+                    Picker("Weight", selection: $selectedWeight) {
+                        ForEach(80...400, id: \.self) { lbs in
+                            Text("\(lbs)")
+                                .font(.system(size: 32, weight: .black))
+                                .tag(lbs)
+                        }
+                    }
+                    .pickerStyle(.wheel)
+                    .frame(width: geometry.size.width - 80, height: 192)
+                    .compositingGroup()
+                    .clipped()
+                    
+                    Text("lbs")
+                        .font(.system(size: 14, weight: .heavy))
+                        .foregroundColor(.gray)
+                        .padding(.trailing, 16)
+                }
+                .frame(width: geometry.size.width, height: 192)
             }
         }
-        .frame(height: 192)
+        .frame(height: 240)
     }
 }
 
@@ -1810,7 +1979,6 @@ struct EditDailyStepGoalSheet: View {
     @State private var selectedPreset: GoalPreset? = .tenThousand
     @Environment(\.dismiss) var dismiss
     
-    private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
     
     enum GoalPreset: Int, CaseIterable {
         case fiveThousand = 5000
@@ -1866,7 +2034,7 @@ struct EditDailyStepGoalSheet: View {
                 HStack {
                     Button(action: { dismiss() }) {
                         Text("Cancel")
-                            .foregroundColor(primaryYellow)
+                            .foregroundColor(StepCompColors.primary)
                             .fontWeight(.medium)
                     }
                     
@@ -1886,7 +2054,7 @@ struct EditDailyStepGoalSheet: View {
                             .fontWeight(.semibold)
                             .padding(.horizontal, 20)
                             .padding(.vertical, 8)
-                            .background(primaryYellow)
+                            .background(StepCompColors.primary)
                             .cornerRadius(20)
                     }
                 }
@@ -1907,13 +2075,13 @@ struct EditDailyStepGoalSheet: View {
                                 ZStack {
                                     // Background circle
                                     Circle()
-                                        .stroke(Color(.systemGray5), lineWidth: 12)
+                                        .stroke(StepCompColors.cardBorder, lineWidth: 12)
                                         .frame(width: 192, height: 192)
                                     
                                     // Progress arc
                                     Circle()
                                         .trim(from: 0, to: progressPercentage)
-                                        .stroke(primaryYellow, style: StrokeStyle(lineWidth: 12, lineCap: .round))
+                                        .stroke(StepCompColors.primary, style: StrokeStyle(lineWidth: 12, lineCap: .round))
                                         .frame(width: 192, height: 192)
                                         .rotationEffect(.degrees(-90))
                                         .animation(.spring(response: 0.3), value: progressPercentage)
@@ -1941,16 +2109,16 @@ struct EditDailyStepGoalSheet: View {
                                         
                                         Text("Recommended")
                                             .font(.system(size: 12, weight: .bold))
-                                            .foregroundColor(primaryYellow)
+                                            .foregroundColor(StepCompColors.primary)
                                             .padding(.horizontal, 8)
                                             .padding(.vertical, 4)
-                                            .background(primaryYellow.opacity(0.2))
+                                            .background(StepCompColors.primary.opacity(0.2))
                                             .cornerRadius(8)
                                     }
                                     
                                     // Slider
                                     Slider(value: $sliderValue, in: 2000...25000, step: 500)
-                                        .tint(primaryYellow)
+                                        .tint(StepCompColors.primary)
                                         .onChange(of: sliderValue) { _, newValue in
                                             // Deselect preset if manually adjusted
                                             if let preset = selectedPreset, Double(preset.rawValue) != newValue {
@@ -1972,7 +2140,7 @@ struct EditDailyStepGoalSheet: View {
                                 }
                             }
                             .padding(24)
-                            .background(Color(.systemGray6))
+                            .background(StepCompColors.surfaceElevated)
                             .cornerRadius(24)
                         }
                         
@@ -1988,7 +2156,7 @@ struct EditDailyStepGoalSheet: View {
                                     QuickSelectButton(
                                         preset: preset,
                                         isSelected: selectedPreset == preset,
-                                        primaryYellow: primaryYellow
+                                        primaryColor: StepCompColors.primary
                                     ) {
                                         selectedPreset = preset
                                         sliderValue = Double(preset.rawValue)
@@ -2023,7 +2191,7 @@ struct EditDailyStepGoalSheet: View {
 struct QuickSelectButton: View {
     let preset: EditDailyStepGoalSheet.GoalPreset
     let isSelected: Bool
-    let primaryYellow: Color
+    let primaryColor: Color
     let action: () -> Void
     
     var body: some View {
@@ -2031,7 +2199,7 @@ struct QuickSelectButton: View {
             VStack(spacing: 8) {
                 Image(systemName: preset.icon)
                     .font(.system(size: 30))
-                    .foregroundColor(isSelected ? .black : primaryYellow)
+                    .foregroundColor(isSelected ? .black : primaryColor)
                 
                 Text(preset.displayName)
                     .font(.system(size: 18, weight: .bold))
@@ -2044,13 +2212,13 @@ struct QuickSelectButton: View {
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 20)
-            .background(isSelected ? primaryYellow : Color(.systemBackground))
+            .background(isSelected ? primaryColor : Color(.systemBackground))
             .cornerRadius(16)
             .overlay(
                 RoundedRectangle(cornerRadius: 16)
-                    .stroke(isSelected ? primaryYellow : Color.clear, lineWidth: 2)
+                    .stroke(isSelected ? primaryColor : Color.clear, lineWidth: 2)
             )
-            .shadow(color: isSelected ? primaryYellow.opacity(0.3) : Color.clear, radius: 8)
+            .shadow(color: isSelected ? primaryColor.opacity(0.3) : Color.clear, radius: 8)
             .scaleEffect(isSelected ? 1.02 : 1.0)
             .animation(.spring(response: 0.3), value: isSelected)
         }
@@ -2132,7 +2300,6 @@ struct SettingsPreferencesModifiers: ViewModifier {
     let dailyRecap: Bool
     let leaderboardAlerts: Bool
     let motivationalNudges: Bool
-    let unitSystem: SettingsView.UnitSystem
     let themeManager: ThemeManager
     
     func body(content: Content) -> some View {
@@ -2143,7 +2310,7 @@ struct SettingsPreferencesModifiers: ViewModifier {
                 leaderboardAlerts: leaderboardAlerts,
                 motivationalNudges: motivationalNudges
             ))
-            .modifier(UnitSystemPreferenceModifier(unitSystem: unitSystem))
+            // Unit system preference is now managed by UnitPreferenceManager singleton
     }
 }
 
@@ -2170,25 +2337,18 @@ struct NotificationPreferencesModifier: ViewModifier {
         content
             .onChange(of: dailyRecap) { _, newValue in
                 UserDefaults.standard.set(newValue, forKey: "notif_dailyRecap")
+                NotificationManager.shared.updateNotificationPreferences(dailyRecap: newValue)
             }
             .onChange(of: leaderboardAlerts) { _, newValue in
                 UserDefaults.standard.set(newValue, forKey: "notif_leaderboardAlerts")
+                NotificationManager.shared.updateNotificationPreferences(leaderboardAlerts: newValue)
             }
             .onChange(of: motivationalNudges) { _, newValue in
                 UserDefaults.standard.set(newValue, forKey: "notif_motivationalNudges")
+                NotificationManager.shared.updateNotificationPreferences(motivationalNudges: newValue)
             }
     }
 }
 
-struct UnitSystemPreferenceModifier: ViewModifier {
-    let unitSystem: SettingsView.UnitSystem
-    
-    func body(content: Content) -> some View {
-        content
-            .onChange(of: unitSystem) { _, newValue in
-                let value = newValue == .metric ? "metric" : "imperial"
-                UserDefaults.standard.set(value, forKey: "unitSystem")
-            }
-    }
-}
+// UnitSystemPreferenceModifier removed - Unit system is now managed by UnitPreferenceManager singleton
 

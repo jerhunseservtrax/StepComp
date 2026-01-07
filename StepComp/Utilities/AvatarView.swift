@@ -26,14 +26,49 @@ struct AvatarView: View {
         return String(displayName.prefix(2)).uppercased()
     }
     
+    /// Checks if the string is an emoji (single or multiple emoji characters)
+    private var isEmoji: Bool {
+        guard let avatarURL = avatarURL, !avatarURL.isEmpty else { return false }
+        // If it's a URL (starts with http), it's not an emoji
+        if avatarURL.hasPrefix("http") { return false }
+        // Check if all characters are emoji
+        return avatarURL.unicodeScalars.allSatisfy { scalar in
+            scalar.properties.isEmoji && scalar.properties.isEmojiPresentation ||
+            scalar.properties.isEmoji && scalar.value > 0x238C
+        }
+    }
+    
+    /// Checks if the string is a valid URL
+    private var isValidURL: Bool {
+        guard let avatarURL = avatarURL, !avatarURL.isEmpty else { return false }
+        return avatarURL.hasPrefix("http://") || avatarURL.hasPrefix("https://")
+    }
+    
     var body: some View {
         Group {
             if let avatarURL = avatarURL, !avatarURL.isEmpty {
-                AsyncImage(url: URL(string: avatarURL)) { image in
-                    image
-                        .resizable()
-                        .aspectRatio(contentMode: .fill)
-                } placeholder: {
+                if isValidURL {
+                    // Display image from URL
+                    AsyncImage(url: URL(string: avatarURL)) { phase in
+                        switch phase {
+                        case .success(let image):
+                            image
+                                .resizable()
+                                .aspectRatio(contentMode: .fill)
+                        case .failure:
+                            placeholderView
+                        case .empty:
+                            ProgressView()
+                                .frame(width: size, height: size)
+                        @unknown default:
+                            placeholderView
+                        }
+                    }
+                } else if isEmoji {
+                    // Display emoji avatar
+                    emojiAvatarView(emoji: avatarURL)
+                } else {
+                    // Fallback to placeholder
                     placeholderView
                 }
             } else {
@@ -42,6 +77,22 @@ struct AvatarView: View {
         }
         .frame(width: size, height: size)
         .clipShape(Circle())
+    }
+    
+    private func emojiAvatarView(emoji: String) -> some View {
+        ZStack {
+            Circle()
+                .fill(
+                    LinearGradient(
+                        colors: [Color.yellow.opacity(0.3), Color.orange.opacity(0.3)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+            
+            Text(emoji)
+                .font(.system(size: size * 0.5))
+        }
     }
     
     private var placeholderView: some View {

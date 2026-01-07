@@ -9,14 +9,13 @@ import SwiftUI
 
 // MARK: - Feedback Board
 
-struct FeedbackBoardView: View {
+struct SimpleFeedbackBoardView: View {
     @Environment(\.dismiss) var dismiss
     @State private var feedbackText = ""
     @State private var selectedCategory = "Feature Request"
     @State private var showingGuidelines = false
     
     private let categories = ["Feature Request", "Bug Report", "General", "Other"]
-    private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
     
     var body: some View {
         NavigationStack {
@@ -112,7 +111,7 @@ struct FeedbackBoardView: View {
                                 Spacer()
                             }
                             .padding()
-                            .background(feedbackText.isEmpty ? Color.gray : primaryYellow)
+                            .background(feedbackText.isEmpty ? Color.gray : StepCompColors.primary)
                             .foregroundColor(.black)
                             .cornerRadius(12)
                         }
@@ -384,7 +383,6 @@ struct PrivacyPolicyView: View {
 
 struct AboutUsView: View {
     @Environment(\.dismiss) var dismiss
-    private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
     
     var body: some View {
         NavigationStack {
@@ -393,12 +391,12 @@ struct AboutUsView: View {
                     // App Icon
                     ZStack {
                         Circle()
-                            .fill(primaryYellow.opacity(0.2))
+                            .fill(StepCompColors.primary.opacity(0.2))
                             .frame(width: 160, height: 160)
                         
                         Image(systemName: "figure.walk")
                             .font(.system(size: 80))
-                            .foregroundColor(primaryYellow)
+                            .foregroundColor(StepCompColors.primary)
                     }
                     .padding(.top, 32)
                     

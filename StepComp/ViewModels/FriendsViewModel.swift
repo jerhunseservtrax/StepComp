@@ -17,6 +17,7 @@ final class FriendsViewModel: ObservableObject {
 
     @Published var selectedTab: Tab = .friends
     @Published var isEditing: Bool = false
+    @Published var selectedProfileUserId: String? = nil // For profile card
 
     @Published var myProfile: Profile?
     @Published var friendships: [Friendship] = []
@@ -224,7 +225,7 @@ final class FriendsViewModel: ObservableObject {
 
         let profiles: [Profile] = try await supabase
             .from("profiles")
-            .select("id,username,display_name,avatar_url,public_profile")
+            .select("id,username,avatar_url,public_profile")
             .in("id", values: Array(ids))
             .execute()
             .value

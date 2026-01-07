@@ -97,7 +97,7 @@ struct ServerChallengeMessage: Codable {
             createdAt: createdAt,
             editedAt: editedAt,
             isDeleted: isDeleted,
-            senderName: profiles?.displayName ?? profiles?.username ?? "Unknown",
+            senderName: profiles?.username ?? "Unknown",
             senderAvatarURL: profiles?.avatarUrl
         )
     }

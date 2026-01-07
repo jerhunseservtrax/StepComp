@@ -2,7 +2,7 @@
 //  LeaderboardView.swift
 //  StepComp
 //
-//  Created by Jeffery Erhunse on 12/24/25.
+//  Modern leaderboard with podium design
 //
 
 import SwiftUI
@@ -15,13 +15,12 @@ struct LeaderboardView: View {
     @EnvironmentObject var challengeService: ChallengeService
     @Environment(\.dismiss) var dismiss
     
-    private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
+    private let backgroundLight = Color(red: 0.973, green: 0.973, blue: 0.961)
     
     init(sessionViewModel: SessionViewModel, challengeId: String) {
         self.sessionViewModel = sessionViewModel
         self.challengeId = challengeId
         let userId = sessionViewModel.currentUser?.id ?? ""
-        // Initialize with placeholder - will be updated in onAppear
         _viewModel = StateObject(
             wrappedValue: LeaderboardViewModel(
                 challengeService: ChallengeService(),
@@ -33,194 +32,149 @@ struct LeaderboardView: View {
     
     var body: some View {
         ZStack {
-            ScrollView {
-                VStack(spacing: 0) {
-                    // Header
-                    LeaderboardHeader(onBack: { dismiss() })
+            backgroundLight
+                .ignoresSafeArea()
+            
+            VStack(spacing: 0) {
+                // Top App Bar
+                HStack {
+                    Button(action: { dismiss() }) {
+                        Image(systemName: "arrow.left")
+                            .font(.system(size: 20, weight: .semibold))
+                            .foregroundColor(.primary)
+                            .frame(width: 40, height: 40)
+                    }
                     
-                    // Segmented Control
-                    VStack(spacing: 16) {
-                        AnimatedSegmentedControl(
-                            selectedIndex: Binding(
-                                get: { 
-                                    switch viewModel.selectedScope {
-                                    case .daily: return 0
-                                    case .weekly: return 1 // Map weekly to Overall for now
-                                    case .allTime: return 1
-                                    }
-                                },
-                                set: { index in
-                                    switch index {
-                                    case 0: viewModel.updateScope(.daily)
-                                    case 1: viewModel.updateScope(.allTime)
-                                    default: break
-                                    }
-                                }
-                            ),
-                            options: ["Today", "Overall"]
-                        )
-                        .padding(.horizontal)
-                        .padding(.vertical, 16)
-                        
-                        // Loading State
+                    Spacer()
+                    
+                    Text("Leaderboard")
+                        .font(.system(size: 20, weight: .bold))
+                    
+                    Spacer()
+                    
+                    Button(action: {}) {
+                        Image(systemName: "ellipsis")
+                            .font(.system(size: 20, weight: .semibold))
+                            .foregroundColor(.primary)
+                            .frame(width: 40, height: 40)
+                    }
+                }
+                .padding(.horizontal, 16)
+                .padding(.top, 8)
+                .padding(.bottom, 8)
+                
+                // Segmented Toggle
+                SegmentedToggle(
+                    selectedTab: Binding(
+                        get: { viewModel.selectedScope == .daily ? 0 : 1 },
+                        set: { index in
+                            viewModel.updateScope(index == 0 ? .daily : .allTime)
+                        }
+                    )
+                )
+                .padding(.horizontal, 24)
+                .padding(.bottom, 8)
+                
+                // Scrollable Content
+                ScrollView {
+                    VStack(spacing: 0) {
                         if viewModel.isLoading {
                             ProgressView()
-                                .padding(.vertical, 40)
+                                .progressViewStyle(CircularProgressViewStyle(tint: StepCompColors.primary))
+                                .padding(.vertical, 60)
                         } else if viewModel.entries.isEmpty {
-                            // Empty State
-                            VStack(spacing: 16) {
-                                Image(systemName: "trophy")
-                                    .font(.system(size: 50))
-                                    .foregroundColor(.secondary)
-                                Text("No entries yet")
-                                    .font(.system(size: 16, weight: .medium))
-                                    .foregroundColor(.secondary)
-                            }
-                            .padding(.vertical, 60)
+                            EmptyLeaderboardView()
+                                .padding(.vertical, 60)
                         } else {
                             // Podium Section (Top 3)
                             PodiumView(
                                 entries: Array(viewModel.entries.prefix(3)),
                                 currentUserId: sessionViewModel.currentUser?.id ?? ""
                             )
-                            .padding(.horizontal)
+                            .padding(.top, 32)
                             .padding(.bottom, 32)
+                            .padding(.horizontal, 16)
                             
-                            // List Section (Rank 4+)
+                            // List Section (Ranks 4+)
                             if viewModel.entries.count > 3 {
                                 VStack(spacing: 12) {
                                     ForEach(Array(viewModel.entries.dropFirst(3))) { entry in
-                                        LeaderboardListItem(
+                                        LeaderboardListRow(
                                             entry: entry,
-                                            isCurrentUser: entry.userId == sessionViewModel.currentUser?.id ?? "",
-                                            maxSteps: viewModel.entries.first?.steps ?? 1
+                                            isCurrentUser: entry.userId == sessionViewModel.currentUser?.id ?? ""
                                         )
                                     }
                                 }
-                                .padding(.horizontal)
+                                .padding(.horizontal, 16)
+                                .padding(.bottom, 100) // Space for sticky footer
                             }
                         }
-                        
-                        // Spacer for sticky footer
-                        Spacer()
-                            .frame(height: 120)
                     }
                 }
-            }
-            .navigationBarHidden(true)
-            .refreshable {
-                viewModel.refresh()
+                .refreshable {
+                    viewModel.refresh()
+                }
             }
             
-            // Sticky Footer
+            // Sticky Footer (User Stats)
             if let currentUserEntry = viewModel.currentUserEntry {
-                StickyUserFooter(
-                    entry: currentUserEntry,
-                    nextEntry: viewModel.entries.first { $0.rank == currentUserEntry.rank - 1 },
-                    challengeService: challengeService
-                )
+                VStack {
+                    Spacer()
+                    UserStatsFooter(entry: currentUserEntry)
+                        .padding(.horizontal, 16)
+                        .padding(.bottom, 24)
+                }
             }
         }
+        .navigationBarHidden(true)
         .onAppear {
             viewModel.updateService(challengeService)
         }
     }
 }
 
-// MARK: - Header
+// MARK: - Segmented Toggle
 
-struct LeaderboardHeader: View {
-    let onBack: () -> Void
-    
-    private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
+struct SegmentedToggle: View {
+    @Binding var selectedTab: Int
     
     var body: some View {
-        HStack {
-            Button(action: onBack) {
-                Image(systemName: "arrow.left")
-                    .font(.system(size: 24))
-                    .foregroundColor(.primary)
-                    .frame(width: 44, height: 44)
-                    .contentShape(Rectangle())
+        HStack(spacing: 0) {
+            ToggleButton(title: "Today", isSelected: selectedTab == 0) {
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                    selectedTab = 0
+                }
             }
             
-            Spacer()
-            
-            Text("Leaderboard")
-                .font(.system(size: 20, weight: .bold))
-                .tracking(-0.5)
-            
-            Spacer()
-            
-            Button(action: {}) {
-                Image(systemName: "square.and.arrow.up")
-                    .font(.system(size: 24))
-                    .foregroundColor(.primary)
-                    .frame(width: 44, height: 44)
-                    .contentShape(Rectangle())
-            }
-        }
-        .padding(.horizontal, 24)
-        .padding(.vertical, 16)
-        .background(
-            Color(.systemBackground)
-                .opacity(0.9)
-                .background(.ultraThinMaterial)
-        )
-        .overlay(
-            Rectangle()
-                .frame(height: 1)
-                .foregroundColor(Color(.systemGray5).opacity(0.2)),
-            alignment: .bottom
-        )
-    }
-}
-
-// MARK: - Animated Segmented Control
-
-struct AnimatedSegmentedControl: View {
-    @Binding var selectedIndex: Int
-    let options: [String]
-    
-    private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
-    private let subtleLight = Color(red: 0.914, green: 0.906, blue: 0.808)
-    
-    var body: some View {
-        GeometryReader { geometry in
-            ZStack(alignment: .leading) {
-                // Background
-                RoundedRectangle(cornerRadius: 999)
-                    .fill(subtleLight)
-                    .frame(height: 40)
-                
-                // Animated indicator
-                RoundedRectangle(cornerRadius: 999)
-                    .fill(primaryYellow)
-                    .frame(width: geometry.size.width / CGFloat(options.count), height: 32)
-                    .padding(4)
-                    .offset(x: CGFloat(selectedIndex) * (geometry.size.width / CGFloat(options.count)))
-                    .animation(.spring(response: 0.3, dampingFraction: 0.7), value: selectedIndex)
-                    .shadow(color: primaryYellow.opacity(0.3), radius: 2, x: 0, y: 1)
-                
-                // Buttons
-                HStack(spacing: 0) {
-                    ForEach(Array(options.enumerated()), id: \.offset) { index, option in
-                        Button(action: {
-                            withAnimation {
-                                selectedIndex = index
-                            }
-                        }) {
-                            Text(option)
-                                .font(.system(size: 14, weight: selectedIndex == index ? .bold : .medium))
-                                .foregroundColor(selectedIndex == index ? .black : Color(red: 0.620, green: 0.616, blue: 0.278))
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 8)
-                        }
-                    }
+            ToggleButton(title: "Overall", isSelected: selectedTab == 1) {
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                    selectedTab = 1
                 }
             }
         }
-        .frame(height: 40)
+        .frame(height: 48)
+        .background(Color(.systemGray6))
+        .cornerRadius(24)
+        .padding(6)
+    }
+}
+
+struct ToggleButton: View {
+    let title: String
+    let isSelected: Bool
+    let action: () -> Void
+    
+    var body: some View {
+        Button(action: action) {
+            Text(title)
+                .font(.system(size: 14, weight: .bold))
+                .foregroundColor(isSelected ? .black : Color(.systemGray))
+                .frame(maxWidth: .infinity)
+                .frame(height: 48)
+                .background(isSelected ? StepCompColors.primary : Color.clear)
+                .cornerRadius(24)
+        }
+        .buttonStyle(.plain)
     }
 }
 
@@ -230,45 +184,45 @@ struct PodiumView: View {
     let entries: [LeaderboardEntry]
     let currentUserId: String
     
-    private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
-    private let bronzeColor = Color(red: 0.804, green: 0.498, blue: 0.196)
+    private let gradientEnd = Color(red: 0.902, green: 0.761, blue: 0.0)
     
     var body: some View {
-        HStack(alignment: .bottom, spacing: 16) {
-            // Rank 2 (Left) - only show if we have at least 2 entries
+        HStack(alignment: .bottom, spacing: 12) {
+            // #2 (Left)
             if entries.count >= 2 {
-                PodiumPlace(
+                PodiumCard(
                     entry: entries[1],
                     rank: 2,
-                    height: 96,
-                    borderColor: .gray,
-                    medal: "🥈"
+                    isCurrentUser: entries[1].userId == currentUserId,
+                    isWinner: false
                 )
+                .frame(maxWidth: .infinity)
             } else {
                 Spacer()
             }
             
-            // Rank 1 (Center) - always show if we have entries
+            // #1 (Center) - Winner with crown
             if entries.count >= 1 {
-                PodiumPlace(
+                PodiumCard(
                     entry: entries[0],
                     rank: 1,
-                    height: 128,
-                    borderColor: primaryYellow,
-                    medal: "🥇",
-                    isFirst: true
+                    isCurrentUser: entries[0].userId == currentUserId,
+                    isWinner: true
                 )
+                .frame(maxWidth: .infinity)
+                .scaleEffect(1.1)
+                .zIndex(1)
             }
             
-            // Rank 3 (Right) - only show if we have 3+ entries
+            // #3 (Right)
             if entries.count >= 3 {
-                PodiumPlace(
+                PodiumCard(
                     entry: entries[2],
                     rank: 3,
-                    height: 80,
-                    borderColor: bronzeColor,
-                    medal: "🥉"
+                    isCurrentUser: entries[2].userId == currentUserId,
+                    isWinner: false
                 )
+                .frame(maxWidth: .infinity)
             } else {
                 Spacer()
             }
@@ -276,123 +230,119 @@ struct PodiumView: View {
     }
 }
 
-struct PodiumPlace: View {
+struct PodiumCard: View {
     let entry: LeaderboardEntry
     let rank: Int
-    let height: CGFloat
-    let borderColor: Color
-    let medal: String
-    var isFirst: Bool = false
+    let isCurrentUser: Bool
+    let isWinner: Bool
     
-    private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
-    private let bronzeColor = Color(red: 0.804, green: 0.498, blue: 0.196)
+    private let gradientEnd = Color(red: 0.902, green: 0.761, blue: 0.0)
     
     var body: some View {
-        VStack(spacing: 12) {
-            // Avatar with rank badge
+        VStack(spacing: 0) {
+            // Crown for winner
+            if isWinner {
+                Text("👑")
+                    .font(.system(size: 40))
+                    .offset(y: -20)
+            }
+            
             ZStack {
-                if isFirst {
-                    // Glow effect for first place
-                    Circle()
-                        .fill(primaryYellow.opacity(0.3))
-                        .frame(width: 88, height: 88)
-                        .blur(radius: 20)
-                }
-                
-                AvatarView(
-                    displayName: entry.displayName,
-                    avatarURL: entry.avatarURL,
-                    size: isFirst ? 80 : 64
-                )
-                .overlay(
-                    Circle()
-                        .stroke(borderColor, lineWidth: 4)
-                )
-                .background(
-                    Circle()
-                        .fill(rank == 1 ? primaryYellow.opacity(0.2) : (rank == 3 ? Color.orange.opacity(0.1) : Color.gray.opacity(0.1)))
-                )
-                
-                // Rank badge
-                VStack {
-                    Spacer()
-                    HStack {
-                        Spacer()
-                        Text(rank == 1 ? "🥇 1st" : "\(medal) \(rank)")
-                            .font(.system(size: rank == 1 ? 13 : 11, weight: .bold))
-                            .foregroundColor(rank == 1 ? .black : .primary)
-                            .padding(.horizontal, rank == 1 ? 12 : 8)
-                            .padding(.vertical, rank == 1 ? 6 : 4)
-                            .background(rank == 1 ? primaryYellow : Color(.systemBackground))
-                            .cornerRadius(999)
-                            .shadow(color: rank == 1 ? primaryYellow.opacity(0.5) : Color.clear, radius: 8, x: 0, y: 2)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 999)
-                                    .stroke(rank == 1 ? Color.clear : Color(.systemGray5), lineWidth: 1)
-                            )
-                            .offset(y: rank == 1 ? 8 : 4)
-                    }
-                }
-            }
-            
-            // Name and steps
-            VStack(spacing: 4) {
-                Text(entry.displayName)
-                    .font(.system(size: isFirst ? 16 : 14, weight: .bold))
-                    .lineLimit(1)
-                    .frame(maxWidth: isFirst ? 96 : 80)
-                    .foregroundColor(.primary)
-                
-                Text("\(entry.steps.formatted())")
-                    .font(.system(size: isFirst ? 14 : 12, weight: isFirst ? .bold : .medium))
-                    .foregroundColor(isFirst ? primaryYellow : Color(red: 0.620, green: 0.616, blue: 0.278))
-            }
-            .padding(.top, isFirst ? 4 : 0)
-            
-            // Podium base
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(
+                // Background
+                if isWinner {
                     LinearGradient(
-                        colors: rank == 1 ? 
-                            [primaryYellow.opacity(0.4), primaryYellow.opacity(0.1)] :
-                            rank == 3 ?
-                            [bronzeColor.opacity(0.2), bronzeColor.opacity(0.05)] :
-                            [Color(.systemGray5), Color(.systemGray6)],
-                        startPoint: .top,
-                        endPoint: .bottom
+                        colors: [StepCompColors.primary, gradientEnd],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
                     )
-                )
-                .frame(height: height)
-                .opacity(rank == 1 ? 1.0 : 0.8)
+                    .shadow(color: StepCompColors.primary.opacity(0.3), radius: 15, x: 0, y: 0)
+                } else {
+                    Color(.systemBackground)
+                        .shadow(color: Color.black.opacity(0.05), radius: 20, x: 0, y: 8)
+                }
+                
+                VStack(spacing: 12) {
+                    // Rank badge at top
+                    Text("#\(rank)")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundColor(isWinner ? .black : Color(.systemGray))
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 4)
+                        .background(
+                            isWinner ? Color.white : Color(.systemGray6)
+                        )
+                        .cornerRadius(12)
+                        .offset(y: -12)
+                    
+                    // Avatar
+                    AvatarView(
+                        displayName: entry.displayName,
+                        avatarURL: entry.avatarURL,
+                        size: isWinner ? 80 : 60
+                    )
+                    .overlay(
+                        Circle()
+                            .stroke(isWinner ? Color.white.opacity(0.4) : Color(.systemGray5), lineWidth: isWinner ? 4 : 2)
+                    )
+                    
+                    // Name
+                    Text(formatName(entry.displayName))
+                        .font(.system(size: isWinner ? 16 : 14, weight: .bold))
+                        .foregroundColor(isWinner ? .black : .primary)
+                        .lineLimit(1)
+                    
+                    // Steps
+                    Text(formatSteps(entry.steps))
+                        .font(.system(size: isWinner ? 14 : 12, weight: isWinner ? .bold : .semibold))
+                        .foregroundColor(isWinner ? Color.black.opacity(0.7) : Color(.systemGray))
+                }
+                .padding(.top, 24)
+                .padding(.bottom, 16)
+            }
+            .aspectRatio(0.8, contentMode: .fit)
+            .cornerRadius(16)
+            
+            // Rank badge at bottom for winner
+            if isWinner {
+                Text("#\(rank)")
+                    .font(.system(size: 14, weight: .black))
+                    .foregroundColor(.black)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 4)
+                    .background(Color.white)
+                    .cornerRadius(12)
+                    .shadow(color: Color.black.opacity(0.1), radius: 4, x: 0, y: 2)
+                    .offset(y: -12)
+            }
         }
-        .frame(maxWidth: .infinity)
-        .offset(y: isFirst ? -24 : 0)
+    }
+    
+    private func formatName(_ name: String) -> String {
+        let components = name.components(separatedBy: " ")
+        if let firstName = components.first, let lastInitial = components.dropFirst().first?.first {
+            return "\(firstName) \(lastInitial)."
+        }
+        return name
+    }
+    
+    private func formatSteps(_ steps: Int) -> String {
+        return steps.formatted()
     }
 }
 
-// MARK: - List Item
+// MARK: - List Row
 
-struct LeaderboardListItem: View {
+struct LeaderboardListRow: View {
     let entry: LeaderboardEntry
     let isCurrentUser: Bool
-    let maxSteps: Int
-    
-    private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
-    private let subtleLight = Color(red: 0.914, green: 0.906, blue: 0.808)
-    private let reactions = ["🔥", "👏", "😎", "💪"]
-    
-    var progress: Double {
-        guard maxSteps > 0 else { return 0 }
-        return min(Double(entry.steps) / Double(maxSteps), 1.0)
-    }
     
     var body: some View {
         HStack(spacing: 12) {
             // Rank number
             Text("\(entry.rank)")
                 .font(.system(size: 14, weight: .bold))
-                .foregroundColor(Color(red: 0.620, green: 0.616, blue: 0.278))
-                .frame(width: 20)
+                .foregroundColor(Color(.systemGray))
+                .frame(width: 24, alignment: .center)
             
             // Avatar
             AvatarView(
@@ -400,175 +350,124 @@ struct LeaderboardListItem: View {
                 avatarURL: entry.avatarURL,
                 size: 40
             )
+            .overlay(
+                Circle()
+                    .stroke(Color(.systemGray6), lineWidth: 1)
+            )
             
-            // Name, steps, and progress bar
+            // Name and rank change
             VStack(alignment: .leading, spacing: 4) {
-                HStack {
-                    Text(isCurrentUser ? "You" : entry.displayName)
-                        .font(.system(size: 14, weight: isCurrentUser ? .bold : .medium))
-                        .lineLimit(1)
-                        .foregroundColor(.primary)
-                    
-                    Spacer()
-                    
-                    Text("\(entry.steps.formatted())")
-                        .font(.system(size: isCurrentUser ? 14 : 12, weight: isCurrentUser ? .bold : .medium))
-                        .foregroundColor(isCurrentUser ? primaryYellow : Color(red: 0.620, green: 0.616, blue: 0.278))
-                }
+                Text(entry.displayName)
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundColor(.primary)
+                    .lineLimit(1)
                 
-                // Progress bar
-                GeometryReader { geometry in
-                    ZStack(alignment: .leading) {
-                        RoundedRectangle(cornerRadius: 999)
-                            .fill(subtleLight)
-                            .frame(height: 8)
+                // Show rank change if available
+                if let rankChange = entry.rankChange, rankChange != 0 {
+                    HStack(spacing: 4) {
+                        Image(systemName: rankChange > 0 ? "arrow.up" : "arrow.down")
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundColor(rankChange > 0 ? .green : .red)
                         
-                        RoundedRectangle(cornerRadius: 999)
-                            .fill(isCurrentUser ? primaryYellow : Color(.systemGray4))
-                            .frame(width: geometry.size.width * progress, height: 8)
+                        Text(rankChange > 0 ? "Up \(abs(rankChange)) place\(abs(rankChange) > 1 ? "s" : "")" : "Down \(abs(rankChange)) place\(abs(rankChange) > 1 ? "s" : "")")
+                            .font(.system(size: 12))
+                            .foregroundColor(.secondary)
                     }
                 }
-                .frame(height: 8)
             }
             
-            // Reaction button
-            Button(action: {}) {
-                Text(reactions[(entry.rank - 1) % reactions.count])
-                    .font(.system(size: 18))
-                    .frame(width: 32, height: 32)
-                    .background(subtleLight.opacity(0.5))
-                    .clipShape(Circle())
+            Spacer()
+            
+            // Steps
+            VStack(alignment: .trailing, spacing: 2) {
+                Text(entry.steps.formatted())
+                    .font(.system(size: 16, weight: .bold, design: .monospaced))
+                    .foregroundColor(.primary)
+                
+                Text("STEPS")
+                    .font(.system(size: 10, weight: .bold))
+                    .tracking(0.5)
+                    .foregroundColor(.secondary)
             }
         }
         .padding(12)
-        .background(
-            Group {
-                if isCurrentUser {
-                    Color(.systemBackground)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 16)
-                                .stroke(primaryYellow.opacity(0.3), lineWidth: 1)
-                        )
-                        .shadow(color: primaryYellow.opacity(0.3), radius: 12, x: 0, y: -4)
-                } else {
-                    Color(.systemBackground)
-                }
-            }
-        )
-        .cornerRadius(16)
+        .background(Color(.systemBackground))
+        .cornerRadius(12)
+        .shadow(color: Color.black.opacity(0.04), radius: 8, x: 0, y: 2)
         .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .stroke(isCurrentUser ? primaryYellow.opacity(0.3) : Color.clear, lineWidth: 1)
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(Color(.systemBackground), lineWidth: 1)
         )
     }
 }
 
-// MARK: - Sticky User Footer
+// MARK: - User Stats Footer
 
-struct StickyUserFooter: View {
+struct UserStatsFooter: View {
     let entry: LeaderboardEntry
-    let nextEntry: LeaderboardEntry?
-    let challengeService: ChallengeService
-    @EnvironmentObject var healthKitService: HealthKitService
-    
-    private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
-    @State private var isSyncing = false
-    
-    var stepsToNext: Int {
-        guard let next = nextEntry else { return 0 }
-        return max(next.steps - entry.steps, 0)
-    }
     
     var body: some View {
-        VStack {
+        HStack(spacing: 12) {
+            // Rank box
+            VStack(spacing: 2) {
+                Text("Rank")
+                    .font(.system(size: 10))
+                    .foregroundColor(.white.opacity(0.7))
+                
+                Text("\(entry.rank)")
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundColor(.white)
+            }
+            .frame(width: 40, height: 40)
+            .background(Color.white.opacity(0.1))
+            .cornerRadius(8)
+            
+            // User info
+            VStack(alignment: .leading, spacing: 2) {
+                Text("You")
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundColor(.white)
+                
+                Text("Keep going! 🔥")
+                    .font(.system(size: 12))
+                    .foregroundColor(.white.opacity(0.7))
+            }
+            
             Spacer()
             
-            HStack(spacing: 16) {
-                // Rank badge
-                VStack(spacing: 2) {
-                    Text("RANK")
-                        .font(.system(size: 10, weight: .bold))
-                        .foregroundColor(.black.opacity(0.6))
-                        .tracking(1)
-                    
-                    Text("\(entry.rank)")
-                        .font(.system(size: 14, weight: .bold))
-                        .foregroundColor(.black)
-                }
-                .frame(width: 40, height: 40)
-                .background(Color.white.opacity(0.3))
-                .cornerRadius(20)
+            // Steps
+            VStack(alignment: .trailing, spacing: 2) {
+                Text(entry.steps.formatted())
+                    .font(.system(size: 18, weight: .bold, design: .monospaced))
+                    .foregroundColor(StepCompColors.primary)
                 
-                // Message
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Keep going!")
-                        .font(.system(size: 16, weight: .bold))
-                        .foregroundColor(.black)
-                    
-                    if stepsToNext > 0 {
-                        Text("\(stepsToNext.formatted()) steps to #\(entry.rank - 1)")
-                            .font(.system(size: 14))
-                            .foregroundColor(.black.opacity(0.8))
-                    } else {
-                        Text("You're at the top!")
-                            .font(.system(size: 14))
-                            .foregroundColor(.black.opacity(0.8))
-                    }
-                }
-                
-                Spacer()
-                
-                // Sync button
-                Button(action: {
-                    syncSteps()
-                }) {
-                    HStack(spacing: 4) {
-                        if isSyncing {
-                            ProgressView()
-                                .progressViewStyle(CircularProgressViewStyle(tint: primaryYellow))
-                                .scaleEffect(0.8)
-                        } else {
-                            Text("Sync")
-                                .font(.system(size: 14, weight: .bold))
-                            Image(systemName: "arrow.clockwise")
-                                .font(.system(size: 14))
-                        }
-                    }
-                    .foregroundColor(primaryYellow)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 8)
-                    .background(Color.black)
-                    .cornerRadius(999)
-                }
-                .disabled(isSyncing)
+                Text("STEPS TODAY")
+                    .font(.system(size: 10, weight: .semibold))
+                    .tracking(0.8)
+                    .foregroundColor(.white.opacity(0.6))
             }
-            .padding(16)
-            .background(
-                primaryYellow
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 24)
-                            .stroke(Color.white.opacity(0.2), lineWidth: 4)
-                    )
-            )
-            .cornerRadius(24)
-            .shadow(color: primaryYellow.opacity(0.3), radius: 16, x: 0, y: 8)
-            .padding(.horizontal, 16)
-            .padding(.bottom, 24)
         }
-    }
-    
-    private func syncSteps() {
-        guard !isSyncing else { return }
-        isSyncing = true
-        
-        Task {
-            // Sync steps for all active challenges
-            await challengeService.syncTodayStepsToAllChallenges(healthKitService: healthKitService)
-            
-            // Wait a bit for UI feedback
-            try? await Task.sleep(nanoseconds: 500_000_000)
-            isSyncing = false
-        }
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(Color.black)
+                .shadow(color: Color.black.opacity(0.2), radius: 20, x: 0, y: 10)
+        )
     }
 }
 
+// MARK: - Empty State
+
+struct EmptyLeaderboardView: View {
+    var body: some View {
+        VStack(spacing: 16) {
+            Image(systemName: "trophy")
+                .font(.system(size: 50))
+                .foregroundColor(.secondary)
+            
+            Text("No entries yet")
+                .font(.system(size: 16, weight: .medium))
+                .foregroundColor(.secondary)
+        }
+    }
+}

@@ -27,7 +27,7 @@ struct OnboardingFlowView: View {
     
     var body: some View {
         ZStack {
-            Color(.systemBackground)
+            StepCompColors.background
                 .ignoresSafeArea()
             
             Group {
@@ -76,11 +76,11 @@ struct OnboardingFlowView: View {
                         .foregroundColor(.primary)
                         .padding(.horizontal, 16)
                         .padding(.vertical, 10)
-                        .background(Color(.systemGray6))
+                        .background(StepCompColors.surfaceElevated)
                         .cornerRadius(20)
                     }
                     .padding(.leading, 24)
-                    .padding(.top, 16)
+                    .padding(.top, 60) // Increased from 16 to 60 to clear status bar
                 }
             }
         }
@@ -102,23 +102,22 @@ struct StepIndicator: View {
     let currentStep: Int
     let totalSteps: Int = 6
     
-    private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
     
     var body: some View {
         HStack(spacing: 8) {
             ForEach(0..<totalSteps, id: \.self) { index in
                 if index == currentStep {
                     RoundedRectangle(cornerRadius: 3)
-                        .fill(primaryYellow)
+                        .fill(StepCompColors.primary)
                         .frame(width: 32, height: 6)
                         .animation(.spring(response: 0.3, dampingFraction: 0.7), value: currentStep)
                 } else if index < currentStep {
                     Circle()
-                        .fill(primaryYellow.opacity(0.3))
+                        .fill(StepCompColors.primary.opacity(0.3))
                         .frame(width: 6, height: 6)
                 } else {
                     Circle()
-                        .fill(Color(.systemGray4))
+                        .fill(StepCompColors.textTertiary.opacity(0.3))
                         .frame(width: 6, height: 6)
                 }
             }
@@ -143,6 +142,6 @@ struct OnboardingScreenBase<Content: View>: View {
             content()
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color(.systemBackground))
+        .background(StepCompColors.background)
     }
 }

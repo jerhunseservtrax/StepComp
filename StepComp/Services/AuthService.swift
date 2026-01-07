@@ -288,13 +288,9 @@ final class AuthService: ObservableObject {
             )
             
             if profileExists {
-                // Update existing profile
-                try await supabase
-                    .from("profiles")
-                    .update(profile)
-                    .eq("id", value: userId)
-                    .execute()
-                print("✅ Profile updated for Apple Sign-In user")
+                // Profile already exists - DON'T overwrite user data (username, name, etc.)
+                // Just load the existing profile
+                print("✅ Profile already exists - keeping user's existing data")
             } else {
                 // Create new profile
                 do {
@@ -378,16 +374,31 @@ final class AuthService: ObservableObject {
         ]
         let finalRedirectURL = components.url!
         
-        print("🔵 Calling supabase.auth.signInWithOAuth...")
+        print("🔵 Calling supabase.auth.getOAuthSignInURL...")
         print("🔵 Provider: google")
         print("🔵 Redirect URL: \(finalRedirectURL)")
         
-        // Supabase Swift SDK: signInWithOAuth returns a URL for the OAuth flow
-        // Use getOAuthSignInURL if signInWithOAuth doesn't return URL
+        // #region agent log
+        print("🔍 [H10] Using getOAuthSignInURL with redirectTo and PKCE")
+        // #endregion
+        
+        // Supabase Swift SDK: getOAuthSignInURL generates the OAuth URL
+        // The PKCE flow is handled automatically by the SDK
         let url = try supabase.auth.getOAuthSignInURL(
             provider: .google,
+            scopes: "email profile", // Request email and profile scopes
             redirectTo: finalRedirectURL
         )
+        
+        // #region agent log
+        print("🔍 [H10] OAuth URL components:")
+        if let components = URLComponents(url: url, resolvingAgainstBaseURL: false) {
+            print("🔍 [H10]   - Scheme: \(components.scheme ?? "nil")")
+            print("🔍 [H10]   - Host: \(components.host ?? "nil")")
+            print("🔍 [H10]   - Path: \(components.path)")
+            print("🔍 [H10]   - Query items: \(components.queryItems?.count ?? 0)")
+        }
+        // #endregion
         
         print("✅ Google OAuth URL generated: \(url)")
         return url
@@ -545,6 +556,9 @@ final class AuthService: ObservableObject {
             // Try to create profile manually (trigger should handle this, but this is a fallback)
             print("🔵 Attempting to create profile in database for user: \(userId)")
             
+            // Generate display name from first and last name
+            let displayName = "\(firstName) \(lastName)".trimmingCharacters(in: .whitespaces)
+            
             // Use UserProfile struct which has proper CodingKeys mapping
             let profile = UserProfile(
                 id: userId,
@@ -552,10 +566,15 @@ final class AuthService: ObservableObject {
                 firstName: firstName,
                 lastName: lastName,
                 avatar: nil,
+                avatarUrl: nil,
+                displayName: displayName, // ✅ NEW: Set display name
                 isPremium: false,
                 height: height,
                 weight: weight,
-                publicProfile: false // Default to private
+                email: email,
+                publicProfile: false, // Default to private
+                totalSteps: 0,
+                dailyStepGoal: 10000
             )
             
             do {

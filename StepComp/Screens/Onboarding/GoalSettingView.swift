@@ -16,7 +16,6 @@ struct GoalSettingOnboardingView: View {
     @State private var customGoal: String = ""
     @State private var showingCustomInput = false
     
-    private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
     
     // Preset goals
     private let presetGoals = [
@@ -34,12 +33,12 @@ struct GoalSettingOnboardingView: View {
                 // Goal Icon
                 ZStack {
                     Circle()
-                        .fill(primaryYellow.opacity(0.2))
+                        .fill(StepCompColors.primary.opacity(0.2))
                         .frame(width: 160, height: 160)
                     
                     Image(systemName: "target")
                         .font(.system(size: 80, weight: .medium))
-                        .foregroundColor(primaryYellow)
+                        .foregroundColor(StepCompColors.primary)
                         .symbolEffect(.pulse)
                 }
                 .padding(.bottom, 32)
@@ -63,7 +62,7 @@ struct GoalSettingOnboardingView: View {
                             label: goal.label,
                             description: goal.description,
                             isSelected: selectedGoal == goal.value && !showingCustomInput,
-                            primaryYellow: primaryYellow
+                            primaryColor: StepCompColors.primary
                         ) {
                             withAnimation(.spring(response: 0.3)) {
                                 selectedGoal = goal.value
@@ -109,11 +108,11 @@ struct GoalSettingOnboardingView: View {
                         .padding(.vertical, 16)
                         .background(
                             RoundedRectangle(cornerRadius: 16)
-                                .fill(showingCustomInput ? primaryYellow : Color(.systemGray6))
+                                .fill(showingCustomInput ? StepCompColors.primary : Color(.systemGray6))
                         )
                         .overlay(
                             RoundedRectangle(cornerRadius: 16)
-                                .stroke(showingCustomInput ? primaryYellow : Color.clear, lineWidth: 2)
+                                .stroke(showingCustomInput ? StepCompColors.primary : Color.clear, lineWidth: 2)
                         )
                     }
                 }
@@ -134,12 +133,12 @@ struct GoalSettingOnboardingView: View {
                 }) {
                     Text("Continue")
                         .font(.system(size: 18, weight: .bold))
-                        .foregroundColor(.black)
+                        .foregroundColor(StepCompColors.buttonTextOnPrimary)
                         .frame(maxWidth: .infinity)
                         .frame(height: 56)
-                        .background(primaryYellow)
+                        .background(StepCompColors.primary)
                         .cornerRadius(999)
-                        .shadow(color: primaryYellow.opacity(0.3), radius: 16, x: 0, y: 8)
+                        .shadow(color: StepCompColors.primary.opacity(0.3), radius: 16, x: 0, y: 8)
                 }
                 .padding(.horizontal, 24)
                 .padding(.bottom, 40)
@@ -166,7 +165,7 @@ struct GoalOptionButton: View {
     let label: String
     let description: String
     let isSelected: Bool
-    let primaryYellow: Color
+    let primaryColor: Color
     let action: () -> Void
     
     var body: some View {
@@ -184,18 +183,18 @@ struct GoalOptionButton: View {
                 
                 Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
                     .font(.system(size: 24))
-                    .foregroundColor(isSelected ? primaryYellow : Color(.systemGray4))
+                    .foregroundColor(isSelected ? primaryColor : Color(.systemGray4))
             }
             .foregroundColor(.primary)
             .padding(.horizontal, 20)
             .padding(.vertical, 16)
             .background(
                 RoundedRectangle(cornerRadius: 16)
-                    .fill(isSelected ? primaryYellow.opacity(0.15) : Color(.systemGray6))
+                    .fill(isSelected ? primaryColor.opacity(0.15) : Color(.systemGray6))
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 16)
-                    .stroke(isSelected ? primaryYellow : Color.clear, lineWidth: 2)
+                    .stroke(isSelected ? primaryColor : Color.clear, lineWidth: 2)
             )
         }
         .buttonStyle(.plain)

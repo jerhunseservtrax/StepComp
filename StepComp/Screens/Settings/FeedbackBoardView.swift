@@ -15,7 +15,6 @@ struct FeedbackBoardView: View {
     @State private var showingDeleteAlert = false
     @State private var postToDelete: FeedbackPost?
     
-    private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
     
     var body: some View {
         NavigationStack {
@@ -139,6 +138,7 @@ struct FeedbackBoardView: View {
             }
             .navigationTitle("Feedback Board")
             .navigationBarTitleDisplayMode(.large)
+            .dismissKeyboardOnTap()
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
                     Button(action: {
@@ -146,7 +146,7 @@ struct FeedbackBoardView: View {
                     }) {
                         Image(systemName: "plus.circle.fill")
                             .font(.system(size: 24))
-                            .foregroundColor(primaryYellow)
+                            .foregroundColor(StepCompColors.primary)
                     }
                 }
             }
@@ -213,7 +213,6 @@ struct FilterChip: View {
     let isSelected: Bool
     let action: () -> Void
     
-    private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
     
     var body: some View {
         Button(action: action) {
@@ -227,7 +226,7 @@ struct FilterChip: View {
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
-            .background(isSelected ? primaryYellow : Color(.systemGray6))
+            .background(isSelected ? StepCompColors.primary : Color(.systemGray6))
             .foregroundColor(isSelected ? .black : .primary)
             .cornerRadius(16)
         }
@@ -243,7 +242,6 @@ struct FeedbackPostCard: View {
     let onEdit: () -> Void
     let onDelete: () -> Void
     
-    private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
     
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -266,10 +264,10 @@ struct FeedbackPostCard: View {
                         if post.isAuthor {
                             Text("YOU")
                                 .font(.system(size: 10, weight: .bold))
-                                .foregroundColor(primaryYellow)
+                                .foregroundColor(StepCompColors.primary)
                                 .padding(.horizontal, 6)
                                 .padding(.vertical, 2)
-                                .background(primaryYellow.opacity(0.2))
+                                .background(StepCompColors.primary.opacity(0.2))
                                 .cornerRadius(4)
                         }
                     }

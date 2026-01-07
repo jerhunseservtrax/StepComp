@@ -18,7 +18,6 @@ struct CreateFeedbackSheet: View {
     @State private var selectedCategory: FeedbackCategory = .feature
     @State private var isSubmitting = false
     
-    private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
     
     var body: some View {
         NavigationStack {
@@ -113,6 +112,7 @@ struct CreateFeedbackSheet: View {
             }
             .navigationTitle("New Feedback")
             .navigationBarTitleDisplayMode(.inline)
+            .dismissKeyboardOnTap()
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") {
@@ -172,7 +172,6 @@ struct EditFeedbackSheet: View {
     @State private var selectedCategory: FeedbackCategory
     @State private var isSubmitting = false
     
-    private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
     
     init(viewModel: FeedbackBoardViewModel, post: FeedbackPost) {
         self.viewModel = viewModel
@@ -263,6 +262,7 @@ struct EditFeedbackSheet: View {
                     .disabled(!isValid || isSubmitting)
                 }
             }
+            .dismissKeyboardOnTap()
         }
     }
     
@@ -298,7 +298,6 @@ struct CategoryButton: View {
     let isSelected: Bool
     let action: () -> Void
     
-    private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
     
     var body: some View {
         Button(action: action) {
@@ -308,7 +307,7 @@ struct CategoryButton: View {
                     .frame(width: 48, height: 48)
                     .background(
                         Circle()
-                            .fill(isSelected ? primaryYellow : Color(.systemGray6))
+                            .fill(isSelected ? StepCompColors.primary : Color(.systemGray6))
                     )
                 
                 Text(category.displayName)

@@ -20,12 +20,11 @@ enum SupabaseConfig {
     static let appBundleID = "JE.StepComp"
     
     // OAuth Redirect URL (for OAuth callbacks)
-    // IMPORTANT: This must match the redirect URL configured in Supabase Dashboard
-    // For Supabase OAuth, use the Supabase callback URL, not a custom scheme
+    // IMPORTANT: This must match the URL scheme registered in Info.plist
+    // The URL scheme "stepcomp" is registered in Xcode under Info → URL Types
     static var oauthRedirectURL: URL {
-        // Supabase OAuth uses its own callback URL
-        // The app will receive the callback via the custom URL scheme
-        URL(string: "\(appBundleID.lowercased())://auth-callback")!
+        // Must match the scheme in Info.plist URL Types
+        URL(string: "stepcomp://auth-callback")!
     }
     
     // Supabase OAuth callback URL (configured in Supabase Dashboard)

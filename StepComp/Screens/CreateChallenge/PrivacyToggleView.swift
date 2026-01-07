@@ -10,7 +10,6 @@ import SwiftUI
 struct PrivacyToggleView: View {
     @Binding var isPrivate: Bool
     
-    private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
     
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -30,7 +29,7 @@ struct PrivacyToggleView: View {
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 12)
-                    .background(isPrivate ? primaryYellow : Color(.systemGray6))
+                    .background(isPrivate ? StepCompColors.primary : Color(.systemGray6))
                     .foregroundColor(isPrivate ? .black : .secondary)
                     .cornerRadius(12)
                 }
@@ -48,7 +47,7 @@ struct PrivacyToggleView: View {
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 12)
-                    .background(!isPrivate ? primaryYellow : Color(.systemGray6))
+                    .background(!isPrivate ? StepCompColors.primary : Color(.systemGray6))
                     .foregroundColor(!isPrivate ? .black : .secondary)
                     .cornerRadius(12)
                 }

@@ -7,6 +7,7 @@
 
 import SwiftUI
 import Combine
+import PhotosUI
 
 struct CreateChallengeView: View {
     @ObservedObject var sessionViewModel: SessionViewModel
@@ -19,8 +20,8 @@ struct CreateChallengeView: View {
     @State private var showingDatePicker = false
     @State private var showingCustomDuration = false
     @State private var searchText: String = ""
+    @State private var selectedPhotoItem: PhotosPickerItem?
     
-    private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
     
     init(sessionViewModel: SessionViewModel) {
         self.sessionViewModel = sessionViewModel
@@ -41,21 +42,14 @@ struct CreateChallengeView: View {
                     // Top App Bar
                     TopAppBar(onBack: { dismiss() })
                     
-                    // Preview Section
-                    VStack(alignment: .leading, spacing: 16) {
-                        Text("Your Challenge Ticket")
-                            .font(.system(size: 28, weight: .bold))
-                            .padding(.horizontal)
-                            .padding(.top, 24)
-                        
-                        ChallengePreviewCard(
-                            name: viewModel.name.isEmpty ? "Morning Sprinters" : viewModel.name,
-                            startDate: viewModel.startDate,
-                            duration: viewModel.durationInDays,
-                            creatorName: sessionViewModel.currentUser?.displayName ?? "You"
-                        )
-                        .padding(.horizontal)
-                    }
+                    // Challenge Image Upload Section
+                    ChallengeImageUploadView(
+                        selectedPhotoItem: $selectedPhotoItem,
+                        selectedImageData: $viewModel.challengeImageData,
+                        challengeName: viewModel.name.isEmpty ? "Morning Sprinters" : viewModel.name
+                    )
+                    .padding(.horizontal)
+                    .padding(.top, 16)
                     .padding(.bottom, 24)
                     
                     // Form Section
@@ -114,6 +108,10 @@ struct CreateChallengeView: View {
                             isFriendsOnly: $viewModel.isFriendsOnly
                         )
                         .padding(.horizontal)
+                        
+                        // Rules Section
+                        RulesSelectorView(selectedRules: $viewModel.selectedRules)
+                            .padding(.horizontal)
                         
                         // Spacer for bottom button
                         Spacer()
@@ -281,7 +279,6 @@ struct ChallengePreviewCard: View {
     let duration: Int
     let creatorName: String
     
-    private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
     
     var body: some View {
         VStack(spacing: 0) {
@@ -309,7 +306,7 @@ struct ChallengePreviewCard: View {
                         .foregroundColor(.black)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 6)
-                        .background(primaryYellow)
+                        .background(StepCompColors.primary)
                         .cornerRadius(20)
                 }
                 .padding()
@@ -423,7 +420,6 @@ struct DurationSelectorView: View {
     @Binding var selectedDuration: CreateChallengeViewModel.ChallengeDuration
     let onSelect: (CreateChallengeViewModel.ChallengeDuration) -> Void
     
-    private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
     
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -438,11 +434,11 @@ struct DurationSelectorView: View {
                 }) {
                     Text("Custom")
                         .font(.system(size: 14, weight: selectedDuration == .custom ? .bold : .semibold))
-                        .foregroundColor(selectedDuration == .custom ? .black : primaryYellow)
+                        .foregroundColor(selectedDuration == .custom ? .black : StepCompColors.primary)
                         .padding(.horizontal, 16)
                         .padding(.vertical, 8)
                         .background(
-                            selectedDuration == .custom ? primaryYellow : Color.clear
+                            selectedDuration == .custom ? StepCompColors.primary : Color.clear
                         )
                         .cornerRadius(8)
                 }
@@ -471,7 +467,6 @@ struct DurationButton: View {
     let isSelected: Bool
     let action: () -> Void
     
-    private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
     
     var body: some View {
         Button(action: action) {
@@ -481,7 +476,7 @@ struct DurationButton: View {
                 .padding(.horizontal, 24)
                 .padding(.vertical, 12)
                 .background(
-                    isSelected ? primaryYellow : Color(.systemBackground)
+                    isSelected ? StepCompColors.primary : Color(.systemBackground)
                 )
                 .overlay(
                     RoundedRectangle(cornerRadius: 999)
@@ -489,7 +484,7 @@ struct DurationButton: View {
                 )
                 .cornerRadius(999)
                 .shadow(
-                    color: isSelected ? primaryYellow.opacity(0.2) : Color.clear,
+                    color: isSelected ? StepCompColors.primary.opacity(0.2) : Color.clear,
                     radius: isSelected ? 8 : 0,
                     x: 0,
                     y: isSelected ? 4 : 0
@@ -505,7 +500,6 @@ struct StartDateSelectorView: View {
     let onSelectMode: (CreateChallengeViewModel.StartDateMode) -> Void
     let onPickDate: () -> Void
     
-    private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
     
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -545,7 +539,6 @@ struct StartDateButton: View {
     let isSelected: Bool
     let action: () -> Void
     
-    private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
     
     var body: some View {
         Button(action: action) {
@@ -567,7 +560,7 @@ struct StartDateButton: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(16)
             .background(
-                isSelected ? primaryYellow : Color(.systemBackground)
+                isSelected ? StepCompColors.primary : Color(.systemBackground)
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 16)
@@ -588,7 +581,6 @@ struct InviteSectionView: View {
     
     @StateObject private var friendsLoader = FriendsLoaderViewModel()
     
-    private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
     
     // Use friends from Supabase if available, otherwise fallback to passed friends
     var availableFriends: [User] {
@@ -630,7 +622,7 @@ struct InviteSectionView: View {
                         Text("Share Link")
                             .font(.system(size: 14, weight: .bold))
                     }
-                    .foregroundColor(primaryYellow)
+                    .foregroundColor(StepCompColors.primary)
                 }
             }
             
@@ -728,7 +720,6 @@ struct FriendAvatarButton: View {
     let isSelected: Bool
     let onTap: () -> Void
     
-    private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
     
     var body: some View {
         Button(action: onTap) {
@@ -741,7 +732,7 @@ struct FriendAvatarButton: View {
                     )
                     .overlay(
                         Circle()
-                            .stroke(isSelected ? primaryYellow : Color.clear, lineWidth: 2)
+                            .stroke(isSelected ? StepCompColors.primary : Color.clear, lineWidth: 2)
                     )
                     
                     if isSelected {
@@ -749,7 +740,7 @@ struct FriendAvatarButton: View {
                             .font(.system(size: 20, weight: .bold))
                             .foregroundColor(.black)
                             .padding(4)
-                            .background(primaryYellow)
+                            .background(StepCompColors.primary)
                             .clipShape(Circle())
                             .offset(x: 20, y: -20)
                     }
@@ -776,7 +767,6 @@ struct CustomDurationSheet: View {
     @State private var daysText: String
     @State private var errorMessage: String?
     
-    private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
     
     init(customDays: Binding<Int>, onSave: @escaping (Int) -> Void, onCancel: @escaping () -> Void) {
         self._customDays = customDays
@@ -896,7 +886,6 @@ struct DurationQuickSelectButton: View {
     let days: Int
     @Binding var selectedText: String
     
-    private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
     
     var body: some View {
         Button(action: {
@@ -908,7 +897,7 @@ struct DurationQuickSelectButton: View {
                 .padding(.horizontal, 16)
                 .padding(.vertical, 8)
                 .background(
-                    selectedText == "\(days)" ? primaryYellow : Color(.systemGray6)
+                    selectedText == "\(days)" ? StepCompColors.primary : Color(.systemGray6)
                 )
                 .cornerRadius(8)
         }
@@ -936,7 +925,6 @@ struct StickyFooterButton: View {
     let isEnabled: Bool
     let action: () -> Void
     
-    private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
     
     var body: some View {
         VStack(spacing: 0) {
@@ -961,10 +949,10 @@ struct StickyFooterButton: View {
                 }
                 .frame(maxWidth: .infinity)
                 .frame(height: 56)
-                .background(isEnabled ? primaryYellow : Color(.systemGray4))
+                .background(isEnabled ? StepCompColors.primary : Color(.systemGray4))
                 .cornerRadius(999)
                 .shadow(
-                    color: isEnabled ? primaryYellow.opacity(0.25) : Color.clear,
+                    color: isEnabled ? StepCompColors.primary.opacity(0.25) : Color.clear,
                     radius: 16,
                     x: 0,
                     y: 4
@@ -986,14 +974,13 @@ struct StickyFooterButton: View {
 struct CategorySelectorView: View {
     @Binding var selectedCategory: Challenge.ChallengeCategory?
     
-    private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
     
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack {
                 Image(systemName: "tag.fill")
                     .font(.system(size: 16))
-                    .foregroundColor(primaryYellow)
+                    .foregroundColor(StepCompColors.primary)
                 
                 Text("Choose a Category")
                     .font(.system(size: 16, weight: .bold))
@@ -1012,7 +999,7 @@ struct CategorySelectorView: View {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 12) {
                     ForEach(Challenge.ChallengeCategory.allCases, id: \.self) { category in
-                        CategoryButton(
+                        CreateChallengeCategoryButton(
                             category: category,
                             isSelected: selectedCategory == category,
                             action: {
@@ -1033,12 +1020,11 @@ struct CategorySelectorView: View {
     }
 }
 
-struct CategoryButton: View {
+struct CreateChallengeCategoryButton: View {
     let category: Challenge.ChallengeCategory
     let isSelected: Bool
     let action: () -> Void
     
-    private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
     
     var body: some View {
         Button(action: action) {
@@ -1049,7 +1035,7 @@ struct CategoryButton: View {
                     .frame(width: 48, height: 48)
                     .background(
                         Circle()
-                            .fill(isSelected ? primaryYellow : Color(.systemBackground))
+                            .fill(isSelected ? StepCompColors.primary : Color(.systemBackground))
                     )
                     .overlay(
                         Circle()
@@ -1076,14 +1062,571 @@ struct CategoryButton: View {
             .cornerRadius(12)
             .overlay(
                 RoundedRectangle(cornerRadius: 12)
-                    .stroke(isSelected ? primaryYellow : Color.clear, lineWidth: 2)
+                    .stroke(isSelected ? StepCompColors.primary : Color.clear, lineWidth: 2)
             )
             .shadow(
-                color: isSelected ? primaryYellow.opacity(0.2) : Color.clear,
+                color: isSelected ? StepCompColors.primary.opacity(0.2) : Color.clear,
                 radius: isSelected ? 8 : 0,
                 x: 0,
                 y: isSelected ? 4 : 0
             )
+        }
+    }
+}
+
+// MARK: - Rules Selector View
+
+struct RulesSelectorView: View {
+    @Binding var selectedRules: Set<ChallengeRule>
+    @State private var isExpanded: Bool = false
+    
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            // Header
+            Button(action: {
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                    isExpanded.toggle()
+                }
+            }) {
+                HStack {
+                    Image(systemName: "scroll.fill")
+                        .font(.system(size: 16))
+                        .foregroundColor(.orange)
+                    
+                    Text("Challenge Rules")
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundColor(.primary)
+                    
+                    Spacer()
+                    
+                    // Selected count badge
+                    if !selectedRules.isEmpty {
+                        Text("\(selectedRules.count) selected")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 4)
+                            .background(StepCompColors.primary)
+                            .cornerRadius(999)
+                    }
+                    
+                    Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(.secondary)
+                }
+            }
+            
+            // Optional badge
+            Text("Optional • Set fair play guidelines")
+                .font(.system(size: 12, weight: .medium))
+                .foregroundColor(.secondary)
+            
+            if isExpanded {
+                VStack(alignment: .leading, spacing: 20) {
+                    // Data Source Rules
+                    RuleCategorySection(
+                        title: "Data Sources",
+                        icon: "checkmark.shield.fill",
+                        rules: ChallengeRule.dataSourceRules,
+                        selectedRules: $selectedRules
+                    )
+                    
+                    // Daily Cap Rules
+                    RuleCategorySection(
+                        title: "Daily Step Limits",
+                        icon: "gauge.medium",
+                        rules: ChallengeRule.dailyCapRules,
+                        selectedRules: $selectedRules,
+                        isMutuallyExclusive: true
+                    )
+                    
+                    // Sync Rules
+                    RuleCategorySection(
+                        title: "Sync Requirements",
+                        icon: "arrow.triangle.2.circlepath",
+                        rules: ChallengeRule.syncRules,
+                        selectedRules: $selectedRules,
+                        isMutuallyExclusive: true
+                    )
+                    
+                    // Participation Rules
+                    RuleCategorySection(
+                        title: "Participation",
+                        icon: "person.2.fill",
+                        rules: ChallengeRule.participationRules,
+                        selectedRules: $selectedRules
+                    )
+                }
+                .padding(.top, 8)
+                .transition(.opacity.combined(with: .move(edge: .top)))
+            }
+            
+            // Quick preview of selected rules when collapsed
+            if !isExpanded && !selectedRules.isEmpty {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(Array(selectedRules), id: \.id) { rule in
+                            HStack(spacing: 6) {
+                                Image(systemName: rule.icon)
+                                    .font(.system(size: 10))
+                                
+                                Text(rule.title)
+                                    .font(.system(size: 11, weight: .semibold))
+                            }
+                            .foregroundColor(rule.color)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 6)
+                            .background(rule.color.opacity(0.12))
+                            .cornerRadius(999)
+                        }
+                    }
+                }
+            }
+        }
+        .padding(16)
+        .background(Color(.systemGray6).opacity(0.5))
+        .cornerRadius(16)
+    }
+}
+
+// MARK: - Rule Category Section
+
+struct RuleCategorySection: View {
+    let title: String
+    let icon: String
+    let rules: [ChallengeRule]
+    @Binding var selectedRules: Set<ChallengeRule>
+    var isMutuallyExclusive: Bool = false
+    
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            // Section header
+            HStack(spacing: 8) {
+                Image(systemName: icon)
+                    .font(.system(size: 14))
+                    .foregroundColor(.secondary)
+                
+                Text(title)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(.secondary)
+                
+                if isMutuallyExclusive {
+                    Text("(pick one)")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundColor(.secondary.opacity(0.7))
+                }
+            }
+            
+            // Rules grid
+            LazyVGrid(columns: [GridItem(.flexible())], spacing: 8) {
+                ForEach(rules) { rule in
+                    RuleToggleButton(
+                        rule: rule,
+                        isSelected: selectedRules.contains(rule),
+                        action: {
+                            withAnimation(.spring(response: 0.2, dampingFraction: 0.7)) {
+                                toggleRule(rule)
+                            }
+                        }
+                    )
+                }
+            }
+        }
+    }
+    
+    private func toggleRule(_ rule: ChallengeRule) {
+        if selectedRules.contains(rule) {
+            selectedRules.remove(rule)
+        } else {
+            if isMutuallyExclusive {
+                // Remove other rules in this category first
+                for existingRule in rules {
+                    selectedRules.remove(existingRule)
+                }
+            }
+            selectedRules.insert(rule)
+        }
+    }
+}
+
+// MARK: - Rule Toggle Button
+
+struct RuleToggleButton: View {
+    let rule: ChallengeRule
+    let isSelected: Bool
+    let action: () -> Void
+    
+    
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 12) {
+                // Icon
+                ZStack {
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(isSelected ? rule.color : rule.color.opacity(0.15))
+                        .frame(width: 36, height: 36)
+                    
+                    Image(systemName: rule.icon)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(isSelected ? .white : rule.color)
+                }
+                
+                // Text
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(rule.title)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(.primary)
+                    
+                    Text(rule.subtitle)
+                        .font(.system(size: 11))
+                        .foregroundColor(.secondary)
+                        .lineLimit(1)
+                }
+                
+                Spacer()
+                
+                // Checkbox
+                ZStack {
+                    RoundedRectangle(cornerRadius: 6)
+                        .stroke(isSelected ? rule.color : Color(.systemGray4), lineWidth: 2)
+                        .frame(width: 22, height: 22)
+                    
+                    if isSelected {
+                        RoundedRectangle(cornerRadius: 6)
+                            .fill(rule.color)
+                            .frame(width: 22, height: 22)
+                        
+                        Image(systemName: "checkmark")
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundColor(.white)
+                    }
+                }
+            }
+            .padding(12)
+            .background(
+                isSelected ? rule.color.opacity(0.08) : Color(.systemBackground)
+            )
+            .cornerRadius(12)
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(isSelected ? rule.color.opacity(0.3) : Color(.systemGray5), lineWidth: 1)
+            )
+        }
+        .buttonStyle(PlainButtonStyle())
+    }
+}
+
+// MARK: - Challenge Image Upload View
+
+struct ChallengeImageUploadView: View {
+    @Binding var selectedPhotoItem: PhotosPickerItem?
+    @Binding var selectedImageData: Data?
+    let challengeName: String
+    
+    @State private var isLoadingImage = false
+    
+    
+    var body: some View {
+        VStack(spacing: 0) {
+            // Image Preview Area
+            ZStack {
+                // Background - either selected image or placeholder
+                if let imageData = selectedImageData, let uiImage = UIImage(data: imageData) {
+                    // Selected image
+                    Image(uiImage: uiImage)
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                        .frame(height: 200)
+                        .clipped()
+                        .overlay(
+                            // Gradient overlay for text readability
+                            LinearGradient(
+                                colors: [
+                                    Color.black.opacity(0.5),
+                                    Color.black.opacity(0.2),
+                                    Color.clear
+                                ],
+                                startPoint: .bottom,
+                                endPoint: .top
+                            )
+                        )
+                } else {
+                    // Placeholder gradient background
+                    ZStack {
+                        LinearGradient(
+                            colors: [
+                                StepCompColors.primary.opacity(0.3),
+                                StepCompColors.primary.opacity(0.1),
+                                Color(.systemGray6)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                        
+                        // Decorative pattern
+                        GeometryReader { geo in
+                            ZStack {
+                                ForEach(0..<6, id: \.self) { index in
+                                    Circle()
+                                        .fill(StepCompColors.primary.opacity(0.1))
+                                        .frame(width: CGFloat.random(in: 40...80))
+                                        .offset(
+                                            x: CGFloat.random(in: -geo.size.width/2...geo.size.width/2),
+                                            y: CGFloat.random(in: -50...50)
+                                        )
+                                }
+                            }
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        }
+                    }
+                    .frame(height: 200)
+                }
+                
+                // Upload Button Overlay
+                VStack(spacing: 12) {
+                    if isLoadingImage {
+                        ProgressView()
+                            .scaleEffect(1.2)
+                            .tint(.white)
+                    } else {
+                        PhotosPicker(selection: $selectedPhotoItem, matching: .images) {
+                            VStack(spacing: 12) {
+                                ZStack {
+                                    Circle()
+                                        .fill(Color.white.opacity(0.95))
+                                        .frame(width: 60, height: 60)
+                                        .shadow(color: Color.black.opacity(0.15), radius: 8, x: 0, y: 4)
+                                    
+                                    Image(systemName: selectedImageData == nil ? "photo.badge.plus" : "photo.badge.arrow.down")
+                                        .font(.system(size: 24, weight: .semibold))
+                                        .foregroundColor(.primary)
+                                }
+                                
+                                Text(selectedImageData == nil ? "Add Cover Image" : "Change Image")
+                                    .font(.system(size: 14, weight: .semibold))
+                                    .foregroundColor(selectedImageData == nil ? .primary : .white)
+                                    .padding(.horizontal, 16)
+                                    .padding(.vertical, 8)
+                                    .background(
+                                        Capsule()
+                                            .fill(selectedImageData == nil ? Color.white.opacity(0.95) : Color.black.opacity(0.5))
+                                    )
+                                    .shadow(color: Color.black.opacity(0.1), radius: 4, x: 0, y: 2)
+                            }
+                        }
+                    }
+                }
+                
+                // Challenge name preview (when image is selected)
+                if selectedImageData != nil {
+                    VStack {
+                        Spacer()
+                        
+                        HStack {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(challengeName)
+                                    .font(.system(size: 22, weight: .bold))
+                                    .foregroundColor(.white)
+                                    .shadow(color: Color.black.opacity(0.3), radius: 4, x: 0, y: 2)
+                                
+                                HStack(spacing: 6) {
+                                    Image(systemName: "sparkles")
+                                        .font(.system(size: 12))
+                                    Text("Challenge Preview")
+                                        .font(.system(size: 12, weight: .medium))
+                                }
+                                .foregroundColor(.white.opacity(0.8))
+                            }
+                            
+                            Spacer()
+                        }
+                        .padding(16)
+                    }
+                }
+                
+                // Remove button (when image is selected)
+                if selectedImageData != nil {
+                    VStack {
+                        HStack {
+                            Spacer()
+                            
+                            Button(action: {
+                                withAnimation {
+                                    selectedImageData = nil
+                                    selectedPhotoItem = nil
+                                }
+                            }) {
+                                Image(systemName: "xmark")
+                                    .font(.system(size: 12, weight: .bold))
+                                    .foregroundColor(.primary)
+                                    .frame(width: 28, height: 28)
+                                    .background(Color.white.opacity(0.95))
+                                    .clipShape(Circle())
+                                    .shadow(color: Color.black.opacity(0.15), radius: 4, x: 0, y: 2)
+                            }
+                            .padding(12)
+                        }
+                        
+                        Spacer()
+                    }
+                }
+            }
+            .frame(height: 200)
+            .cornerRadius(24)
+            .overlay(
+                RoundedRectangle(cornerRadius: 24)
+                    .stroke(
+                        selectedImageData == nil ? 
+                            Color(.systemGray4).opacity(0.5) : 
+                            Color.clear,
+                        style: StrokeStyle(lineWidth: 2, dash: selectedImageData == nil ? [8, 6] : [])
+                    )
+            )
+            
+            // Helper text
+            if selectedImageData == nil {
+                HStack(spacing: 8) {
+                    Image(systemName: "info.circle")
+                        .font(.system(size: 12))
+                        .foregroundColor(.secondary)
+                    
+                    Text("Optional • This image will be the background of your challenge")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(.secondary)
+                }
+                .padding(.top, 12)
+            }
+        }
+        .onChange(of: selectedPhotoItem) { _, newValue in
+            Task {
+                await loadSelectedImage(from: newValue)
+            }
+        }
+    }
+    
+    private func loadSelectedImage(from item: PhotosPickerItem?) async {
+        guard let item = item else { return }
+        
+        isLoadingImage = true
+        defer { isLoadingImage = false }
+        
+        do {
+            if let data = try await item.loadTransferable(type: Data.self) {
+                // Compress image if needed
+                if let uiImage = UIImage(data: data) {
+                    // Resize and compress to reasonable size (max 1MB)
+                    let maxSize: CGFloat = 1200
+                    let scale = min(maxSize / uiImage.size.width, maxSize / uiImage.size.height, 1.0)
+                    let newSize = CGSize(
+                        width: uiImage.size.width * scale,
+                        height: uiImage.size.height * scale
+                    )
+                    
+                    UIGraphicsBeginImageContextWithOptions(newSize, false, 1.0)
+                    uiImage.draw(in: CGRect(origin: .zero, size: newSize))
+                    let resizedImage = UIGraphicsGetImageFromCurrentImageContext()
+                    UIGraphicsEndImageContext()
+                    
+                    if let compressedData = resizedImage?.jpegData(compressionQuality: 0.7) {
+                        await MainActor.run {
+                            withAnimation {
+                                selectedImageData = compressedData
+                            }
+                        }
+                    } else {
+                        await MainActor.run {
+                            withAnimation {
+                                selectedImageData = data
+                            }
+                        }
+                    }
+                }
+            }
+        } catch {
+            print("⚠️ Error loading image: \(error.localizedDescription)")
+        }
+    }
+}
+
+// MARK: - Image Style Presets
+
+struct ImageStylePresetsView: View {
+    @Binding var selectedImageData: Data?
+    
+    
+    let presets: [(name: String, colors: [Color], icon: String)] = [
+        ("Sunset", [Color.orange, Color.pink, Color.purple], "sun.horizon.fill"),
+        ("Ocean", [Color.cyan, Color.blue, Color.indigo], "water.waves"),
+        ("Forest", [Color.green, Color.mint, Color.teal], "leaf.fill"),
+        ("Energy", [Color.yellow, Color.orange, Color.red], "bolt.fill"),
+        ("Night", [Color.purple, Color.indigo, Color.black], "moon.stars.fill"),
+    ]
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Or choose a style")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundColor(.secondary)
+            
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 12) {
+                    ForEach(presets, id: \.name) { preset in
+                        Button(action: {
+                            // Generate gradient image
+                            generateGradientImage(colors: preset.colors)
+                        }) {
+                            ZStack {
+                                LinearGradient(
+                                    colors: preset.colors,
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                                .frame(width: 64, height: 64)
+                                .cornerRadius(12)
+                                
+                                Image(systemName: preset.icon)
+                                    .font(.system(size: 20, weight: .semibold))
+                                    .foregroundColor(.white)
+                                    .shadow(color: Color.black.opacity(0.3), radius: 2, x: 0, y: 1)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    private func generateGradientImage(colors: [Color]) {
+        let size = CGSize(width: 800, height: 400)
+        let renderer = UIGraphicsImageRenderer(size: size)
+        
+        let image = renderer.image { context in
+            let cgContext = context.cgContext
+            let colorSpace = CGColorSpaceCreateDeviceRGB()
+            
+            let uiColors = colors.map { UIColor($0) }
+            let cgColors = uiColors.map { $0.cgColor } as CFArray
+            
+            if let gradient = CGGradient(
+                colorsSpace: colorSpace,
+                colors: cgColors,
+                locations: nil
+            ) {
+                cgContext.drawLinearGradient(
+                    gradient,
+                    start: CGPoint(x: 0, y: 0),
+                    end: CGPoint(x: size.width, y: size.height),
+                    options: []
+                )
+            }
+        }
+        
+        if let data = image.jpegData(compressionQuality: 0.8) {
+            withAnimation {
+                selectedImageData = data
+            }
         }
     }
 }

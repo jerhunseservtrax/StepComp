@@ -10,19 +10,18 @@ import SwiftUI
 struct AddFriendsCTA: View {
     let onAddFriends: () -> Void
     
-    private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
     
     var body: some View {
         Button(action: onAddFriends) {
             HStack(spacing: 12) {
                 ZStack {
                     Circle()
-                        .fill(primaryYellow.opacity(0.2))
+                        .fill(StepCompColors.primary.opacity(0.2))
                         .frame(width: 48, height: 48)
                     
                     Image(systemName: "person.badge.plus")
                         .font(.system(size: 20))
-                        .foregroundColor(primaryYellow)
+                        .foregroundColor(StepCompColors.primary)
                 }
                 
                 VStack(alignment: .leading, spacing: 4) {

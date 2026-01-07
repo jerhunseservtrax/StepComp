@@ -16,13 +16,19 @@ struct HomeDashboardView: View {
     @ObservedObject var tabManager: TabSelectionManager
     @EnvironmentObject var challengeService: ChallengeService
     @EnvironmentObject var healthKitService: HealthKitService
+    @Environment(\.colorScheme) private var colorScheme
     
     @StateObject private var viewModel: DashboardViewModel
+    @ObservedObject private var celebrationManager = GoalCelebrationManager.shared
     @State private var navigationPath = NavigationPath()
     @State private var showingAddFriends = false
     @State private var showingCreateChallenge = false
     @State private var dailyGoal: Int = 10000 // Default goal
-    @State private var yesterdaySteps: Int = 0
+    @State private var selectedDate: Date = Date()
+    @State private var weeklyStepData: [Int] = [0, 0, 0, 0, 0, 0, 0]
+    @State private var selectedDateSteps: Int = 0
+    @State private var selectedDateCalories: Int = 0
+    @State private var selectedDateDistance: Double = 0.0
     
     init(sessionViewModel: SessionViewModel, tabManager: TabSelectionManager) {
         self.sessionViewModel = sessionViewModel
@@ -39,69 +45,91 @@ struct HomeDashboardView: View {
     
     var body: some View {
         NavigationStack(path: $navigationPath) {
-            ScrollView {
-                VStack(spacing: 24) {
-                    // Header
-                    DashboardHeader(user: sessionViewModel.currentUser)
-                    
-                    // Speedometer - Step Progress
-                    StepSpeedometerView(
-                        currentSteps: viewModel.todaySteps,
-                        dailyGoal: dailyGoal,
-                        percentageChange: calculatePercentageChange()
-                    )
-                    
-                    // Active Challenges Section
-                    if viewModel.activeChallenges.isEmpty {
-                        EmptyChallengesView()
-                    } else {
-                        VStack(alignment: .leading, spacing: 16) {
-                            Text("Active Challenges")
-                                .font(.system(size: 20, weight: .bold))
-                                .padding(.horizontal)
-                            
-                            ForEach(viewModel.activeChallenges) { challenge in
-                                ActiveChallengeCard(
-                                    challenge: challenge,
+            ZStack {
+                // Background - use adaptive StepCompColors
+                StepCompColors.background
+                    .ignoresSafeArea()
+                
+                ScrollView {
+                    VStack(spacing: 20) {
+                        // Header
+                        DashboardHeader(user: sessionViewModel.currentUser)
+                            .padding(.top, 8)
+                        
+                        // Date Selector
+                        DateSelectorView(selectedDate: $selectedDate)
+                        
+                        // Daily Goal Card (shows selected date's data)
+                        DailyGoalCard(
+                            currentSteps: selectedDateSteps,
+                            dailyGoal: dailyGoal,
+                            calories: selectedDateCalories,
+                            distanceKm: selectedDateDistance,
+                            activeHours: Double(selectedDateSteps) / 6500.0, // Approximate active hours
+                            onRefresh: {
+                                // Manual refresh: sync steps and update display
+                                await loadStepsForSelectedDate()
+                                await loadWeeklyData()
+                                viewModel.refresh()
+                            },
+                            celebrationManager: celebrationManager
+                        )
+                        
+                        // Activity Chart
+                        ActivityChartView(weeklyData: weeklyStepData)
+                        
+                        // Active Challenges Section (if any)
+                        if !viewModel.activeChallenges.isEmpty {
+                            VStack(alignment: .leading, spacing: 12) {
+                                Text("Active Challenges")
+                                    .font(.system(size: 18, weight: .bold))
+                                    .foregroundColor(.primary)
+                                    .padding(.horizontal, 24)
+                                
+                                StackedChallengesView(
+                                    challenges: viewModel.activeChallenges,
                                     currentSteps: viewModel.todaySteps,
-                                    onTap: {
+                                    onChallengeTap: { challenge in
                                         navigationPath.append(AppRoute.groupDetails(challengeId: challenge.id))
-                                    },
-                                    onViewLeaderboard: {
-                                        navigationPath.append(AppRoute.leaderboard(challengeId: challenge.id))
                                     }
                                 )
                             }
+                            .padding(.top, 8)
                         }
+                        
+                        // Bottom spacing for floating button
+                        Spacer()
+                            .frame(height: 80)
                     }
-                    
-                    // Daily Pulse Stats
-                    DailyPulseStatsView(
-                        calories: viewModel.caloriesBurned,
-                        distanceMiles: viewModel.distanceMiles,
-                        steps: viewModel.todaySteps
-                    )
-                    
-                    // Add Friends CTA
-                    AddFriendsCTA {
-                        showingAddFriends = true
-                    }
-                    
-                    // Create Challenge CTA
-                    CreateChallengeCTA {
-                        showingCreateChallenge = true
-                    }
-                    
-                    // Join Challenge CTA (if no active challenges)
-                    if viewModel.activeChallenges.isEmpty {
-                        JoinChallengeCTA {
-                            // Navigate to join challenge tab or view
-                            // This could be handled by switching tabs or navigation
-                        }
-                    }
+                    .padding(.vertical)
                 }
-                .iPadAdaptivePadding()
-                .padding(.vertical)
+                
+                // Floating Start Challenge Button
+                VStack {
+                    Spacer()
+                    
+                    Button(action: {
+                        showingCreateChallenge = true
+                        HapticManager.shared.medium()
+                    }) {
+                        HStack(spacing: 8) {
+                            Image(systemName: "plus.circle.fill")
+                                .font(.system(size: 16, weight: .semibold))
+                            Text("Start Challenge")
+                                .font(.stepBody())
+                                .fontWeight(.semibold)
+                        }
+                        .foregroundColor(StepCompColors.buttonTextOnPrimary)
+                        .padding(.horizontal, 28)
+                        .padding(.vertical, 16)
+                        .background(
+                            Capsule()
+                                .fill(StepCompColors.primaryGradient(for: colorScheme))
+                                .shadow(color: StepCompColors.primary.opacity(0.4), radius: 16, x: 0, y: 8)
+                        )
+                    }
+                    .padding(.bottom, 16)
+                }
             }
             .navigationBarHidden(true)
             .navigationDestination(for: AppRoute.self) { route in
@@ -112,11 +140,11 @@ struct HomeDashboardView: View {
                 await challengeService.refreshChallenges()
                 #endif
                 viewModel.refresh()
+                await loadWeeklyData()
             }
         }
         .onAppear {
             loadDailyGoal()
-            loadYesterdaySteps()
             updateViewModel()
             // Ensure HealthKit is initialized
             _ = healthKitService.isHealthKitAvailable
@@ -131,7 +159,14 @@ struct HomeDashboardView: View {
                 await challengeService.refreshChallenges()
                 #endif
                 updateViewModel()
-                // Steps will sync automatically via DashboardViewModel.loadStepData()
+                await loadWeeklyData()
+                await loadStepsForSelectedDate()
+            }
+        }
+        .onChange(of: selectedDate) { oldDate, newDate in
+            // Load steps when date changes
+            Task {
+                await loadStepsForSelectedDate()
             }
         }
         .onDisappear {
@@ -173,6 +208,16 @@ struct HomeDashboardView: View {
                 }
             }
         }
+        // Goal Celebration Full-Screen Cover
+        .fullScreenCover(isPresented: $celebrationManager.shouldShowCelebration) {
+            GoalCelebrationView(
+                steps: celebrationManager.celebrationSteps,
+                goal: celebrationManager.celebrationGoal,
+                onDismiss: {
+                    celebrationManager.dismissCelebration()
+                }
+            )
+        }
     }
     
     private func updateViewModel() {
@@ -187,30 +232,94 @@ struct HomeDashboardView: View {
         }
     }
     
-    private func loadYesterdaySteps() {
-        Task {
-            do {
-                let calendar = Calendar.current
-                let yesterday = calendar.date(byAdding: .day, value: -1, to: Date())!
-                let startOfYesterday = calendar.startOfDay(for: yesterday)
-                let endOfYesterday = calendar.date(byAdding: .day, value: 1, to: startOfYesterday)!
-                
-                if let steps = try await healthKitService.getStepCount(
-                    from: startOfYesterday,
-                    to: endOfYesterday
-                ) {
-                    yesterdaySteps = Int(steps)
-                }
-            } catch {
-                print("Failed to load yesterday's steps: \(error)")
+    private func loadWeeklyData() async {
+        // Load weekly step data from HealthKit
+        let calendar = Calendar.current
+        let today = Date()
+        
+        // Find Monday of this week
+        var components = calendar.dateComponents([.yearForWeekOfYear, .weekOfYear], from: today)
+        components.weekday = 2 // Monday
+        guard let monday = calendar.date(from: components) else { return }
+        
+        var dailySteps: [Int] = []
+        
+        for dayOffset in 0..<7 {
+            guard let dayStart = calendar.date(byAdding: .day, value: dayOffset, to: monday),
+                  let dayEnd = calendar.date(byAdding: .day, value: 1, to: dayStart) else {
+                dailySteps.append(0)
+                continue
             }
+            
+            // Only fetch data for days up to today
+            if dayStart > today {
+                dailySteps.append(0)
+                continue
+            }
+            
+            do {
+                let stats = try await healthKitService.getSteps(from: dayStart, to: dayEnd)
+                let daySteps = stats.reduce(0) { $0 + $1.steps }
+                dailySteps.append(daySteps)
+            } catch {
+                dailySteps.append(0)
+            }
+        }
+        
+        await MainActor.run {
+            weeklyStepData = dailySteps
         }
     }
     
-    private func calculatePercentageChange() -> Double {
-        guard yesterdaySteps > 0 else { return 0 }
-        let change = Double(viewModel.todaySteps - yesterdaySteps)
-        return (change / Double(yesterdaySteps)) * 100.0
+    private func loadStepsForSelectedDate() async {
+        let calendar = Calendar.current
+        
+        // Get start and end of selected date
+        guard let dayStart = calendar.startOfDay(for: selectedDate) as Date?,
+              let dayEnd = calendar.date(byAdding: .day, value: 1, to: dayStart) else {
+            await MainActor.run {
+                selectedDateSteps = 0
+                selectedDateCalories = 0
+                selectedDateDistance = 0.0
+            }
+            return
+        }
+        
+        // Don't fetch data for future dates
+        if dayStart > Date() {
+            await MainActor.run {
+                selectedDateSteps = 0
+                selectedDateCalories = 0
+                selectedDateDistance = 0.0
+            }
+            return
+        }
+        
+        do {
+            let stats = try await healthKitService.getSteps(from: dayStart, to: dayEnd)
+            let totalSteps = stats.reduce(0) { $0 + $1.steps }
+            
+            // Calculate derived metrics
+            let calories = Int(Double(totalSteps) * 0.04) // Approximate: 1 step ≈ 0.04 kcal
+            let distance = Double(totalSteps) * 0.0008 // Approximate: 1 step ≈ 0.0008 km
+            
+            await MainActor.run {
+                selectedDateSteps = totalSteps
+                selectedDateCalories = calories
+                selectedDateDistance = distance
+                
+                let dateFormatter = DateFormatter()
+                dateFormatter.dateStyle = .medium
+                print("📅 Loaded steps for \(dateFormatter.string(from: selectedDate)): \(totalSteps) steps")
+            }
+        } catch {
+            print("⚠️ Error loading steps for selected date: \(error.localizedDescription)")
+            await MainActor.run {
+                selectedDateSteps = 0
+                selectedDateCalories = 0
+                selectedDateDistance = 0.0
+            }
+        }
     }
     
     @ViewBuilder
@@ -236,7 +345,7 @@ struct EmptyChallengesView: View {
         VStack(spacing: 20) {
             ZStack {
                 Circle()
-                    .fill(Color(red: 0.976, green: 0.961, blue: 0.024).opacity(0.1))
+                    .fill(StepCompColors.primary.opacity(0.1))
                     .frame(width: 120, height: 120)
                     .blur(radius: 40)
                 
@@ -266,7 +375,6 @@ struct EmptyChallengesView: View {
 struct JoinChallengeCTA: View {
     let onJoin: () -> Void
     
-    private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
     
     var body: some View {
         Button(action: onJoin) {

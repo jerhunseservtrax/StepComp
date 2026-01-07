@@ -47,7 +47,7 @@ struct CreateChallengeCTA: View {
                             .frame(width: 48, height: 48)
                         
                         Image(systemName: "flame.fill")
-                            .foregroundColor(Color(red: 0.976, green: 0.961, blue: 0.024))
+                            .foregroundColor(StepCompColors.primary)
                             .font(.system(size: 20))
                     }
                 }

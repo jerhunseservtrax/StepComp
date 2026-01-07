@@ -7,6 +7,12 @@
 
 import SwiftUI
 import Combine
+#if canImport(UIKit)
+import UIKit
+#endif
+#if canImport(UserNotifications)
+import UserNotifications
+#endif
 
 struct RootView: View {
     @StateObject private var authService = AuthService()
@@ -54,8 +60,18 @@ struct RootView: View {
         .environmentObject(themeManager)
         .preferredColorScheme(themeManager.colorScheme)
         .onAppear {
+            // Initialize notification service to request permissions
+            _ = StepGoalNotificationService.shared
+            
             // Update SessionViewModel with the actual service instances
             sessionViewModel.updateServices(authService: authService, healthKitService: healthKitService)
+            
+            // Clear delivered notifications and badge when app opens
+            clearDeliveredNotificationsAndBadge()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
+            // Clear delivered notifications and badge when app becomes active
+            clearDeliveredNotificationsAndBadge()
         }
         .onReceive(router.$pendingPasswordResetURL) { url in
             if let url = url {
@@ -72,6 +88,36 @@ struct RootView: View {
             NavigationStack {
                 InviteAcceptView(token: item.token, service: friendsService)
             }
+        }
+    }
+    
+    // Clear all delivered notifications and badge when app opens or becomes active
+    private func clearDeliveredNotificationsAndBadge() {
+        Task {
+            let center = UNUserNotificationCenter.current()
+            
+            // Get all delivered notifications
+            let delivered = await center.deliveredNotifications()
+            print("📱 Found \(delivered.count) delivered notifications")
+            
+            // Log them for debugging
+            for notification in delivered {
+                print("  - \(notification.request.identifier): \(notification.request.content.title)")
+            }
+            
+            // Remove all delivered notifications from notification center
+            center.removeAllDeliveredNotifications()
+            print("🧹 Cleared all delivered notifications")
+            
+            // Clear the badge
+            if #available(iOS 16.0, *) {
+                try? await center.setBadgeCount(0)
+            } else {
+                await MainActor.run {
+                    UIApplication.shared.applicationIconBadgeNumber = 0
+                }
+            }
+            print("✅ Badge cleared")
         }
     }
 }

@@ -23,6 +23,7 @@ struct InboxNotification: Identifiable, Codable {
         case friendRequest = "friend_request"
         case challengeInvite = "challenge_invite"
         case challengeUpdate = "challenge_update"
+        case challengeJoined = "challenge_joined"
         case achievement = "achievement"
     }
     
@@ -45,6 +46,8 @@ struct InboxNotification: Identifiable, Codable {
             return "trophy.fill"
         case .challengeUpdate:
             return "bell.fill"
+        case .challengeJoined:
+            return "person.2.fill"
         case .achievement:
             return "star.fill"
         }
@@ -58,6 +61,8 @@ struct InboxNotification: Identifiable, Codable {
             return "yellow"
         case .challengeUpdate:
             return "purple"
+        case .challengeJoined:
+            return "green"
         case .achievement:
             return "orange"
         }

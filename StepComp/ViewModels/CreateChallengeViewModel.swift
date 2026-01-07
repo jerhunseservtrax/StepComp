@@ -13,6 +13,106 @@ import Supabase
 import PostgREST
 #endif
 
+// MARK: - Challenge Rule Model
+
+enum ChallengeRule: String, CaseIterable, Identifiable, Codable {
+    case verifiedSourcesOnly = "verified_sources"
+    case dailyStepCap15k = "daily_cap_15k"
+    case dailyStepCap25k = "daily_cap_25k"
+    case dailyStepCap50k = "daily_cap_50k"
+    case syncEvery24h = "sync_24h"
+    case syncEvery3Days = "sync_3d"
+    case syncWeekly = "sync_weekly"
+    case noManualEntry = "no_manual"
+    case wearablesOnly = "wearables_only"
+    case mustSyncDaily = "must_sync_daily"
+    case fairPlay = "fair_play"
+    case activeParticipation = "active_participation"
+    
+    var id: String { rawValue }
+    
+    var title: String {
+        switch self {
+        case .verifiedSourcesOnly: return "Verified Sources Only"
+        case .dailyStepCap15k: return "Daily Cap: 15k Steps"
+        case .dailyStepCap25k: return "Daily Cap: 25k Steps"
+        case .dailyStepCap50k: return "Daily Cap: 50k Steps"
+        case .syncEvery24h: return "Sync Every 24 Hours"
+        case .syncEvery3Days: return "Sync Every 3 Days"
+        case .syncWeekly: return "Weekly Sync OK"
+        case .noManualEntry: return "No Manual Entry"
+        case .wearablesOnly: return "Wearables Only"
+        case .mustSyncDaily: return "Must Sync Daily"
+        case .fairPlay: return "Fair Play Mode"
+        case .activeParticipation: return "Active Participation Required"
+        }
+    }
+    
+    var subtitle: String {
+        switch self {
+        case .verifiedSourcesOnly: return "Only steps from verified health apps count"
+        case .dailyStepCap15k: return "Maximum 15,000 steps per day count towards total"
+        case .dailyStepCap25k: return "Maximum 25,000 steps per day count towards total"
+        case .dailyStepCap50k: return "Maximum 50,000 steps per day count towards total"
+        case .syncEvery24h: return "Participants must sync data within 24 hours"
+        case .syncEvery3Days: return "Participants must sync at least every 3 days"
+        case .syncWeekly: return "Participants can sync once per week"
+        case .noManualEntry: return "Manually entered steps are not allowed"
+        case .wearablesOnly: return "Only wearable device data is accepted"
+        case .mustSyncDaily: return "Data must be synced every day to count"
+        case .fairPlay: return "Anti-cheat measures enabled"
+        case .activeParticipation: return "Inactive users may be removed"
+        }
+    }
+    
+    var icon: String {
+        switch self {
+        case .verifiedSourcesOnly: return "checkmark.shield.fill"
+        case .dailyStepCap15k, .dailyStepCap25k, .dailyStepCap50k: return "gauge.medium"
+        case .syncEvery24h, .syncEvery3Days, .syncWeekly: return "arrow.triangle.2.circlepath"
+        case .noManualEntry: return "hand.raised.slash.fill"
+        case .wearablesOnly: return "applewatch"
+        case .mustSyncDaily: return "clock.badge.checkmark.fill"
+        case .fairPlay: return "shield.checkered"
+        case .activeParticipation: return "figure.walk"
+        }
+    }
+    
+    var color: Color {
+        switch self {
+        case .verifiedSourcesOnly: return .blue
+        case .dailyStepCap15k: return .green
+        case .dailyStepCap25k: return .orange
+        case .dailyStepCap50k: return .red
+        case .syncEvery24h: return .purple
+        case .syncEvery3Days: return .cyan
+        case .syncWeekly: return .teal
+        case .noManualEntry: return .pink
+        case .wearablesOnly: return .indigo
+        case .mustSyncDaily: return .mint
+        case .fairPlay: return .yellow
+        case .activeParticipation: return .brown
+        }
+    }
+    
+    // Group rules by category for better organization
+    static var dataSourceRules: [ChallengeRule] {
+        [.verifiedSourcesOnly, .wearablesOnly, .noManualEntry]
+    }
+    
+    static var dailyCapRules: [ChallengeRule] {
+        [.dailyStepCap15k, .dailyStepCap25k, .dailyStepCap50k]
+    }
+    
+    static var syncRules: [ChallengeRule] {
+        [.syncEvery24h, .syncEvery3Days, .syncWeekly, .mustSyncDaily]
+    }
+    
+    static var participationRules: [ChallengeRule] {
+        [.fairPlay, .activeParticipation]
+    }
+}
+
 @MainActor
 final class CreateChallengeViewModel: ObservableObject {
     @Published var name: String = "Morning Sprinters"
@@ -32,6 +132,9 @@ final class CreateChallengeViewModel: ObservableObject {
     @Published var isFriendsOnly: Bool = false // Only friends can join
     @Published var selectedParticipants: [String] = [] // User IDs
     @Published var selectedCategory: Challenge.ChallengeCategory? = nil // Category for public challenges
+    @Published var selectedRules: Set<ChallengeRule> = [] // Selected rules for the challenge
+    @Published var challengeImageData: Data? = nil // Image data for challenge background
+    @Published var challengeImageURL: String? = nil // URL after upload to storage
     
     private var challengeService: ChallengeService
     private let creatorId: String
@@ -189,8 +292,16 @@ final class CreateChallengeViewModel: ObservableObject {
         isPrivate = true
         selectedParticipants = []
         selectedCategory = nil
+        selectedRules = []
+        challengeImageData = nil
+        challengeImageURL = nil
         errorMessage = nil
         createdChallenge = nil
+    }
+    
+    // Helper to get selected rules as array for storage
+    var selectedRulesArray: [String] {
+        selectedRules.map { $0.rawValue }
     }
 }
 

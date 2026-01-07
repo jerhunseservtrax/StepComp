@@ -17,7 +17,6 @@ struct HealthPermissionOnboardingView: View {
     @State private var errorMessage: String?
     @State private var isAnimating = false
     
-    private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
     
     var body: some View {
         OnboardingScreenBase(currentStep: currentStep.stepIndex) {
@@ -28,7 +27,7 @@ struct HealthPermissionOnboardingView: View {
                 ZStack {
                     // Glowing background circle
                     Circle()
-                        .fill(primaryYellow.opacity(0.2))
+                        .fill(StepCompColors.primary.opacity(0.2))
                         .frame(width: 256, height: 256)
                         .blur(radius: 40)
                         .scaleEffect(isAnimating ? 1.1 : 1.0)
@@ -38,12 +37,12 @@ struct HealthPermissionOnboardingView: View {
                             value: isAnimating
                         )
                     
-                    // Main icon container - white circle with yellow glow
+                    // Main icon container - white/surface circle with primary glow
                     ZStack {
                         Circle()
-                            .fill(Color(.systemBackground))
+                            .fill(StepCompColors.surface)
                             .frame(width: 256, height: 256)
-                            .shadow(color: primaryYellow.opacity(0.3), radius: 20, x: 0, y: 8)
+                            .shadow(color: StepCompColors.primary.opacity(0.3), radius: 20, x: 0, y: 8)
                         
                         // Red heart icon
                         Image(systemName: "heart.fill")
@@ -58,7 +57,7 @@ struct HealthPermissionOnboardingView: View {
                                 Spacer()
                                 ZStack {
                                     RoundedRectangle(cornerRadius: 16)
-                                        .fill(Color(.systemBackground))
+                                        .fill(StepCompColors.surface)
                                         .frame(width: 48, height: 48)
                                         .shadow(color: Color.black.opacity(0.1), radius: 8, x: 0, y: 4)
                                     
@@ -110,7 +109,7 @@ struct HealthPermissionOnboardingView: View {
                         .foregroundColor(.green)
                 }
                 .padding(16)
-                .background(Color(.systemGray6))
+                .background(StepCompColors.surfaceElevated)
                 .cornerRadius(16)
                 .padding(.horizontal, 24)
                 .padding(.bottom, 24)

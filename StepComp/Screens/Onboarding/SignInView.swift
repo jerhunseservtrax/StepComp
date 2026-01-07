@@ -34,8 +34,10 @@ struct SignInOnboardingView: View {
     @State private var isLoading: Bool = false
     @State private var errorMessage: String?
     @State private var showingForgotPassword = false
+    @State private var showingTerms = false
+    @State private var showingPrivacyPolicy = false
+    @Environment(\.colorScheme) private var currentColorScheme
     
-    private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
     
     var body: some View {
         OnboardingScreenBase(currentStep: currentStep.stepIndex) {
@@ -52,7 +54,7 @@ struct SignInOnboardingView: View {
                                 .offset(x: -20, y: 20)
                             
                             Circle()
-                                .fill(primaryYellow.opacity(0.1))
+                                .fill(StepCompColors.primary.opacity(0.1))
                                 .frame(width: 128, height: 128)
                                 .blur(radius: 30)
                                 .offset(x: 20, y: -20)
@@ -68,7 +70,7 @@ struct SignInOnboardingView: View {
                                     
                                     Image(systemName: "trophy.fill")
                                         .font(.system(size: 60))
-                                        .foregroundColor(primaryYellow)
+                                        .foregroundColor(StepCompColors.primary)
                                 }
                                 .rotationEffect(.degrees(-6))
                                 .offset(y: 20)
@@ -129,6 +131,9 @@ struct SignInOnboardingView: View {
                             
                             // Google Sign In
                             Button(action: {
+                                // #region agent log
+                                print("🔍 [H1] Google button tapped - handleGoogleSignIn about to be called")
+                                // #endregion
                                 handleGoogleSignIn()
                             }) {
                                 HStack {
@@ -144,7 +149,7 @@ struct SignInOnboardingView: View {
                                 .foregroundColor(.primary)
                                 .frame(maxWidth: .infinity)
                                 .frame(height: 56)
-                                .background(Color(.systemBackground))
+                                .background(StepCompColors.surface)
                                 .overlay(
                                     RoundedRectangle(cornerRadius: 999)
                                         .stroke(Color(.systemGray4), lineWidth: 1)
@@ -167,7 +172,7 @@ struct SignInOnboardingView: View {
                                 .foregroundColor(.primary)
                                 .frame(maxWidth: .infinity)
                                 .frame(height: 56)
-                                .background(Color(.systemBackground))
+                                .background(StepCompColors.surface)
                                 .overlay(
                                     RoundedRectangle(cornerRadius: 999)
                                         .stroke(Color(.systemGray4), lineWidth: 1)
@@ -186,18 +191,30 @@ struct SignInOnboardingView: View {
                     HStack(spacing: 0) {
                         Text("By continuing, you agree to our ")
                             .font(.system(size: 12))
-                    .foregroundColor(.secondary)
-                        Text("Terms")
-                            .font(.system(size: 12))
                             .foregroundColor(.secondary)
-                            .underline()
+                        
+                        Button(action: {
+                            showingTerms = true
+                        }) {
+                            Text("Terms")
+                                .font(.system(size: 12))
+                                .foregroundColor(.secondary)
+                                .underline()
+                        }
+                        
                         Text(" and ")
                             .font(.system(size: 12))
                             .foregroundColor(.secondary)
-                        Text("Privacy Policy")
-                            .font(.system(size: 12))
-                            .foregroundColor(.secondary)
-                            .underline()
+                        
+                        Button(action: {
+                            showingPrivacyPolicy = true
+                        }) {
+                            Text("Privacy Policy")
+                                .font(.system(size: 12))
+                                .foregroundColor(.secondary)
+                                .underline()
+                        }
+                        
                         Text(".")
                             .font(.system(size: 12))
                             .foregroundColor(.secondary)
@@ -218,7 +235,7 @@ struct SignInOnboardingView: View {
                                     .foregroundColor(.secondary)
                                 Text(" Tap here")
                                     .font(.system(size: 14, weight: .semibold))
-                                    .foregroundColor(primaryYellow)
+                                    .foregroundColor(currentColorScheme == .light ? .black : StepCompColors.primary)
                             }
                         }
                         .padding(.trailing, 24)
@@ -253,11 +270,41 @@ struct SignInOnboardingView: View {
                 },
                 onForgotPassword: {
                     showingForgotPassword = true
+                },
+                onAppleSignIn: {
+                    triggerAppleSignIn()
+                },
+                onGoogleSignIn: {
+                    handleGoogleSignIn()
                 }
             )
         }
         .sheet(isPresented: $showingForgotPassword) {
             ForgotPasswordSheet(email: $email)
+        }
+        .sheet(isPresented: $showingTerms) {
+            NavigationStack {
+                TermsOfServiceView()
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button("Close") {
+                                showingTerms = false
+                            }
+                        }
+                    }
+            }
+        }
+        .sheet(isPresented: $showingPrivacyPolicy) {
+            NavigationStack {
+                PrivacyPolicyView()
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button("Close") {
+                                showingPrivacyPolicy = false
+                            }
+                        }
+                    }
+            }
         }
         .onAppear {
             isAnimating = true
@@ -271,6 +318,25 @@ struct SignInOnboardingView: View {
     }
     
     @State private var isAnimating = false
+    @State private var appleSignInDelegate: AppleSignInDelegate?
+    
+    private func triggerAppleSignIn() {
+        // Create Apple ID provider
+        let appleIDProvider = ASAuthorizationAppleIDProvider()
+        let request = appleIDProvider.createRequest()
+        request.requestedScopes = [.fullName, .email]
+        
+        // Create and configure authorization controller
+        let authorizationController = ASAuthorizationController(authorizationRequests: [request])
+        let delegate = AppleSignInDelegate { result in
+            self.handleAppleSignIn(result: result)
+        }
+        self.appleSignInDelegate = delegate
+        authorizationController.delegate = delegate
+        
+        // Perform authorization request
+        authorizationController.performRequests()
+    }
     
     private func handleAppleSignIn(result: Result<ASAuthorization, Error>) {
         switch result {
@@ -466,12 +532,7 @@ struct SignInOnboardingView: View {
             if sessionViewModel.isAuthenticated, sessionViewModel.currentUser != nil {
                 showingEmailAuth = false
                 // Apply avatar if selected during onboarding
-                if var user = sessionViewModel.currentUser,
-                   let avatarURL = UserDefaults.standard.string(forKey: "selectedAvatarURL") {
-                    user.avatarURL = avatarURL
-                    sessionViewModel.updateUser(user)
-                    UserDefaults.standard.removeObject(forKey: "selectedAvatarURL")
-                }
+                await applySelectedAvatar()
                 sessionViewModel.completeOnboarding()
             } else {
                 errorMessage = "Authentication failed. Please check your credentials and try again."
@@ -485,21 +546,112 @@ struct SignInOnboardingView: View {
         isLoading = false
     }
     
+    private func applySelectedAvatar() async {
+        guard var user = sessionViewModel.currentUser else { return }
+        
+        #if canImport(Supabase)
+        // Check for custom photo upload first
+        if let photoData = UserDefaults.standard.data(forKey: "selectedAvatarPhotoData") {
+            do {
+                let fileName = "\(user.id)/avatar_\(Int(Date().timeIntervalSince1970)).jpg"
+                
+                // Upload to Supabase Storage
+                try await supabase.storage
+                    .from("avatars")
+                    .upload(
+                        path: fileName,
+                        file: photoData,
+                        options: FileOptions(contentType: "image/jpeg", upsert: true)
+                    )
+                
+                // Get public URL
+                let publicURL = try supabase.storage
+                    .from("avatars")
+                    .getPublicURL(path: fileName)
+                
+                // Update profile with avatar URL
+                try await supabase
+                    .from("profiles")
+                    .update(["avatar_url": publicURL.absoluteString])
+                    .eq("id", value: user.id)
+                    .execute()
+                
+                user.avatarURL = publicURL.absoluteString
+                sessionViewModel.updateUser(user)
+                print("✅ Custom avatar uploaded and applied")
+            } catch {
+                print("⚠️ Failed to upload avatar: \(error.localizedDescription)")
+            }
+            UserDefaults.standard.removeObject(forKey: "selectedAvatarPhotoData")
+        }
+        // Check for emoji avatar
+        else if let avatarEmoji = UserDefaults.standard.string(forKey: "selectedAvatarEmoji") {
+            do {
+                // Update profile with emoji avatar
+                try await supabase
+                    .from("profiles")
+                    .update(["avatar_url": avatarEmoji])
+                    .eq("id", value: user.id)
+                    .execute()
+                
+                user.avatarURL = avatarEmoji
+                sessionViewModel.updateUser(user)
+                print("✅ Emoji avatar applied: \(avatarEmoji)")
+            } catch {
+                print("⚠️ Failed to apply avatar: \(error.localizedDescription)")
+            }
+            UserDefaults.standard.removeObject(forKey: "selectedAvatarEmoji")
+        }
+        #endif
+    }
+    
     private func handleGoogleSignIn() {
+        // #region agent log
         #if canImport(Supabase) && canImport(UIKit)
+        print("🔍 [H2] handleGoogleSignIn called - Using Supabase path")
+        #else
+        print("🔍 [H2] handleGoogleSignIn called - Using mock path")
+        #endif
+        // #endregion
+        
+        #if canImport(Supabase) && canImport(UIKit)
+        // #region agent log
+        print("🔍 [H2] Inside Supabase path - starting Task")
+        // #endregion
+        
         Task {
+            // #region agent log
+            print("🔍 [H2] Task started - setting isLoading=true")
+            // #endregion
+            
             isLoading = true
             errorMessage = nil
             
             do {
+                // #region agent log
+                print("🔍 [H3] Calling sessionViewModel.signInWithGoogle()")
+                // #endregion
+                
                 // Use Supabase OAuth for Google Sign-In
                 let oauthURL = try await sessionViewModel.signInWithGoogle()
                 
+                // #region agent log
+                print("🔍 [H3] OAuth URL received: \(oauthURL.absoluteString)")
+                // #endregion
+                
                 // Open OAuth URL using ASWebAuthenticationSession
                 await MainActor.run {
+                    // #region agent log
+                    print("🔍 [H4] Calling openGoogleOAuth with URL")
+                    // #endregion
+                    
                     openGoogleOAuth(url: oauthURL)
                 }
             } catch {
+                // #region agent log
+                print("🔍 [H3] Error caught: \(error.localizedDescription)")
+                // #endregion
+                
                 isLoading = false
                 if case AuthError.oauthURLGenerated(let url) = error {
                     // URL was generated, open it
@@ -513,6 +665,10 @@ struct SignInOnboardingView: View {
             }
         }
         #else
+        // #region agent log
+        print("🔍 [H2] In fallback/mock path - Supabase not available")
+        // #endregion
+        
         // Fallback to mock when Supabase is not available
         Task {
             isLoading = true
@@ -556,14 +712,81 @@ struct SignInOnboardingView: View {
     
     #if canImport(UIKit)
     @State private var webAuthSession: ASWebAuthenticationSession?
+    @State private var presentationContextProvider: WebAuthPresentationContextProvider?
+    
+    // Presentation context provider for ASWebAuthenticationSession
+    private class WebAuthPresentationContextProvider: NSObject, ASWebAuthenticationPresentationContextProviding {
+        func presentationAnchor(for session: ASWebAuthenticationSession) -> ASPresentationAnchor {
+            // #region agent log
+            print("🔍 [H6] presentationAnchor called - finding window")
+            // #endregion
+            
+            // Return the key window
+            guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+                  let window = windowScene.windows.first else {
+                // #region agent log
+                print("❌ [H6] No window found, returning new UIWindow")
+                // #endregion
+                return UIWindow()
+            }
+            
+            // #region agent log
+            print("✅ [H6] Found window: \(window)")
+            // #endregion
+            return window
+        }
+    }
     
     private func openGoogleOAuth(url: URL) {
-        let callbackURLScheme = "je.stepcomp" // Your bundle ID in reverse domain notation
+        // #region agent log
+        print("🔍 [H4] openGoogleOAuth called with URL: \(url.absoluteString)")
+        print("🔍 [H4] Creating ASWebAuthenticationSession with callbackURLScheme: stepcomp")
+        
+        // Check if URL scheme is registered
+        if let urlTypes = Bundle.main.infoDictionary?["CFBundleURLTypes"] as? [[String: Any]] {
+            print("🔍 [H5] Registered URL Types: \(urlTypes)")
+            let schemes = urlTypes.compactMap { $0["CFBundleURLSchemes"] as? [String] }.flatMap { $0 }
+            print("🔍 [H5] Registered URL Schemes: \(schemes)")
+            if schemes.contains("stepcomp") {
+                print("✅ [H5] URL scheme 'stepcomp' IS registered")
+            } else {
+                print("❌ [H5] URL scheme 'stepcomp' NOT registered! This is the problem.")
+                print("❌ [H5] Available schemes: \(schemes)")
+            }
+        } else {
+            print("❌ [H5] No URL types found in Info.plist")
+        }
+        // #endregion
+        
+        let callbackURLScheme = "stepcomp" // Must match Info.plist URL scheme
+        
+        // #region agent log
+        // Cancel any existing session first
+        if let existingSession = webAuthSession {
+            print("🔍 [H6] Cancelling existing auth session")
+            existingSession.cancel()
+            webAuthSession = nil
+        }
+        // #endregion
         
         let session = ASWebAuthenticationSession(
             url: url,
             callbackURLScheme: callbackURLScheme
         ) { callbackURL, error in
+            // #region agent log
+            print("🔍 [H7] Completion handler called")
+            if let error = error {
+                print("❌ [H7] Error: \(error.localizedDescription)")
+                print("❌ [H7] Error code: \((error as NSError).code)")
+                print("❌ [H7] Error domain: \((error as NSError).domain)")
+            }
+            if let callbackURL = callbackURL {
+                print("✅ [H7] Callback URL received: \(callbackURL.absoluteString)")
+            } else {
+                print("⚠️ [H7] No callback URL received")
+            }
+            // #endregion
+            
             Task { @MainActor in
                 isLoading = false
                 
@@ -585,14 +808,38 @@ struct SignInOnboardingView: View {
             }
         }
         
-        #if os(iOS)
-        // presentationContextProvider is optional - iOS will use default window if not set
-        // SwiftUI structs can't conform to class protocols, so we skip it
-        #endif
-        session.prefersEphemeralWebBrowserSession = false
+        // Set presentation context provider (required for iPad and some iOS scenarios)
+        // IMPORTANT: Store in @State to retain it - weak reference otherwise causes start() to fail
+        let provider = WebAuthPresentationContextProvider()
+        presentationContextProvider = provider
+        session.presentationContextProvider = provider
+        
+        // #region agent log
+        print("🔍 [H8] Setting prefersEphemeralWebBrowserSession = true (using in-app browser)")
+        // #endregion
+        
+        // Use ephemeral session (in-app browser) instead of shared Safari
+        // This often works better on iPad and avoids cookie/session issues
+        session.prefersEphemeralWebBrowserSession = true
         
         webAuthSession = session
-        session.start()
+        
+        // #region agent log
+        print("🔍 [H4] ASWebAuthenticationSession created, calling start()")
+        print("🔍 [H6] presentationContextProvider retained: \(presentationContextProvider != nil)")
+        // #endregion
+        
+        let started = session.start()
+        
+        // #region agent log
+        print("🔍 [H4] session.start() returned: \(started)")
+        if !started {
+            print("❌ [H4] session.start() failed - possible reasons:")
+            print("   - Another auth session might be active")
+            print("   - Presentation context invalid")
+            print("   - URL scheme not in Info.plist")
+        }
+        // #endregion
     }
     
     private func handleOAuthCallback(url: URL) async {
@@ -668,14 +915,16 @@ struct EmailAuthSheet: View {
     let onSignIn: () -> Void
     let onSignUp: () -> Void
     let onForgotPassword: () -> Void
+    let onAppleSignIn: () -> Void
+    let onGoogleSignIn: () -> Void
     
     @State private var confirmPassword: String = ""
     @State private var showingPassword: Bool = false
     @State private var showingConfirmPassword: Bool = false
+    @Environment(\.colorScheme) private var currentColorScheme
     
     @Environment(\.dismiss) var dismiss
     
-    private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
     private let backgroundDark = Color(red: 0.137, green: 0.133, blue: 0.059) // #23220f
     private let inputDark = Color(red: 0.208, green: 0.204, blue: 0.094) // #353418
     private let inputBorder = Color(red: 0.416, green: 0.412, blue: 0.184) // #6a692f
@@ -699,7 +948,9 @@ struct EmailAuthSheet: View {
                 onBack: { dismiss() },
                 onSwitchToSignIn: {
                     isSignUp = false
-                }
+                },
+                onAppleSignIn: onAppleSignIn,
+                onGoogleSignIn: onGoogleSignIn
             )
         } else {
             SignInView(
@@ -713,7 +964,9 @@ struct EmailAuthSheet: View {
                 onBack: { dismiss() },
                 onSwitchToSignUp: {
                     isSignUp = true
-                }
+                },
+                onAppleSignIn: onAppleSignIn,
+                onGoogleSignIn: onGoogleSignIn
             )
         }
     }
@@ -737,16 +990,17 @@ struct SignUpView: View {
     let onSignUp: () -> Void
     let onBack: () -> Void
     let onSwitchToSignIn: () -> Void
+    let onAppleSignIn: () -> Void
+    let onGoogleSignIn: () -> Void
     
     @State private var fullName: String = ""
     
-    private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
     
     var body: some View {
         NavigationStack {
             ZStack {
-                // Background - Light mode
-                Color(.systemBackground)
+                // Background
+                StepCompColors.background
                     .ignoresSafeArea()
                 
                 ScrollView {
@@ -757,12 +1011,12 @@ struct SignUpView: View {
                             ZStack {
                                 // Outer glow circle
                                 Circle()
-                                    .fill(primaryYellow.opacity(0.2))
+                                    .fill(StepCompColors.primary.opacity(0.2))
                                     .frame(width: 128, height: 128)
                                 
                                 // Pulsing animation circle
                                 Circle()
-                                    .fill(primaryYellow.opacity(0.1))
+                                    .fill(StepCompColors.primary.opacity(0.1))
                                     .frame(width: 128, height: 128)
                                     .scaleEffect(1.2)
                                     .opacity(0.5)
@@ -770,7 +1024,7 @@ struct SignUpView: View {
                                 // Email icon
                                 Image(systemName: "envelope.fill")
                                     .font(.system(size: 52, weight: .medium))
-                                        .foregroundColor(primaryYellow)
+                                        .foregroundColor(StepCompColors.primary)
                             }
                             
                             // Title and Subtitle
@@ -1109,10 +1363,10 @@ struct SignUpView: View {
                             }
                             .frame(maxWidth: .infinity)
                             .frame(height: 56)
-                            .background(primaryYellow)
-                            .foregroundColor(.black)
+                            .background(StepCompColors.primary)
+                            .foregroundColor(StepCompColors.buttonTextOnPrimary)
                             .cornerRadius(12)
-                            .shadow(color: primaryYellow.opacity(0.39), radius: 14, x: 0, y: 4)
+                            .shadow(color: StepCompColors.primary.opacity(0.39), radius: 14, x: 0, y: 4)
                         }
                         .disabled(isLoading || fullName.isEmpty || username.isEmpty || email.isEmpty || password.isEmpty || confirmPassword.isEmpty || password != confirmPassword)
                         .padding(.horizontal, 24)
@@ -1139,9 +1393,7 @@ struct SignUpView: View {
                         // Social Login Buttons
                         HStack(spacing: 16) {
                             // Apple Sign In
-                            Button(action: {
-                                // Handle Apple Sign In
-                            }) {
+                            Button(action: onAppleSignIn) {
                                 ZStack {
                                     Circle()
                                         .fill(Color(.systemGray6))
@@ -1158,9 +1410,7 @@ struct SignUpView: View {
                             }
                             
                             // Google Sign In
-                            Button(action: {
-                                // Handle Google Sign In
-                            }) {
+                            Button(action: onGoogleSignIn) {
                                 ZStack {
                                     Circle()
                                         .fill(Color(.systemGray6))
@@ -1187,7 +1437,7 @@ struct SignUpView: View {
                             Button(action: onSwitchToSignIn) {
                                 Text("Log In")
                                     .font(.system(size: 14, weight: .bold))
-                                    .foregroundColor(primaryYellow)
+                                    .foregroundColor(StepCompColors.primary)
                             }
                         }
                         .padding(.bottom, 32)
@@ -1225,16 +1475,18 @@ struct SignInView: View {
     let onForgotPassword: () -> Void
     let onBack: () -> Void
     let onSwitchToSignUp: () -> Void
+    let onAppleSignIn: () -> Void
+    let onGoogleSignIn: () -> Void
     
     @State private var showingPassword: Bool = false
+    @Environment(\.colorScheme) private var currentColorScheme
     
-    private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
     
     var body: some View {
         NavigationStack {
             ZStack {
-                // Background - Light mode
-                Color(.systemBackground)
+                // Background
+                StepCompColors.background
                     .ignoresSafeArea()
                 
                 ScrollView {
@@ -1245,12 +1497,12 @@ struct SignInView: View {
                             ZStack {
                                 // Outer glow circle
                                 Circle()
-                                    .fill(primaryYellow.opacity(0.2))
+                                    .fill(StepCompColors.primary.opacity(0.2))
                                     .frame(width: 128, height: 128)
                                 
                                 // Pulsing animation circle
                                 Circle()
-                                    .fill(primaryYellow.opacity(0.1))
+                                    .fill(StepCompColors.primary.opacity(0.1))
                                     .frame(width: 128, height: 128)
                                     .scaleEffect(1.2)
                                     .opacity(0.5)
@@ -1258,7 +1510,7 @@ struct SignInView: View {
                                 // Email icon
                                 Image(systemName: "envelope.fill")
                                     .font(.system(size: 52, weight: .medium))
-                                        .foregroundColor(primaryYellow)
+                                        .foregroundColor(StepCompColors.primary)
                             }
                             
                             // Title and Subtitle
@@ -1351,7 +1603,7 @@ struct SignInView: View {
                             Button(action: onForgotPassword) {
                                 Text("Forgot Password?")
                                     .font(.system(size: 14, weight: .medium))
-                                    .foregroundColor(primaryYellow)
+                                    .foregroundColor(currentColorScheme == .light ? .black : StepCompColors.primary)
                             }
                         }
                         .padding(.horizontal, 24)
@@ -1381,10 +1633,10 @@ struct SignInView: View {
                             }
                             .frame(maxWidth: .infinity)
                             .frame(height: 56)
-                            .background(primaryYellow)
-                            .foregroundColor(.black)
+                            .background(StepCompColors.primary)
+                            .foregroundColor(StepCompColors.buttonTextOnPrimary)
                             .cornerRadius(12)
-                            .shadow(color: primaryYellow.opacity(0.39), radius: 14, x: 0, y: 4)
+                            .shadow(color: StepCompColors.primary.opacity(0.39), radius: 14, x: 0, y: 4)
                         }
                         .disabled(isLoading || email.isEmpty || password.isEmpty)
                         .padding(.horizontal, 24)
@@ -1411,9 +1663,7 @@ struct SignInView: View {
                         // Social Login Buttons
                         HStack(spacing: 16) {
                             // Apple Sign In
-                            Button(action: {
-                                // Handle Apple Sign In
-                            }) {
+                            Button(action: onAppleSignIn) {
                                 ZStack {
                                     Circle()
                                         .fill(Color(.systemGray6))
@@ -1430,9 +1680,7 @@ struct SignInView: View {
                             }
                             
                             // Google Sign In
-                            Button(action: {
-                                // Handle Google Sign In
-                            }) {
+                            Button(action: onGoogleSignIn) {
                                 ZStack {
                                     Circle()
                                         .fill(Color(.systemGray6))
@@ -1459,7 +1707,7 @@ struct SignInView: View {
                             Button(action: onSwitchToSignUp) {
                                 Text("Sign Up")
                                     .font(.system(size: 14, weight: .bold))
-                                    .foregroundColor(primaryYellow)
+                                    .foregroundColor(currentColorScheme == .light ? .black : StepCompColors.primary)
                             }
                         }
                         .padding(.bottom, 32)
@@ -1496,12 +1744,11 @@ struct ForgotPasswordSheet: View {
     
     @Environment(\.dismiss) var dismiss
     
-    private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
     
     var body: some View {
         NavigationStack {
             ZStack {
-                Color(.systemBackground)
+                StepCompColors.background
                     .ignoresSafeArea()
                 
                 ScrollView {
@@ -1509,12 +1756,12 @@ struct ForgotPasswordSheet: View {
                         // Header Icon
                         ZStack {
                             Circle()
-                                .fill(primaryYellow.opacity(0.2))
+                                .fill(StepCompColors.primary.opacity(0.2))
                                 .frame(width: 128, height: 128)
                             
                             Image(systemName: "key.fill")
                                 .font(.system(size: 52, weight: .medium))
-                                .foregroundColor(primaryYellow)
+                                .foregroundColor(StepCompColors.primary)
                         }
                         .padding(.top, 40)
                         
@@ -1607,8 +1854,8 @@ struct ForgotPasswordSheet: View {
                         }
                         .frame(maxWidth: .infinity)
                                 .padding(.vertical, 16)
-                                .background(primaryYellow)
-                                .foregroundColor(.black)
+                                .background(StepCompColors.primary)
+                                .foregroundColor(StepCompColors.buttonTextOnPrimary)
                                 .cornerRadius(12)
                     }
                     .disabled(isLoading || resetEmail.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
@@ -1704,12 +1951,11 @@ struct PasswordResetView: View {
     
     @EnvironmentObject var authService: AuthService
     
-    private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
     
     var body: some View {
         NavigationStack {
             ZStack {
-                Color(.systemBackground)
+                StepCompColors.background
                     .ignoresSafeArea()
                 
                 ScrollView {
@@ -1718,7 +1964,7 @@ struct PasswordResetView: View {
                         VStack(spacing: 12) {
                             Image(systemName: "lock.rotation")
                                 .font(.system(size: 64))
-                                .foregroundColor(primaryYellow)
+                                .foregroundColor(StepCompColors.primary)
                             
                             Text("Reset Your Password")
                                 .font(.system(size: 32, weight: .bold))
@@ -1835,8 +2081,8 @@ struct PasswordResetView: View {
                             }
                             .frame(maxWidth: .infinity)
                             .frame(height: 56)
-                            .background(primaryYellow)
-                            .foregroundColor(.black)
+                            .background(StepCompColors.primary)
+                            .foregroundColor(StepCompColors.buttonTextOnPrimary)
                             .cornerRadius(12)
                         }
                         .disabled(isLoading || newPassword.isEmpty || confirmPassword.isEmpty || newPassword != confirmPassword)
@@ -1997,5 +2243,23 @@ struct PasswordResetView: View {
         }
         
         isLoading = false
+    }
+}
+
+// MARK: - Apple Sign In Delegate
+
+class AppleSignInDelegate: NSObject, ASAuthorizationControllerDelegate {
+    let completion: (Result<ASAuthorization, Error>) -> Void
+    
+    init(completion: @escaping (Result<ASAuthorization, Error>) -> Void) {
+        self.completion = completion
+    }
+    
+    func authorizationController(controller: ASAuthorizationController, didCompleteWithAuthorization authorization: ASAuthorization) {
+        completion(.success(authorization))
+    }
+    
+    func authorizationController(controller: ASAuthorizationController, didCompleteWithError error: Error) {
+        completion(.failure(error))
     }
 }

@@ -15,7 +15,6 @@ struct ProfileFriendsSection: View {
     @StateObject private var friendsViewModel: FriendsViewModel
     @EnvironmentObject var friendsService: FriendsService
     
-    private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
     
     init(sessionViewModel: SessionViewModel, onAddFriends: @escaping () -> Void) {
         self.sessionViewModel = sessionViewModel
@@ -42,7 +41,7 @@ struct ProfileFriendsSection: View {
                     .foregroundColor(.black)
                     .padding(.horizontal, 16)
                     .padding(.vertical, 10)
-                    .background(primaryYellow)
+                    .background(StepCompColors.primary)
                     .cornerRadius(20)
                 }
             }

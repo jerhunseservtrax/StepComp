@@ -17,9 +17,22 @@
 		556067352EFC76E5008EDA16 /* StepComp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = StepComp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		550755F22F0CB4DB00CE0891 /* Exceptions for "StepComp" folder in "StepComp" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 556067342EFC76E5008EDA16 /* StepComp */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		556067372EFC76E5008EDA16 /* StepComp */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				550755F22F0CB4DB00CE0891 /* Exceptions for "StepComp" folder in "StepComp" target */,
+			);
 			path = StepComp;
 			sourceTree = "<group>";
 		};
@@ -264,7 +277,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = NO;
 				CODE_SIGN_ENTITLEMENTS = StepComp/StepComp.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
@@ -273,6 +286,7 @@
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = StepComp/Info.plist;
 				INFOPLIST_KEY_CFBundleURLTypes = "{\n    CFBundleURLSchemes =     (\n        \"com.googleusercontent.apps.704127110518-fcj9p8s8na0oo9h5e4rv93b7victn1ge\"\n    );\n}";
 				INFOPLIST_KEY_GIDClientID = "704127110518-fcj9p8s8na0oo9h5e4rv93b7victn1ge.apps.googleusercontent.com";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.healthcare-fitness";
@@ -315,7 +329,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = NO;
 				CODE_SIGN_ENTITLEMENTS = StepComp/StepComp.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
@@ -324,6 +338,7 @@
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = StepComp/Info.plist;
 				INFOPLIST_KEY_CFBundleURLTypes = "{\n    CFBundleURLSchemes =     (\n        \"com.googleusercontent.apps.704127110518-fcj9p8s8na0oo9h5e4rv93b7victn1ge\"\n    );\n}";
 				INFOPLIST_KEY_GIDClientID = "704127110518-fcj9p8s8na0oo9h5e4rv93b7victn1ge.apps.googleusercontent.com";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.healthcare-fitness";

@@ -12,7 +12,6 @@ struct PendingRequestRow: View {
     let onAccept: () -> Void
     let onDecline: () -> Void
     
-    private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
     
     var body: some View {
         HStack(spacing: 12) {
@@ -54,7 +53,7 @@ struct PendingRequestRow: View {
                         .font(.system(size: 14, weight: .semibold))
                         .foregroundColor(.black)
                         .frame(width: 32, height: 32)
-                        .background(primaryYellow)
+                        .background(StepCompColors.primary)
                         .clipShape(Circle())
                 }
                 .buttonStyle(PlainButtonStyle())

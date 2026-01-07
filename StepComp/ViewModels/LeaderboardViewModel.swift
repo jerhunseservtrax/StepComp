@@ -19,6 +19,7 @@ final class LeaderboardViewModel: ObservableObject {
     private var challengeService: ChallengeService
     private let challengeId: String
     private let userId: String
+    private var previousUserRank: Int?
     
     init(
         challengeService: ChallengeService,
@@ -46,6 +47,9 @@ final class LeaderboardViewModel: ObservableObject {
             // Ensure entries are sorted by rank
             entries = loadedEntries.sorted { $0.rank < $1.rank }
             isLoading = false
+            
+            // Check for rank changes and send notifications
+            checkForRankChange()
         }
     }
     
@@ -60,6 +64,34 @@ final class LeaderboardViewModel: ObservableObject {
     
     func refresh() {
         loadLeaderboard()
+    }
+    
+    // MARK: - Leaderboard Notifications
+    
+    private func checkForRankChange() {
+        guard let currentEntry = currentUserEntry else { return }
+        
+        // Check if rank changed
+        if let previousRank = previousUserRank, previousRank != currentEntry.rank {
+            let rankDifference = previousRank - currentEntry.rank
+            
+            if rankDifference > 0 {
+                // Moved up
+                NotificationManager.shared.sendLeaderboardAlert(
+                    message: "You moved up \(rankDifference) place\(rankDifference > 1 ? "s" : "")! You're now rank #\(currentEntry.rank) 🔥",
+                    rank: currentEntry.rank
+                )
+            } else if rankDifference < 0 {
+                // Moved down
+                NotificationManager.shared.sendLeaderboardAlert(
+                    message: "Your rank changed to #\(currentEntry.rank). Keep pushing! 💪",
+                    rank: currentEntry.rank
+                )
+            }
+        }
+        
+        // Update previous rank for next comparison
+        previousUserRank = currentEntry.rank
     }
 }
 

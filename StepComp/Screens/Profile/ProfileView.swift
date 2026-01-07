@@ -27,7 +27,6 @@ struct ProfileView: View {
     @State private var showingAddFriends = false
     @State private var showEditAccountInfoCard = false
     
-    private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
     
     init(sessionViewModel: SessionViewModel) {
         self.sessionViewModel = sessionViewModel
@@ -150,7 +149,7 @@ struct ProfileView: View {
                             showingEditAccount = true
                     }) {
                         Text("Edit")
-                            .foregroundColor(primaryYellow)
+                            .foregroundColor(StepCompColors.primary)
                             .font(.system(size: 16, weight: .bold))
                     }
                 }
@@ -238,7 +237,6 @@ struct ProfileHeaderSection: View {
     @Binding var isEditing: Bool
     let onEditAvatar: () -> Void
     
-    private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
     
     var body: some View {
         VStack(spacing: 16) {
@@ -270,7 +268,7 @@ struct ProfileHeaderSection: View {
                         .font(.system(size: 18, weight: .bold))
                         .foregroundColor(Color(red: 0.176, green: 0.133, blue: 0.059))
                         .frame(width: 28, height: 28)
-                        .background(primaryYellow)
+                        .background(StepCompColors.primary)
                         .clipShape(Circle())
                         .overlay(
                             Circle()
@@ -288,7 +286,7 @@ struct ProfileHeaderSection: View {
             // Level and Badge
             HStack(spacing: 4) {
                 Image(systemName: "bolt.fill")
-                    .foregroundColor(primaryYellow)
+                    .foregroundColor(StepCompColors.primary)
                     .font(.system(size: 20))
                 Text("Level \(level) • \(badge)")
                     .font(.system(size: 14, weight: .medium))
@@ -311,7 +309,6 @@ struct StatsCardsSection: View {
     let calories: Int
     let activeTime: Int
     
-    private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
     
     var body: some View {
         HStack(spacing: 12) {
@@ -319,21 +316,21 @@ struct StatsCardsSection: View {
                 icon: "figure.walk",
                 value: formatSteps(totalSteps),
                 label: "Total Steps",
-                color: primaryYellow
+                color: StepCompColors.primary
             )
             
             StatCard(
                 icon: "flame.fill",
                 value: formatNumber(calories),
                 label: "Calories",
-                color: primaryYellow
+                color: StepCompColors.primary
             )
             
             StatCard(
                 icon: "timer",
                 value: "\(activeTime)h",
                 label: "Active Time",
-                color: primaryYellow
+                color: StepCompColors.primary
             )
         }
     }
@@ -399,7 +396,6 @@ struct ActivitySection: View {
     let weeklyData: [Int]
     let monthlyData: [Int]
     
-    private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
     
     var currentData: [Int] {
         selectedPeriod == .week ? weeklyData : monthlyData
@@ -499,7 +495,6 @@ struct WeekBarChart: View {
     let data: [Int]
     let maxValue: Int
     
-    private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
     private let days = ["M", "T", "W", "T", "F", "S", "S"]
     
     var body: some View {
@@ -518,10 +513,10 @@ struct WeekBarChart: View {
                             
                             // Data bar
                             RoundedRectangle(cornerRadius: 2)
-                                .fill(isHighlighted ? primaryYellow : primaryYellow.opacity(0.3))
+                                .fill(isHighlighted ? StepCompColors.primary : StepCompColors.primary.opacity(0.3))
                                 .frame(height: geometry.size.height * height)
                                 .shadow(
-                                    color: isHighlighted ? primaryYellow.opacity(0.3) : .clear,
+                                    color: isHighlighted ? StepCompColors.primary.opacity(0.3) : .clear,
                                     radius: isHighlighted ? 8 : 0
                                 )
                         }
@@ -530,7 +525,7 @@ struct WeekBarChart: View {
                     
                     Text(days[index])
                         .font(.system(size: 10, weight: .bold))
-                        .foregroundColor(index == 4 ? primaryYellow : .gray)
+                        .foregroundColor(index == 4 ? StepCompColors.primary : .gray)
                 }
                 .frame(maxWidth: .infinity)
             }
@@ -542,7 +537,6 @@ struct MonthBarChart: View {
     let data: [Int]
     let maxValue: Int
     
-    private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
     
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
@@ -552,7 +546,7 @@ struct MonthBarChart: View {
                         let height = maxValue > 0 ? CGFloat(data[index]) / CGFloat(maxValue) : 0.0
                         
                         RoundedRectangle(cornerRadius: 1)
-                            .fill(primaryYellow.opacity(0.3))
+                            .fill(StepCompColors.primary.opacity(0.3))
                             .frame(height: geometry.size.height * height)
                     }
                     .frame(width: 8, height: 128)
@@ -566,7 +560,6 @@ struct MonthBarChart: View {
 // MARK: - Badges Section
 
 struct BadgesSection: View {
-    private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
     
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -577,7 +570,7 @@ struct BadgesSection: View {
                 Button(action: {}) {
                     Text("See All")
                         .font(.system(size: 14, weight: .bold))
-                        .foregroundColor(primaryYellow)
+                        .foregroundColor(StepCompColors.primary)
                 }
             }
             
@@ -585,7 +578,7 @@ struct BadgesSection: View {
                 BadgeItem(
                     icon: "trophy.fill",
                     title: "First 10k",
-                    color: primaryYellow,
+                    color: StepCompColors.primary,
                     isUnlocked: true
                 )
                 
@@ -652,7 +645,7 @@ struct BadgeItem: View {
                 
                 Image(systemName: icon)
                     .font(.system(size: 24))
-                    .foregroundColor(isUnlocked ? (color == primaryYellow ? .black : .white) : .gray)
+                    .foregroundColor(isUnlocked ? (color == StepCompColors.primary ? .black : .white) : .gray)
             }
             
             Text(title)
@@ -665,7 +658,6 @@ struct BadgeItem: View {
         .opacity(isUnlocked ? 1.0 : 0.4)
     }
     
-    private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
 }
 
 // MARK: - Edit Account Info Section
@@ -777,9 +769,9 @@ struct EditAccountInfoSection: View {
                         .foregroundColor(.black)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 14)
-                        .background(primaryYellow)
+                        .background(StepCompColors.primary)
                         .cornerRadius(12)
-                        .shadow(color: primaryYellow.opacity(0.5), radius: 10, x: 0, y: 4)
+                        .shadow(color: StepCompColors.primary.opacity(0.5), radius: 10, x: 0, y: 4)
                 }
             }
             .padding(20)
@@ -798,7 +790,6 @@ struct EditAccountInfoSection: View {
         }
     }
     
-    private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
 }
 
 struct FormField: View {
@@ -856,7 +847,6 @@ struct EditAccountInfoSheet: View {
     @State private var editingEmail: String = ""
     @Environment(\.dismiss) var dismiss
     
-    private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
     private let backgroundDark = Color(red: 0.137, green: 0.133, blue: 0.059) // #23220f
     private let surfaceDark = Color(red: 0.176, green: 0.173, blue: 0.106) // #2d2c1b
     
@@ -889,7 +879,7 @@ struct EditAccountInfoSheet: View {
                                 }) {
                                     ZStack {
                                         Circle()
-                                            .fill(primaryYellow)
+                                            .fill(StepCompColors.primary)
                                             .frame(width: 36, height: 36)
                                         
                                         Image(systemName: "camera.fill")
@@ -990,9 +980,9 @@ struct EditAccountInfoSheet: View {
                                     .tracking(1.2)
                                     .frame(maxWidth: .infinity)
                                     .padding(.vertical, 16)
-                                    .background(primaryYellow)
+                                    .background(StepCompColors.primary)
                                     .cornerRadius(16)
-                                    .shadow(color: primaryYellow.opacity(0.3), radius: 8, x: 0, y: 4)
+                                    .shadow(color: StepCompColors.primary.opacity(0.3), radius: 8, x: 0, y: 4)
                             }
                             .padding(.top, 16)
                         }
@@ -1038,7 +1028,6 @@ struct EditAccountField: View {
     let isEditable: Bool
     
     @FocusState private var isFocused: Bool
-    private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
     
     var body: some View {
         HStack(spacing: 12) {
@@ -1057,7 +1046,7 @@ struct EditAccountField: View {
             
             Image(systemName: icon)
                 .font(.system(size: 20))
-                .foregroundColor(isFocused ? primaryYellow : .gray.opacity(0.6))
+                .foregroundColor(isFocused ? StepCompColors.primary : .gray.opacity(0.6))
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 16)
@@ -1069,7 +1058,6 @@ struct EditAccountNumberField: View {
     @Binding var value: String
     
     @FocusState private var isFocused: Bool
-    private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
     
     var body: some View {
                     HStack {
@@ -1081,7 +1069,7 @@ struct EditAccountNumberField: View {
             
             TextField("", text: $value)
                 .font(.system(size: 18, weight: .black))
-                .foregroundColor(isFocused ? primaryYellow : .gray)
+                .foregroundColor(isFocused ? StepCompColors.primary : .gray)
                             .multilineTextAlignment(.trailing)
                 .keyboardType(.numberPad)
                 .frame(width: 96)
@@ -1099,7 +1087,6 @@ struct EditAccountHeightWeightField: View {
     
     @FocusState private var isFocused: Bool
     @State private var unitSystem: String = "imperial" // Always use imperial (feet/inches, lbs)
-    private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
     
     // Convert cm to feet/inches for display
     private func heightInImperial(_ cm: Int) -> (feet: Int, inches: Int) {
@@ -1154,7 +1141,7 @@ struct EditAccountHeightWeightField: View {
                         }
                     ))
                     .font(.system(size: 18, weight: .black))
-                    .foregroundColor(isFocused ? primaryYellow : .gray)
+                    .foregroundColor(isFocused ? StepCompColors.primary : .gray)
                     .multilineTextAlignment(.trailing)
                     .keyboardType(.numberPad)
                     .frame(width: 40)
@@ -1175,7 +1162,7 @@ struct EditAccountHeightWeightField: View {
                         }
                     ))
                     .font(.system(size: 18, weight: .black))
-                    .foregroundColor(isFocused ? primaryYellow : .gray)
+                    .foregroundColor(isFocused ? StepCompColors.primary : .gray)
                     .multilineTextAlignment(.trailing)
                     .keyboardType(.numberPad)
                     .frame(width: 40)
@@ -1200,7 +1187,7 @@ struct EditAccountHeightWeightField: View {
                     }
                 ))
                 .font(.system(size: 18, weight: .black))
-                .foregroundColor(isFocused ? primaryYellow : .gray)
+                .foregroundColor(isFocused ? StepCompColors.primary : .gray)
                 .multilineTextAlignment(.trailing)
                 .keyboardType(.numberPad)
                 .frame(width: 96)
@@ -1216,7 +1203,6 @@ struct EditAccountPasswordField: View {
     let label: String
     @Binding var showingPassword: Bool
     
-    private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
     
     var body: some View {
         HStack {
@@ -1307,7 +1293,6 @@ struct SettingToggleRow: View {
     let color: Color
     @Binding var isOn: Bool
     
-    private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
     
     var body: some View {
         HStack {
@@ -1327,7 +1312,7 @@ struct SettingToggleRow: View {
             Spacer()
             
             Toggle("", isOn: $isOn)
-                .tint(primaryYellow)
+                .tint(StepCompColors.primary)
         }
         .padding(16)
     }

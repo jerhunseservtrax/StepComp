@@ -58,3 +58,11 @@ struct User: Identifiable, Codable, Equatable {
     }
 }
 
+// MARK: - Helper Extension
+extension User {
+    /// Returns the user's first name, or a fallback if empty
+    var firstNameOrFallback: String {
+        !firstName.isEmpty ? firstName : (username.isEmpty ? "User" : username)
+    }
+}
+

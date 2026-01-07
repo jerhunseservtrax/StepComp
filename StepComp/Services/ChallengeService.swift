@@ -73,6 +73,7 @@ final class ChallengeService: ObservableObject {
             createdBy: challenge.creatorId,
             isPublic: isPublic,
             inviteCode: inviteCode,
+            category: challenge.category?.rawValue,
             createdAt: challenge.createdAt,
             updatedAt: Date()
         )
@@ -223,7 +224,87 @@ final class ChallengeService: ObservableObject {
     }
     
     func getChallenge(_ challengeId: String) -> Challenge? {
-        challenges.first { $0.id == challengeId }
+        return challenges.first { $0.id == challengeId }
+    }
+    
+    // Invalidate cached challenge (forces fresh fetch from database)
+    func invalidateChallengeCache(_ challengeId: String) {
+        challenges.removeAll { $0.id == challengeId }
+    }
+    
+    // New async version that fetches from Supabase if not in cache
+    func getChallengeAsync(_ challengeId: String) async -> Challenge? {
+        // First check local cache
+        if let cached = challenges.first(where: { $0.id == challengeId }) {
+            return cached
+        }
+        
+        // If not in cache, fetch from Supabase
+        #if canImport(Supabase)
+        if useSupabase {
+            do {
+                // Fetch challenge from Supabase
+                let supabaseChallenges: [SupabaseChallenge] = try await supabase
+                    .from("challenges")
+                    .select()
+                    .eq("id", value: challengeId)
+                    .execute()
+                    .value
+                
+                guard let supabaseChallenge = supabaseChallenges.first else {
+                    return nil
+                }
+                
+                // Get challenge members
+                let members: [ChallengeMember] = try await supabase
+                    .from("challenge_members")
+                    .select()
+                    .eq("challenge_id", value: supabaseChallenge.id)
+                    .execute()
+                    .value
+                
+                let participantIds = members.map { $0.userId }
+                
+                // Ensure creator is in participantIds
+                var finalParticipantIds = participantIds
+                if !finalParticipantIds.contains(supabaseChallenge.createdBy) {
+                    finalParticipantIds.append(supabaseChallenge.createdBy)
+                }
+                
+                // Convert category string to enum
+                var category: Challenge.ChallengeCategory? = nil
+                if let categoryString = supabaseChallenge.category {
+                    category = Challenge.ChallengeCategory(rawValue: categoryString)
+                }
+                
+                let challenge = Challenge(
+                    id: supabaseChallenge.id,
+                    name: supabaseChallenge.name,
+                    description: supabaseChallenge.description ?? "",
+                    startDate: supabaseChallenge.startDate,
+                    endDate: supabaseChallenge.endDate,
+                    targetSteps: 10000, // Default - could add to schema later
+                    creatorId: supabaseChallenge.createdBy,
+                    participantIds: finalParticipantIds,
+                    isActive: true,
+                    createdAt: supabaseChallenge.createdAt,
+                    inviteCode: supabaseChallenge.inviteCode,
+                    category: category
+                )
+                
+                // Add to cache for future use
+                if !challenges.contains(where: { $0.id == challenge.id }) {
+                    challenges.append(challenge)
+                }
+                
+                return challenge
+            } catch {
+                return nil
+            }
+        }
+        #endif
+        
+        return nil
     }
     
     func getUserChallenges(userId: String) -> [Challenge] {
@@ -427,61 +508,22 @@ final class ChallengeService: ObservableObject {
     
     #if canImport(Supabase)
     private func getDailyLeaderboardFromSupabase(challengeId: String) async -> [LeaderboardEntry] {
+        // Use server-side RPC function that reads from daily_steps table
         do {
-            let today = Date()
-            let dateFormatter = DateFormatter()
-            dateFormatter.dateFormat = "yyyy-MM-dd"
-            let todayString = dateFormatter.string(from: today)
-            
-            // Get all members for this challenge
-            let members: [ChallengeMember] = try await supabase
-                .from("challenge_members")
-                .select()
-                .eq("challenge_id", value: challengeId)
+            let serverEntries: [ServerLeaderboardEntry] = try await supabase
+                .rpc("get_challenge_leaderboard_today", params: ["p_challenge_id": challengeId])
                 .execute()
                 .value
             
-            // Extract today's steps from daily_steps JSONB
-            var dailyEntries: [(userId: String, steps: Int)] = []
+            // Convert to client model
+            let entries = serverEntries.map { $0.toLeaderboardEntry(challengeId: challengeId) }
             
-            for member in members {
-                let todaySteps = member.dailySteps[todayString] ?? 0
-                dailyEntries.append((userId: member.userId, steps: todaySteps))
-            }
-            
-            // Sort by steps descending
-            dailyEntries.sort { $0.steps > $1.steps }
-            
-            // Get user profiles for display names
-            let userIds = dailyEntries.map { $0.userId }
-            let profiles: [UserProfile] = try await supabase
-                .from("profiles")
-                .select()
-                .in("id", values: userIds)
-                .execute()
-                .value
-            
-            // Create leaderboard entries
-            var entries: [LeaderboardEntry] = []
-            for (index, dailyEntry) in dailyEntries.enumerated() {
-                let profile = profiles.first { $0.id == dailyEntry.userId }
-                let entry = LeaderboardEntry(
-                    id: UUID().uuidString,
-                    userId: dailyEntry.userId,
-                    challengeId: challengeId,
-                    displayName: profile?.username ?? "User",
-                    avatarURL: profile?.avatar,
-                    steps: dailyEntry.steps,
-                    rank: index + 1,
-                    lastUpdated: Date()
-                )
-                entries.append(entry)
-            }
-            
+            print("✅ Loaded \(entries.count) daily leaderboard entries from RPC")
             return entries
         } catch {
             print("⚠️ Error loading daily leaderboard: \(error.localizedDescription)")
-            return []
+            // Fallback to all-time leaderboard (better than empty)
+            return await getLeaderboardFromSupabase(challengeId: challengeId)
         }
     }
     
@@ -535,8 +577,9 @@ final class ChallengeService: ObservableObject {
                     id: UUID().uuidString,
                     userId: weeklyEntry.userId,
                     challengeId: challengeId,
-                    displayName: profile?.username ?? "User",
-                    avatarURL: profile?.avatar,
+                    username: profile?.username ?? "",
+                    displayName: profile?.displayName ?? profile?.username ?? "User",
+                    avatarURL: profile?.avatarUrl ?? profile?.avatar,
                     steps: weeklyEntry.steps,
                     rank: index + 1,
                     lastUpdated: Date()
@@ -632,6 +675,12 @@ final class ChallengeService: ObservableObject {
                     print("⚠️ Creator \(supabaseChallenge.createdBy) not in participantIds, adding them")
                 }
                 
+                // Convert category string to enum
+                var category: Challenge.ChallengeCategory? = nil
+                if let categoryString = supabaseChallenge.category {
+                    category = Challenge.ChallengeCategory(rawValue: categoryString)
+                }
+                
                 let challenge = Challenge(
                     id: supabaseChallenge.id,
                     name: supabaseChallenge.name,
@@ -643,7 +692,8 @@ final class ChallengeService: ObservableObject {
                     participantIds: finalParticipantIds,
                     isActive: true,
                     createdAt: supabaseChallenge.createdAt,
-                    inviteCode: supabaseChallenge.inviteCode
+                    inviteCode: supabaseChallenge.inviteCode,
+                    category: category
                 )
                 
                 loadedChallenges.append(challenge)

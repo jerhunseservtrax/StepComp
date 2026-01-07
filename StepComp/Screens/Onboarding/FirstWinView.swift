@@ -13,7 +13,6 @@ struct FirstWinOnboardingView: View {
     @State private var showConfetti = false
     @State private var bounceAnimation = false
     
-    private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
     
     var body: some View {
         OnboardingScreenBase(currentStep: currentStep.stepIndex) {
@@ -25,7 +24,7 @@ struct FirstWinOnboardingView: View {
                     // Pulsing background circles
                     ForEach(0..<3) { index in
                         Circle()
-                            .stroke(primaryYellow.opacity(0.3 - Double(index) * 0.1), lineWidth: 2)
+                            .stroke(StepCompColors.primary.opacity(0.3 - Double(index) * 0.1), lineWidth: 2)
                             .frame(width: 200 + CGFloat(index * 50), height: 200 + CGFloat(index * 50))
                             .scaleEffect(showConfetti ? 1.2 : 1.0)
                             .opacity(showConfetti ? 0 : 1)
@@ -40,13 +39,13 @@ struct FirstWinOnboardingView: View {
                     // Main success icon
                     ZStack {
                         Circle()
-                            .fill(primaryYellow)
+                            .fill(StepCompColors.primary)
                             .frame(width: 160, height: 160)
-                            .shadow(color: primaryYellow.opacity(0.5), radius: 30, x: 0, y: 10)
+                            .shadow(color: StepCompColors.primary.opacity(0.5), radius: 30, x: 0, y: 10)
                         
                         Image(systemName: "checkmark")
                             .font(.system(size: 80, weight: .bold))
-                            .foregroundColor(.black)
+                            .foregroundColor(StepCompColors.buttonTextOnPrimary)
                             .scaleEffect(bounceAnimation ? 1.0 : 0.5)
                             .animation(.spring(response: 0.6, dampingFraction: 0.5), value: bounceAnimation)
                     }
@@ -73,19 +72,19 @@ struct FirstWinOnboardingView: View {
                     FeatureHighlight(
                         icon: "figure.walk",
                         text: "Track your daily steps automatically",
-                        primaryYellow: primaryYellow
+                        primaryColor: StepCompColors.primary
                     )
                     
                     FeatureHighlight(
                         icon: "trophy.fill",
                         text: "Create challenges with friends",
-                        primaryYellow: primaryYellow
+                        primaryColor: StepCompColors.primary
                     )
                     
                     FeatureHighlight(
                         icon: "chart.line.uptrend.xyaxis",
                         text: "Watch your progress grow",
-                        primaryYellow: primaryYellow
+                        primaryColor: StepCompColors.primary
                     )
                 }
                 .padding(.horizontal, 32)
@@ -103,12 +102,12 @@ struct FirstWinOnboardingView: View {
                         Image(systemName: "arrow.right")
                             .font(.system(size: 16, weight: .bold))
                     }
-                    .foregroundColor(.black)
+                    .foregroundColor(StepCompColors.buttonTextOnPrimary)
                     .frame(maxWidth: .infinity)
                     .frame(height: 56)
-                    .background(primaryYellow)
+                    .background(StepCompColors.primary)
                     .cornerRadius(999)
-                    .shadow(color: primaryYellow.opacity(0.3), radius: 16, x: 0, y: 8)
+                    .shadow(color: StepCompColors.primary.opacity(0.3), radius: 16, x: 0, y: 8)
                 }
                 .padding(.horizontal, 24)
                 .padding(.bottom, 40)
@@ -135,13 +134,13 @@ struct FirstWinOnboardingView: View {
 struct FeatureHighlight: View {
     let icon: String
     let text: String
-    let primaryYellow: Color
+    let primaryColor: Color
     
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: icon)
                 .font(.system(size: 20, weight: .semibold))
-                .foregroundColor(primaryYellow)
+                .foregroundColor(primaryColor)
                 .frame(width: 32)
             
             Text(text)

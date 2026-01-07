@@ -20,7 +20,6 @@ struct JoinChallengeView: View {
     @State private var selectedChallenge: Challenge?
     @State private var showingChallengeDetails = false
     
-    private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
     
     init(sessionViewModel: SessionViewModel) {
         self.sessionViewModel = sessionViewModel
@@ -147,7 +146,6 @@ struct TopNavigationBar: View {
 struct ChallengeInviteCard: View {
     let challenge: Challenge
     
-    private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
     
     var body: some View {
         VStack(spacing: 0) {
@@ -196,7 +194,7 @@ struct ChallengeInviteCard: View {
                     
                     Text("Level 3 • \(challenge.targetSteps.formatted()) Steps Goal")
                         .font(.system(size: 13, weight: .bold))
-                        .foregroundColor(primaryYellow)
+                        .foregroundColor(StepCompColors.primary)
                         .textCase(.uppercase)
                         .tracking(0.5)
                 }
@@ -227,7 +225,7 @@ struct ChallengeInviteCard: View {
                         }
                         
                         Circle()
-                            .fill(primaryYellow)
+                            .fill(StepCompColors.primary)
                             .frame(width: 36, height: 36)
                             .overlay(
                                 Text("+8")
@@ -262,7 +260,6 @@ struct CountdownTimerView: View {
     @State private var timeRemaining: TimeInterval = 0
     @State private var timer: Timer?
     
-    private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
     
     var hours: Int {
         Int(timeRemaining) / 3600
@@ -328,13 +325,12 @@ struct TimerDigit: View {
     let label: String
     var isHighlighted: Bool = false
     
-    private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
     
     var body: some View {
         VStack(spacing: 8) {
             Text(String(format: "%02d", value))
                 .font(.system(size: 24, weight: .bold, design: .rounded))
-                .foregroundColor(isHighlighted ? primaryYellow : .primary)
+                .foregroundColor(isHighlighted ? StepCompColors.primary : .primary)
                 .frame(maxWidth: .infinity)
                 .frame(height: 64)
                 .background(Color(.systemBackground))
@@ -358,7 +354,6 @@ struct TimerDigit: View {
 struct InviteCodeInputView: View {
     @Binding var inviteCode: String
     
-    private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
     
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -376,7 +371,7 @@ struct InviteCodeInputView: View {
                     .cornerRadius(999)
                     .overlay(
                         RoundedRectangle(cornerRadius: 999)
-                            .stroke(inviteCode.isEmpty ? Color.clear : primaryYellow, lineWidth: 2)
+                            .stroke(inviteCode.isEmpty ? Color.clear : StepCompColors.primary, lineWidth: 2)
                     )
                     .shadow(color: Color.black.opacity(0.02), radius: 4, x: 0, y: 2)
                 
@@ -410,7 +405,6 @@ struct ActionButtonsView: View {
     let onJoin: () -> Void
     let onScanQR: () -> Void
     
-    private let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024)
     
     var body: some View {
         VStack(spacing: 20) {
@@ -425,9 +419,9 @@ struct ActionButtonsView: View {
                 .foregroundColor(.black)
                 .frame(maxWidth: .infinity)
                 .frame(height: 64)
-                .background(primaryYellow)
+                .background(StepCompColors.primary)
                 .cornerRadius(999)
-                .shadow(color: primaryYellow.opacity(0.3), radius: 30, x: 0, y: 8)
+                .shadow(color: StepCompColors.primary.opacity(0.3), radius: 30, x: 0, y: 8)
             }
             
             // Divider
