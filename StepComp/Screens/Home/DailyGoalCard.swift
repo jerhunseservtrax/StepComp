@@ -177,17 +177,8 @@ struct DailyGoalCard: View {
                 // Refresh steps
                 await onRefresh()
                 
-                // If goal is met, trigger celebration
-                if isGoalExceeded, let celebrationManager = celebrationManager {
-                    // Small delay to ensure steps are updated
-                    try? await Task.sleep(nanoseconds: 300_000_000) // 0.3s
-                    await MainActor.run {
-                        celebrationManager.forceTriggerCelebration(
-                            steps: currentSteps,
-                            goal: dailyGoal
-                        )
-                    }
-                }
+                // Note: Goal celebration is now only triggered automatically when goal is first reached,
+                // not on manual taps
                 
                 isRefreshing = false
             }
@@ -365,26 +356,46 @@ struct DailyGoalCard: View {
                     let maxSteps = max(weeklyStepData.max() ?? 1, dailyGoal)
                     let goalHeight = CGFloat(dailyGoal) / CGFloat(maxSteps) * 140
                     
-                    // Goal line
-                    Rectangle()
-                        .fill(StepCompColors.primary.opacity(0.3))
-                        .frame(height: 2)
-                        .overlay(
-                            HStack {
+                    // Goal line - more visible with dashed style
+                    ZStack {
+                        // Solid background for better visibility
+                        Rectangle()
+                            .fill(StepCompColors.primary.opacity(0.6))
+                            .frame(height: 3)
+                        
+                        // Dashed overlay for texture
+                        Rectangle()
+                            .stroke(
+                                StepCompColors.primary,
+                                style: StrokeStyle(lineWidth: 3, dash: [8, 4])
+                            )
+                            .frame(height: 3)
+                    }
+                    .overlay(
+                        HStack {
+                            // Goal label badge
+                            HStack(spacing: 4) {
                                 Text("GOAL")
-                                    .font(.system(size: 8, weight: .bold))
-                                    .foregroundColor(StepCompColors.primary)
-                                    .padding(.horizontal, 6)
-                                    .padding(.vertical, 2)
-                                    .background(
-                                        Capsule()
-                                            .fill(StepCompColors.primary.opacity(0.15))
-                                    )
-                                Spacer()
+                                    .font(.system(size: 9, weight: .bold))
+                                Text("\(formatNumberShort(dailyGoal))")
+                                    .font(.system(size: 9, weight: .heavy))
                             }
-                            .offset(x: -8)
-                        )
-                        .position(x: geometry.size.width / 2, y: 140 - goalHeight + 90)
+                            .foregroundColor(colorScheme == .dark ? StepCompColors.textPrimary : StepCompColors.primary)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 3)
+                            .background(
+                                Capsule()
+                                    .fill(colorScheme == .dark 
+                                        ? StepCompColors.primary.opacity(0.25)
+                                        : Color.white.opacity(0.9))
+                                    .shadow(color: StepCompColors.primary.opacity(0.3), radius: 2, x: 0, y: 1)
+                            )
+                            .offset(x: -4)
+                            
+                            Spacer()
+                        }
+                    )
+                    .position(x: geometry.size.width / 2, y: 140 - goalHeight + 90)
                 }
                 
                 // Bars
