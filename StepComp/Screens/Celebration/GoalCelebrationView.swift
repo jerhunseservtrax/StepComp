@@ -29,6 +29,8 @@ struct GoalCelebrationView: View {
     @State private var floatingStars: [(x: CGFloat, y: CGFloat, rotation: Double)] = []
     @State private var floatingCircles: [(x: CGFloat, y: CGFloat, color: Color)] = []
     
+    @Environment(\.colorScheme) private var colorScheme
+    
     var body: some View {
         ZStack {
             // Semi-transparent background with blur
@@ -66,7 +68,7 @@ struct GoalCelebrationView: View {
             }
             
             // Compact glassmorphic celebration card
-            VStack(spacing: 20) {
+            VStack(spacing: 16) {
                 // Trophy icon with glow (compact)
                 ZStack {
                     // Pulsing glow
@@ -79,10 +81,10 @@ struct GoalCelebrationView: View {
                                 ],
                                 center: .center,
                                 startRadius: 10,
-                                endRadius: 60
+                                endRadius: 50
                             )
                         )
-                        .frame(width: 100, height: 100)
+                        .frame(width: 80, height: 80)
                         .scaleEffect(pulseAnimation ? 1.2 : 0.9)
                         .animation(
                             .easeInOut(duration: 1.5).repeatForever(autoreverses: true),
@@ -98,100 +100,78 @@ struct GoalCelebrationView: View {
                                 endPoint: .bottomTrailing
                             )
                         )
-                        .frame(width: 64, height: 64)
-                        .shadow(color: Color.yellow.opacity(0.6), radius: 16, x: 0, y: 8)
+                        .frame(width: 50, height: 50)
+                        .shadow(color: Color.yellow.opacity(0.6), radius: 12, x: 0, y: 6)
                     
                     // Trophy icon
                     Image(systemName: "trophy.fill")
-                        .font(.system(size: 30, weight: .bold))
+                        .font(.system(size: 24, weight: .bold))
                         .foregroundColor(.white)
                     
                     // Small sparkle star (top right)
                     Image(systemName: "star.fill")
-                        .font(.system(size: 14))
+                        .font(.system(size: 10))
                         .foregroundColor(.yellow)
-                        .offset(x: 30, y: -25)
+                        .offset(x: 24, y: -20)
                 }
-                .padding(.top, 8)
+                .padding(.top, 4)
                 
-                // Title with 3D raised effect
+                // Title with 3D raised effect (compact)
                 Text("Goal\nAchieved!")
-                    .font(.system(size: 32, weight: .black, design: .rounded))
-                    .foregroundColor(StepCompColors.textPrimary)
+                    .font(.system(size: 24, weight: .black, design: .rounded))
+                    .foregroundColor(colorScheme == .dark ? .white : .black)
                     .multilineTextAlignment(.center)
-                    .lineSpacing(-8)
-                    .shadow(color: Color.black.opacity(0.3), radius: 2, x: 0, y: 3) // 3D raised effect
-                    .shadow(color: Color.white.opacity(0.2), radius: 1, x: 0, y: -1) // Highlight
+                    .lineSpacing(-6)
+                    .shadow(color: Color.black.opacity(0.3), radius: 2, x: 0, y: 3)
+                    .shadow(color: Color.white.opacity(0.2), radius: 1, x: 0, y: -1)
                 
-                // Subtitle with raised effect
+                // Subtitle with raised effect (compact)
                 Text("You've absolutely crushed it today.\nKeep up the momentum!")
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundColor(StepCompColors.textSecondary)
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundColor(colorScheme == .dark ? Color.white.opacity(0.7) : Color.black.opacity(0.6))
                     .multilineTextAlignment(.center)
-                    .lineSpacing(4)
+                    .lineSpacing(3)
                     .shadow(color: Color.black.opacity(0.2), radius: 1, x: 0, y: 2)
                 
-                // Steps card with glassmorphic effect and yellow accent
-                HStack(spacing: 0) {
-                    // Yellow accent bar
-                    RoundedRectangle(cornerRadius: 8)
-                        .fill(Color.yellow)
-                        .frame(width: 4)
-                        .padding(.vertical, 4)
+                // Floating steps number (no box!)
+                VStack(spacing: 4) {
+                    Text("TOTAL STEPS")
+                        .font(.system(size: 9, weight: .bold))
+                        .foregroundColor(colorScheme == .dark ? Color.white.opacity(0.5) : Color.black.opacity(0.4))
+                        .tracking(1.2)
                     
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("TOTAL STEPS")
-                            .font(.system(size: 10, weight: .bold))
-                            .foregroundColor(.gray)
-                            .tracking(1.2)
+                    HStack(spacing: 8) {
+                        // Animated number (floating, no box)
+                        Text(formatNumber(steps))
+                            .font(.system(size: 28, weight: .black, design: .rounded))
+                            .foregroundColor(colorScheme == .dark ? .white : .black)
+                            .scaleEffect(numberScale)
+                            .opacity(numberOpacity)
+                            .shadow(color: Color.black.opacity(0.3), radius: 2, x: 0, y: 2)
                         
-                        HStack(spacing: 12) {
-                            // Animated number
-                            Text(formatNumber(steps))
-                                .font(.system(size: 36, weight: .black, design: .rounded))
-                                .foregroundColor(StepCompColors.textPrimary)
-                                .scaleEffect(numberScale)
-                                .opacity(numberOpacity)
-                                .shadow(color: Color.black.opacity(0.3), radius: 2, x: 0, y: 2)
-                            
-                            Spacer()
-                            
-                            // Green checkmark
-                            Circle()
-                                .fill(Color.green)
-                                .frame(width: 36, height: 36)
-                                .overlay(
-                                    Image(systemName: "checkmark")
-                                        .font(.system(size: 16, weight: .bold))
-                                        .foregroundColor(.white)
-                                )
-                                .shadow(color: Color.green.opacity(0.5), radius: 8, x: 0, y: 4)
-                        }
+                        // Green checkmark
+                        Circle()
+                            .fill(Color.green)
+                            .frame(width: 28, height: 28)
+                            .overlay(
+                                Image(systemName: "checkmark")
+                                    .font(.system(size: 14, weight: .bold))
+                                    .foregroundColor(.white)
+                            )
+                            .shadow(color: Color.green.opacity(0.5), radius: 6, x: 0, y: 3)
                     }
-                    .padding(.leading, 16)
-                    .padding(.trailing, 12)
                 }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 16)
-                .background(
-                    RoundedRectangle(cornerRadius: 16)
-                        .fill(.ultraThinMaterial)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 16)
-                                .stroke(Color.white.opacity(0.2), lineWidth: 1)
-                        )
-                        .shadow(color: Color.black.opacity(0.1), radius: 8, x: 0, y: 4)
-                )
+                .padding(.vertical, 8)
                 
-                // Continue button with 3D effect
+                // Continue button with 3D effect (compact)
                 Button(action: {
                     dismissWithAnimation()
                 }) {
                     Text("Awesome, continue!")
-                        .font(.system(size: 16, weight: .bold, design: .rounded))
+                        .font(.system(size: 14, weight: .bold, design: .rounded))
                         .foregroundColor(.black)
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 16)
+                        .padding(.vertical, 12)
                         .background(
                             Capsule()
                                 .fill(
@@ -201,36 +181,46 @@ struct GoalCelebrationView: View {
                                         endPoint: .trailing
                                     )
                                 )
-                                .shadow(color: Color.yellow.opacity(0.4), radius: 12, x: 0, y: 6)
+                                .shadow(color: Color.yellow.opacity(0.4), radius: 8, x: 0, y: 4)
                         )
                 }
             }
-            .padding(.horizontal, 24)
-            .padding(.vertical, 28)
+            .padding(.horizontal, 20)
+            .padding(.vertical, 24)
             .background(
-                // Glassmorphic background
-                RoundedRectangle(cornerRadius: 32)
-                    .fill(.ultraThinMaterial)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 32)
-                            .fill(
-                                LinearGradient(
-                                    colors: [
-                                        Color.white.opacity(0.15),
-                                        Color.white.opacity(0.05)
-                                    ],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                )
+                // Themed glassmorphic background
+                RoundedRectangle(cornerRadius: 28)
+                    .fill(
+                        colorScheme == .dark
+                            ? LinearGradient(
+                                colors: [
+                                    Color(red: 0.15, green: 0.2, blue: 0.35).opacity(0.95),
+                                    Color(red: 0.1, green: 0.15, blue: 0.25).opacity(0.95)
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                            : LinearGradient(
+                                colors: [
+                                    Color(red: 0.98, green: 0.98, blue: 1.0).opacity(0.95),
+                                    Color(red: 0.95, green: 0.96, blue: 0.98).opacity(0.95)
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
                             )
                     )
                     .overlay(
-                        RoundedRectangle(cornerRadius: 32)
-                            .stroke(Color.white.opacity(0.3), lineWidth: 1.5)
+                        RoundedRectangle(cornerRadius: 28)
+                            .stroke(
+                                colorScheme == .dark
+                                    ? Color.white.opacity(0.2)
+                                    : Color.black.opacity(0.1),
+                                lineWidth: 1.5
+                            )
                     )
-                    .shadow(color: Color.black.opacity(0.25), radius: 30, x: 0, y: 15)
+                    .shadow(color: Color.black.opacity(0.3), radius: 25, x: 0, y: 12)
             )
-            .frame(maxWidth: 360)
+            .frame(maxWidth: 240)  // 1/3 of original size (was 360)
             .padding(.horizontal, 32)
             .scaleEffect(cardScale)
             .rotation3DEffect(
