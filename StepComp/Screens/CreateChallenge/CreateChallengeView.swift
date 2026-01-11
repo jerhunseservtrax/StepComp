@@ -199,7 +199,6 @@ struct CreateChallengeView: View {
             viewModel.updateService(challengeService)
             
             // Debug logging for user state
-            print("🔍 CreateChallengeView appeared")
             print("   currentUser: \(sessionViewModel.currentUser?.username ?? "nil")")
             print("   currentUser.id: \(sessionViewModel.currentUser?.id ?? "nil")")
             print("   isAuthenticated: \(sessionViewModel.isAuthenticated)")
@@ -580,7 +579,8 @@ struct InviteSectionView: View {
     @Binding var isFriendsOnly: Bool
     
     @StateObject private var friendsLoader = FriendsLoaderViewModel()
-    
+    @State private var debouncedSearchText: String = ""
+    @State private var searchTask: Task<Void, Never>?
     
     // Use friends from Supabase if available, otherwise fallback to passed friends
     var availableFriends: [User] {
@@ -591,20 +591,25 @@ struct InviteSectionView: View {
     }
     
     var filteredFriends: [User] {
-        let friends: [User]
-        if searchText.isEmpty {
-            friends = availableFriends
-        } else {
-            friends = availableFriends.filter { friend in
-                friend.displayName.localizedCaseInsensitiveContains(searchText) ||
-                friend.username.localizedCaseInsensitiveContains(searchText)
-            }
+        let query = debouncedSearchText.trimmingCharacters(in: .whitespaces).lowercased()
+        
+        guard !query.isEmpty else {
+            return availableFriends
         }
         
-        // Friends are already shown first since we're loading from Supabase friends table
-        // If isFriendsOnly is enabled, we could filter to only show friends here
-        // For now, we show all friends (they're already prioritized)
-        return friends
+        // Search across multiple fields: firstName, lastName, username, and displayName
+        return availableFriends.filter { friend in
+            // Search in username
+            friend.username.lowercased().contains(query) ||
+            // Search in firstName
+            friend.firstName.lowercased().contains(query) ||
+            // Search in lastName
+            friend.lastName.lowercased().contains(query) ||
+            // Search in full displayName
+            friend.displayName.lowercased().contains(query) ||
+            // Search in email (if available)
+            (friend.email?.lowercased().contains(query) ?? false)
+        }
     }
     
     var body: some View {
@@ -636,12 +641,27 @@ struct InviteSectionView: View {
                     .foregroundColor(.secondary)
                     .padding(.leading, 16)
                 
-                TextField("Search friends or contacts...", text: $searchText)
+                TextField("Search friends...", text: $searchText)
                     .textFieldStyle(.plain)
                     #if os(iOS)
                     .textInputAutocapitalization(.never)
                     #endif
                     .autocorrectionDisabled(true)
+                    .onChange(of: searchText) { _, newValue in
+                        // Cancel previous search task
+                        searchTask?.cancel()
+                        
+                        // Debounce search input (300ms delay)
+                        searchTask = Task {
+                            try? await Task.sleep(nanoseconds: 300_000_000) // 300ms
+                            
+                            if !Task.isCancelled {
+                                await MainActor.run {
+                                    debouncedSearchText = newValue
+                                }
+                            }
+                        }
+                    }
             }
             .padding(.vertical, 14)
             .background(Color(.systemBackground))
@@ -702,7 +722,18 @@ struct InviteSectionView: View {
             alignment: .top
         )
         .onAppear {
+            // Reload friends when view appears to ensure we have the latest data
             friendsLoader.loadFriends()
+            // Initialize debounced search text
+            debouncedSearchText = searchText
+        }
+        .onChange(of: friendsLoader.friends) { _, newFriends in
+            // Debug: Log when friends list changes
+            print("🔄 [InviteSection] Friends list updated: \(newFriends.count) friends")
+        }
+        .onDisappear {
+            // Cancel any pending search task
+            searchTask?.cancel()
         }
     }
     

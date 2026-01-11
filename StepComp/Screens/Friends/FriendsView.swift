@@ -44,21 +44,17 @@ struct FriendsView: View {
                 }
                 .tabViewStyle(.automatic) // Use automatic style - no page swipe, controlled by header buttons
                 .onChange(of: vm.selectedTab) { oldValue, newValue in
-                    // #region agent log
                     let logData = "{\"location\":\"FriendsView.swift:42\",\"message\":\"TabView selection changed\",\"data\":{\"oldTab\":\"\(oldValue)\",\"newTab\":\"\(newValue)\"},\"timestamp\":\(Int(Date().timeIntervalSince1970 * 1000)),\"sessionId\":\"debug-session\",\"runId\":\"post-fix\",\"hypothesisId\":\"FIX_APPLIED\"}\n"
                     if let fileHandle = FileHandle(forWritingAtPath: "/Users/jefferyerhunse/GitRepos/StepComp/.cursor/debug.log") { fileHandle.seekToEndOfFile(); fileHandle.write(logData.data(using: .utf8)!); fileHandle.closeFile() }
-                    // #endregion
                 }
             }
             
             // Profile card overlay
             if vm.selectedProfileUserId != nil {
-                // #region agent log
                 let _ = {
                     let logData = "{\"location\":\"FriendsView.swift:51\",\"message\":\"Profile card should be visible\",\"data\":{\"userId\":\"\(vm.selectedProfileUserId ?? "nil")\"},\"timestamp\":\(Int(Date().timeIntervalSince1970 * 1000)),\"sessionId\":\"debug-session\",\"runId\":\"profile-tap\",\"hypothesisId\":\"H3,H4\"}\n"
                     if let fileHandle = FileHandle(forWritingAtPath: "/Users/jefferyerhunse/GitRepos/StepComp/.cursor/debug.log") { fileHandle.seekToEndOfFile(); fileHandle.write(logData.data(using: .utf8)!); fileHandle.closeFile() }
                 }()
-                // #endregion
                 
                 UserProfileCard(
                     userId: vm.selectedProfileUserId ?? "",
@@ -143,39 +139,29 @@ struct FriendsView: View {
                 } else {
                     ForEach(vm.friendItems) { item in
                         FriendRow(item: item, isEditing: vm.isEditing) {
-                            // #region agent log
                             let logData = "{\"location\":\"FriendsView.swift:113\",\"message\":\"FriendRow onRemove tapped\",\"data\":{\"friendId\":\"\(item.id)\",\"username\":\"\(item.profile.username)\"},\"timestamp\":\(Int(Date().timeIntervalSince1970 * 1000)),\"sessionId\":\"debug-session\",\"runId\":\"swipe-debug\",\"hypothesisId\":\"C\"}\n"
                             if let fileHandle = FileHandle(forWritingAtPath: "/Users/jefferyerhunse/GitRepos/StepComp/.cursor/debug.log") { fileHandle.seekToEndOfFile(); fileHandle.write(logData.data(using: .utf8)!); fileHandle.closeFile() }
-                            // #endregion
                             Task { await vm.remove(friendshipId: item.id) }
                         } onAccept: {
                             Task { await vm.accept(friendshipId: item.id) }
                         }
                         .contentShape(Rectangle())
                         .onTapGesture {
-                            // #region agent log
                             let logData = "{\"location\":\"FriendsView.swift:127\",\"message\":\"FriendRow tapped - showing profile\",\"data\":{\"userId\":\"\(item.profile.id)\",\"username\":\"\(item.profile.username)\",\"hasButtons\":\(item.isIncomingRequest || item.isOutgoingRequest)},\"timestamp\":\(Int(Date().timeIntervalSince1970 * 1000)),\"sessionId\":\"debug-session\",\"runId\":\"profile-tap\",\"hypothesisId\":\"A,B\"}\n"
                             if let fileHandle = FileHandle(forWritingAtPath: "/Users/jefferyerhunse/GitRepos/StepComp/.cursor/debug.log") { fileHandle.seekToEndOfFile(); fileHandle.write(logData.data(using: .utf8)!); fileHandle.closeFile() }
-                            // #endregion
                             
-                            // #region agent log
                             let logDataBeforeSet = "{\"location\":\"FriendsView.swift:135\",\"message\":\"About to set selectedProfileUserId\",\"data\":{\"currentValue\":\"\(vm.selectedProfileUserId ?? "nil")\",\"newValue\":\"\(item.profile.id)\"},\"timestamp\":\(Int(Date().timeIntervalSince1970 * 1000)),\"sessionId\":\"debug-session\",\"runId\":\"profile-tap\",\"hypothesisId\":\"A,H3\"}\n"
                             if let fileHandle = FileHandle(forWritingAtPath: "/Users/jefferyerhunse/GitRepos/StepComp/.cursor/debug.log") { fileHandle.seekToEndOfFile(); fileHandle.write(logDataBeforeSet.data(using: .utf8)!); fileHandle.closeFile() }
-                            // #endregion
                             
                             vm.selectedProfileUserId = item.profile.id
                             
-                            // #region agent log
                             let logDataAfterSet = "{\"location\":\"FriendsView.swift:143\",\"message\":\"After setting selectedProfileUserId\",\"data\":{\"selectedValue\":\"\(vm.selectedProfileUserId ?? "nil")\"},\"timestamp\":\(Int(Date().timeIntervalSince1970 * 1000)),\"sessionId\":\"debug-session\",\"runId\":\"profile-tap\",\"hypothesisId\":\"A,H3\"}\n"
                             if let fileHandle = FileHandle(forWritingAtPath: "/Users/jefferyerhunse/GitRepos/StepComp/.cursor/debug.log") { fileHandle.seekToEndOfFile(); fileHandle.write(logDataAfterSet.data(using: .utf8)!); fileHandle.closeFile() }
-                            // #endregion
                         }
                         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                             Button(role: .destructive) {
-                                // #region agent log
                                 let logData = "{\"location\":\"FriendsView.swift:120\",\"message\":\"Swipe action Remove button tapped\",\"data\":{\"friendId\":\"\(item.id)\",\"username\":\"\(item.profile.username)\"},\"timestamp\":\(Int(Date().timeIntervalSince1970 * 1000)),\"sessionId\":\"debug-session\",\"runId\":\"swipe-debug\",\"hypothesisId\":\"A,C\"}\n"
                                 if let fileHandle = FileHandle(forWritingAtPath: "/Users/jefferyerhunse/GitRepos/StepComp/.cursor/debug.log") { fileHandle.seekToEndOfFile(); fileHandle.write(logData.data(using: .utf8)!); fileHandle.closeFile() }
-                                // #endregion
                                 Task { await vm.remove(friendshipId: item.id) }
                             } label: {
                                 Label("Remove", systemImage: "person.badge.minus")
@@ -222,16 +208,18 @@ struct FriendsView: View {
                 ForEach(vm.discoverResults) { profile in
                     DiscoverProfileRow(
                         profile: profile,
-                        friendshipStatus: vm.getFriendshipStatus(for: profile.id)
-                    ) {
-                        Task { await vm.sendRequest(to: profile) }
-                    }
+                        friendshipStatus: vm.getFriendshipStatus(for: profile.id),
+                        onAdd: {
+                            Task { await vm.sendRequest(to: profile) }
+                        },
+                        onCancel: {
+                            Task { await vm.cancelFriendRequest(to: profile.id) }
+                        }
+                    )
                     .listRowBackground(StepCompColors.background)
                     .onTapGesture {
-                        // #region agent log
                         let logData = "{\"location\":\"FriendsView.swift:183\",\"message\":\"DiscoverProfileRow tapped - showing profile\",\"data\":{\"userId\":\"\(profile.id)\",\"username\":\"\(profile.username)\"},\"timestamp\":\(Int(Date().timeIntervalSince1970 * 1000)),\"sessionId\":\"debug-session\",\"runId\":\"profile-tap\",\"hypothesisId\":\"B\"}\n"
                         if let fileHandle = FileHandle(forWritingAtPath: "/Users/jefferyerhunse/GitRepos/StepComp/.cursor/debug.log") { fileHandle.seekToEndOfFile(); fileHandle.write(logData.data(using: .utf8)!); fileHandle.closeFile() }
-                        // #endregion
                         vm.selectedProfileUserId = profile.id
                     }
                 }
@@ -307,10 +295,8 @@ struct FriendRow: View {
 
             if item.isIncomingRequest {
                 Button("Accept") { 
-                    // #region agent log
                     let logData = "{\"location\":\"FriendsView.swift:291\",\"message\":\"Accept button tapped in FriendRow\",\"data\":{\"userId\":\"\(item.profile.id)\"},\"timestamp\":\(Int(Date().timeIntervalSince1970 * 1000)),\"sessionId\":\"debug-session\",\"runId\":\"button-tap\",\"hypothesisId\":\"H2\"}\n"
                     if let fileHandle = FileHandle(forWritingAtPath: "/Users/jefferyerhunse/GitRepos/StepComp/.cursor/debug.log") { fileHandle.seekToEndOfFile(); fileHandle.write(logData.data(using: .utf8)!); fileHandle.closeFile() }
-                    // #endregion
                     onAccept() 
                 }
                 .buttonStyle(.borderedProminent)
@@ -333,6 +319,7 @@ struct DiscoverProfileRow: View {
     let profile: Profile
     let friendshipStatus: DiscoverFriendshipStatus
     let onAdd: () -> Void
+    let onCancel: () -> Void
     
     // Check if this is a test account
     private var isTestAccount: Bool {
@@ -362,12 +349,12 @@ struct DiscoverProfileRow: View {
 
             Spacer()
 
-            Button(action: {
-                onAdd()
-            }) {
-                Group {
-                    switch friendshipStatus {
-                    case .none:
+            Group {
+                switch friendshipStatus {
+                case .none:
+                    Button(action: {
+                        onAdd()
+                    }) {
                         Text("Add")
                             .foregroundColor(StepCompColors.buttonTextOnPrimary)
                             .font(.system(size: 15, weight: .bold))
@@ -375,39 +362,45 @@ struct DiscoverProfileRow: View {
                             .padding(.vertical, 8)
                             .background(StepCompColors.coral)
                             .cornerRadius(20)
-                    case .pending:
-                        Text("Pending")
-                            .foregroundColor(StepCompColors.textSecondary)
-                            .font(.system(size: 15, weight: .medium))
-                            .padding(.horizontal, 20)
-                            .padding(.vertical, 8)
-                            .background(StepCompColors.surfaceElevated)
-                            .cornerRadius(20)
-                    case .accepted:
-                        Text("Friend")
-                            .foregroundColor(StepCompColors.textPrimary)
-                            .font(.system(size: 15, weight: .semibold))
-                            .padding(.horizontal, 20)
-                            .padding(.vertical, 8)
-                            .background(StepCompColors.primary.opacity(0.2))
-                            .cornerRadius(20)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 20)
-                                    .stroke(StepCompColors.primary, lineWidth: 2)
-                            )
                     }
+                    .buttonStyle(.plain)
+                case .pending:
+                    Button(action: {
+                        onCancel()
+                    }) {
+                        HStack(spacing: 4) {
+                            Text("Pending")
+                            Image(systemName: "xmark.circle.fill")
+                                .font(.system(size: 12))
+                        }
+                        .foregroundColor(StepCompColors.textSecondary)
+                        .font(.system(size: 15, weight: .medium))
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 8)
+                        .background(StepCompColors.surfaceElevated)
+                        .cornerRadius(20)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 20)
+                                .stroke(Color(.systemGray4), lineWidth: 1)
+                        )
+                    }
+                    .buttonStyle(.plain)
+                case .accepted:
+                    Text("Friend")
+                        .foregroundColor(StepCompColors.textPrimary)
+                        .font(.system(size: 15, weight: .semibold))
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 8)
+                        .background(StepCompColors.primary.opacity(0.2))
+                        .cornerRadius(20)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 20)
+                                .stroke(StepCompColors.primary, lineWidth: 2)
+                        )
                 }
             }
-            .disabled(friendshipStatus == .accepted || friendshipStatus == .pending)
         }
         .padding(.vertical, 6)
-        .contentShape(Rectangle())
-        .onTapGesture {
-            // Make entire row clickable to add friend
-            if friendshipStatus == .none {
-                onAdd()
-            }
-        }
     }
 }
 

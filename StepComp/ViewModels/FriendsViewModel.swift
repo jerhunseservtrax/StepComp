@@ -11,6 +11,30 @@ import Combine
 import Supabase
 #endif
 
+// MARK: - Debug Logging Helper
+private func debugLog(_ location: String, _ message: String, _ data: [String: Any], _ hypothesisId: String) {
+    let logEntry: [String: Any] = [
+        "location": location,
+        "message": message,
+        "data": data,
+        "timestamp": Int(Date().timeIntervalSince1970 * 1000),
+        "sessionId": "debug-session",
+        "runId": "run1",
+        "hypothesisId": hypothesisId
+    ]
+    if let logData = try? JSONSerialization.data(withJSONObject: logEntry),
+       let logString = String(data: logData, encoding: .utf8) {
+        if let fileHandle = FileHandle(forWritingAtPath: "/Users/jefferyerhunse/GitRepos/StepComp/.cursor/debug.log") {
+            fileHandle.seekToEndOfFile()
+            fileHandle.write(logString.data(using: .utf8)!)
+            fileHandle.write("\n".data(using: .utf8)!)
+            fileHandle.closeFile()
+        } else {
+            try? logString.write(toFile: "/Users/jefferyerhunse/GitRepos/StepComp/.cursor/debug.log", atomically: false, encoding: .utf8)
+        }
+    }
+}
+
 @MainActor
 final class FriendsViewModel: ObservableObject {
     enum Tab { case friends, discover }
@@ -83,15 +107,47 @@ final class FriendsViewModel: ObservableObject {
     // MARK: - Invite Links
     
     func createInviteLink() async -> URL? {
+        // #region agent log
+        debugLog("FriendsViewModel.swift:85", "createInviteLink called", [:], "A")
+        // #endregion
         do {
             let result = try await service.createInviteRPC(expiresInHours: 168) // 7 days
             
-            // Create deep link URL with custom scheme
-            // Format: je.stepcomp://friend-invite?token=ABC123
+            // #region agent log
+            debugLog("FriendsViewModel.swift:88", "RPC result received", ["token": result.token, "tokenLength": result.token.count], "A")
+            // #endregion
+            
+            // Create a shareable URL that works in Messages/Email/etc
+            // Use deep link scheme which works immediately without DNS/hosting setup
+            // Format: je.stepcomp://friend-invite?token={token}
+            // This will open the app directly if installed
+            // Note: Universal links (https://stepcomp.app/invite/friend/{token}) require domain setup
+            // and are better for App Store fallback, but deep links work without infrastructure
             let urlString = "je.stepcomp://friend-invite?token=\(result.token)"
+            
+            // #region agent log
+            debugLog("FriendsViewModel.swift:97", "URL string generated (deep link)", ["urlString": urlString, "scheme": "je.stepcomp", "host": "friend-invite", "token": result.token], "A")
+            // #endregion
+            
             print("✅ Created invite link: \(urlString)")
-            return URL(string: urlString)
+            
+            guard let url = URL(string: urlString) else {
+                // #region agent log
+                debugLog("FriendsViewModel.swift:100", "URL construction failed", ["urlString": urlString], "D")
+                // #endregion
+                errorMessage = "Failed to create valid URL from token"
+                return nil
+            }
+            
+            // #region agent log
+            debugLog("FriendsViewModel.swift:105", "URL created successfully", ["url": url.absoluteString, "scheme": url.scheme ?? "nil", "host": url.host ?? "nil", "path": url.path], "A")
+            // #endregion
+            
+            return url
         } catch {
+            // #region agent log
+            debugLog("FriendsViewModel.swift:108", "RPC call failed", ["error": error.localizedDescription], "A")
+            // #endregion
             errorMessage = "Failed to create invite link: \(error.localizedDescription)"
             print("❌ Error creating invite link: \(error)")
             return nil

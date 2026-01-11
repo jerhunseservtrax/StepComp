@@ -147,9 +147,18 @@ struct GoalSettingOnboardingView: View {
     }
     
     private func saveGoalAndContinue() {
-        // Save goal to UserDefaults
+        // Save goal to UserDefaults (temporary storage during onboarding)
         UserDefaults.standard.set(selectedGoal, forKey: "dailyStepGoal")
         print("✅ Daily step goal set to: \(selectedGoal)")
+        
+        // If user is already authenticated, also save to database immediately
+        // This handles cases where user goes back to goal setting or signs in before completing onboarding
+        if sessionViewModel.isAuthenticated {
+            Task {
+                await authService.updateDailyStepGoal(selectedGoal)
+                print("✅ Daily step goal synced to database: \(selectedGoal)")
+            }
+        }
         
         // Continue to next step
         withAnimation {

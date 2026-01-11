@@ -200,6 +200,9 @@ final class ChallengeChatViewModel: ObservableObject {
             // Reload messages to get the new message with profile data
             await loadMessages()
             
+            // Post notification to update chat badge in dashboard header
+            NotificationCenter.default.post(name: .chatMessageReceived, object: nil)
+            
         } catch {
             print("⚠️ Error sending message: \(error.localizedDescription)")
             errorMessage = "Failed to send message"

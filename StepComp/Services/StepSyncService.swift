@@ -34,6 +34,19 @@ final class StepSyncService: ObservableObject {
             return
         }
         
+        // Check if we have a valid session before trying to sync
+        // This prevents 401 errors when session is still being restored
+        do {
+            let session = try await supabase.auth.session
+            guard !session.user.id.uuidString.isEmpty else {
+                print("⚠️ No valid session, skipping step sync")
+                return
+            }
+        } catch {
+            print("⚠️ Session not available, skipping step sync: \(error.localizedDescription)")
+            return
+        }
+        
         do {
             // Get today's steps from HealthKit
             let todaySteps = try await healthKitService.getTodaySteps()
@@ -95,6 +108,7 @@ final class StepSyncService: ObservableObject {
         }
         
         // Call Edge Function and decode JSON response
+        // Handle 401 errors by refreshing session and retrying (Instagram pattern)
         do {
             let response: EdgeFunctionResponse = try await supabase.functions
                 .invoke("sync-steps", options: FunctionInvokeOptions(body: payload))
@@ -113,8 +127,36 @@ final class StepSyncService: ObservableObject {
                 )
             }
         } catch {
+            let errorDescription = error.localizedDescription.lowercased()
+            
+            // Handle 401 (Unauthorized) - try to refresh session, NOT logout
+            if errorDescription.contains("401") || errorDescription.contains("unauthorized") {
+                print("⚠️ Got 401 - attempting session refresh...")
+                let refreshed = await AuthService.shared.refreshSessionOn401()
+                
+                if refreshed {
+                    // Retry the sync with refreshed session
+                    print("🔄 Session refreshed, retrying sync...")
+                    
+                    do {
+                        let retryResponse: EdgeFunctionResponse = try await supabase.functions
+                            .invoke("sync-steps", options: FunctionInvokeOptions(body: payload))
+                        if retryResponse.success {
+                            print("✅ Edge Function sync successful after refresh")
+                        }
+                    } catch {
+                        print("⚠️ Edge Function retry failed, using RPC fallback...")
+                        // Fall back to RPC when Edge Function consistently fails
+                        try await syncStepsViaRPCFallback(steps: steps, day: day, deviceId: deviceId)
+                    }
+                } else {
+                    // Refresh failed - user will be logged out by AuthService
+                    print("❌ Session refresh failed - user will be logged out")
+                }
+                return
+            }
+            
             // Handle 404 (Edge Function not deployed) gracefully
-            let errorDescription = error.localizedDescription
             if errorDescription.contains("404") || errorDescription.contains("not found") {
                 print("⚠️ Edge Function 'sync-steps' not deployed. Steps will sync via RPC fallback.")
                 // Fallback: Call RPC directly (less secure but works)

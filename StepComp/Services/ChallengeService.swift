@@ -316,7 +316,6 @@ final class ChallengeService: ObservableObject {
             let userChallenges = challenges.filter { challenge in
                 challenge.creatorId == userId || challenge.participantIds.contains(userId)
             }
-            print("🔍 getUserChallenges for userId \(userId): Found \(userChallenges.count) challenges out of \(challenges.count) total")
             for challenge in userChallenges {
                 print("  - \(challenge.name): creator=\(challenge.creatorId == userId), participant=\(challenge.participantIds.contains(userId))")
             }
@@ -698,6 +697,11 @@ final class ChallengeService: ObservableObject {
                     category: category,
                     imageUrl: supabaseChallenge.imageUrl
                 )
+                
+                // Debug logging for challenge loading
+                if challenge.name == "Test group" || challenge.name.contains("Test group") {
+                    print("🔍 [ChallengeService] Loaded 'Test group': participants=\(finalParticipantIds.count), startDate=\(supabaseChallenge.startDate), endDate=\(supabaseChallenge.endDate), daysRemaining=\(challenge.daysRemaining)")
+                }
                 
                 loadedChallenges.append(challenge)
             }

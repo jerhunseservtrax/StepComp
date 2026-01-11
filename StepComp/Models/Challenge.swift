@@ -98,8 +98,29 @@ struct Challenge: Identifiable, Codable, Equatable {
     var daysRemaining: Int {
         let calendar = Calendar.current
         let now = Date()
-        guard now <= endDate else { return 0 }
-        return calendar.dateComponents([.day], from: now, to: endDate).day ?? 0
+        guard now <= endDate else { 
+            print("⚠️ [Challenge] \(name): Challenge has ended (now: \(now), endDate: \(endDate))")
+            return 0 
+        }
+        
+        // Normalize both dates to start of day for accurate day count
+        let startOfToday = calendar.startOfDay(for: now)
+        let startOfEndDate = calendar.startOfDay(for: endDate)
+        
+        // Calculate the number of calendar days between today and end date
+        // If end date is today, days = 0 (today is the last day)
+        // If end date is tomorrow, days = 1 (1 day left)
+        // If end date is day after tomorrow, days = 2 (2 days left)
+        let components = calendar.dateComponents([.day], from: startOfToday, to: startOfEndDate)
+        let days = components.day ?? 0
+        
+        // Debug logging for days calculation
+        if name == "Test group" || name.contains("Test group") {
+            print("🔍 [Challenge.daysRemaining] '\(name)': now=\(startOfToday), endDate=\(startOfEndDate), days=\(days)")
+        }
+        
+        // Return days: 0 = last day, 1 = 1 day left, 2 = 2 days left, etc.
+        return max(0, days)
     }
 }
 

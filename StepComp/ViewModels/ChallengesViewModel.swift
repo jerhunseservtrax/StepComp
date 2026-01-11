@@ -170,6 +170,19 @@ final class ChallengesViewModel: ObservableObject {
             
             let participantIds = members.map { $0.userId }
             
+            // Ensure creator is in participantIds (they should be, but double-check)
+            // Use case-insensitive comparison since UUIDs might have different casing
+            let normalizedCreatorId = supabaseChallenge.createdBy.lowercased()
+            var finalParticipantIds = participantIds
+            let creatorExists = finalParticipantIds.contains { $0.lowercased() == normalizedCreatorId }
+            if !creatorExists {
+                finalParticipantIds.append(supabaseChallenge.createdBy)
+                print("⚠️ [ChallengesViewModel] Creator \(supabaseChallenge.createdBy) not in participantIds for challenge \(supabaseChallenge.name), adding them")
+            }
+            
+            // Debug: Log participant count for this challenge
+            print("🔍 [ChallengesViewModel] Challenge '\(supabaseChallenge.name)': \(finalParticipantIds.count) participants (including creator)")
+            
             // Convert category string to enum
             var category: Challenge.ChallengeCategory? = nil
             if let categoryString = supabaseChallenge.category {
@@ -184,7 +197,7 @@ final class ChallengesViewModel: ObservableObject {
                 endDate: supabaseChallenge.endDate,
                 targetSteps: 10000, // Default, could be stored in DB
                 creatorId: supabaseChallenge.createdBy,
-                participantIds: participantIds,
+                participantIds: finalParticipantIds,
                 isActive: supabaseChallenge.endDate >= Date(),
                 createdAt: supabaseChallenge.createdAt,
                 inviteCode: supabaseChallenge.inviteCode,

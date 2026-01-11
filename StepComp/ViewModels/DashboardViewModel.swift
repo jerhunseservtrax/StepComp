@@ -90,6 +90,19 @@ final class DashboardViewModel: ObservableObject {
         #endif
         activeChallenges = challengeService.getActiveChallenges(userId: userId)
         print("📊 DashboardViewModel: Loaded \(activeChallenges.count) active challenges for user \(userId)")
+        
+        // Debug logging for "Test group" challenge
+        for challenge in activeChallenges {
+            if challenge.name == "Test group" || challenge.name.contains("Test group") {
+                print("🔍 [DashboardViewModel] 'Test group' challenge:")
+                print("  → Participant IDs count: \(challenge.participantIds.count)")
+                print("  → Participant IDs: \(challenge.participantIds)")
+                print("  → Start Date: \(challenge.startDate)")
+                print("  → End Date: \(challenge.endDate)")
+                print("  → Days Remaining: \(challenge.daysRemaining)")
+                print("  → Is Ongoing: \(challenge.isOngoing)")
+            }
+        }
     }
     
     private func loadStepData() async {
@@ -164,8 +177,8 @@ final class DashboardViewModel: ObservableObject {
             distanceKm = Double(todaySteps) * 0.0008
             caloriesBurned = Int(Double(todaySteps) * 0.04)
             
-            // Calculate streak (simplified - would need actual day-by-day data)
-            currentStreak = calculateStreak(from: weeklyStats)
+            // Calculate streak using the daily goal
+            currentStreak = calculateStreak(from: weeklyStats, todaySteps: todaySteps)
             print("✅ Streak: \(currentStreak) days")
             
             // Sync steps to Supabase profile and challenges
@@ -186,26 +199,50 @@ final class DashboardViewModel: ObservableObject {
         }
     }
     
-    private func calculateStreak(from stats: [StepStats]) -> Int {
-        // Simplified streak calculation
-        // In a real implementation, this would check consecutive days with steps > 0
+    private func calculateStreak(from stats: [StepStats], todaySteps: Int) -> Int {
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: Date())
         var streak = 0
         
-        // Check today first
-        if let todayStat = stats.first(where: { calendar.isDate($0.date, inSameDayAs: today) }),
-           todayStat.steps > 0 {
+        // Get user's daily step goal
+        var dailyGoal = UserDefaults.standard.integer(forKey: "dailyStepGoal")
+        if dailyGoal <= 0 {
+            dailyGoal = 10000 // Default goal if not set
+        }
+        
+        // Helper to get steps for a specific date
+        func stepsForDate(_ date: Date) -> Int {
+            if calendar.isDate(date, inSameDayAs: today) {
+                return todaySteps
+            }
+            if let stat = stats.first(where: { calendar.isDate($0.date, inSameDayAs: date) }) {
+                return stat.steps
+            }
+            return 0
+        }
+        
+        // Check if today meets the goal
+        let todayMeetsGoal = todaySteps >= dailyGoal
+        
+        if todayMeetsGoal {
             streak = 1
             
             // Check previous days
-            for i in 1..<30 { // Check up to 30 days back
-                if let date = calendar.date(byAdding: .day, value: -i, to: today),
-                   let stat = stats.first(where: { calendar.isDate($0.date, inSameDayAs: date) }),
-                   stat.steps > 0 {
+            for i in 1..<30 {
+                guard let date = calendar.date(byAdding: .day, value: -i, to: today) else { break }
+                if stepsForDate(date) >= dailyGoal {
                     streak += 1
                 } else {
-                    // Break in streak
+                    break
+                }
+            }
+        } else {
+            // Today doesn't meet goal - count streak from yesterday
+            for i in 1..<30 {
+                guard let date = calendar.date(byAdding: .day, value: -i, to: today) else { break }
+                if stepsForDate(date) >= dailyGoal {
+                    streak += 1
+                } else {
                     break
                 }
             }

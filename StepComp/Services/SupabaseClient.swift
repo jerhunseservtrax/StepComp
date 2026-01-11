@@ -51,6 +51,9 @@ let supabase: SupabaseClient = {
     // checking session.isExpired and refreshing when needed. The session handling logic in
     // checkSupabaseSession() ensures users remain signed in indefinitely until manual logout.
     // See: https://github.com/supabase/supabase-swift/pull/822
+    
+    // The Supabase Swift SDK automatically persists sessions to UserDefaults by default
+    // and handles token refresh automatically. No additional configuration needed.
     return SupabaseClient(
         supabaseURL: url,
         supabaseKey: SupabaseConfig.supabaseAnonKey

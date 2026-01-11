@@ -25,7 +25,7 @@ struct HomeDashboardView: View {
     @State private var showingCreateChallenge = false
     @State private var dailyGoal: Int = 10000 // Default goal
     @State private var selectedDate: Date = Date()
-    @State private var weeklyStepData: [Int] = [0, 0, 0, 0, 0, 0, 0]
+    @State private var weeklyStepData: [Int] = Array(repeating: 0, count: 30) // 30 days of historical data
     @State private var selectedDateSteps: Int = 0
     @State private var selectedDateCalories: Int = 0
     @State private var selectedDateDistance: Double = 0.0
@@ -235,26 +235,22 @@ struct HomeDashboardView: View {
     }
     
     private func loadWeeklyData() async {
-        // Load weekly step data from HealthKit
+        // Load historical step data from HealthKit (30 days)
+        // IMPORTANT: Data format is "last N days" where last index = today, index 0 = N-1 days ago
+        // This must match the display logic in DailyGoalCard.dayLabel(for:)
         let calendar = Calendar.current
-        let today = Date()
-        
-        // Find Monday of this week
-        var components = calendar.dateComponents([.yearForWeekOfYear, .weekOfYear], from: today)
-        components.weekday = 2 // Monday
-        guard let monday = calendar.date(from: components) else { return }
+        let today = calendar.startOfDay(for: Date())
+        let numberOfDays = 30 // Load 30 days of historical data
         
         var dailySteps: [Int] = []
         
-        for dayOffset in 0..<7 {
-            guard let dayStart = calendar.date(byAdding: .day, value: dayOffset, to: monday),
+        // Load last N days: index 0 = (N-1) days ago, last index = today
+        for dayOffset in 0..<numberOfDays {
+            // Calculate date: today - (numberOfDays - 1 - dayOffset) days
+            // dayOffset 0 -> (numberOfDays - 1) days ago
+            // dayOffset (numberOfDays - 1) -> 0 days ago (today)
+            guard let dayStart = calendar.date(byAdding: .day, value: dayOffset - (numberOfDays - 1), to: today),
                   let dayEnd = calendar.date(byAdding: .day, value: 1, to: dayStart) else {
-                dailySteps.append(0)
-                continue
-            }
-            
-            // Only fetch data for days up to today
-            if dayStart > today {
                 dailySteps.append(0)
                 continue
             }

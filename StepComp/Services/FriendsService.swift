@@ -64,6 +64,7 @@ final class FriendsService: ObservableObject {
     func sendFriendRequest(to targetUserId: String, myUserId: String) async throws -> String? {
         #if canImport(Supabase)
         // Insert and return the friendship ID
+        // We need to select all fields to properly decode the Friendship model
         let response: [Friendship] = try await supabase
             .from("friendships")
             .insert([
@@ -71,10 +72,46 @@ final class FriendsService: ObservableObject {
                 "addressee_id": targetUserId,
                 "status": "pending"
             ])
-            .select("id")
+            .select() // Select all fields, not just id
             .execute()
             .value
-        return response.first?.id
+        
+        guard let friendship = response.first else {
+            return nil
+        }
+        
+        // friendship.id is a String (not optional), so we can access it directly
+        let friendshipId = friendship.id
+        
+        // Get requester's (sender's) username for the notification
+        // Note: Notification creation is non-blocking - if it fails, we log but still return
+        // the friendship ID since the request was successfully created
+        do {
+            let profiles: [UserProfile] = try await supabase
+                .from("profiles")
+                .select("username, display_name")
+                .eq("id", value: myUserId)
+                .execute()
+                .value
+            
+            let requesterUsername = profiles.first?.displayName ?? profiles.first?.username ?? "Someone"
+            
+            // Create notification for the recipient (targetUserId)
+            try await ChallengeNotificationService.shared.createNotification(
+                userId: targetUserId,
+                type: .friendRequest,
+                title: "New Friend Request",
+                message: "\(requesterUsername) sent you a friend request",
+                relatedId: friendshipId
+            )
+            
+            print("✅ Friend request sent to \(targetUserId) and notification created")
+        } catch {
+            // Log the error but don't throw - the friend request was successfully created
+            print("⚠️ Friend request sent successfully, but failed to create notification: \(error.localizedDescription)")
+        }
+        
+        return friendshipId
         #else
         return nil
         #endif
@@ -82,11 +119,57 @@ final class FriendsService: ObservableObject {
 
     func acceptRequest(friendshipId: String) async throws {
         #if canImport(Supabase)
+        // First, get the friendship details to find the requester
+        let friendships: [Friendship] = try await supabase
+            .from("friendships")
+            .select()
+            .eq("id", value: friendshipId)
+            .execute()
+            .value
+        
+        guard let friendship = friendships.first else {
+            throw NSError(domain: "Friendship", code: 404, userInfo: [NSLocalizedDescriptionKey: "Friendship not found"])
+        }
+        
+        // Update the friendship status
         _ = try await supabase
             .from("friendships")
             .update(["status": "accepted"])
             .eq("id", value: friendshipId)
             .execute()
+        
+        // The requester is the person who sent the request (needs notification)
+        // The addressee is the person receiving/accepting the request (current user)
+        let requesterId = friendship.requesterId
+        let accepterId = friendship.addresseeId
+        
+        // Get accepter's (current user's) username for the notification
+        // Note: Notification creation is non-blocking - if it fails, we log but don't throw
+        // since the friendship acceptance already succeeded
+        do {
+            let profiles: [UserProfile] = try await supabase
+                .from("profiles")
+                .select("username, display_name")
+                .eq("id", value: accepterId)
+                .execute()
+                .value
+            
+            let accepterUsername = profiles.first?.displayName ?? profiles.first?.username ?? "Someone"
+            
+            // Send notification to the requester (the person who sent the request)
+            try await ChallengeNotificationService.shared.createNotification(
+                userId: requesterId,
+                type: .friendRequestAccepted,
+                title: "Friend Request Accepted! 🎉",
+                message: "\(accepterUsername) accepted your friend request",
+                relatedId: friendshipId
+            )
+            
+            print("✅ Friend request accepted and notification sent to \(requesterId)")
+        } catch {
+            // Log the error but don't throw - the friendship acceptance already succeeded
+            print("⚠️ Friend request accepted successfully, but failed to create notification: \(error.localizedDescription)")
+        }
         #endif
     }
 

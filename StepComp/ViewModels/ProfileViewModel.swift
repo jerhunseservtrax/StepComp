@@ -217,8 +217,8 @@ final class ProfileViewModel: ObservableObject {
             caloriesBurned = Int(Double(todaySteps) * 0.04) // Approximate: 1 step ≈ 0.04 kcal
             activeTimeHours = Int(Double(todaySteps) * 0.0001) // Approximate: 1 step ≈ 0.0001 hours
             
-            // Calculate streak
-            currentStreak = calculateStreak(from: weeklyStats)
+            // Calculate streak using monthly stats (more data for accurate streak)
+            currentStreak = calculateStreak(from: monthlyStats, todaySteps: todaySteps)
             print("✅ Profile HealthKit data loaded - Total: \(totalSteps), Streak: \(currentStreak)")
             
             // Load height and weight from HealthKit if available
@@ -275,21 +275,55 @@ final class ProfileViewModel: ObservableObject {
         }
     }
     
-    private func calculateStreak(from stats: [StepStats]) -> Int {
+    private func calculateStreak(from stats: [StepStats], todaySteps: Int) -> Int {
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: Date())
         var streak = 0
         
-        // Check today first
-        if let todayStat = stats.first(where: { calendar.isDate($0.date, inSameDayAs: today) }),
-           todayStat.steps > 0 {
+        // Get user's daily step goal
+        var dailyGoal = UserDefaults.standard.integer(forKey: "dailyStepGoal")
+        if dailyGoal <= 0 {
+            dailyGoal = 10000 // Default goal if not set
+        }
+        
+        // Helper to get steps for a specific date
+        func stepsForDate(_ date: Date) -> Int {
+            // For today, prefer the directly-fetched todaySteps value
+            if calendar.isDate(date, inSameDayAs: today) {
+                return todaySteps
+            }
+            // Otherwise look in stats array
+            if let stat = stats.first(where: { calendar.isDate($0.date, inSameDayAs: date) }) {
+                return stat.steps
+            }
+            return 0
+        }
+        
+        // Check if today meets the goal
+        let todayMeetsGoal = todaySteps >= dailyGoal
+        
+        if todayMeetsGoal {
+            // Today meets goal - count from today backwards
             streak = 1
             
             // Check previous days
             for i in 1..<30 {
-                if let date = calendar.date(byAdding: .day, value: -i, to: today),
-                   let stat = stats.first(where: { calendar.isDate($0.date, inSameDayAs: date) }),
-                   stat.steps > 0 {
+                guard let date = calendar.date(byAdding: .day, value: -i, to: today) else { break }
+                let daySteps = stepsForDate(date)
+                
+                if daySteps >= dailyGoal {
+                    streak += 1
+                } else {
+                    break
+                }
+            }
+        } else {
+            // Today doesn't meet goal yet - count streak from yesterday
+            for i in 1..<30 {
+                guard let date = calendar.date(byAdding: .day, value: -i, to: today) else { break }
+                let daySteps = stepsForDate(date)
+                
+                if daySteps >= dailyGoal {
                     streak += 1
                 } else {
                     break

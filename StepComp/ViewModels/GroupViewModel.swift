@@ -111,7 +111,7 @@ final class GroupViewModel: ObservableObject {
     }
     
     func joinCurrentChallenge() async {
-        guard let challenge = challenge else {
+        guard let currentChallenge = challenge else {
             errorMessage = "Challenge not found"
             return
         }
@@ -152,14 +152,26 @@ final class GroupViewModel: ObservableObject {
             
             // Send notification to challenge creator
             await ChallengeNotificationService.shared.notifyChallengeCreator(
-                creatorId: challenge.creatorId,
+                creatorId: currentChallenge.creatorId,
                 joinerUsername: username,
-                challengeName: challenge.name,
+                challengeName: currentChallenge.name,
                 challengeId: challengeId
             )
             
             // Refresh challenge data to update participant list
+            // Force refresh from server to get updated participantIds
+            challengeService.invalidateChallengeCache(challengeId)
             await loadGroupDataAsync()
+            
+            // Ensure challenge is updated with current user in participantIds
+            // This prevents the view from showing black screen or preview again
+            // Use self.challenge to access the property (not the local variable)
+            if var updatedChallenge = self.challenge {
+                if !updatedChallenge.participantIds.contains(currentUserId) {
+                    updatedChallenge.participantIds.append(currentUserId)
+                    self.challenge = updatedChallenge
+                }
+            }
             
             print("✅ Successfully joined challenge \(challengeId)")
             

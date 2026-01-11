@@ -14,22 +14,22 @@ import Supabase
 @main
 struct StepCompApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
+    // Note: AuthService.shared is accessed lazily to avoid blocking app launch
     @ObservedObject private var authService = AuthService.shared
     
     init() {
-        // Initialize notification managers
-        _ = StepGoalNotificationService.shared
-        _ = NotificationManager.shared
-        
-        // Request notification permissions on first launch
-        Task {
-            try? await NotificationManager.shared.requestAuthorization()
-        }
-        
-        // Setup global fonts (rounded typography matching reference UI)
+        // Setup global fonts first (synchronous, fast)
         #if os(iOS)
         AppFontConfiguration.setupGlobalFonts()
         #endif
+        
+        // Initialize notification managers in background to avoid blocking launch
+        // This prevents the app from freezing if notification APIs are slow
+        Task.detached(priority: .utility) {
+            _ = await MainActor.run { StepGoalNotificationService.shared }
+            _ = await MainActor.run { NotificationManager.shared }
+            try? await NotificationManager.shared.requestAuthorization()
+        }
     }
     
     var body: some Scene {
@@ -37,17 +37,8 @@ struct StepCompApp: App {
             RootView()
                 .environmentObject(authService)
                 .onOpenURL { url in
-                    // #region agent log
                     print("============================================================")
-                    print("🔍 [H9] ===== onOpenURL CALLED =====")
-                    print("🔍 [H9] Full URL: \(url.absoluteString)")
-                    print("🔍 [H9] URL scheme: \(url.scheme ?? "nil")")
-                    print("🔍 [H9] URL host: \(url.host() ?? "nil")")
-                    print("🔍 [H9] URL path: \(url.path())")
-                    print("🔍 [H9] URL query: \(url.query() ?? "nil")")
-                    print("🔍 [H9] URL fragment: \(url.fragment() ?? "nil")")
                     print("============================================================")
-                    // #endregion
                     
                     // Handle deep links (friend invites, OAuth, etc.)
                     DeepLinkRouter.shared.handle(url: url)
@@ -63,9 +54,6 @@ struct StepCompApp: App {
     
     #if canImport(Supabase)
     private func handleOAuthCallback(url: URL) async {
-        // #region agent log
-        print("🔍 [H9] handleOAuthCallback called with: \(url.absoluteString)")
-        // #endregion
         
         print("🔵 App-level callback received: \(url)")
         
@@ -79,9 +67,6 @@ struct StepCompApp: App {
             return
         }
         
-        // #region agent log
-        print("🔍 [H9] Not a password reset - attempting OAuth session check")
-        // #endregion
         
         // Process OAuth callback with Supabase (for Apple/Google sign-in)
         // The Supabase SDK should automatically handle the callback URL
@@ -90,9 +75,6 @@ struct StepCompApp: App {
             // Wait a moment for Supabase to process the callback
             try? await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
             
-            // #region agent log
-            print("🔍 [H9] Checking for Supabase session...")
-            // #endregion
             
             // Check if session was established
             let session = try await supabase.auth.session
@@ -101,9 +83,7 @@ struct StepCompApp: App {
             // Refresh auth service session
             authService.checkSupabaseSession()
         } catch {
-            // #region agent log
             print("❌ [H9] Error getting session: \(error.localizedDescription)")
-            // #endregion
             
             print("⚠️ Error processing OAuth callback at app level: \(error.localizedDescription)")
             print("⚠️ Error details: \(error)")

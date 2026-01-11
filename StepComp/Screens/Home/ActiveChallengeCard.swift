@@ -32,7 +32,12 @@ struct ActiveChallengeCard: View {
                         .lineLimit(2)
                     
                     // Overlapping member avatars
-                    OverlappingAvatars(profiles: memberProfiles)
+                    // Use challenge.participantIds.count for accurate participant count
+                    // memberProfiles is limited to 4 for display purposes only
+                    OverlappingAvatars(
+                        profiles: memberProfiles,
+                        totalCount: challenge.participantIds.count
+                    )
                 }
                 
                 Spacer()
@@ -63,6 +68,11 @@ struct ActiveChallengeCard: View {
     private func loadMemberProfiles() async {
         #if canImport(Supabase)
         do {
+            // Debug: Log participant IDs to verify count
+            print("🔍 [ActiveChallengeCard] Loading profiles for challenge: \(challenge.name)")
+            print("  → Participant IDs count: \(challenge.participantIds.count)")
+            print("  → Participant IDs: \(challenge.participantIds)")
+            
             // Fetch profiles for participant IDs
             struct ProfileRow: Codable {
                 let id: String
@@ -78,13 +88,15 @@ struct ActiveChallengeCard: View {
                 }
             }
             
+            // Don't limit the query - fetch all profiles first, then limit display
             let profiles: [ProfileRow] = try await supabase
                 .from("profiles")
                 .select()
                 .in("id", values: challenge.participantIds)
-                .limit(5) // Only fetch first 5 for display
                 .execute()
                 .value
+            
+            print("  → Loaded \(profiles.count) profiles from database")
             
             memberProfiles = profiles.map { profile in
                 MemberProfile(
@@ -93,8 +105,14 @@ struct ActiveChallengeCard: View {
                     avatarUrl: profile.avatarUrl
                 )
             }
+            
+            print("  → Member profiles count: \(memberProfiles.count)")
         } catch {
-            print("❌ Failed to load member profiles: \(error)")
+            print("❌ [ActiveChallengeCard] Failed to load member profiles: \(error)")
+            if let nsError = error as NSError? {
+                print("  → Error domain: \(nsError.domain), code: \(nsError.code)")
+                print("  → Error userInfo: \(nsError.userInfo)")
+            }
         }
         #endif
     }
@@ -104,6 +122,7 @@ struct ActiveChallengeCard: View {
 
 struct OverlappingAvatars: View {
     let profiles: [MemberProfile]
+    let totalCount: Int
     private let avatarSize: CGFloat = 40
     private let overlap: CGFloat = 12
     
@@ -132,13 +151,13 @@ struct OverlappingAvatars: View {
                 .zIndex(Double(profiles.count - index))
             }
             
-            // "+X more" indicator if more than 4 members
-            if profiles.count > 4 {
+            // "+X more" indicator if there are more members than shown
+            if totalCount > 4 {
                 Circle()
                     .fill(Color(.systemGray5))
                     .frame(width: avatarSize, height: avatarSize)
                     .overlay(
-                        Text("+\(profiles.count - 4)")
+                        Text("+\(max(0, totalCount - 4))")
                             .font(.system(size: 12, weight: .bold))
                             .foregroundColor(.secondary)
                     )

@@ -129,34 +129,6 @@ struct SignInOnboardingView: View {
                                     .stroke(Color.clear, lineWidth: 0)
                             )
                             
-                            // Google Sign In
-                            Button(action: {
-                                // #region agent log
-                                print("🔍 [H1] Google button tapped - handleGoogleSignIn about to be called")
-                                // #endregion
-                                handleGoogleSignIn()
-                            }) {
-                                HStack {
-                                    // Google G logo approximation
-                                    Text("G")
-                                        .font(.system(size: 20, weight: .bold))
-                                        .foregroundColor(.blue)
-                                        .frame(width: 24, height: 24)
-                                    
-                                    Text("Sign in with Google")
-                                        .font(.system(size: 16, weight: .bold))
-                                }
-                                .foregroundColor(.primary)
-                                .frame(maxWidth: .infinity)
-                                .frame(height: 56)
-                                .background(StepCompColors.surface)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 999)
-                                        .stroke(Color(.systemGray4), lineWidth: 1)
-                                )
-                                .cornerRadius(999)
-                            }
-                            
                             // Email Sign Up
                             Button(action: {
                                 isSignUp = true
@@ -273,9 +245,6 @@ struct SignInOnboardingView: View {
                 },
                 onAppleSignIn: {
                     triggerAppleSignIn()
-                },
-                onGoogleSignIn: {
-                    handleGoogleSignIn()
                 }
             )
         }
@@ -379,6 +348,13 @@ struct SignInOnboardingView: View {
                     
                     // Wait a moment for state to update
                     try? await Task.sleep(nanoseconds: 200_000_000) // 0.2 seconds
+                    
+                    // Update daily step goal from UserDefaults (set during onboarding)
+                    let savedDailyGoal = UserDefaults.standard.integer(forKey: "dailyStepGoal")
+                    if savedDailyGoal > 0 {
+                        await sessionViewModel.authServiceAccess.updateDailyStepGoal(savedDailyGoal)
+                        print("✅ Daily step goal updated after Apple Sign-In: \(savedDailyGoal)")
+                    }
                     
                     // Apply avatar if selected during onboarding
                     if var user = sessionViewModel.currentUser,
@@ -531,6 +507,15 @@ struct SignInOnboardingView: View {
             // The SessionViewModel should have updated via Combine, but let's verify
             if sessionViewModel.isAuthenticated, sessionViewModel.currentUser != nil {
                 showingEmailAuth = false
+                
+                // Update daily step goal from UserDefaults (set during onboarding)
+                // This ensures the goal is synced even if the user signed in (not signed up)
+                let savedDailyGoal = UserDefaults.standard.integer(forKey: "dailyStepGoal")
+                if savedDailyGoal > 0 {
+                    await sessionViewModel.authServiceAccess.updateDailyStepGoal(savedDailyGoal)
+                    print("✅ Daily step goal updated after email auth: \(savedDailyGoal)")
+                }
+                
                 // Apply avatar if selected during onboarding
                 await applySelectedAvatar()
                 sessionViewModel.completeOnboarding()
@@ -606,51 +591,29 @@ struct SignInOnboardingView: View {
     }
     
     private func handleGoogleSignIn() {
-        // #region agent log
         #if canImport(Supabase) && canImport(UIKit)
-        print("🔍 [H2] handleGoogleSignIn called - Using Supabase path")
         #else
-        print("🔍 [H2] handleGoogleSignIn called - Using mock path")
         #endif
-        // #endregion
         
         #if canImport(Supabase) && canImport(UIKit)
-        // #region agent log
-        print("🔍 [H2] Inside Supabase path - starting Task")
-        // #endregion
         
         Task {
-            // #region agent log
-            print("🔍 [H2] Task started - setting isLoading=true")
-            // #endregion
             
             isLoading = true
             errorMessage = nil
             
             do {
-                // #region agent log
-                print("🔍 [H3] Calling sessionViewModel.signInWithGoogle()")
-                // #endregion
                 
                 // Use Supabase OAuth for Google Sign-In
                 let oauthURL = try await sessionViewModel.signInWithGoogle()
                 
-                // #region agent log
-                print("🔍 [H3] OAuth URL received: \(oauthURL.absoluteString)")
-                // #endregion
                 
                 // Open OAuth URL using ASWebAuthenticationSession
                 await MainActor.run {
-                    // #region agent log
-                    print("🔍 [H4] Calling openGoogleOAuth with URL")
-                    // #endregion
                     
                     openGoogleOAuth(url: oauthURL)
                 }
             } catch {
-                // #region agent log
-                print("🔍 [H3] Error caught: \(error.localizedDescription)")
-                // #endregion
                 
                 isLoading = false
                 if case AuthError.oauthURLGenerated(let url) = error {
@@ -665,9 +628,6 @@ struct SignInOnboardingView: View {
             }
         }
         #else
-        // #region agent log
-        print("🔍 [H2] In fallback/mock path - Supabase not available")
-        // #endregion
         
         // Fallback to mock when Supabase is not available
         Task {
@@ -717,36 +677,24 @@ struct SignInOnboardingView: View {
     // Presentation context provider for ASWebAuthenticationSession
     private class WebAuthPresentationContextProvider: NSObject, ASWebAuthenticationPresentationContextProviding {
         func presentationAnchor(for session: ASWebAuthenticationSession) -> ASPresentationAnchor {
-            // #region agent log
-            print("🔍 [H6] presentationAnchor called - finding window")
-            // #endregion
             
             // Return the key window
             guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
                   let window = windowScene.windows.first else {
-                // #region agent log
                 print("❌ [H6] No window found, returning new UIWindow")
-                // #endregion
                 return UIWindow()
             }
             
-            // #region agent log
             print("✅ [H6] Found window: \(window)")
-            // #endregion
             return window
         }
     }
     
     private func openGoogleOAuth(url: URL) {
-        // #region agent log
-        print("🔍 [H4] openGoogleOAuth called with URL: \(url.absoluteString)")
-        print("🔍 [H4] Creating ASWebAuthenticationSession with callbackURLScheme: stepcomp")
         
         // Check if URL scheme is registered
         if let urlTypes = Bundle.main.infoDictionary?["CFBundleURLTypes"] as? [[String: Any]] {
-            print("🔍 [H5] Registered URL Types: \(urlTypes)")
             let schemes = urlTypes.compactMap { $0["CFBundleURLSchemes"] as? [String] }.flatMap { $0 }
-            print("🔍 [H5] Registered URL Schemes: \(schemes)")
             if schemes.contains("stepcomp") {
                 print("✅ [H5] URL scheme 'stepcomp' IS registered")
             } else {
@@ -756,25 +704,19 @@ struct SignInOnboardingView: View {
         } else {
             print("❌ [H5] No URL types found in Info.plist")
         }
-        // #endregion
         
         let callbackURLScheme = "stepcomp" // Must match Info.plist URL scheme
         
-        // #region agent log
         // Cancel any existing session first
         if let existingSession = webAuthSession {
-            print("🔍 [H6] Cancelling existing auth session")
             existingSession.cancel()
             webAuthSession = nil
         }
-        // #endregion
         
         let session = ASWebAuthenticationSession(
             url: url,
             callbackURLScheme: callbackURLScheme
         ) { callbackURL, error in
-            // #region agent log
-            print("🔍 [H7] Completion handler called")
             if let error = error {
                 print("❌ [H7] Error: \(error.localizedDescription)")
                 print("❌ [H7] Error code: \((error as NSError).code)")
@@ -785,7 +727,6 @@ struct SignInOnboardingView: View {
             } else {
                 print("⚠️ [H7] No callback URL received")
             }
-            // #endregion
             
             Task { @MainActor in
                 isLoading = false
@@ -814,9 +755,6 @@ struct SignInOnboardingView: View {
         presentationContextProvider = provider
         session.presentationContextProvider = provider
         
-        // #region agent log
-        print("🔍 [H8] Setting prefersEphemeralWebBrowserSession = true (using in-app browser)")
-        // #endregion
         
         // Use ephemeral session (in-app browser) instead of shared Safari
         // This often works better on iPad and avoids cookie/session issues
@@ -824,22 +762,15 @@ struct SignInOnboardingView: View {
         
         webAuthSession = session
         
-        // #region agent log
-        print("🔍 [H4] ASWebAuthenticationSession created, calling start()")
-        print("🔍 [H6] presentationContextProvider retained: \(presentationContextProvider != nil)")
-        // #endregion
         
         let started = session.start()
         
-        // #region agent log
-        print("🔍 [H4] session.start() returned: \(started)")
         if !started {
             print("❌ [H4] session.start() failed - possible reasons:")
             print("   - Another auth session might be active")
             print("   - Presentation context invalid")
             print("   - URL scheme not in Info.plist")
         }
-        // #endregion
     }
     
     private func handleOAuthCallback(url: URL) async {
@@ -875,6 +806,14 @@ struct SignInOnboardingView: View {
             // Check if we're now authenticated
             if sessionViewModel.isAuthenticated, sessionViewModel.currentUser != nil {
                 print("✅ User authenticated successfully")
+                
+                // Update daily step goal from UserDefaults (set during onboarding)
+                let savedDailyGoal = UserDefaults.standard.integer(forKey: "dailyStepGoal")
+                if savedDailyGoal > 0 {
+                    await sessionViewModel.authServiceAccess.updateDailyStepGoal(savedDailyGoal)
+                    print("✅ Daily step goal updated after OAuth: \(savedDailyGoal)")
+                }
+                
                 // Apply avatar if selected during onboarding
                 if var user = sessionViewModel.currentUser,
                    let avatarURL = UserDefaults.standard.string(forKey: "selectedAvatarURL") {
@@ -916,7 +855,6 @@ struct EmailAuthSheet: View {
     let onSignUp: () -> Void
     let onForgotPassword: () -> Void
     let onAppleSignIn: () -> Void
-    let onGoogleSignIn: () -> Void
     
     @State private var confirmPassword: String = ""
     @State private var showingPassword: Bool = false
@@ -949,8 +887,7 @@ struct EmailAuthSheet: View {
                 onSwitchToSignIn: {
                     isSignUp = false
                 },
-                onAppleSignIn: onAppleSignIn,
-                onGoogleSignIn: onGoogleSignIn
+                onAppleSignIn: onAppleSignIn
             )
         } else {
             SignInView(
@@ -965,8 +902,7 @@ struct EmailAuthSheet: View {
                 onSwitchToSignUp: {
                     isSignUp = true
                 },
-                onAppleSignIn: onAppleSignIn,
-                onGoogleSignIn: onGoogleSignIn
+                onAppleSignIn: onAppleSignIn
             )
         }
     }
@@ -991,7 +927,6 @@ struct SignUpView: View {
     let onBack: () -> Void
     let onSwitchToSignIn: () -> Void
     let onAppleSignIn: () -> Void
-    let onGoogleSignIn: () -> Void
     
     @State private var fullName: String = ""
     
@@ -1408,23 +1343,6 @@ struct SignUpView: View {
                                         .foregroundColor(.primary)
                                 }
                             }
-                            
-                            // Google Sign In
-                            Button(action: onGoogleSignIn) {
-                                ZStack {
-                                    Circle()
-                                        .fill(Color(.systemGray6))
-                                        .frame(width: 56, height: 56)
-                                        .overlay(
-                                            Circle()
-                                                .stroke(Color(.systemGray4), lineWidth: 1)
-                                        )
-                                    
-                                    Text("G")
-                                        .font(.system(size: 24, weight: .bold))
-                                        .foregroundColor(.primary)
-                                }
-                            }
                         }
                         .padding(.bottom, 32)
                         
@@ -1476,7 +1394,6 @@ struct SignInView: View {
     let onBack: () -> Void
     let onSwitchToSignUp: () -> Void
     let onAppleSignIn: () -> Void
-    let onGoogleSignIn: () -> Void
     
     @State private var showingPassword: Bool = false
     @Environment(\.colorScheme) private var currentColorScheme
@@ -1675,23 +1592,6 @@ struct SignInView: View {
                                     
                                     Image(systemName: "apple.logo")
                                         .font(.system(size: 24))
-                                        .foregroundColor(.primary)
-                                }
-                            }
-                            
-                            // Google Sign In
-                            Button(action: onGoogleSignIn) {
-                                ZStack {
-                                    Circle()
-                                        .fill(Color(.systemGray6))
-                                        .frame(width: 56, height: 56)
-                                        .overlay(
-                                            Circle()
-                                                .stroke(Color(.systemGray4), lineWidth: 1)
-                                        )
-                                    
-                                    Text("G")
-                                        .font(.system(size: 24, weight: .bold))
                                         .foregroundColor(.primary)
                                 }
                             }

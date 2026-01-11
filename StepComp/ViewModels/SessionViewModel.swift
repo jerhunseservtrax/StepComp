@@ -13,6 +13,9 @@ final class SessionViewModel: ObservableObject {
     @Published var currentUser: User?
     @Published var isAuthenticated: Bool = false
     @Published var hasCompletedOnboarding: Bool = false
+    /// True while AuthService is checking for an existing session on app launch.
+    /// This prevents flashing the login screen before session restoration completes.
+    @Published var isCheckingSession: Bool = true
     
     private var authService: AuthService
     private var healthKitService: HealthKitService
@@ -47,13 +50,24 @@ final class SessionViewModel: ObservableObject {
             .sink { [weak self] isAuthenticated in
                 guard let self = self else { return }
                 self.isAuthenticated = isAuthenticated
-                // If logged out, reset onboarding status
-                if !isAuthenticated {
+                
+                if isAuthenticated {
+                    // Re-check onboarding status when user becomes authenticated
+                    // This picks up the flag set by AuthService during session restore
+                    self.checkOnboardingStatus()
+                } else {
+                    // If logged out, reset onboarding status
                     self.hasCompletedOnboarding = false
                     UserDefaults.standard.removeObject(forKey: "hasCompletedOnboarding")
                 }
             }
             .store(in: &cancellables)
+        
+        // Observe isCheckingSession changes
+        // This prevents showing login screen before session check completes
+        authService.$isCheckingSession
+            .receive(on: DispatchQueue.main)
+            .assign(to: &$isCheckingSession)
     }
     
     func signIn(email: String, password: String) async throws {
@@ -65,21 +79,20 @@ final class SessionViewModel: ObservableObject {
     }
     
     func signOut() async {
+        // ============================================================================
+        // LOGOUT - The ONLY action that should trigger login screen
+        // ============================================================================
         do {
             try await authService.signOut()
-            // Force update local state
-            currentUser = nil
-            isAuthenticated = false
-            hasCompletedOnboarding = false
-            UserDefaults.standard.removeObject(forKey: "hasCompletedOnboarding")
         } catch {
             print("⚠️ Error signing out: \(error.localizedDescription)")
-            // Still clear local state even if there's an error
-            currentUser = nil
-            isAuthenticated = false
-            hasCompletedOnboarding = false
-            UserDefaults.standard.removeObject(forKey: "hasCompletedOnboarding")
         }
+        
+        // Always clear local state (authService.signOut handles session clearing)
+        currentUser = nil
+        isAuthenticated = false
+        hasCompletedOnboarding = false
+        UserDefaults.standard.removeObject(forKey: "hasCompletedOnboarding")
     }
     
     func updateUser(_ user: User) {

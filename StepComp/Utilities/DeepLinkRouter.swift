@@ -40,15 +40,23 @@ final class DeepLinkRouter: ObservableObject {
         }
         
         // Handle universal links (future)
-        // https://stepcomp.app/friend-invite/ABC123
+        // https://stepcomp.app/invite/friend/ABC123
         if scheme == "https" && (host == "stepcomp.app" || host == "www.stepcomp.app") {
             let pathComponents = url.pathComponents
             
-            // Friend invite: /friend-invite/TOKEN
+            // Friend invite: /invite/friend/TOKEN
+            if pathComponents.count >= 4 && pathComponents[1] == "invite" && pathComponents[2] == "friend" {
+                let token = pathComponents[3]
+                pendingInviteToken = token
+                print("🔗 Universal friend invite link detected: \(token)")
+                return
+            }
+            
+            // Legacy format: /friend-invite/TOKEN (for backward compatibility)
             if pathComponents.count >= 3 && pathComponents[1] == "friend-invite" {
                 let token = pathComponents[2]
                 pendingInviteToken = token
-                print("🔗 Universal friend invite link detected: \(token)")
+                print("🔗 Universal friend invite link detected (legacy): \(token)")
                 return
             }
             

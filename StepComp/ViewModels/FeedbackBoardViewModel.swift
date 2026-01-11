@@ -56,10 +56,8 @@ final class FeedbackBoardViewModel: ObservableObject {
         
         do {
             #if canImport(Supabase)
-            // #region agent log
             let logData1 = "{\"location\":\"FeedbackBoardViewModel.swift:53\",\"message\":\"loadFeedback called\",\"data\":{\"searchText\":\"\(searchText)\",\"category\":\"\(selectedCategory?.rawValue ?? "nil")\"},\"timestamp\":\(Int(Date().timeIntervalSince1970 * 1000)),\"sessionId\":\"debug-session\",\"runId\":\"initial\",\"hypothesisId\":\"A,B,C\"}\n"
             try? logData1.write(toFile: "/Users/jefferyerhunse/GitRepos/StepComp/.cursor/debug.log", atomically: false, encoding: .utf8)
-            // #endregion
             
             let search = searchText.isEmpty ? nil : searchText
             let category = selectedCategory?.rawValue
@@ -73,22 +71,18 @@ final class FeedbackBoardViewModel: ObservableObject {
                 p_status: nil // Don't filter by status by default
             )
             
-            // #region agent log
             let logData2 = "{\"location\":\"FeedbackBoardViewModel.swift:71\",\"message\":\"Calling RPC get_feedback_posts\",\"data\":{\"sort\":\"\(selectedSort.rawValue)\",\"limit\":\(limit)},\"timestamp\":\(Int(Date().timeIntervalSince1970 * 1000)),\"sessionId\":\"debug-session\",\"runId\":\"initial\",\"hypothesisId\":\"A\"}\n"
             if let fileHandle = FileHandle(forWritingAtPath: "/Users/jefferyerhunse/GitRepos/StepComp/.cursor/debug.log") { fileHandle.seekToEndOfFile(); fileHandle.write(logData2.data(using: .utf8)!); fileHandle.closeFile() }
-            // #endregion
             
             let response = try await supabase
                 .rpc("get_feedback_posts", params: params)
                 .execute()
             
-            // #region agent log
             if let rawJSON = String(data: response.data, encoding: .utf8) {
                 let truncated = String(rawJSON.prefix(1000)).replacingOccurrences(of: "\"", with: "\\\"").replacingOccurrences(of: "\n", with: "\\n")
                 let logData3 = "{\"location\":\"FeedbackBoardViewModel.swift:83\",\"message\":\"Raw response from Supabase\",\"data\":{\"rawJSON\":\"\(truncated)\"},\"timestamp\":\(Int(Date().timeIntervalSince1970 * 1000)),\"sessionId\":\"debug-session\",\"runId\":\"initial\",\"hypothesisId\":\"A,B,C,D,E\"}\n"
                 if let fileHandle = FileHandle(forWritingAtPath: "/Users/jefferyerhunse/GitRepos/StepComp/.cursor/debug.log") { fileHandle.seekToEndOfFile(); fileHandle.write(logData3.data(using: .utf8)!); fileHandle.closeFile() }
             }
-            // #endregion
             
             let decoder = JSONDecoder()
             // Use custom date decoding to handle various formats from PostgreSQL
@@ -130,26 +124,20 @@ final class FeedbackBoardViewModel: ObservableObject {
             }
             // Don't use convertFromSnakeCase - we have explicit CodingKeys in FeedbackPost
             
-            // #region agent log
             let logData4 = "{\"location\":\"FeedbackBoardViewModel.swift:93\",\"message\":\"About to decode with flexible date strategy\",\"data\":{},\"timestamp\":\(Int(Date().timeIntervalSince1970 * 1000)),\"sessionId\":\"debug-session\",\"runId\":\"initial\",\"hypothesisId\":\"B,C\"}\n"
             if let fileHandle = FileHandle(forWritingAtPath: "/Users/jefferyerhunse/GitRepos/StepComp/.cursor/debug.log") { fileHandle.seekToEndOfFile(); fileHandle.write(logData4.data(using: .utf8)!); fileHandle.closeFile() }
-            // #endregion
             
             feedbackPosts = try decoder.decode([FeedbackPost].self, from: response.data)
             
-            // #region agent log
             let logData5 = "{\"location\":\"FeedbackBoardViewModel.swift:100\",\"message\":\"Successfully decoded feedback posts\",\"data\":{\"count\":\(feedbackPosts.count)},\"timestamp\":\(Int(Date().timeIntervalSince1970 * 1000)),\"sessionId\":\"debug-session\",\"runId\":\"initial\",\"hypothesisId\":\"SUCCESS\"}\n"
             if let fileHandle = FileHandle(forWritingAtPath: "/Users/jefferyerhunse/GitRepos/StepComp/.cursor/debug.log") { fileHandle.seekToEndOfFile(); fileHandle.write(logData5.data(using: .utf8)!); fileHandle.closeFile() }
-            // #endregion
             
             print("✅ Loaded \(feedbackPosts.count) feedback posts")
             #endif
         } catch {
-            // #region agent log
             let errorDesc = String(describing: error).replacingOccurrences(of: "\"", with: "\\\"").replacingOccurrences(of: "\n", with: "\\n")
             let logData6 = "{\"location\":\"FeedbackBoardViewModel.swift:109\",\"message\":\"Error caught during loadFeedback\",\"data\":{\"error\":\"\(errorDesc)\"},\"timestamp\":\(Int(Date().timeIntervalSince1970 * 1000)),\"sessionId\":\"debug-session\",\"runId\":\"initial\",\"hypothesisId\":\"A,B,C,D,E\"}\n"
             if let fileHandle = FileHandle(forWritingAtPath: "/Users/jefferyerhunse/GitRepos/StepComp/.cursor/debug.log") { fileHandle.seekToEndOfFile(); fileHandle.write(logData6.data(using: .utf8)!); fileHandle.closeFile() }
-            // #endregion
             
             print("❌ Error loading feedback: \(error)")
             errorMessage = "Failed to load feedback: \(error.localizedDescription)"

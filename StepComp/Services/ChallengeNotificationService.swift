@@ -94,7 +94,9 @@ final class ChallengeNotificationService {
         challengeName: String,
         challengeId: String
     ) async {
-        // 1. Create notification in database
+        // Create notification in database for the creator
+        // Note: Local notifications are device-specific and can't be sent to another user's device.
+        // The database notification will appear in the creator's inbox when they open the app.
         do {
             try await createNotification(
                 userId: creatorId,
@@ -108,12 +110,11 @@ final class ChallengeNotificationService {
             print("⚠️ Failed to create database notification: \(error.localizedDescription)")
         }
         
-        // 2. Send local push notification (if user is creator viewing the app)
-        sendLocalNotification(
-            title: "New Member! 🎉",
-            body: "\(joinerUsername) joined your challenge '\(challengeName)'",
-            challengeId: challengeId
-        )
+        // NOTE: We do NOT send a local notification here because:
+        // 1. Local notifications are device-specific - they go to the device that triggers them
+        // 2. This code runs on the joiner's device (User B), not the creator's device (User A)
+        // 3. Sending a local notification would notify User B instead of User A
+        // 4. The database notification is sufficient - it will appear in the creator's inbox
     }
 }
 

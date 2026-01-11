@@ -16,6 +16,26 @@ struct DiscoverChallengesTab: View {
     @State private var selectedCategory: ChallengeCategory = .all
     @State private var navigationPath = NavigationPath()
     @AppStorage("challengeViewMode") private var viewMode: ChallengeViewMode = .grid
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    
+    // Adaptive grid columns based on device size
+    private var gridColumns: [GridItem] {
+        let spacing: CGFloat = 16
+        
+        // iPad (regular width) - 3 columns
+        if horizontalSizeClass == .regular {
+            return Array(repeating: GridItem(.flexible(minimum: 200), spacing: spacing), count: 3)
+        }
+        // iPhone (compact width) - 2 columns
+        else {
+            return Array(repeating: GridItem(.flexible(minimum: 150), spacing: spacing), count: 2)
+        }
+    }
+    
+    // Adaptive padding based on device size
+    private var horizontalPadding: CGFloat {
+        horizontalSizeClass == .regular ? 40 : 16
+    }
     
     
     enum ChallengeCategory: String, CaseIterable {
@@ -74,7 +94,7 @@ struct DiscoverChallengesTab: View {
                 VStack(spacing: 0) {
                 // Search Bar
                 DiscoverSearchBarView(searchText: $searchText)
-                    .padding(.horizontal, 16)
+                    .padding(.horizontal, horizontalPadding)
                     .padding(.top, 8)
                     .padding(.bottom, 12)
                 
@@ -87,7 +107,7 @@ struct DiscoverChallengesTab: View {
                     // View Mode Toggle
                     ViewModeToggle(viewMode: $viewMode)
                 }
-                .padding(.horizontal, 16)
+                .padding(.horizontal, horizontalPadding)
                 .padding(.bottom, 16)
                 
                 // Challenges View (Grid or List)
@@ -97,12 +117,9 @@ struct DiscoverChallengesTab: View {
                 } else {
                     VStack(spacing: 16) {
                         if viewMode == .grid {
-                            // Grid View - Fixed 2 columns with equal sizing
+                            // Grid View - Adaptive columns (2 for iPhone, 3 for iPad)
                             LazyVGrid(
-                                columns: [
-                                    GridItem(.flexible(minimum: 150, maximum: 200), spacing: 16),
-                                    GridItem(.flexible(minimum: 150, maximum: 200), spacing: 16)
-                                ],
+                                columns: gridColumns,
                                 spacing: 16
                             ) {
                                 ForEach(filteredChallenges) { challenge in
@@ -129,7 +146,7 @@ struct DiscoverChallengesTab: View {
                             }
                         }
                     }
-                    .padding(.horizontal, 16)
+                    .padding(.horizontal, horizontalPadding)
                     .padding(.bottom, 100)
                 }
                 }
@@ -328,209 +345,167 @@ struct DiscoverChallengeCard: View {
         return gradientColors[0] == StepCompColors.yellow
     }
     
+    // Fixed card height for consistent grid layout
+    private let cardHeight: CGFloat = 220
+    
     var body: some View {
         Button(action: onTap) {
-            GeometryReader { geometry in
-                ZStack {
-                    // Debug: Print image URL
-                    let _ = print("🖼️ Challenge '\(challenge.name)' imageUrl: \(challenge.imageUrl ?? "nil")")
-                    
-                    // Background: User uploaded image OR gradient
-                    if let imageUrl = challenge.imageUrl, !imageUrl.isEmpty {
-                        // User uploaded image with reduced opacity gradient overlay
-                        ZStack {
-                            // Challenge image
-                            AsyncImage(url: URL(string: imageUrl)) { phase in
-                                switch phase {
-                                case .success(let image):
-                                    image
-                                        .resizable()
-                                        .aspectRatio(contentMode: .fill)
-                                        .onAppear {
-                                            print("✅ Image loaded successfully: \(imageUrl)")
-                                        }
-                                case .failure(let error):
-                                    // Fallback gradient on image load failure
-                                    LinearGradient(
-                                        colors: gradientColors,
-                                        startPoint: .topLeading,
-                                        endPoint: .bottomTrailing
-                                    )
-                                    .onAppear {
-                                        print("❌ Image failed to load: \(error.localizedDescription)")
-                                    }
-                                case .empty:
-                                    // Loading state - show gradient
-                                    LinearGradient(
-                                        colors: gradientColors,
-                                        startPoint: .topLeading,
-                                        endPoint: .bottomTrailing
-                                    )
-                                    .onAppear {
-                                        print("⏳ Image loading...")
-                                    }
-                                @unknown default:
-                                    LinearGradient(
-                                        colors: gradientColors,
-                                        startPoint: .topLeading,
-                                        endPoint: .bottomTrailing
-                                    )
-                                }
+            ZStack {
+                // Background: User uploaded image OR gradient
+                if let imageUrl = challenge.imageUrl, !imageUrl.isEmpty {
+                    // User uploaded image with reduced opacity gradient overlay
+                    ZStack {
+                        // Challenge image
+                        AsyncImage(url: URL(string: imageUrl)) { phase in
+                            switch phase {
+                            case .success(let image):
+                                image
+                                    .resizable()
+                                    .aspectRatio(contentMode: .fill)
+                            case .failure:
+                                // Fallback gradient on image load failure
+                                LinearGradient(
+                                    colors: gradientColors,
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            case .empty:
+                                // Loading state - show gradient
+                                LinearGradient(
+                                    colors: gradientColors,
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            @unknown default:
+                                LinearGradient(
+                                    colors: gradientColors,
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
                             }
-                            
-                            // Gradient overlay for better text readability (reduced opacity)
-                            LinearGradient(
-                                colors: [
-                                    gradientColors[0].opacity(0.5),
-                                    gradientColors[1].opacity(0.5)
-                                ],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                            .blendMode(.multiply)
-                            
-                            // Edge gradient blur for seamless blending
-                            LinearGradient(
-                                colors: [
-                                    StepCompColors.background.opacity(0),
-                                    StepCompColors.background.opacity(0),
-                                    StepCompColors.background.opacity(0.1),
-                                    StepCompColors.background.opacity(0.3)
-                                ],
-                                startPoint: .top,
-                                endPoint: .bottom
-                            )
                         }
-                    } else {
-                        // Default gradient background
+                        
+                        // Gradient overlay for better text readability (reduced opacity)
                         LinearGradient(
-                            colors: gradientColors,
+                            colors: [
+                                gradientColors[0].opacity(0.5),
+                                gradientColors[1].opacity(0.5)
+                            ],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         )
+                        .blendMode(.multiply)
                     }
+                } else {
+                    // Default gradient background
+                    LinearGradient(
+                        colors: gradientColors,
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                }
+                
+                // Decorative blur circles (only if no custom image)
+                if challenge.imageUrl == nil || challenge.imageUrl!.isEmpty {
+                    Circle()
+                        .fill(isYellowBackground ? Color.white.opacity(0.3) : Color.white.opacity(0.1))
+                        .frame(width: 120, height: 120)
+                        .blur(radius: 30)
+                        .offset(x: 50, y: -40)
                     
-                    // Decorative blur circles (only if no custom image)
-                    if challenge.imageUrl == nil || challenge.imageUrl!.isEmpty {
-                        Circle()
-                            .fill(isYellowBackground ? Color.white.opacity(0.3) : Color.white.opacity(0.1))
-                            .frame(width: 150, height: 150)
-                            .blur(radius: 40)
-                            .offset(x: 60, y: -60)
-                        
-                        Circle()
-                            .fill(Color.black.opacity(0.1))
-                            .frame(width: 150, height: 150)
-                            .blur(radius: 40)
-                            .offset(x: -60, y: 60)
-                        
-                        // Large icon watermark
-                        Image(systemName: iconName)
-                            .font(.system(size: 140, weight: .medium))
-                            .foregroundColor((isYellowBackground ? Color.black : Color.white).opacity(0.1))
-                            .rotationEffect(.degrees(-10))
-                            .offset(x: 40, y: 50)
-                    }
+                    Circle()
+                        .fill(Color.black.opacity(0.1))
+                        .frame(width: 120, height: 120)
+                        .blur(radius: 30)
+                        .offset(x: -50, y: 40)
                     
-                    // Content
-                    VStack(alignment: .leading, spacing: 0) {
-                        // Top: Icon badge and category badge
-                        HStack(alignment: .top) {
-                            // Icon badge
-                            ZStack {
-                                RoundedRectangle(cornerRadius: 14)
+                    // Large icon watermark
+                    Image(systemName: iconName)
+                        .font(.system(size: 100, weight: .medium))
+                        .foregroundColor((isYellowBackground ? Color.black : Color.white).opacity(0.1))
+                        .rotationEffect(.degrees(-10))
+                        .offset(x: 30, y: 40)
+                }
+                
+                // Content
+                VStack(alignment: .leading, spacing: 0) {
+                    // Top: Icon badge and category badge
+                    HStack(alignment: .top) {
+                        // Icon badge
+                        ZStack {
+                            RoundedRectangle(cornerRadius: 12)
+                                .fill(
+                                    (isYellowBackground ? Color.black : Color.white)
+                                        .opacity(0.15)
+                                )
+                                .frame(width: 40, height: 40)
+                            
+                            Image(systemName: iconName)
+                                .font(.system(size: 18, weight: .medium))
+                                .foregroundColor(isYellowBackground ? .black : .white)
+                        }
+                        .background(
+                            RoundedRectangle(cornerRadius: 12)
+                                .fill(.ultraThinMaterial)
+                        )
+                        
+                        Spacer()
+                        
+                        // Category badge
+                        Text(badgeText)
+                            .font(.system(size: 9, weight: .black))
+                            .tracking(0.5)
+                            .foregroundColor(isYellowBackground ? gradientColors[0] : gradientColors[0])
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 5)
+                            .background(
+                                Capsule()
                                     .fill(
                                         (isYellowBackground ? Color.black : Color.white)
-                                            .opacity(0.15)
+                                            .opacity(0.9)
                                     )
-                                    .frame(width: 44, height: 44)
-                                
-                                Image(systemName: iconName)
-                                    .font(.system(size: 20, weight: .medium))
-                                    .foregroundColor(isYellowBackground ? .black : .white)
-                            }
-                            .background(
-                                RoundedRectangle(cornerRadius: 14)
-                                    .fill(.ultraThinMaterial)
                             )
-                            
-                            Spacer()
-                            
-                            // Category badge
-                            Text(badgeText)
-                                .font(.system(size: 10, weight: .black))
-                                .tracking(0.5)
-                                .foregroundColor(isYellowBackground ? gradientColors[0] : gradientColors[0])
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 6)
-                                .background(
-                                    Capsule()
-                                        .fill(
-                                            (isYellowBackground ? Color.black : Color.white)
-                                                .opacity(0.9)
-                                        )
-                                )
-                        }
-                        .padding(.bottom, 24)
+                    }
+                    .padding(.bottom, 12)
+                    
+                    // Middle: Challenge name
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(challenge.name.uppercased())
+                            .font(.system(size: 20, weight: .black, design: .rounded))
+                            .tracking(-0.5)
+                            .foregroundColor(isYellowBackground ? .black : .white)
+                            .lineLimit(2)
+                            .minimumScaleFactor(0.7)
                         
-                        // Middle: Challenge name
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text(challenge.name.uppercased())
-                                .font(.system(size: 32, weight: .black, design: .rounded))
-                                .tracking(-1)
-                                .foregroundColor(isYellowBackground ? .black : .white)
-                                .lineLimit(2)
-                                .minimumScaleFactor(0.7)
+                        HStack(spacing: 4) {
+                            Circle()
+                                .fill(isYellowBackground ? Color.black.opacity(0.7) : Color.white.opacity(0.9))
+                                .frame(width: 4, height: 4)
                             
-                            HStack(spacing: 4) {
-                                Circle()
-                                    .fill(isYellowBackground ? Color.black.opacity(0.7) : Color.white.opacity(0.9))
-                                    .frame(width: 4, height: 4)
-                                
-                                if let category = challenge.category {
-                                    Text(category.displayName)
-                                } else {
-                                    Text("Challenge")
-                                }
-                                
-                                Text("•")
-                                
-                                Text("\(challenge.participantIds.count) joined")
+                            if let category = challenge.category {
+                                Text(category.displayName)
+                            } else {
+                                Text("Challenge")
                             }
-                            .font(.system(size: 12, weight: .bold))
-                            .foregroundColor(isYellowBackground ? Color.black.opacity(0.7) : Color.white.opacity(0.9))
+                            
+                            Text("•")
+                            
+                            Text("\(challenge.participantIds.count) joined")
                         }
-                        
-                        Spacer(minLength: 0)
-                        
-                        // Bottom: Avatars and time remaining
-                        HStack {
-                            // Participant avatars
-                            HStack(spacing: -10) {
-                                ForEach(0..<min(2, max(1, challenge.participantIds.count)), id: \.self) { index in
-                                    Circle()
-                                        .fill(Color.gray.opacity(0.3))
-                                        .frame(width: 36, height: 36)
-                                        .overlay(
-                                            Circle()
-                                                .stroke(
-                                                    (isYellowBackground ? Color.white : Color.white)
-                                                        .opacity(0.2),
-                                                    lineWidth: 2
-                                                )
-                                        )
-                                }
-                                
-                                if challenge.participantIds.count > 2 {
-                                    ZStack {
-                                        Circle()
-                                            .fill(isYellowBackground ? Color.black : Color.white)
-                                            .frame(width: 36, height: 36)
-                                        
-                                        Text("\(challenge.participantIds.count)")
-                                            .font(.system(size: 11, weight: .black))
-                                            .foregroundColor(isYellowBackground ? .white : gradientColors[0])
-                                    }
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundColor(isYellowBackground ? Color.black.opacity(0.7) : Color.white.opacity(0.9))
+                    }
+                    
+                    Spacer(minLength: 8)
+                    
+                    // Bottom: Avatars and time remaining
+                    HStack {
+                        // Participant avatars
+                        HStack(spacing: -8) {
+                            ForEach(0..<min(2, max(1, challenge.participantIds.count)), id: \.self) { index in
+                                Circle()
+                                    .fill(Color.gray.opacity(0.3))
+                                    .frame(width: 28, height: 28)
                                     .overlay(
                                         Circle()
                                             .stroke(
@@ -539,46 +514,57 @@ struct DiscoverChallengeCard: View {
                                                 lineWidth: 2
                                             )
                                     )
+                            }
+                            
+                            if challenge.participantIds.count > 2 {
+                                ZStack {
+                                    Circle()
+                                        .fill(isYellowBackground ? Color.black : Color.white)
+                                        .frame(width: 28, height: 28)
+                                    
+                                    Text("\(challenge.participantIds.count)")
+                                        .font(.system(size: 10, weight: .black))
+                                        .foregroundColor(isYellowBackground ? .white : gradientColors[0])
                                 }
+                                .overlay(
+                                    Circle()
+                                        .stroke(
+                                            (isYellowBackground ? Color.white : Color.white)
+                                                .opacity(0.2),
+                                            lineWidth: 2
+                                        )
+                                )
                             }
-                            
-                            Spacer()
-                            
-                            // Time remaining - Translucent pill
-                            HStack(spacing: 6) {
-                                Image(systemName: daysRemaining > 7 ? "clock.fill" : "hourglass")
-                                    .font(.system(size: 16))
-                                
-                                Text("\(daysRemaining)d left")
-                                    .font(.system(size: 11, weight: .bold))
-                                    .textCase(.uppercase)
-                                    .tracking(0.5)
-                            }
-                            .foregroundColor(isYellowBackground ? .black.opacity(0.85) : .white)
                         }
-                        .padding(.vertical, 10)
-                        .padding(.horizontal, 16)
-                        .background(
-                            RoundedRectangle(cornerRadius: 20)
-                                .fill(
-                                    (isYellowBackground ? Color.white : Color.white)
-                                        .opacity(isYellowBackground ? 0.25 : 0.2)
-                                )
-                                .shadow(
-                                    color: Color.black.opacity(0.1),
-                                    radius: 4,
-                                    x: 0,
-                                    y: 2
-                                )
-                        )
+                        
+                        Spacer()
+                        
+                        // Time remaining - Translucent pill
+                        HStack(spacing: 4) {
+                            Image(systemName: daysRemaining > 7 ? "clock.fill" : "hourglass")
+                                .font(.system(size: 12))
+                            
+                            Text("\(daysRemaining)D LEFT")
+                                .font(.system(size: 10, weight: .bold))
+                                .tracking(0.5)
+                        }
+                        .foregroundColor(isYellowBackground ? .black.opacity(0.85) : .white)
                     }
-                    .padding(20)
+                    .padding(.vertical, 8)
+                    .padding(.horizontal, 10)
+                    .background(
+                        RoundedRectangle(cornerRadius: 16)
+                            .fill(
+                                (isYellowBackground ? Color.white : Color.white)
+                                    .opacity(isYellowBackground ? 0.25 : 0.2)
+                            )
+                    )
                 }
-                .frame(height: geometry.size.width * 1.3) // Aspect ratio ~1:1.3
-                .clipShape(RoundedRectangle(cornerRadius: 32))
-                .shadow(color: Color.black.opacity(0.15), radius: 12, x: 0, y: 6)
+                .padding(16)
             }
-            .aspectRatio(0.77, contentMode: .fit) // Maintain aspect ratio
+            .frame(height: cardHeight)
+            .clipShape(RoundedRectangle(cornerRadius: 24))
+            .shadow(color: Color.black.opacity(0.15), radius: 8, x: 0, y: 4)
         }
         .buttonStyle(ScaleButtonStyle())
     }

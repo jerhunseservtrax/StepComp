@@ -17,6 +17,9 @@ final class AuthService: ObservableObject {
     
     @Published var currentUser: User?
     @Published var isAuthenticated: Bool = false
+    /// True while we're checking for an existing session on app launch.
+    /// This prevents showing the login screen before we've had a chance to restore the session.
+    @Published var isCheckingSession: Bool = true
     
     private let userDefaultsKey = "currentUser"
     private let useSupabase = true // Supabase is now configured and database tables are created
@@ -35,76 +38,115 @@ final class AuthService: ObservableObject {
     
     private init() {
         if useSupabase {
+            // Start session check - isCheckingSession is true until this completes
             checkSupabaseSession()
         } else {
             loadUser()
+            // No async check needed for mock mode
+            isCheckingSession = false
         }
     }
     
     // MARK: - Supabase Authentication
     
+    // ============================================================================
+    // CORRECT AUTH ARCHITECTURE (Instagram/Facebook/Snapchat pattern)
+    // ============================================================================
+    // 
+    // 1. Supabase SDK handles session persistence internally (NOT UserDefaults)
+    // 2. On app launch: restore session → if valid → Home, else → Login
+    // 3. Logout is the ONLY way to show login screen
+    // 4. 401 errors trigger refresh, NOT logout
+    //
+    // ============================================================================
+    
     func checkSupabaseSession() {
         #if canImport(Supabase)
         Task {
-            do {
-                let session = try await supabase.auth.session
-                
-                // For indefinite sign-in: refresh expired sessions instead of signing out
-                // This allows users to stay signed in until they manually log out
-                if session.isExpired {
-                    print("🔄 Session expired, attempting to refresh...")
-                    do {
-                        // Try to refresh the session
-                        let refreshedSession = try await supabase.auth.refreshSession()
-                        print("✅ Session refreshed successfully")
-                        
-                        // Load user profile with refreshed session
-                        if !refreshedSession.user.id.uuidString.isEmpty {
-                            await loadUserProfile(userId: refreshedSession.user.id.uuidString)
-                        } else {
-                            isAuthenticated = false
-                            currentUser = nil
-                        }
-                    } catch {
-                        // If refresh fails, user needs to sign in again
-                        print("⚠️ Failed to refresh session: \(error.localizedDescription)")
-                        isAuthenticated = false
-                        currentUser = nil
-                    }
-                    return
-                }
-                
-                // Only proceed if we have a valid, non-expired session with a user
-                if !session.user.id.uuidString.isEmpty {
-                    await loadUserProfile(userId: session.user.id.uuidString)
-                } else {
-                    // No valid session - this is expected for new users
-                    isAuthenticated = false
-                    currentUser = nil
-                }
-            } catch {
-                // Check if this is just a missing session (expected for new users)
-                let errorDescription = error.localizedDescription.lowercased()
-                if errorDescription.contains("session") && 
-                   (errorDescription.contains("missing") || 
-                    errorDescription.contains("not found") ||
-                    errorDescription.contains("no session")) {
-                    // This is expected - user is not logged in yet
-                    // Don't log as an error, just set state
-                    isAuthenticated = false
-                    currentUser = nil
-                } else {
-                    // This is an unexpected error - log it
-                    print("⚠️ Error checking Supabase session: \(error.localizedDescription)")
-                    isAuthenticated = false
-                    currentUser = nil
-                }
-            }
+            await restoreSession()
         }
         #else
         // Supabase not available - use mock mode
         loadUser()
+        isCheckingSession = false
         #endif
+    }
+    
+    /// Restores the auth session from Supabase's internal storage.
+    /// This is the ONLY place session restoration should happen.
+    @MainActor
+    private func restoreSession() async {
+        #if canImport(Supabase)
+        defer {
+            isCheckingSession = false
+            print("✅ Session restore complete - isCheckingSession = false")
+        }
+        
+        do {
+            // Supabase SDK automatically restores session from its internal storage
+            // This includes the access token AND refresh token
+            let session = try await supabase.auth.session
+            
+            print("🔐 Session found for user: \(session.user.id)")
+            
+            // Session exists - load user profile
+            await loadUserProfile(userId: session.user.id.uuidString)
+            
+            // If we have a valid session and profile, user has definitely completed onboarding
+            // This ensures the flag is restored when session is restored
+            if isAuthenticated && currentUser != nil {
+                UserDefaults.standard.set(true, forKey: "hasCompletedOnboarding")
+            }
+            
+        } catch {
+            // No session found - this is expected for:
+            // 1. First-time users
+            // 2. Users who explicitly logged out
+            // 
+            // Do NOT treat this as an error - just show login
+            print("ℹ️ No session found - showing login screen")
+            isAuthenticated = false
+            currentUser = nil
+        }
+        #endif
+    }
+    
+    /// Refreshes the session when a 401 is received.
+    /// Call this from API handlers when they get 401 errors.
+    /// Returns true if refresh succeeded, false if user needs to login again.
+    @MainActor
+    func refreshSessionOn401() async -> Bool {
+        #if canImport(Supabase)
+        do {
+            print("🔄 Attempting to refresh session after 401...")
+            let refreshedSession = try await supabase.auth.refreshSession()
+            print("✅ Session refreshed successfully")
+            
+            // Reload profile with new session
+            await loadUserProfile(userId: refreshedSession.user.id.uuidString)
+            return true
+        } catch {
+            // Refresh failed - session is truly invalid
+            // This is the ONLY case where we force logout (besides manual logout)
+            print("❌ Session refresh failed - user must login again: \(error.localizedDescription)")
+            await forceLogout()
+            return false
+        }
+        #else
+        return false
+        #endif
+    }
+    
+    /// Force logout - only called when session refresh fails or user explicitly logs out
+    @MainActor
+    private func forceLogout() async {
+        #if canImport(Supabase)
+        try? await supabase.auth.signOut()
+        #endif
+        currentUser = nil
+        isAuthenticated = false
+        UserDefaults.standard.removeObject(forKey: userDefaultsKey)
+        print("🚪 User logged out")
     }
     
     func signIn(email: String, password: String) async throws {
@@ -272,6 +314,10 @@ final class AuthService: ObservableObject {
             let displayName = [firstName, lastName].compactMap { $0 }.joined(separator: " ").trimmingCharacters(in: .whitespacesAndNewlines)
             let finalDisplayName = displayName.isEmpty ? username : displayName
             
+            // Get daily step goal from UserDefaults (set during onboarding) or use default
+            let savedDailyGoal = UserDefaults.standard.integer(forKey: "dailyStepGoal")
+            let dailyGoal = savedDailyGoal > 0 ? savedDailyGoal : 10000
+            
             let profile = UserProfile(
                 id: userId,
                 username: username,
@@ -284,9 +330,9 @@ final class AuthService: ObservableObject {
                 height: nil,
                 weight: nil,
                 email: email,
-                publicProfile: false, // Default to private
+                publicProfile: true, // Default to public for easier friend discovery
                 totalSteps: 0,
-                dailyStepGoal: 10000
+                dailyStepGoal: dailyGoal // Use goal from onboarding or default
             )
             
             if profileExists {
@@ -380,9 +426,6 @@ final class AuthService: ObservableObject {
         print("🔵 Provider: google")
         print("🔵 Redirect URL: \(finalRedirectURL)")
         
-        // #region agent log
-        print("🔍 [H10] Using getOAuthSignInURL with redirectTo and PKCE")
-        // #endregion
         
         // Supabase Swift SDK: getOAuthSignInURL generates the OAuth URL
         // The PKCE flow is handled automatically by the SDK
@@ -391,16 +434,6 @@ final class AuthService: ObservableObject {
             scopes: "email profile", // Request email and profile scopes
             redirectTo: finalRedirectURL
         )
-        
-        // #region agent log
-        print("🔍 [H10] OAuth URL components:")
-        if let components = URLComponents(url: url, resolvingAgainstBaseURL: false) {
-            print("🔍 [H10]   - Scheme: \(components.scheme ?? "nil")")
-            print("🔍 [H10]   - Host: \(components.host ?? "nil")")
-            print("🔍 [H10]   - Path: \(components.path)")
-            print("🔍 [H10]   - Query items: \(components.queryItems?.count ?? 0)")
-        }
-        // #endregion
         
         print("✅ Google OAuth URL generated: \(url)")
         return url
@@ -422,10 +455,15 @@ final class AuthService: ObservableObject {
     }
     
     func signOut() async throws {
-        print("🔵 Signing out user...")
+        // ============================================================================
+        // LOGOUT - The ONLY place that should clear auth state
+        // ============================================================================
+        print("🔵 User initiated logout...")
+        
         #if canImport(Supabase)
         if useSupabase {
             do {
+                // This clears the session from Supabase's internal storage
                 try await supabase.auth.signOut()
                 print("✅ Supabase sign out successful")
             } catch {
@@ -435,13 +473,11 @@ final class AuthService: ObservableObject {
         }
         #endif
         
-        // Always clear local state, even if Supabase sign out fails
-        await MainActor.run {
-            currentUser = nil
-            isAuthenticated = false
-            UserDefaults.standard.removeObject(forKey: userDefaultsKey)
-            print("✅ Local state cleared")
-        }
+        // Clear local state
+        currentUser = nil
+        isAuthenticated = false
+        UserDefaults.standard.removeObject(forKey: userDefaultsKey)
+        print("🚪 User logged out - will show login screen")
     }
     
     func updatePassword(newPassword: String) async throws {
@@ -561,6 +597,10 @@ final class AuthService: ObservableObject {
             // Generate display name from first and last name
             let displayName = "\(firstName) \(lastName)".trimmingCharacters(in: .whitespaces)
             
+            // Get daily step goal from UserDefaults (set during onboarding) or use default
+            let savedDailyGoal = UserDefaults.standard.integer(forKey: "dailyStepGoal")
+            let dailyGoal = savedDailyGoal > 0 ? savedDailyGoal : 10000
+            
             // Use UserProfile struct which has proper CodingKeys mapping
             let profile = UserProfile(
                 id: userId,
@@ -574,9 +614,9 @@ final class AuthService: ObservableObject {
                 height: height,
                 weight: weight,
                 email: email,
-                publicProfile: false, // Default to private
+                publicProfile: true, // Default to public for easier friend discovery
                 totalSteps: 0,
-                dailyStepGoal: 10000
+                dailyStepGoal: dailyGoal // Use goal from onboarding or default
             )
             
             do {
@@ -602,7 +642,7 @@ final class AuthService: ObservableObject {
                     
                     if existingProfile != nil {
                         print("✅ Profile already exists (likely created by trigger)")
-                        // Update the existing profile with username, name, height, and weight
+                        // Update the existing profile with username, name, height, weight, and daily step goal
                         let updatedProfile = UserProfile(
                             id: userId,
                             username: username,
@@ -612,7 +652,8 @@ final class AuthService: ObservableObject {
                             isPremium: existingProfile?.isPremium ?? false,
                             height: height,
                             weight: weight,
-                            publicProfile: existingProfile?.publicProfile ?? false
+                            publicProfile: existingProfile?.publicProfile ?? false,
+                            dailyStepGoal: dailyGoal // Include daily step goal from onboarding
                         )
                         _ = try? await supabase
                             .from("profiles")
@@ -643,7 +684,7 @@ final class AuthService: ObservableObject {
                 firstName: firstName,
                 lastName: lastName,
                 email: email,
-                publicProfile: false, // Default to private
+                publicProfile: true, // Default to public for easier friend discovery
                 totalSteps: 0,
                 totalChallenges: 0
             )
@@ -673,17 +714,21 @@ final class AuthService: ObservableObject {
     
     private func loadUserProfile(userId: String) async {
         do {
-            // Get email from auth session
-            // Note: session might be nil if user just logged out, so handle gracefully
-            let session = try await supabase.auth.session
-            guard let email = session.user.email, !email.isEmpty else {
-                // No email in session - user might have logged out
-                isAuthenticated = false
-                currentUser = nil
-                return
+            // PERMANENT LOGIN: Load profile directly from database using userId
+            // Don't require a valid session - the profile has all the info we need
+            // This allows users to stay logged in even if session is being refreshed
+            
+            // Try to get email from session (optional - won't fail if not available)
+            var sessionEmail: String? = nil
+            do {
+                let session = try await supabase.auth.session
+                sessionEmail = session.user.email
+            } catch {
+                // Session not available yet - that's OK, we'll use email from profile
+                print("ℹ️ Session not available, will use email from profile")
             }
             
-            // Fetch profile from database
+            // Fetch profile from database - this is the source of truth
             let profile: UserProfile = try await supabase
                 .from("profiles")
                 .select()
@@ -700,16 +745,19 @@ final class AuthService: ObservableObject {
             // Use avatar_url if available, fallback to avatar
             let avatarURL = profile.avatarUrl ?? profile.avatar
             
+            // Use email from session if available, otherwise from profile
+            let email = sessionEmail ?? profile.email ?? ""
+            
             let user = User(
                 id: profile.id,
                 username: profile.username,
                 firstName: firstName,
                 lastName: lastName,
                 avatarURL: avatarURL,
-                email: email, // Email from auth session
-                publicProfile: profile.publicProfile, // Load from profiles.public_profile
-                totalSteps: profile.totalSteps ?? 0, // Load from profiles.total_steps
-                totalChallenges: 0 // Would come from challenge_members count
+                email: email,
+                publicProfile: profile.publicProfile,
+                totalSteps: profile.totalSteps ?? 0,
+                totalChallenges: 0
             )
             
             currentUser = user
@@ -730,33 +778,46 @@ final class AuthService: ObservableObject {
                 // Set default if not set
                 UserDefaults.standard.set(10000, forKey: "dailyStepGoal")
             }
+            
+            print("✅ User profile loaded successfully - user is authenticated")
         } catch {
             print("⚠️ Error loading user profile: \(error.localizedDescription)")
             
-            // Try to get email from auth session even if profile doesn't exist
-            let email: String?
-            do {
-                let session = try await supabase.auth.session
-                email = session.user.email
-            } catch {
-                email = nil
+            // If we can't load from database, try to use locally cached user
+            // This handles offline scenarios
+            if let cachedUser = loadCachedUser() {
+                print("ℹ️ Using cached user data for offline access")
+                currentUser = cachedUser
+                isAuthenticated = true
+            } else {
+                // No cached user - create a minimal profile to keep them logged in
+                // They'll get full data when network is available
+                let email: String? = nil
+                
+                let user = User(
+                    id: userId,
+                    username: "user_\(userId.prefix(8))",
+                    firstName: "User",
+                    lastName: "",
+                    email: email,
+                    publicProfile: true,
+                    totalSteps: 0,
+                    totalChallenges: 0
+                )
+                currentUser = user
+                isAuthenticated = true
+                saveUser()
+                print("⚠️ Created minimal user profile - will sync when online")
             }
-            
-            // Create default profile if doesn't exist
-            let user = User(
-                id: userId,
-                username: "user_\(userId.prefix(8))",
-                firstName: "User",
-                lastName: "",
-                email: email,
-                publicProfile: false, // Default to private
-                totalSteps: 0,
-                totalChallenges: 0
-            )
-            currentUser = user
-            isAuthenticated = true
-            saveUser()
         }
+    }
+    
+    /// Load cached user from UserDefaults (for offline access)
+    private func loadCachedUser() -> User? {
+        guard let data = UserDefaults.standard.data(forKey: userDefaultsKey) else {
+            return nil
+        }
+        return try? JSONDecoder().decode(User.self, from: data)
     }
     
     private func updateUserProfile(user: User) async {
@@ -879,37 +940,16 @@ final class AuthService: ObservableObject {
         do {
             // Update UserDefaults first
             UserDefaults.standard.set(goal, forKey: "dailyStepGoal")
+            print("✅ Daily step goal saved to UserDefaults: \(goal)")
             
-            // Update profile in database
-            // First, get existing profile to preserve other settings
-            let existingProfiles: [UserProfile] = try await supabase
-                .from("profiles")
-                .select()
-                .eq("id", value: userId)
-                .execute()
-                .value
-            let existingProfile = existingProfiles.first
-            
-            let profile = UserProfile(
-                id: userId,
-                username: currentUser?.username ?? "",
-                firstName: currentUser?.firstName,
-                lastName: currentUser?.lastName,
-                avatar: currentUser?.avatarURL,
-                isPremium: existingProfile?.isPremium ?? false,
-                height: existingProfile?.height,
-                weight: existingProfile?.weight,
-                publicProfile: existingProfile?.publicProfile ?? false,
-                dailyStepGoal: goal
-            )
-            
+            // Update only the daily_step_goal field in database (partial update)
             try await supabase
                 .from("profiles")
-                .update(profile)
+                .update(["daily_step_goal": goal])
                 .eq("id", value: userId)
                 .execute()
             
-            print("✅ Daily step goal updated successfully: \(goal)")
+            print("✅ Daily step goal updated in database: \(goal)")
         } catch {
             print("⚠️ Error updating daily step goal: \(error.localizedDescription)")
         }

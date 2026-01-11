@@ -43,6 +43,8 @@ struct ProfileSettingsView: View {
     // Password
     @State private var showingChangePassword = false
     @State private var isPasswordVisible = false
+    @State private var publicProfile: Bool
+    @State private var isUpdatingPrivacy = false
     @Environment(\.colorScheme) private var colorScheme
     
     enum ProfileTab: String, CaseIterable {
@@ -59,6 +61,7 @@ struct ProfileSettingsView: View {
         _email = State(initialValue: user.email ?? "")
         _selectedAvatar = State(initialValue: user.avatarURL ?? "👽")
         _profileImageURL = State(initialValue: user.avatarURL)
+        _publicProfile = State(initialValue: user.publicProfile)
         
         // Load height/weight from UserDefaults
         let height = UserDefaults.standard.integer(forKey: "userHeight")
@@ -566,6 +569,63 @@ struct ProfileSettingsView: View {
                 
                 // Fields
                 VStack(spacing: 20) {
+                    // Profile Privacy Toggle
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("PROFILE VISIBILITY")
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundColor(StepCompColors.textSecondary)
+                            .tracking(0.5)
+                        
+                        HStack {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Public Profile")
+                                    .font(.system(size: 16, weight: .semibold))
+                                    .foregroundColor(StepCompColors.textPrimary)
+                                
+                                Text(publicProfile ? "Anyone can find you in Discover" : "Only friends can see your profile")
+                                    .font(.system(size: 13))
+                                    .foregroundColor(StepCompColors.textSecondary)
+                            }
+                            
+                            Spacer()
+                            
+                            Toggle("", isOn: $publicProfile)
+                                .tint(StepCompColors.primary)
+                                .labelsHidden()
+                                .disabled(isUpdatingPrivacy)
+                                .onChange(of: publicProfile) { oldValue, newValue in
+                                    Task {
+                                        await updatePublicProfile(newValue)
+                                    }
+                                }
+                        }
+                        .padding()
+                        .background(StepCompColors.surfaceElevated)
+                        .cornerRadius(16)
+                        
+                        if publicProfile {
+                            HStack(spacing: 8) {
+                                Image(systemName: "eye.fill")
+                                    .font(.system(size: 12))
+                                    .foregroundColor(Color.green)
+                                Text("Your profile is discoverable by all users")
+                                    .font(.system(size: 12))
+                                    .foregroundColor(StepCompColors.textSecondary)
+                            }
+                            .padding(.horizontal, 4)
+                        } else {
+                            HStack(spacing: 8) {
+                                Image(systemName: "lock.fill")
+                                    .font(.system(size: 12))
+                                    .foregroundColor(Color.orange)
+                                Text("Only friends can see your profile")
+                                    .font(.system(size: 12))
+                                    .foregroundColor(StepCompColors.textSecondary)
+                            }
+                            .padding(.horizontal, 4)
+                        }
+                    }
+                    
                     // Password Display
                     VStack(alignment: .leading, spacing: 8) {
                         Text("CURRENT PASSWORD")
@@ -694,6 +754,32 @@ struct ProfileSettingsView: View {
         isCheckingUsername = false
     }
     
+    private func updatePublicProfile(_ isPublic: Bool) async {
+        isUpdatingPrivacy = true
+        
+        #if canImport(Supabase)
+        do {
+            // Update public_profile in database
+            try await supabase
+                .from("profiles")
+                .update(["public_profile": isPublic])
+                .eq("id", value: user.id)
+                .execute()
+            
+            print("✅ Public profile updated to: \(isPublic)")
+            
+            // Reload the user's session to get updated profile
+            authService.checkSupabaseSession()
+        } catch {
+            print("⚠️ Error updating public profile: \(error.localizedDescription)")
+            // Revert toggle on error
+            publicProfile = !isPublic
+        }
+        #endif
+        
+        isUpdatingPrivacy = false
+    }
+    
     private func saveProfile() async {
         isSaving = true
         errorMessage = nil
@@ -781,7 +867,6 @@ struct ProfileSettingsView: View {
             
             let displayName = "\(firstName) \(lastName)".trimmingCharacters(in: .whitespaces)
             
-            // #region agent log
             let logUpdate = "{\"location\":\"ProfileSettingsView.swift:775\",\"message\":\"Updating profile with display_name\",\"data\":{\"firstName\":\"\(firstName)\",\"lastName\":\"\(lastName)\",\"displayName\":\"\(displayName)\",\"username\":\"\(username)\"},\"timestamp\":\(Int(Date().timeIntervalSince1970 * 1000)),\"sessionId\":\"debug-session\",\"runId\":\"profile-update\",\"hypothesisId\":\"H1,H2\"}\n"
             if let fileHandle = FileHandle(forWritingAtPath: "/Users/jefferyerhunse/GitRepos/StepComp/.cursor/debug.log") {
                 fileHandle.seekToEndOfFile()
@@ -790,7 +875,6 @@ struct ProfileSettingsView: View {
                 }
                 fileHandle.closeFile()
             }
-            // #endregion
             
             let profileUpdate = ProfileUpdate(
                 first_name: firstName,

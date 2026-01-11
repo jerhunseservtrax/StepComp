@@ -431,12 +431,52 @@ final class AddFriendsViewModel: ObservableObject {
                     status: "pending"
                 )
                 
-                try await supabase
+                // Insert and get the friendship ID
+                struct Friendship: Codable {
+                    let id: String
+                    let requester_id: String
+                    let addressee_id: String
+                    let status: String
+                }
+                
+                let friendships: [Friendship] = try await supabase
                     .from("friendships")
                     .insert(request)
+                    .select()
                     .execute()
+                    .value
                 
-                print("✅ Friend request sent to \(userId)")
+                guard let friendship = friendships.first else {
+                    throw NSError(domain: "Friendship", code: 0, userInfo: [NSLocalizedDescriptionKey: "Failed to create friendship"])
+                }
+                
+                // Get requester's (sender's) username for the notification
+                // Note: Notification creation is non-blocking - if it fails, we log but don't throw
+                // since the friend request was successfully created
+                do {
+                    let profiles: [UserProfile] = try await supabase
+                        .from("profiles")
+                        .select("username, display_name")
+                        .eq("id", value: currentUserId)
+                        .execute()
+                        .value
+                    
+                    let requesterUsername = profiles.first?.displayName ?? profiles.first?.username ?? "Someone"
+                    
+                    // Create notification for the recipient
+                    try await ChallengeNotificationService.shared.createNotification(
+                        userId: userId,
+                        type: .friendRequest,
+                        title: "New Friend Request",
+                        message: "\(requesterUsername) sent you a friend request",
+                        relatedId: friendship.id
+                    )
+                    
+                    print("✅ Friend request sent to \(userId) and notification created")
+                } catch {
+                    // Log the error but don't throw - the friend request was successfully created
+                    print("⚠️ Friend request sent successfully, but failed to create notification: \(error.localizedDescription)")
+                }
             } catch {
                 print("⚠️ Error sending friend request: \(error.localizedDescription)")
                 errorMessage = error.localizedDescription

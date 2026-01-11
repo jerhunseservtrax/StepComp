@@ -14,6 +14,30 @@ import UIKit
 import UserNotifications
 #endif
 
+// MARK: - Session Loading View
+/// Displayed briefly while checking for an existing session on app launch.
+/// This prevents the login screen from flashing when the user is already authenticated.
+private struct SessionLoadingView: View {
+    var body: some View {
+        ZStack {
+            // Match the app's background
+            Color(.systemBackground)
+                .ignoresSafeArea()
+            
+            VStack(spacing: 20) {
+                // App icon or logo placeholder
+                Image(systemName: "figure.walk.circle.fill")
+                    .font(.system(size: 80))
+                    .foregroundStyle(.blue.gradient)
+                
+                ProgressView()
+                    .scaleEffect(1.2)
+                    .tint(.blue)
+            }
+        }
+    }
+}
+
 struct RootView: View {
     @ObservedObject private var authService = AuthService.shared
     @StateObject private var healthKitService = HealthKitService()
@@ -43,6 +67,10 @@ struct RootView: View {
                     showingPasswordReset = false
                     passwordResetURL = nil
                 }
+            } else if sessionViewModel.isCheckingSession {
+                // Show loading state while checking for existing session
+                // This prevents flashing the login screen on app restart
+                SessionLoadingView()
             } else if !sessionViewModel.isAuthenticated {
                 OnboardingFlowView(sessionViewModel: sessionViewModel)
             } else if !sessionViewModel.hasCompletedOnboarding {

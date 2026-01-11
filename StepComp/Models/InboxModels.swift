@@ -21,6 +21,7 @@ struct InboxNotification: Identifiable, Codable {
     
     enum NotificationType: String, Codable {
         case friendRequest = "friend_request"
+        case friendRequestAccepted = "friend_request_accepted"
         case challengeInvite = "challenge_invite"
         case challengeUpdate = "challenge_update"
         case challengeJoined = "challenge_joined"
@@ -42,6 +43,8 @@ struct InboxNotification: Identifiable, Codable {
         switch type {
         case .friendRequest:
             return "person.badge.plus"
+        case .friendRequestAccepted:
+            return "person.2.fill"
         case .challengeInvite:
             return "trophy.fill"
         case .challengeUpdate:
@@ -57,6 +60,8 @@ struct InboxNotification: Identifiable, Codable {
         switch type {
         case .friendRequest:
             return "blue"
+        case .friendRequestAccepted:
+            return "green"
         case .challengeInvite:
             return "yellow"
         case .challengeUpdate:

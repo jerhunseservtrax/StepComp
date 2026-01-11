@@ -146,26 +146,91 @@ struct TopNavigationBar: View {
 struct ChallengeInviteCard: View {
     let challenge: Challenge
     
+    var gradientColors: [Color] {
+        if let category = challenge.category {
+            switch category {
+            case .corporate:
+                return [Color(red: 1.0, green: 0.42, blue: 0.29), Color(red: 0.976, green: 0.26, blue: 0.15)]
+            case .marathon:
+                return [Color(red: 0.23, green: 0.51, blue: 0.96), Color(red: 0.15, green: 0.39, blue: 0.92)]
+            case .friends:
+                return [Color(red: 0.49, green: 0.23, blue: 0.93), Color(red: 0.43, green: 0.16, blue: 0.85)]
+            case .shortTerm:
+                return [Color(red: 0.02, green: 0.59, blue: 0.41), Color(red: 0.02, green: 0.47, blue: 0.34)]
+            case .fun:
+                return [StepCompColors.yellow, Color(red: 0.98, green: 0.76, blue: 0.25)]
+            }
+        }
+        return [Color.blue.opacity(0.8), Color.purple.opacity(0.8)]
+    }
     
     var body: some View {
         VStack(spacing: 0) {
             // Image Section
             ZStack(alignment: .topTrailing) {
-                // Placeholder gradient background
-                LinearGradient(
-                    colors: [Color.blue.opacity(0.8), Color.purple.opacity(0.8)],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-                .frame(height: 200)
-                .overlay(
+                // Background: User uploaded image OR gradient
+                if let imageUrl = challenge.imageUrl, !imageUrl.isEmpty {
+                    // User uploaded image
+                    ZStack {
+                        AsyncImage(url: URL(string: imageUrl)) { phase in
+                            switch phase {
+                            case .success(let image):
+                                image
+                                    .resizable()
+                                    .aspectRatio(contentMode: .fill)
+                            case .failure:
+                                // Fallback gradient on image load failure
+                                LinearGradient(
+                                    colors: gradientColors,
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            case .empty:
+                                // Loading state - show gradient
+                                LinearGradient(
+                                    colors: gradientColors,
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            @unknown default:
+                                LinearGradient(
+                                    colors: gradientColors,
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            }
+                        }
+                        
+                        // Gradient overlay for better text readability
+                        LinearGradient(
+                            colors: [
+                                gradientColors[0].opacity(0.5),
+                                gradientColors[1].opacity(0.5)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                        .blendMode(.multiply)
+                    }
+                } else {
+                    // Default gradient background
                     LinearGradient(
-                        colors: [.clear, .black.opacity(0.1)],
-                        startPoint: .top,
-                        endPoint: .bottom
+                        colors: gradientColors,
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
                     )
-                )
+                }
                 
+                // Overlay gradient for depth
+                LinearGradient(
+                    colors: [.clear, .black.opacity(0.1)],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+            }
+            .frame(height: 200)
+            .clipShape(RoundedCorner(radius: 12, corners: [.topLeft, .topRight]))
+            .overlay(
                 // Intensity Badge
                 HStack(spacing: 4) {
                     Image(systemName: "flame.fill")
@@ -183,8 +248,9 @@ struct ChallengeInviteCard: View {
                 )
                 .cornerRadius(999)
                 .padding(12)
-            }
-            .cornerRadius(12, corners: [.topLeft, .topRight])
+                ,
+                alignment: .topTrailing
+            )
             
             // Card Details
             VStack(alignment: .leading, spacing: 16) {

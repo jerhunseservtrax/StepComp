@@ -195,13 +195,20 @@ struct SettingsView: View {
             print("✅ Today's steps: \(todaySteps)")
             
             // Get 30 days of stats for streak calculation
+            // Use start of day for proper date alignment
             let calendar = Calendar.current
             let now = Date()
-            let thirtyDaysAgo = calendar.date(byAdding: .day, value: -30, to: now) ?? now
-            let streakStats = try await healthKitService.getSteps(from: thirtyDaysAgo, to: now)
+            let today = calendar.startOfDay(for: now)
+            guard let thirtyDaysAgo = calendar.date(byAdding: .day, value: -30, to: today),
+                  let tomorrow = calendar.date(byAdding: .day, value: 1, to: today) else {
+                currentStreak = 0
+                return
+            }
+            let streakStats = try await healthKitService.getSteps(from: thirtyDaysAgo, to: tomorrow)
             
-            // Calculate streak from HealthKit data (checks daily goal)
-            currentStreak = calculateStreak(from: streakStats)
+            // Calculate streak from HealthKit data, passing today's steps separately
+            // (in case today isn't in the stats array yet)
+            currentStreak = calculateStreak(from: streakStats, todaySteps: todaySteps)
             print("✅ Streak: \(currentStreak) days")
             
             // Total steps: use user's total steps from database (since joining the app)
@@ -232,7 +239,7 @@ struct SettingsView: View {
         }
     }
     
-    private func calculateStreak(from stats: [StepStats]) -> Int {
+    private func calculateStreak(from stats: [StepStats], todaySteps: Int) -> Int {
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: Date())
         var streak = 0
@@ -243,34 +250,60 @@ struct SettingsView: View {
             dailyGoal = 10000 // Default goal if not set
         }
         
-        print("📊 Calculating streak with daily goal: \(dailyGoal)")
+        print("📊 Calculating streak with daily goal: \(dailyGoal), today's steps: \(todaySteps)")
+        print("📊 Stats array has \(stats.count) entries")
         
-        // Check today first - must meet or exceed daily goal
-        if let todayStat = stats.first(where: { calendar.isDate($0.date, inSameDayAs: today) }),
-           todayStat.steps >= dailyGoal {
+        // Helper to get steps for a specific date
+        func stepsForDate(_ date: Date) -> Int {
+            // For today, prefer the directly-fetched todaySteps value
+            if calendar.isDate(date, inSameDayAs: today) {
+                return todaySteps
+            }
+            // Otherwise look in stats array
+            if let stat = stats.first(where: { calendar.isDate($0.date, inSameDayAs: date) }) {
+                return stat.steps
+            }
+            return 0
+        }
+        
+        // Check if today meets the goal
+        let todayMeetsGoal = todaySteps >= dailyGoal
+        
+        if todayMeetsGoal {
+            // Today meets goal - count from today backwards
             streak = 1
-            print("✅ Today's goal met: \(todayStat.steps) >= \(dailyGoal)")
+            print("✅ Today's goal met: \(todaySteps) >= \(dailyGoal)")
             
-            // Check previous days - each must meet or exceed daily goal
+            // Check previous days
             for i in 1..<30 {
-                if let date = calendar.date(byAdding: .day, value: -i, to: today),
-                   let stat = stats.first(where: { calendar.isDate($0.date, inSameDayAs: date) }),
-                   stat.steps >= dailyGoal {
+                guard let date = calendar.date(byAdding: .day, value: -i, to: today) else { break }
+                let daySteps = stepsForDate(date)
+                
+                if daySteps >= dailyGoal {
                     streak += 1
-                    print("✅ Day -\(i) goal met: \(stat.steps) >= \(dailyGoal)")
+                    print("✅ Day -\(i) goal met: \(daySteps) >= \(dailyGoal)")
                 } else {
-                    if let date = calendar.date(byAdding: .day, value: -i, to: today),
-                       let stat = stats.first(where: { calendar.isDate($0.date, inSameDayAs: date) }) {
-                        print("❌ Day -\(i) goal NOT met: \(stat.steps) < \(dailyGoal) - streak broken")
-                    }
+                    print("❌ Day -\(i) goal NOT met: \(daySteps) < \(dailyGoal) - streak ends")
                     break
                 }
             }
         } else {
-            if let todayStat = stats.first(where: { calendar.isDate($0.date, inSameDayAs: today) }) {
-                print("❌ Today's goal NOT met: \(todayStat.steps) < \(dailyGoal)")
-            } else {
-                print("❌ No data for today")
+            // Today doesn't meet goal yet - but still count streak from yesterday
+            // This shows users their recent achievement even if they haven't walked today
+            print("⏳ Today's goal not yet met: \(todaySteps) < \(dailyGoal)")
+            print("📊 Checking for streak from yesterday...")
+            
+            for i in 1..<30 {
+                guard let date = calendar.date(byAdding: .day, value: -i, to: today) else { break }
+                let daySteps = stepsForDate(date)
+                
+                if daySteps >= dailyGoal {
+                    streak += 1
+                    print("✅ Day -\(i) goal met: \(daySteps) >= \(dailyGoal)")
+                } else {
+                    print("❌ Day -\(i) goal NOT met: \(daySteps) < \(dailyGoal) - streak ends")
+                    break
+                }
             }
         }
         

@@ -94,7 +94,6 @@ struct InboxView: View {
     }
     
     private func loadNotifications() async {
-        // #region agent log
         let logStart = "{\"location\":\"InboxView.swift:60\",\"message\":\"Loading notifications\",\"data\":{\"userId\":\"\(userId)\"},\"timestamp\":\(Int(Date().timeIntervalSince1970 * 1000)),\"sessionId\":\"debug-session\",\"runId\":\"inbox-load\",\"hypothesisId\":\"H\"}\n"
         if let fileHandle = FileHandle(forWritingAtPath: "/Users/jefferyerhunse/GitRepos/StepComp/.cursor/debug.log") {
             fileHandle.seekToEndOfFile()
@@ -103,7 +102,6 @@ struct InboxView: View {
             }
             fileHandle.closeFile()
         }
-        // #endregion
         
         isLoading = true
         
@@ -120,7 +118,6 @@ struct InboxView: View {
             
             notifications = fetchedNotifications
             
-            // #region agent log
             let logSuccess = "{\"location\":\"InboxView.swift:75\",\"message\":\"Notifications loaded\",\"data\":{\"count\":\(notifications.count)},\"timestamp\":\(Int(Date().timeIntervalSince1970 * 1000)),\"sessionId\":\"debug-session\",\"runId\":\"inbox-load\",\"hypothesisId\":\"H\"}\n"
             if let fileHandle = FileHandle(forWritingAtPath: "/Users/jefferyerhunse/GitRepos/StepComp/.cursor/debug.log") {
                 fileHandle.seekToEndOfFile()
@@ -129,11 +126,9 @@ struct InboxView: View {
                 }
                 fileHandle.closeFile()
             }
-            // #endregion
             
             print("✅ Loaded \(notifications.count) notifications")
         } catch {
-            // #region agent log
             let logError = "{\"location\":\"InboxView.swift:85\",\"message\":\"Error loading notifications\",\"data\":{\"error\":\"\(error.localizedDescription)\"},\"timestamp\":\(Int(Date().timeIntervalSince1970 * 1000)),\"sessionId\":\"debug-session\",\"runId\":\"inbox-load\",\"hypothesisId\":\"I\"}\n"
             if let fileHandle = FileHandle(forWritingAtPath: "/Users/jefferyerhunse/GitRepos/StepComp/.cursor/debug.log") {
                 fileHandle.seekToEndOfFile()
@@ -142,7 +137,6 @@ struct InboxView: View {
                 }
                 fileHandle.closeFile()
             }
-            // #endregion
             
             print("⚠️ Error loading notifications: \(error.localizedDescription)")
             notifications = []
@@ -162,7 +156,6 @@ struct InboxView: View {
         
         #if canImport(Supabase)
         do {
-            // #region agent log
             let logStart = "{\"location\":\"InboxView.swift:110\",\"message\":\"Accepting challenge invite\",\"data\":{\"notificationId\":\"\(notification.id)\",\"challengeId\":\"\(challengeId)\"},\"timestamp\":\(Int(Date().timeIntervalSince1970 * 1000)),\"sessionId\":\"debug-session\",\"runId\":\"accept-invite\",\"hypothesisId\":\"J\"}\n"
             if let fileHandle = FileHandle(forWritingAtPath: "/Users/jefferyerhunse/GitRepos/StepComp/.cursor/debug.log") {
                 fileHandle.seekToEndOfFile()
@@ -171,7 +164,6 @@ struct InboxView: View {
                 }
                 fileHandle.closeFile()
             }
-            // #endregion
             
             // Find the challenge invite ID
             struct ChallengeInviteRecord: Codable {
@@ -202,7 +194,6 @@ struct InboxView: View {
                 .execute()
                 .value
             
-            // #region agent log
             let logSuccess = "{\"location\":\"InboxView.swift:145\",\"message\":\"Challenge invite accepted\",\"data\":{\"inviteId\":\"\(invite.id)\"},\"timestamp\":\(Int(Date().timeIntervalSince1970 * 1000)),\"sessionId\":\"debug-session\",\"runId\":\"accept-invite\",\"hypothesisId\":\"J\"}\n"
             if let fileHandle = FileHandle(forWritingAtPath: "/Users/jefferyerhunse/GitRepos/StepComp/.cursor/debug.log") {
                 fileHandle.seekToEndOfFile()
@@ -211,7 +202,6 @@ struct InboxView: View {
                 }
                 fileHandle.closeFile()
             }
-            // #endregion
             
             // Reload notifications
             await loadNotifications()
@@ -221,7 +211,6 @@ struct InboxView: View {
             NotificationCenter.default.post(name: .notificationBadgeNeedsRefresh, object: nil)
             
         } catch {
-            // #region agent log
             let logError = "{\"location\":\"InboxView.swift:160\",\"message\":\"Error accepting invite\",\"data\":{\"error\":\"\(error.localizedDescription)\"},\"timestamp\":\(Int(Date().timeIntervalSince1970 * 1000)),\"sessionId\":\"debug-session\",\"runId\":\"accept-invite\",\"hypothesisId\":\"K\"}\n"
             if let fileHandle = FileHandle(forWritingAtPath: "/Users/jefferyerhunse/GitRepos/StepComp/.cursor/debug.log") {
                 fileHandle.seekToEndOfFile()
@@ -230,7 +219,6 @@ struct InboxView: View {
                 }
                 fileHandle.closeFile()
             }
-            // #endregion
             
             errorMessage = "Failed to accept invite: \(error.localizedDescription)"
             processingInviteId = nil
@@ -247,7 +235,6 @@ struct InboxView: View {
         
         #if canImport(Supabase)
         do {
-            // #region agent log
             let logStart = "{\"location\":\"InboxView.swift:185\",\"message\":\"Declining challenge invite\",\"data\":{\"notificationId\":\"\(notification.id)\",\"challengeId\":\"\(challengeId)\"},\"timestamp\":\(Int(Date().timeIntervalSince1970 * 1000)),\"sessionId\":\"debug-session\",\"runId\":\"decline-invite\",\"hypothesisId\":\"L\"}\n"
             if let fileHandle = FileHandle(forWritingAtPath: "/Users/jefferyerhunse/GitRepos/StepComp/.cursor/debug.log") {
                 fileHandle.seekToEndOfFile()
@@ -256,7 +243,6 @@ struct InboxView: View {
                 }
                 fileHandle.closeFile()
             }
-            // #endregion
             
             // Find the challenge invite ID
             struct ChallengeInviteRecord: Codable {
@@ -287,7 +273,6 @@ struct InboxView: View {
                 .execute()
                 .value
             
-            // #region agent log
             let logSuccess = "{\"location\":\"InboxView.swift:220\",\"message\":\"Challenge invite declined\",\"data\":{\"inviteId\":\"\(invite.id)\"},\"timestamp\":\(Int(Date().timeIntervalSince1970 * 1000)),\"sessionId\":\"debug-session\",\"runId\":\"decline-invite\",\"hypothesisId\":\"L\"}\n"
             if let fileHandle = FileHandle(forWritingAtPath: "/Users/jefferyerhunse/GitRepos/StepComp/.cursor/debug.log") {
                 fileHandle.seekToEndOfFile()
@@ -296,7 +281,6 @@ struct InboxView: View {
                 }
                 fileHandle.closeFile()
             }
-            // #endregion
             
             // Reload notifications
             await loadNotifications()
@@ -306,7 +290,6 @@ struct InboxView: View {
             NotificationCenter.default.post(name: .notificationBadgeNeedsRefresh, object: nil)
             
         } catch {
-            // #region agent log
             let logError = "{\"location\":\"InboxView.swift:235\",\"message\":\"Error declining invite\",\"data\":{\"error\":\"\(error.localizedDescription)\"},\"timestamp\":\(Int(Date().timeIntervalSince1970 * 1000)),\"sessionId\":\"debug-session\",\"runId\":\"decline-invite\",\"hypothesisId\":\"M\"}\n"
             if let fileHandle = FileHandle(forWritingAtPath: "/Users/jefferyerhunse/GitRepos/StepComp/.cursor/debug.log") {
                 fileHandle.seekToEndOfFile()
@@ -315,7 +298,6 @@ struct InboxView: View {
                 }
                 fileHandle.closeFile()
             }
-            // #endregion
             
             errorMessage = "Failed to decline invite: \(error.localizedDescription)"
             processingInviteId = nil
@@ -331,7 +313,6 @@ struct InboxView: View {
         
         #if canImport(Supabase)
         do {
-            // #region agent log
             let logStart = "{\"location\":\"InboxView.swift:320\",\"message\":\"Marking notification as read\",\"data\":{\"notificationId\":\"\(notification.id)\",\"type\":\"\(notification.type.rawValue)\"},\"timestamp\":\(Int(Date().timeIntervalSince1970 * 1000)),\"sessionId\":\"debug-session\",\"runId\":\"mark-read\",\"hypothesisId\":\"N1\"}\n"
             if let fileHandle = FileHandle(forWritingAtPath: "/Users/jefferyerhunse/GitRepos/StepComp/.cursor/debug.log") {
                 fileHandle.seekToEndOfFile()
@@ -340,7 +321,6 @@ struct InboxView: View {
                 }
                 fileHandle.closeFile()
             }
-            // #endregion
             
             // Update notification to mark as read
             struct NotificationUpdate: Encodable {
@@ -353,7 +333,6 @@ struct InboxView: View {
                 .eq("id", value: notification.id)
                 .execute()
             
-            // #region agent log
             let logSuccess = "{\"location\":\"InboxView.swift:345\",\"message\":\"Notification marked as read\",\"data\":{\"notificationId\":\"\(notification.id)\"},\"timestamp\":\(Int(Date().timeIntervalSince1970 * 1000)),\"sessionId\":\"debug-session\",\"runId\":\"mark-read\",\"hypothesisId\":\"N1\"}\n"
             if let fileHandle = FileHandle(forWritingAtPath: "/Users/jefferyerhunse/GitRepos/StepComp/.cursor/debug.log") {
                 fileHandle.seekToEndOfFile()
@@ -362,7 +341,6 @@ struct InboxView: View {
                 }
                 fileHandle.closeFile()
             }
-            // #endregion
             
             // Update local state - mark this notification as read
             if let index = notifications.firstIndex(where: { $0.id == notification.id }) {
@@ -373,7 +351,6 @@ struct InboxView: View {
             NotificationCenter.default.post(name: .notificationBadgeNeedsRefresh, object: nil)
             
         } catch {
-            // #region agent log
             let logError = "{\"location\":\"InboxView.swift:360\",\"message\":\"Error marking notification as read\",\"data\":{\"notificationId\":\"\(notification.id)\",\"error\":\"\(error.localizedDescription)\"},\"timestamp\":\(Int(Date().timeIntervalSince1970 * 1000)),\"sessionId\":\"debug-session\",\"runId\":\"mark-read\",\"hypothesisId\":\"N2\"}\n"
             if let fileHandle = FileHandle(forWritingAtPath: "/Users/jefferyerhunse/GitRepos/StepComp/.cursor/debug.log") {
                 fileHandle.seekToEndOfFile()
@@ -382,7 +359,6 @@ struct InboxView: View {
                 }
                 fileHandle.closeFile()
             }
-            // #endregion
             
             print("⚠️ Error marking notification as read: \(error.localizedDescription)")
             // Don't show error to user for marking as read - it's not critical
@@ -508,6 +484,8 @@ struct InboxNotificationRow: View {
         switch notification.type {
         case .friendRequest:
             return "person.fill.badge.plus"
+        case .friendRequestAccepted:
+            return "person.2.fill"
         case .challengeInvite:
             return "trophy.fill"
         case .challengeUpdate:
@@ -523,6 +501,8 @@ struct InboxNotificationRow: View {
         switch notification.type {
         case .friendRequest:
             return .blue
+        case .friendRequestAccepted:
+            return .green
         case .challengeInvite:
             return StepCompColors.primary
         case .challengeUpdate:

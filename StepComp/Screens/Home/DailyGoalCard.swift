@@ -73,56 +73,7 @@ struct DailyGoalCard: View {
             VStack(spacing: 0) {
             // Header
             HStack {
-                Text("Daily Goal")
-                    .font(.stepTitleMedium())
-                    .foregroundColor(StepCompColors.textPrimary)
-                
-                Spacer()
-                
-                // View toggle button - more prominent design
-                Button(action: {
-                    withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
-                        viewMode = viewMode == .circular ? .barChart : .circular
-                        if viewMode == .barChart {
-                            // Trigger bar animation
-                            barAnimationProgress = 0
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                                withAnimation(.spring(response: 0.8, dampingFraction: 0.7)) {
-                                    barAnimationProgress = 1.0
-                                }
-                            }
-                        }
-                    }
-                    HapticManager.shared.light()
-                }) {
-                    HStack(spacing: 6) {
-                        Image(systemName: viewMode == .circular ? "chart.bar.fill" : "chart.pie.fill")
-                            .font(.system(size: 16, weight: .bold))
-                        
-                        Text(viewMode == .circular ? "Chart" : "Ring")
-                            .font(.system(size: 13, weight: .semibold))
-                    }
-                    .foregroundColor(StepCompColors.buttonTextOnPrimary)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 8)
-                    .background(
-                        Capsule()
-                            .fill(
-                                LinearGradient(
-                                    colors: [
-                                        StepCompColors.primary.opacity(0.9),
-                                        StepCompColors.primary
-                                    ],
-                                    startPoint: .leading,
-                                    endPoint: .trailing
-                                )
-                            )
-                            .shadow(color: StepCompColors.primary.opacity(0.3), radius: 4, x: 0, y: 2)
-                    )
-                }
-                .padding(.trailing, 8)
-                
-                // Percentage badge
+                // Percentage badge - MOVED TO LEFT
                 Text("\(percentage)%")
                     .font(.stepCaptionBold())
                     .foregroundColor(StepCompColors.accent)
@@ -132,6 +83,64 @@ struct DailyGoalCard: View {
                         Capsule()
                             .fill(StepCompColors.accent.opacity(0.2))
                     )
+                
+                Text("Daily Goal")
+                    .font(.stepTitleMedium())
+                    .foregroundColor(StepCompColors.textPrimary)
+                    .padding(.leading, 8)
+                
+                Spacer()
+                
+                // Pill toggle - Ring/Chart selector
+                HStack(spacing: 0) {
+                    // Ring option
+                    Button(action: {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                            viewMode = .circular
+                        }
+                        HapticManager.shared.light()
+                    }) {
+                        Text("Ring")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundColor(viewMode == .circular ? StepCompColors.buttonTextOnPrimary : StepCompColors.textSecondary)
+                            .frame(width: 50, height: 28)
+                            .background(
+                                Capsule()
+                                    .fill(viewMode == .circular ? StepCompColors.primary : Color.clear)
+                            )
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                    
+                    // Chart option
+                    Button(action: {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                            viewMode = .barChart
+                            // Trigger bar animation
+                            barAnimationProgress = 0
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                                withAnimation(.spring(response: 0.8, dampingFraction: 0.7)) {
+                                    barAnimationProgress = 1.0
+                                }
+                            }
+                        }
+                        HapticManager.shared.light()
+                    }) {
+                        Text("Chart")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundColor(viewMode == .barChart ? StepCompColors.buttonTextOnPrimary : StepCompColors.textSecondary)
+                            .frame(width: 50, height: 28)
+                            .background(
+                                Capsule()
+                                    .fill(viewMode == .barChart ? StepCompColors.primary : Color.clear)
+                            )
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                }
+                .padding(2)
+                .background(
+                    Capsule()
+                        .fill(StepCompColors.surfaceElevated)
+                )
             }
             .padding(.horizontal, 24)
             .padding(.top, 20)
@@ -350,75 +359,57 @@ struct DailyGoalCard: View {
             }
             .padding(.horizontal, 20)
             
-            // Bar chart with goal line
-            ZStack(alignment: .bottom) {
-                // Goal line indicator
-                GeometryReader { geometry in
-                    let maxSteps = max(weeklyStepData.max() ?? 1, dailyGoal)
-                    let goalHeight = CGFloat(dailyGoal) / CGFloat(maxSteps) * 140
-                    
-                    // Goal line - more visible with dashed style
-                    ZStack {
-                        // Solid background for better visibility
-                        Rectangle()
-                            .fill(StepCompColors.primary.opacity(0.6))
-                            .frame(height: 3)
-                        
-                        // Dashed overlay for texture
-                        Rectangle()
-                            .stroke(
-                                StepCompColors.primary,
-                                style: StrokeStyle(lineWidth: 3, dash: [8, 4])
-                            )
-                            .frame(height: 3)
-                    }
-                    .overlay(
-                        HStack {
-                            // Goal label badge
-                            HStack(spacing: 4) {
-                                Text("GOAL")
-                                    .font(.system(size: 9, weight: .bold))
-                                Text("\(formatNumberShort(dailyGoal))")
-                                    .font(.system(size: 9, weight: .heavy))
-                            }
-                            .foregroundColor(colorScheme == .dark ? StepCompColors.textPrimary : StepCompColors.primary)
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 3)
-                            .background(
-                                Capsule()
-                                    .fill(colorScheme == .dark 
-                                        ? StepCompColors.primary.opacity(0.25)
-                                        : Color.white.opacity(0.9))
-                                    .shadow(color: StepCompColors.primary.opacity(0.3), radius: 2, x: 0, y: 1)
-                            )
-                            .offset(x: -4)
+            // Scrollable bar chart with goal line
+            ScrollViewReader { scrollProxy in
+                ScrollView(.horizontal, showsIndicators: false) {
+                    ZStack(alignment: .bottom) {
+                        // Goal line indicator - solid blue line
+                        GeometryReader { geometry in
+                            let maxSteps = max(weeklyStepData.max() ?? 1, dailyGoal)
+                            let goalHeight = CGFloat(dailyGoal) / CGFloat(maxSteps) * 140
                             
-                            Spacer()
+                            // Solid blue goal line
+                            Rectangle()
+                                .fill(Color.blue)
+                                .frame(height: 2)
+                                .position(x: geometry.size.width / 2, y: 140 - goalHeight + 90)
                         }
-                    )
-                    .position(x: geometry.size.width / 2, y: 140 - goalHeight + 90)
+                        
+                        // Bars
+                        HStack(alignment: .bottom, spacing: 8) {
+                            ForEach(Array(weeklyStepData.enumerated()), id: \.offset) { index, steps in
+                                BarView(
+                                    steps: steps,
+                                    dailyGoal: dailyGoal,
+                                    maxSteps: max(weeklyStepData.max() ?? 1, dailyGoal),
+                                    animationProgress: barAnimationProgress,
+                                    dayLabel: dayLabel(for: index),
+                                    distanceLabel: distanceLabel(for: steps),
+                                    isToday: isToday(index),
+                                    isSelected: isSelectedDate(index),
+                                    colorScheme: colorScheme
+                                )
+                                .frame(width: 44)
+                                .id(index)
+                            }
+                        }
+                        .padding(.horizontal, 16)
+                    }
+                    .frame(height: 230)
+                    // Width based on number of bars: 44pt per bar + 8pt spacing + padding
+                    .frame(minWidth: CGFloat(weeklyStepData.count) * 52 + 32)
                 }
-                
-                // Bars
-                HStack(alignment: .bottom, spacing: 8) {
-                    ForEach(Array(weeklyStepData.enumerated()), id: \.offset) { index, steps in
-                        BarView(
-                            steps: steps,
-                            dailyGoal: dailyGoal,
-                            maxSteps: max(weeklyStepData.max() ?? 1, dailyGoal),
-                            animationProgress: barAnimationProgress,
-                            dayLabel: dayLabel(for: index),
-                            distanceLabel: distanceLabel(for: steps),
-                            isToday: isToday(index),
-                            isSelected: isSelectedDate(index),
-                            colorScheme: colorScheme
-                        )
-                        .frame(maxWidth: .infinity)
+                .onAppear {
+                    // Scroll to show the most recent data (rightmost) on appear
+                    if !weeklyStepData.isEmpty {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                            withAnimation(.easeOut(duration: 0.3)) {
+                                scrollProxy.scrollTo(weeklyStepData.count - 1, anchor: .trailing)
+                            }
+                        }
                     }
                 }
-                .padding(.horizontal, 16)
             }
-            .frame(height: 230)
             
             // Stats row (Cal, Mi, Hrs) - moved inside bar chart view
             HStack(spacing: 12) {
@@ -473,30 +464,32 @@ struct DailyGoalCard: View {
     
     private func barColor(for steps: Int, goal: Int) -> LinearGradient {
         if steps >= goal {
-            // Goal met - green gradient (adaptive)
+            // Goal met - vibrant lime/green gradient
             return LinearGradient(
-                colors: colorScheme == .dark 
-                    ? [Color.green.opacity(0.7), Color.green]
-                    : [Color.green.opacity(0.6), Color.green.opacity(0.8)],
+                colors: [
+                    Color(red: 0.2, green: 1.0, blue: 0.4),  // Bright lime
+                    Color(red: 0.0, green: 0.9, blue: 0.3)   // Vivid green
+                ],
                 startPoint: .top,
                 endPoint: .bottom
             )
         } else if steps >= Int(Double(goal) * 0.5) {
-            // 50%+ - primary color gradient (adaptive yellow/coral)
+            // 50%+ - vibrant yellow/orange gradient
             return LinearGradient(
                 colors: [
-                    StepCompColors.primary.opacity(0.6),
-                    StepCompColors.primary
+                    Color(red: 1.0, green: 0.85, blue: 0.0),  // Bright yellow
+                    Color(red: 1.0, green: 0.6, blue: 0.0)    // Vibrant orange
                 ],
                 startPoint: .top,
                 endPoint: .bottom
             )
         } else {
-            // < 50% - orange/red gradient (adaptive)
+            // < 50% - vibrant orange/red gradient
             return LinearGradient(
-                colors: colorScheme == .dark
-                    ? [Color.orange.opacity(0.6), Color.red.opacity(0.6)]
-                    : [Color.orange.opacity(0.7), Color.red.opacity(0.8)],
+                colors: [
+                    Color(red: 1.0, green: 0.5, blue: 0.0),   // Bright orange
+                    Color(red: 1.0, green: 0.2, blue: 0.2)    // Vivid red
+                ],
                 startPoint: .top,
                 endPoint: .bottom
             )
@@ -505,10 +498,12 @@ struct DailyGoalCard: View {
     
     private func dayLabel(for index: Int) -> String {
         let calendar = Calendar.current
-        let today = Date()
+        let today = calendar.startOfDay(for: Date())
+        let totalDays = weeklyStepData.count
         
-        // Calculate the date for this index (0 = 7 days ago, 6 = today)
-        guard let date = calendar.date(byAdding: .day, value: index - 6, to: today) else {
+        // Calculate the date for this index (last index = today)
+        // index 0 = (totalDays - 1) days ago, last index = today
+        guard let date = calendar.date(byAdding: .day, value: index - (totalDays - 1), to: today) else {
             return ""
         }
         
@@ -518,16 +513,18 @@ struct DailyGoalCard: View {
     }
     
     private func isToday(_ index: Int) -> Bool {
-        // Index 6 represents today in a 7-day array
-        return index == 6
+        // Last index represents today
+        return index == weeklyStepData.count - 1
     }
     
     private func isSelectedDate(_ index: Int) -> Bool {
         // Check if this bar's date matches the selected date from the calendar
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: Date())
+        let totalDays = weeklyStepData.count
         
-        guard let barDate = calendar.date(byAdding: .day, value: index - 6, to: today) else {
+        // Calculate date for this index (last index = today)
+        guard let barDate = calendar.date(byAdding: .day, value: index - (totalDays - 1), to: today) else {
             return false
         }
         
@@ -829,48 +826,52 @@ struct BarView: View {
         let percentage = Double(steps) / Double(dailyGoal)
         
         if percentage >= 1.0 {
-            // 100%+ - Bright green (goal met/exceeded)
+            // 100%+ - Vibrant lime/green (goal met/exceeded)
             return LinearGradient(
-                colors: colorScheme == .dark 
-                    ? [Color.green.opacity(0.7), Color.green]
-                    : [Color.green.opacity(0.6), Color.green.opacity(0.9)],
+                colors: [
+                    Color(red: 0.2, green: 1.0, blue: 0.4),  // Bright lime
+                    Color(red: 0.0, green: 0.9, blue: 0.3)   // Vivid green
+                ],
                 startPoint: .top,
                 endPoint: .bottom
             )
         } else if percentage >= 0.75 {
-            // 75-99% - Primary color (yellow/coral) - almost there!
+            // 75-99% - Vibrant yellow-green - almost there!
             return LinearGradient(
                 colors: [
-                    StepCompColors.primary.opacity(0.6),
-                    StepCompColors.primary
+                    Color(red: 0.7, green: 1.0, blue: 0.0),  // Lime yellow
+                    Color(red: 0.4, green: 0.9, blue: 0.2)   // Yellow-green
                 ],
                 startPoint: .top,
                 endPoint: .bottom
             )
         } else if percentage >= 0.5 {
-            // 50-74% - Orange - halfway there
+            // 50-74% - Vibrant yellow/orange - halfway there
             return LinearGradient(
-                colors: colorScheme == .dark
-                    ? [Color.orange.opacity(0.6), Color.orange.opacity(0.8)]
-                    : [Color.orange.opacity(0.7), Color.orange],
+                colors: [
+                    Color(red: 1.0, green: 0.85, blue: 0.0),  // Bright yellow
+                    Color(red: 1.0, green: 0.6, blue: 0.0)    // Vibrant orange
+                ],
                 startPoint: .top,
                 endPoint: .bottom
             )
         } else if percentage >= 0.25 {
-            // 25-49% - Orange-red - need more steps
+            // 25-49% - Vibrant orange - need more steps
             return LinearGradient(
-                colors: colorScheme == .dark
-                    ? [Color.orange.opacity(0.6), Color.red.opacity(0.6)]
-                    : [Color.orange.opacity(0.7), Color.red.opacity(0.7)],
+                colors: [
+                    Color(red: 1.0, green: 0.5, blue: 0.0),   // Bright orange
+                    Color(red: 1.0, green: 0.3, blue: 0.1)    // Orange-red
+                ],
                 startPoint: .top,
                 endPoint: .bottom
             )
         } else {
-            // 0-24% - Red - just getting started
+            // 0-24% - Vibrant red - just getting started
             return LinearGradient(
-                colors: colorScheme == .dark
-                    ? [Color.red.opacity(0.5), Color.red.opacity(0.7)]
-                    : [Color.red.opacity(0.6), Color.red.opacity(0.8)],
+                colors: [
+                    Color(red: 1.0, green: 0.3, blue: 0.2),   // Bright red-orange
+                    Color(red: 1.0, green: 0.15, blue: 0.15)  // Vivid red
+                ],
                 startPoint: .top,
                 endPoint: .bottom
             )
@@ -881,15 +882,15 @@ struct BarView: View {
         let percentage = Double(steps) / Double(dailyGoal)
         
         if percentage >= 1.0 {
-            return Color.green.opacity(0.6)
+            return Color(red: 0.0, green: 1.0, blue: 0.4).opacity(0.8)  // Bright lime glow
         } else if percentage >= 0.75 {
-            return StepCompColors.primary.opacity(0.6)
+            return Color(red: 0.5, green: 1.0, blue: 0.2).opacity(0.7)  // Yellow-green glow
         } else if percentage >= 0.5 {
-            return Color.orange.opacity(0.6)
+            return Color(red: 1.0, green: 0.7, blue: 0.0).opacity(0.7)  // Yellow glow
         } else if percentage >= 0.25 {
-            return Color.red.opacity(0.5)
+            return Color(red: 1.0, green: 0.4, blue: 0.0).opacity(0.6)  // Orange glow
         } else {
-            return Color.red.opacity(0.4)
+            return Color(red: 1.0, green: 0.2, blue: 0.2).opacity(0.5)  // Red glow
         }
     }
     
