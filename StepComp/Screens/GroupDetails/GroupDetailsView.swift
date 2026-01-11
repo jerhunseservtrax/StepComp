@@ -21,6 +21,7 @@ struct GroupDetailsView: View {
     @State private var selectedTab: GroupDetailTab = .leaderboard
     @State private var showingChat = false
     @State private var showingInvite = false
+    @State private var showingJoinSuccess = false
     
     
     init(sessionViewModel: SessionViewModel, challengeId: String) {
@@ -42,17 +43,35 @@ struct GroupDetailsView: View {
                        viewModel.challenge?.creatorId == currentUserId
         
         return ZStack {
-            if !isMember {
+            // Show loading state if challenge is nil (prevents black screen)
+            if viewModel.challenge == nil && viewModel.isLoading {
+                StepCompColors.background.ignoresSafeArea()
+                VStack(spacing: 20) {
+                    ProgressView()
+                        .scaleEffect(1.5)
+                    Text("Loading challenge...")
+                        .font(.system(size: 17, weight: .medium))
+                        .foregroundColor(.secondary)
+                }
+            } else if !isMember {
                 // Non-member preview view
                 ChallengePreviewView(
                     challenge: viewModel.challenge,
+                    highestSteps: viewModel.leaderboardEntries.first?.steps ?? 0,
                     onBack: { dismiss() },
                     onJoin: {
-                        Task {
+                        Task { @MainActor in
                             await viewModel.joinCurrentChallenge()
                             if viewModel.errorMessage.isEmpty {
-                                // Successfully joined - refresh to show full view
+                                // Successfully joined - show success alert
+                                showingJoinSuccess = true
+                                
+                                // Refresh challenge data to update participant list
                                 await viewModel.refresh()
+                                
+                                // Ensure challenge is loaded before view switch
+                                // Wait a brief moment for state to update
+                                try? await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
                             }
                         }
                     },
@@ -99,11 +118,56 @@ struct GroupDetailsView: View {
             }
         }
         #endif
+        .alert("Success! 🎉", isPresented: $showingJoinSuccess) {
+            Button("OK", role: .cancel) {
+                // View will automatically switch to member view after state updates
+            }
+        } message: {
+            Text("You successfully joined this challenge!")
+        }
     }
     
     private var fullMemberView: some View {
         ZStack {
             StepCompColors.background.ignoresSafeArea()
+            
+            // Challenge image background header (if available)
+            if let challenge = viewModel.challenge, isValidImageURL(challenge.imageUrl) {
+                VStack(spacing: 0) {
+                    ZStack {
+                        AsyncImage(url: URL(string: challenge.imageUrl!)) { phase in
+                            switch phase {
+                            case .success(let image):
+                                image
+                                    .resizable()
+                                    .aspectRatio(contentMode: .fill)
+                            case .failure:
+                                Color.clear
+                            case .empty:
+                                Color.clear
+                            @unknown default:
+                                Color.clear
+                            }
+                        }
+                        .clipped()
+                        
+                        // Dark overlay for header readability
+                        LinearGradient(
+                            colors: [
+                                Color.black.opacity(0.4),
+                                Color.black.opacity(0.2),
+                                Color.clear
+                            ],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    }
+                    .frame(height: 120)
+                    .ignoresSafeArea(edges: .top)
+                    
+                    Spacer()
+                }
+            }
             
             ScrollView {
                 VStack(spacing: 0) {
@@ -113,14 +177,17 @@ struct GroupDetailsView: View {
                         onBack: { dismiss() },
                         onInvite: {
                             showingInvite = true
+                        },
+                        onChat: {
+                            showingChat = true
                         }
                     )
                     
                     // Main Content
                     VStack(spacing: 24) {
-                        // Hero Status Section
+                        // Countdown Timer
                         if let challenge = viewModel.challenge {
-                            HeroStatusSection(challenge: challenge)
+                            ChallengeCountdownTimer(endDate: challenge.endDate)
                                 .padding(.horizontal)
                                 .padding(.top, 8)
                         }
@@ -135,6 +202,7 @@ struct GroupDetailsView: View {
                             case .leaderboard:
                                 LeaderboardTabView(
                                     entries: viewModel.leaderboardEntries,
+                                    dailyEntries: viewModel.dailyLeaderboardEntries,
                                     currentUserId: sessionViewModel.currentUser?.id ?? ""
                                 )
                             case .members:
@@ -164,20 +232,20 @@ struct GroupDetailsView: View {
             }
             .navigationBarHidden(true)
             
-            // Fixed Bottom Action - Show Join button if not a member, Chat button if member
+            // Floating rank display (only show on leaderboard tab)
             if let challenge = viewModel.challenge {
                 let currentUserId = sessionViewModel.currentUser?.id ?? ""
                 let isMember = challenge.participantIds.contains(currentUserId) || challenge.creatorId == currentUserId
                 
-                if isMember {
-                    // Member: Show Chat button
-            GroupChatButton(
-                        challengeName: challenge.name,
-                onTap: {
-                    showingChat = true
+                if isMember && selectedTab == .leaderboard {
+                    if let userEntry = viewModel.leaderboardEntries.first(where: { $0.userId == currentUserId }) {
+                        let todaySteps = viewModel.dailyLeaderboardEntries.first(where: { $0.userId == currentUserId })?.steps ?? 0
+                        FloatingRankDisplay(
+                            rank: userEntry.rank,
+                            todaySteps: todaySteps
+                        )
+                    }
                 }
-            )
-        }
             }
         }
     }
@@ -203,6 +271,7 @@ struct GroupDetailsHeader: View {
     let challengeName: String
     let onBack: () -> Void
     let onInvite: () -> Void
+    let onChat: () -> Void
     
     
     var body: some View {
@@ -226,19 +295,34 @@ struct GroupDetailsHeader: View {
             
             Spacer()
             
-            Button(action: onInvite) {
-                HStack(spacing: 4) {
-                    Image(systemName: "person.badge.plus")
-                        .font(.system(size: 16))
-                    Text("Invite")
+            HStack(spacing: 8) {
+                // Chat button - white with pill shape and glow
+                Button(action: onChat) {
+                    Image(systemName: "message.fill")
                         .font(.system(size: 14, weight: .bold))
+                        .foregroundColor(.black)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 8)
+                        .background(Color.white)
+                        .cornerRadius(999)
+                        .shadow(color: Color.white.opacity(0.5), radius: 8, x: 0, y: 2)
                 }
-                .foregroundColor(StepCompColors.buttonTextOnPrimary)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 8)
-                .background(StepCompColors.primary)
-                .cornerRadius(999)
-                .shadow(color: StepCompColors.primary.opacity(0.4), radius: 8, x: 0, y: 2)
+                
+                // Invite button
+                Button(action: onInvite) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "person.badge.plus")
+                            .font(.system(size: 16))
+                        Text("Invite")
+                            .font(.system(size: 14, weight: .bold))
+                    }
+                    .foregroundColor(StepCompColors.buttonTextOnPrimary)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 8)
+                    .background(StepCompColors.primary)
+                    .cornerRadius(999)
+                    .shadow(color: StepCompColors.primary.opacity(0.4), radius: 8, x: 0, y: 2)
+                }
             }
         }
         .padding(.horizontal)
@@ -334,6 +418,178 @@ struct HeroStatusSection: View {
     }
 }
 
+// MARK: - Challenge Countdown Timer
+
+struct ChallengeCountdownTimer: View {
+    let endDate: Date
+    @State private var timeRemaining: TimeInterval = 0
+    @State private var timer: Timer?
+    
+    private var hasEnded: Bool {
+        Date() >= endDate
+    }
+    
+    var body: some View {
+        if !hasEnded {
+            VStack(spacing: 0) {
+                // Timer card
+                VStack(spacing: 12) {
+                    // Header
+                    HStack(spacing: 6) {
+                        Image(systemName: "timer")
+                            .font(.system(size: 14, weight: .bold))
+                            .foregroundColor(StepCompColors.primary)
+                        
+                        Text("Challenge ends in")
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundColor(.secondary)
+                            .textCase(.uppercase)
+                            .tracking(1.5)
+                    }
+                    
+                    // Countdown display
+                    HStack(spacing: 8) {
+                        // Days
+                        CountdownUnit(
+                            value: days,
+                            label: "Days"
+                        )
+                        
+                        // Separator
+                        Text(":")
+                            .font(.system(size: 20, weight: .bold))
+                            .foregroundColor(StepCompColors.primary)
+                            .padding(.top, 8)
+                        
+                        // Hours
+                        CountdownUnit(
+                            value: hours,
+                            label: "Hours"
+                        )
+                        
+                        // Separator
+                        Text(":")
+                            .font(.system(size: 20, weight: .bold))
+                            .foregroundColor(StepCompColors.primary)
+                            .padding(.top, 8)
+                        
+                        // Minutes
+                        CountdownUnit(
+                            value: minutes,
+                            label: "Mins"
+                        )
+                        
+                        // Separator
+                        Text(":")
+                            .font(.system(size: 20, weight: .bold))
+                            .foregroundColor(StepCompColors.primary)
+                            .padding(.top, 8)
+                        
+                        // Seconds
+                        CountdownUnit(
+                            value: seconds,
+                            label: "Secs"
+                        )
+                    }
+                }
+                .padding(16)
+                .frame(maxWidth: .infinity)
+                .background(Color(.systemBackground))
+                .cornerRadius(16)
+                .shadow(color: Color.black.opacity(0.05), radius: 8, x: 0, y: 2)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16)
+                        .stroke(StepCompColors.primary.opacity(0.2), lineWidth: 1)
+                )
+            }
+            .onAppear {
+                updateTimeRemaining()
+                startTimer()
+            }
+            .onDisappear {
+                stopTimer()
+            }
+        }
+    }
+    
+    private var days: Int {
+        Int(timeRemaining) / 86400
+    }
+    
+    private var hours: Int {
+        (Int(timeRemaining) % 86400) / 3600
+    }
+    
+    private var minutes: Int {
+        (Int(timeRemaining) % 3600) / 60
+    }
+    
+    private var seconds: Int {
+        Int(timeRemaining) % 60
+    }
+    
+    private func updateTimeRemaining() {
+        let now = Date()
+        if endDate > now {
+            timeRemaining = endDate.timeIntervalSince(now)
+        } else {
+            timeRemaining = 0
+        }
+    }
+    
+    private func startTimer() {
+        timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
+            DispatchQueue.main.async {
+                updateTimeRemaining()
+            }
+        }
+        // Ensure timer runs on main run loop
+        if let timer = timer {
+            RunLoop.main.add(timer, forMode: .common)
+        }
+    }
+    
+    private func stopTimer() {
+        timer?.invalidate()
+        timer = nil
+    }
+}
+
+// MARK: - Countdown Unit
+
+struct CountdownUnit: View {
+    let value: Int
+    let label: String
+    
+    var body: some View {
+        VStack(spacing: 4) {
+            // Value box
+            Text(String(format: "%02d", value))
+                .font(.system(size: 20, weight: .bold, design: .rounded))
+                .foregroundColor(.primary)
+                .frame(minWidth: 56)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .background(
+                    StepCompColors.primary.opacity(0.1)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12)
+                                .stroke(StepCompColors.primary.opacity(0.2), lineWidth: 1)
+                        )
+                )
+                .cornerRadius(12)
+            
+            // Label
+            Text(label)
+                .font(.system(size: 10, weight: .bold))
+                .foregroundColor(.secondary)
+                .textCase(.uppercase)
+                .lineLimit(1)
+                .fixedSize(horizontal: true, vertical: false)
+        }
+    }
+}
+
 // MARK: - Segmented Tab Control
 
 struct SegmentedTabControl: View {
@@ -371,6 +627,7 @@ struct SegmentedTabControl: View {
 
 struct LeaderboardTabView: View {
     let entries: [LeaderboardEntry]
+    let dailyEntries: [LeaderboardEntry]
     let currentUserId: String
     
     @State private var selectedUserId: String?
@@ -387,6 +644,14 @@ struct LeaderboardTabView: View {
     
     var restOfLeaderboard: [LeaderboardEntry] {
         Array(sortedEntries.dropFirst(3))
+    }
+    
+    var currentUserEntry: LeaderboardEntry? {
+        entries.first { $0.userId == currentUserId }
+    }
+    
+    var currentUserTodayEntry: LeaderboardEntry? {
+        dailyEntries.first { $0.userId == currentUserId }
     }
     
     var body: some View {
@@ -432,6 +697,124 @@ struct LeaderboardTabView: View {
                 .transition(.opacity)
                 .zIndex(1000)
             }
+        }
+    }
+}
+
+// MARK: - Floating Rank Display
+
+struct FloatingRankDisplay: View {
+    let rank: Int
+    let todaySteps: Int
+    
+    @State private var opacity: Double = 0.5 // Default 50% opacity
+    @State private var fadeTimer: Timer?
+    
+    private var motivationalMessage: String {
+        switch rank {
+        case 1:
+            return "You're #1! 🏆"
+        case 2...3:
+            return "You're crushing it! 🔥"
+        case 4...10:
+            return "Keep going! 🔥"
+        case 11...20:
+            return "You're moving up! 💪"
+        default:
+            return "Keep pushing! 💪"
+        }
+    }
+    
+    var body: some View {
+        VStack {
+            Spacer()
+            
+            HStack(spacing: 16) {
+                // Left side - Rank indicator
+                VStack(spacing: 4) {
+                    Text("Rank")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundColor(.white.opacity(0.7))
+                    
+                    Text("\(rank)")
+                        .font(.system(size: 14, weight: .bold, design: .rounded))
+                        .foregroundColor(.white)
+                }
+                .frame(width: 40)
+                .padding(.vertical, 8)
+                .background(Color.white.opacity(0.1))
+                .cornerRadius(12)
+                
+                // Middle - User name and motivational message
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("You")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundColor(.white)
+                    
+                    Text(motivationalMessage)
+                        .font(.system(size: 12))
+                        .foregroundColor(.white.opacity(0.8))
+                }
+                
+                Spacer()
+                
+                // Right side - Today's steps
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text("\(todaySteps.formatted())")
+                        .font(.system(size: 18, weight: .bold, design: .monospaced))
+                        .foregroundColor(StepCompColors.primary)
+                    
+                    Text("Steps Today")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundColor(.white.opacity(0.6))
+                        .textCase(.uppercase)
+                        .tracking(0.5)
+                }
+            }
+            .padding(16)
+            .background(
+                Color.black
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16)
+                            .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                    )
+            )
+            .cornerRadius(16)
+            .shadow(color: Color.black.opacity(0.3), radius: 20, x: 0, y: 8)
+            .padding(.horizontal, 16)
+            .padding(.bottom, 16) // Position below the chat button
+            .opacity(opacity)
+            .onTapGesture {
+                handleTap()
+            }
+        }
+        .onDisappear {
+            fadeTimer?.invalidate()
+            fadeTimer = nil
+        }
+    }
+    
+    private func handleTap() {
+        // Cancel any existing timer
+        fadeTimer?.invalidate()
+        
+        // Immediately increase opacity to 100%
+        withAnimation(.easeInOut(duration: 0.3)) {
+            opacity = 1.0
+        }
+        
+        // Set timer to fade back to 50% after 10 seconds
+        fadeTimer = Timer.scheduledTimer(withTimeInterval: 10.0, repeats: false) { _ in
+            withAnimation(.easeInOut(duration: 0.5)) {
+                opacity = 0.5
+            }
+            fadeTimer?.invalidate()
+            fadeTimer = nil
+        }
+        
+        // Ensure timer runs on main run loop
+        if let timer = fadeTimer {
+            RunLoop.main.add(timer, forMode: .common)
         }
     }
 }
@@ -718,15 +1101,36 @@ struct MembersTabView: View {
     var body: some View {
         ZStack {
             VStack(spacing: 12) {
-                // Member count header
-                HStack {
+                // Member count header with description
+                VStack(alignment: .leading, spacing: 4) {
                     Text("\(members.count) Members")
-                        .font(.system(size: 14, weight: .bold))
-                        .foregroundColor(.secondary)
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundColor(.primary)
                     
-                    Spacer()
+                    Text("Total steps accumulated since joining this challenge")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(.secondary)
                 }
-                .padding(.bottom, 4)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.bottom, 8)
+                
+                // Info card explaining what's being shown
+                HStack(spacing: 12) {
+                    Image(systemName: "info.circle.fill")
+                        .font(.system(size: 16))
+                        .foregroundColor(StepCompColors.primary)
+                    
+                    Text("Step counts update daily and represent the total steps accumulated in this challenge.")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .padding(12)
+                .background(
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(StepCompColors.primary.opacity(0.1))
+                )
+                .padding(.bottom, 8)
                 
                 // Members list (no podium, just clean list)
                 ForEach(membersWithSteps, id: \.user.id) { item in
@@ -764,13 +1168,13 @@ struct MembersTabView: View {
                         
                         Spacer()
                         
-                        // Steps
-                        VStack(alignment: .trailing, spacing: 2) {
+                        // Steps section - emphasize total steps
+                        VStack(alignment: .trailing, spacing: 4) {
                             Text(formatSteps(item.steps))
-                                .font(.system(size: 16, weight: .bold, design: .monospaced))
+                                .font(.system(size: 18, weight: .bold, design: .monospaced))
                                 .foregroundColor(item.rank == 1 ? StepCompColors.primary : .primary)
                             
-                            Text("STEPS")
+                            Text("TOTAL STEPS")
                                 .font(.system(size: 9, weight: .bold))
                                 .tracking(0.5)
                                 .foregroundColor(.secondary)
@@ -901,12 +1305,14 @@ struct SettingsTabView: View {
 
 struct ChallengePreviewView: View {
     let challenge: Challenge?
+    let highestSteps: Int
     let onBack: () -> Void
     let onJoin: () -> Void
     let isLoading: Bool
     let errorMessage: String
     
     @Environment(\.colorScheme) private var colorScheme
+    @State private var showAboutRules: Bool = false
     
     var body: some View {
         ZStack {
@@ -921,419 +1327,353 @@ struct ChallengePreviewView: View {
     @ViewBuilder
     private func challengePreviewContent(challenge: Challenge) -> some View {
         ZStack {
-            // Adaptive background
+            // Background
             StepCompColors.background
                 .ignoresSafeArea()
             
-            // Gradient overlay at the top (70% opacity)
-            VStack(spacing: 0) {
-                LinearGradient(
-                    colors: [
-                        categoryColor(challenge.category).opacity(0.7),
-                        categoryColor(challenge.category).opacity(0.35),
-                        StepCompColors.background.opacity(0)
-                    ],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-                .frame(height: 350)
-                .ignoresSafeArea()
-                
-                Spacer()
-            }
-            
             ScrollView {
-                VStack(spacing: 0) {
-                    // Header with back and share buttons and title
-                    VStack(spacing: 16) {
-                        HStack {
-                            Button(action: onBack) {
-                                Image(systemName: "arrow.left")
-                                    .font(.system(size: 18, weight: .semibold))
-                                    .foregroundColor(.white)
-                                    .frame(width: 48, height: 48)
-                                    .background(
-                                        Circle()
-                                            .fill(Color.black.opacity(0.3))
-                                            .shadow(color: Color.black.opacity(0.2), radius: 8, x: 0, y: 2)
-                                    )
-                            }
-                            
-                            Spacer()
-                            
-                            Text("CHALLENGE")
-                                .font(.system(size: 12, weight: .bold))
-                                .tracking(1.5)
-                                .foregroundColor(.white)
-                            
-                            Spacer()
-                            
-                            Button(action: {}) {
-                                Image(systemName: "square.and.arrow.up")
-                                    .font(.system(size: 18, weight: .semibold))
-                                    .foregroundColor(.white)
-                                    .frame(width: 48, height: 48)
-                                    .background(
-                                        Circle()
-                                            .fill(Color.black.opacity(0.3))
-                                            .shadow(color: Color.black.opacity(0.2), radius: 8, x: 0, y: 2)
-                                    )
-                            }
-                        }
-                        .padding(.horizontal, 24)
-                        .padding(.top, 32)
-                    }
-                    
-                    // Hero Section with circular image
-                    VStack(spacing: 20) {
-                        // Glow effect background
-                        ZStack {
-                            // Subtle glow
-                            Circle()
-                                .fill(
-                                    RadialGradient(
-                                        colors: [
-                                            StepCompColors.surfaceElevated.opacity(0.6),
-                                            StepCompColors.background.opacity(0)
-                                        ],
-                                        center: .center,
-                                        startRadius: 10,
-                                        endRadius: 140
-                                    )
-                                )
-                                .frame(width: 280, height: 280)
-                                .blur(radius: 40)
-                            
-                            // Challenge Image with category badge
-                            ZStack(alignment: .bottomTrailing) {
-                                // Main circular image
-                                Circle()
-                                    .fill(
-                                        LinearGradient(
-                                            colors: [
-                                                categoryColor(challenge.category).opacity(0.2),
-                                                categoryColor(challenge.category).opacity(0.1)
-                                            ],
-                                            startPoint: .topLeading,
-                                            endPoint: .bottomTrailing
-                                        )
-                                    )
-                                    .frame(width: 128, height: 128)
-                                    .overlay(
-                                        Image(systemName: challengeImageIcon(challenge.category))
-                                            .font(.system(size: 54, weight: .light))
-                                            .foregroundColor(categoryColor(challenge.category).opacity(0.6))
-                                    )
-                                    .shadow(color: StepCompColors.textPrimary.opacity(colorScheme == .dark ? 0.3 : 0.1), radius: 24, x: 0, y: 12)
-                                    .overlay(
-                                        Circle()
-                                            .stroke(StepCompColors.surface, lineWidth: 4)
-                                    )
-                                
-                                // Category badge
-                                ZStack {
-                                    Circle()
-                                        .fill(StepCompColors.primary)
-                                        .frame(width: 44, height: 44)
-                                        .shadow(color: Color.black.opacity(0.15), radius: 8, x: 0, y: 4)
-                                        .overlay(
-                                            Circle()
-                                                .stroke(StepCompColors.surface, lineWidth: 4)
-                                        )
-                                    
-                                    Image(systemName: categoryBadgeIcon(challenge.category))
-                                        .font(.system(size: 20, weight: .semibold))
-                                        .foregroundColor(colorScheme == .dark ? .black : .black)
-                                }
-                                .offset(x: 8, y: 8)
-                            }
-                        }
-                        .padding(.top, 40)
-                        .padding(.bottom, 24)
-                        
-                        // Challenge Name
-                        Text(challenge.name)
-                            .font(.system(size: 30, weight: .bold, design: .default))
-                            .foregroundColor(StepCompColors.textPrimary)
-                            .multilineTextAlignment(.center)
-                            .lineSpacing(2)
-                        
-                        // Public tag and community
-                        HStack(spacing: 8) {
-                            Text("PUBLIC")
-                                .font(.system(size: 10, weight: .bold))
-                                .tracking(1)
-                                .foregroundColor(colorScheme == .dark ? Color(red: 0.7, green: 0.6, blue: 0) : Color(red: 0.7, green: 0.6, blue: 0))
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 4)
-                                .background(
-                                    Capsule()
-                                        .fill(colorScheme == .dark ? Color(red: 1, green: 0.95, blue: 0.63) : Color(red: 1, green: 0.95, blue: 0.63))
-                                )
-                            
-                            Text("•")
-                                .foregroundColor(StepCompColors.textSecondary)
-                                .font(.system(size: 12))
-                            
-                            Text("FitLife Community")
-                                .font(.system(size: 14, weight: .medium))
-                                .foregroundColor(StepCompColors.textSecondary)
-                        }
-                        .padding(.bottom, 24)
-                        
-                        // Participant avatars and count
-                        HStack(spacing: 16) {
-                            // Overlapping avatars
-                            HStack(spacing: -8) {
-                                ForEach(0..<min(2, max(1, challenge.participantIds.count)), id: \.self) { index in
-                                    Circle()
-                                        .fill(
-                                            LinearGradient(
-                                                colors: [Color.gray.opacity(0.3), Color.gray.opacity(0.2)],
-                                                startPoint: .topLeading,
-                                                endPoint: .bottomTrailing
-                                            )
-                                        )
-                                        .frame(width: 32, height: 32)
-                                        .overlay(
-                                            Text(["JD", "M"][min(index, 1)])
-                                                .font(.system(size: 10, weight: .bold))
-                                                .foregroundColor(StepCompColors.textPrimary)
-                                        )
-                                        .overlay(
-                                            Circle()
-                                                .stroke(StepCompColors.surface, lineWidth: 2)
-                                        )
-                                }
-                                
-                                // +240 badge
-                                if challenge.participantIds.count > 2 {
-                                    Circle()
-                                        .fill(StepCompColors.primary)
-                                        .frame(width: 32, height: 32)
-                                        .overlay(
-                                            Text("+\(challenge.participantIds.count - 2)")
-                                                .font(.system(size: 10, weight: .bold))
-                                                .foregroundColor(colorScheme == .dark ? .black : .black)
-                                        )
-                                        .overlay(
-                                            Circle()
-                                                .stroke(StepCompColors.surface, lineWidth: 2)
-                                        )
-                                }
-                            }
-                            
-                            Text("\(challenge.participantIds.count) Participants")
-                                .font(.system(size: 12, weight: .bold))
+            VStack(spacing: 0) {
+                    // Header with back button and title
+                    HStack {
+                        Button(action: onBack) {
+                            Image(systemName: "arrow.left")
+                                .font(.system(size: 20, weight: .semibold))
                                 .foregroundColor(StepCompColors.textPrimary)
+                                .frame(width: 48, height: 48)
+                                .background(Color.clear)
                         }
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 8)
-                        .background(
-                            Capsule()
-                                .fill(StepCompColors.surface)
-                                .shadow(color: Color.black.opacity(0.05), radius: 8, x: 0, y: 2)
-                        )
-                        .padding(.bottom, 32)
-                    }
-                    .padding(.horizontal, 24)
-                    
-                    // Stats cards grid
-                    VStack(spacing: 12) {
-                        // Time Left & Goal cards
-                        HStack(spacing: 12) {
-                            // Time Left Card
-                            ModernStatCard(
-                                icon: "calendar.badge.clock",
-                                iconBackground: StepCompColors.textSecondary.opacity(0.1),
-                                value: "\(challenge.daysRemaining)",
-                                label: "days remaining",
-                                upperLabel: "TIME LEFT",
-                                showProgress: true,
-                                progress: calculateProgress(challenge),
-                                progressColor: StepCompColors.primary
-                            )
-                            
-                            // Goal Card
-                            ModernStatCard(
-                                icon: "star.fill",
-                                iconBackground: StepCompColors.textSecondary.opacity(0.1),
-                                value: formatStepGoal(challenge.targetSteps),
-                                label: "total steps",
-                                upperLabel: "GOAL",
-                                showProgress: false,
-                                progress: 0,
-                                progressColor: StepCompColors.primary
-                            )
-                        }
-                        
-                        // Difficulty & Daily Cap cards
-                        HStack(spacing: 12) {
-                            // Difficulty Card
-                            HStack {
-                                Text("Difficulty")
-                                    .font(.system(size: 12, weight: .medium))
-                                    .foregroundColor(StepCompColors.textSecondary)
-                                
-                                Spacer()
-                                
-                                HStack(spacing: 4) {
-                                    Image(systemName: "flame.fill")
-                                        .font(.system(size: 14))
-                                        .foregroundColor(.orange)
-                                    
-                                    Text("Hard")
-                                        .font(.system(size: 14, weight: .bold))
-                                        .foregroundColor(StepCompColors.textPrimary)
-                                }
-                            }
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 12)
-                            .background(StepCompColors.surface)
-                            .cornerRadius(16)
-                            .shadow(color: Color.black.opacity(0.03), radius: 4, x: 0, y: 2)
-                            
-                            // Daily Cap Card
-                            HStack {
-                                Text("Daily Cap")
-                                    .font(.system(size: 12, weight: .medium))
-                                    .foregroundColor(StepCompColors.textSecondary)
-                                
-                                Spacer()
-                                
-                                Text("25k steps")
-                                    .font(.system(size: 14, weight: .bold))
-                                    .foregroundColor(StepCompColors.textPrimary)
-                            }
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 12)
-                            .background(StepCompColors.surface)
-                            .cornerRadius(16)
-                            .shadow(color: Color.black.opacity(0.03), radius: 4, x: 0, y: 2)
-                        }
-                    }
-                    .padding(.horizontal, 24)
-                    .padding(.bottom, 32)
-                    
-                    // About Challenge & Rules - Single card
-                    VStack(alignment: .leading, spacing: 24) {
-                        // About Challenge Section
-                        VStack(alignment: .leading, spacing: 12) {
-                            HStack(spacing: 8) {
-                                Image(systemName: "info.circle.fill")
-                                    .font(.system(size: 18))
-                                    .foregroundColor(colorScheme == .dark ? StepCompColors.primary : Color(red: 0.9, green: 0.8, blue: 0))
-                                
-                                Text("About Challenge")
-                                    .font(.system(size: 18, weight: .bold))
-                                    .foregroundColor(StepCompColors.textPrimary)
-                            }
-                            
-                            Text(challenge.description.isEmpty ? defaultDescription(challenge) : challenge.description)
-                                .font(.system(size: 14, weight: .regular))
-                                .foregroundColor(StepCompColors.textSecondary)
-                                .lineSpacing(6)
-                                .fixedSize(horizontal: false, vertical: true)
-                        }
-                        
-                        // Divider
-                        Rectangle()
-                            .fill(StepCompColors.textSecondary.opacity(colorScheme == .dark ? 0.1 : 0.15))
-                            .frame(height: 1)
-                        
-                        // Challenge Rules Section
-                        VStack(alignment: .leading, spacing: 16) {
-                            Text("CHALLENGE RULES")
-                                .font(.system(size: 11, weight: .bold))
-                                .tracking(1.2)
-                                .foregroundColor(StepCompColors.textSecondary)
-                            
-                            VStack(spacing: 16) {
-                                ModernRuleRow(
-                                    icon: "checkmark",
-                                    iconBackground: Color.green.opacity(colorScheme == .dark ? 0.3 : 0.15),
-                                    iconColor: Color.green,
-                                    title: "Verified Sources Only",
-                                    subtitle: "Steps must come from a wearable device or phone pedometer. Manual entry is disabled."
-                                )
-                                
-                                ModernRuleRow(
-                                    icon: "checkmark",
-                                    iconBackground: Color.green.opacity(colorScheme == .dark ? 0.3 : 0.15),
-                                    iconColor: Color.green,
-                                    title: "3-Day Sync Window",
-                                    subtitle: "Open the app at least once every 3 days to sync your progress."
-                                )
-                            }
-                        }
-                    }
-                    .padding(24)
-                    .background(StepCompColors.surface)
-                    .cornerRadius(24)
-                    .shadow(color: Color.black.opacity(0.04), radius: 8, x: 0, y: 2)
-                    .padding(.horizontal, 24)
-                    
-                    // Error message
-                    if !errorMessage.isEmpty {
-                        Text(errorMessage)
-                            .font(.system(size: 14, weight: .medium))
-                            .foregroundColor(.red)
-                            .padding(.horizontal, 24)
-                            .padding(.top, 16)
-                    }
-                    
-                    // Spacer for button
-                    Spacer()
-                        .frame(height: 140)
-                }
-            }
-            
-            // Fixed Join Button at Bottom
-            VStack {
-                Spacer()
-                
-                Button(action: onJoin) {
-                    HStack(spacing: 12) {
-                        // Icon
-                        ZStack {
-                            Circle()
-                                .fill(colorScheme == .dark ? Color.white.opacity(0.2) : Color.black.opacity(0.1))
-                                .frame(width: 40, height: 40)
-                            
-                            Image(systemName: "figure.run")
-                                .font(.system(size: 18, weight: .semibold))
-                                .foregroundColor(colorScheme == .dark ? .white : .white)
-                        }
-                        
-                        Text("Join Challenge")
-                            .font(.system(size: 18, weight: .bold))
-                            .foregroundColor(colorScheme == .dark ? .black : .white)
                         
                         Spacer()
                         
+                        Text("Join Challenge")
+                            .font(.system(size: 18, weight: .bold))
+                            .foregroundColor(StepCompColors.textPrimary)
+                        
+                        Spacer()
+                        
+                        // Spacer for symmetry
+                        Color.clear
+                            .frame(width: 48, height: 48)
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.top, 24)
+                    .padding(.bottom, 16)
+                    
+                    // Trophy Icon Section
+                    VStack(spacing: 16) {
+                ZStack {
+                            // Glow effect
+                            Circle()
+                                .fill(StepCompColors.primary.opacity(0.4))
+                                .frame(width: 80, height: 80)
+                                .blur(radius: 20)
+                            
+                            // Trophy icon
+                            Circle()
+                                .fill(StepCompColors.primary)
+                                .frame(width: 80, height: 80)
+                                .overlay(
+                                    Image(systemName: "trophy.fill")
+                                        .font(.system(size: 36))
+                                        .foregroundColor(.black)
+                                )
+                                .shadow(color: StepCompColors.primary.opacity(0.5), radius: 20, x: 0, y: 10)
+                        }
+                        .padding(.top, 24)
+                        
+                        // Heading
+                        Text("Ready to Step Up?")
+                            .font(.system(size: 32, weight: .bold))
+                            .foregroundColor(StepCompColors.textPrimary)
+                            .multilineTextAlignment(.center)
+                        
+                        // Subtitle
+                        Text("Enter your invite code below or review the shared challenge details.")
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundColor(StepCompColors.textSecondary)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 32)
+                            .padding(.bottom, 8)
+                    }
+                    .padding(.bottom, 24)
+                    
+                    // Challenge Preview Card
+                    VStack(spacing: 0) {
+                        // Image Section with Timer Badge
+                        ZStack(alignment: .topTrailing) {
+                            // Challenge Image
+                            ZStack {
+                    if isValidImageURL(challenge.imageUrl) {
+                        AsyncImage(url: URL(string: challenge.imageUrl!)) { phase in
+                            switch phase {
+                            case .success(let image):
+                                image
+                                    .resizable()
+                                    .aspectRatio(contentMode: .fill)
+                                        case .failure, .empty:
+                                            // Fallback gradient
+                                LinearGradient(
+                                    colors: [
+                                                    categoryColor(challenge.category),
+                                                    categoryColor(challenge.category).opacity(0.7)
+                                                ],
+                                                startPoint: .topLeading,
+                                                endPoint: .bottomTrailing
+                                )
+                            @unknown default:
+                                LinearGradient(
+                                    colors: [
+                                                    categoryColor(challenge.category),
+                                                    categoryColor(challenge.category).opacity(0.7)
+                                    ],
+                                                startPoint: .topLeading,
+                                                endPoint: .bottomTrailing
+                                )
+                            }
+                        }
+                                } else {
+                                    // Default gradient
+                        LinearGradient(
+                            colors: [
+                                            categoryColor(challenge.category),
+                                            categoryColor(challenge.category).opacity(0.7)
+                                        ],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    )
+                                }
+                                
+                                // Dark gradient overlay for text readability
+                        LinearGradient(
+                                    colors: [.clear, .black.opacity(0.6)],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    }
+                            .frame(height: 192)
+                            .clipped()
+                            
+                            // Timer Badge (Top Right)
+                            ChallengeTimerBadge(startDate: challenge.startDate, endDate: challenge.endDate)
+                                .padding(.top, 16)
+                                .padding(.trailing, 16)
+                            
+                            // Content Overlay (Bottom)
+                            VStack(alignment: .leading, spacing: 8) {
+                                // Public Badge
+                        HStack {
+                                    Text("PUBLIC")
+                                        .font(.system(size: 10, weight: .black))
+                                        .foregroundColor(.black)
+                                        .padding(.horizontal, 8)
+                                        .padding(.vertical, 4)
+                                        .background(StepCompColors.primary)
+                                        .cornerRadius(4)
+                            
+                            Spacer()
+                                }
+                                
+                                // Challenge Name
+                                Text(challenge.name)
+                                    .font(.system(size: 24, weight: .bold))
+                                .foregroundColor(.white)
+                                    .shadow(color: .black.opacity(0.5), radius: 4, x: 0, y: 2)
+                            }
+                            .padding(.horizontal, 20)
+                            .padding(.bottom, 20)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                        
+                        // Details Section
+                    VStack(spacing: 20) {
+                            // Stats Row
+                            HStack(spacing: 24) {
+                                // Highest Steps
+                                HStack(spacing: 12) {
+                        ZStack {
+                                        RoundedRectangle(cornerRadius: 8)
+                                            .fill(StepCompColors.primary.opacity(0.2))
+                                            .frame(width: 40, height: 40)
+                                        
+                                        Image(systemName: "trophy.fill")
+                                            .font(.system(size: 18))
+                                            .foregroundColor(Color(red: 0.8, green: 0.7, blue: 0))
+                                    }
+                                    
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text("HIGHEST STEP")
+                                            .font(.system(size: 10, weight: .bold))
+                                            .foregroundColor(StepCompColors.textSecondary)
+                                            .tracking(1)
+                                        
+                                        Text("\(highestSteps.formatted()) steps")
+                                            .font(.system(size: 18, weight: .bold))
+                                            .foregroundColor(StepCompColors.textPrimary)
+                                    }
+                                }
+                                
+                                Spacer()
+                                
+                                // Duration
+                                HStack(spacing: 12) {
+                                    ZStack {
+                                        RoundedRectangle(cornerRadius: 8)
+                                            .fill(Color.purple.opacity(0.2))
+                                            .frame(width: 40, height: 40)
+                                        
+                                        Image(systemName: "calendar")
+                                            .font(.system(size: 18))
+                                            .foregroundColor(.purple)
+                                    }
+                                    
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text("DURATION")
+                                .font(.system(size: 10, weight: .bold))
+                                .foregroundColor(StepCompColors.textSecondary)
+                                .tracking(1)
+                                        
+                                        Text("\(challengeDuration(in: challenge)) Days")
+                                            .font(.system(size: 18, weight: .bold))
+                                            .foregroundColor(StepCompColors.textPrimary)
+                                    }
+                                }
+                            }
+                            .padding(.horizontal, 20)
+                            .padding(.top, 20)
+                            
+                            // Divider
+                            Rectangle()
+                                .fill(Color(.systemGray5))
+                                .frame(height: 1)
+                                .padding(.horizontal, 20)
+                            
+                            // Friends Joined Section
+                            HStack {
+                                // Avatar stack
+                                HStack(spacing: -12) {
+                                    let participantCount = challenge.participantIds.count
+                                    let maxAvatars = min(3, participantCount)
+                                    
+                                    ForEach(0..<maxAvatars, id: \.self) { index in
+                                    Circle()
+                                            .fill(LinearGradient(
+                                                colors: [Color.blue.opacity(0.6), Color.blue.opacity(0.4)],
+                                                startPoint: .topLeading,
+                                                endPoint: .bottomTrailing
+                                            ))
+                                            .frame(width: 40, height: 40)
+                                        .overlay(
+                                            Circle()
+                                                .stroke(StepCompColors.surface, lineWidth: 2)
+                                        )
+                                }
+                                
+                                    if participantCount > 3 {
+                                    Circle()
+                                        .fill(StepCompColors.primary)
+                                            .frame(width: 40, height: 40)
+                                        .overlay(
+                                                Text("+\(participantCount - 3)")
+                                                    .font(.system(size: 12, weight: .bold))
+                                                    .foregroundColor(.black)
+                                        )
+                                        .overlay(
+                                            Circle()
+                                                .stroke(StepCompColors.surface, lineWidth: 2)
+                                        )
+                                    } else if participantCount == 0 {
+                                        // Show placeholder when no participants
+                                        Circle()
+                                            .fill(Color.gray.opacity(0.2))
+                                            .frame(width: 40, height: 40)
+                                    }
+                                }
+                                
+                                Spacer()
+                                
+                                VStack(alignment: .trailing, spacing: 4) {
+                                    Text("Friends Joined")
+                                        .font(.system(size: 14, weight: .bold))
+                                        .foregroundColor(StepCompColors.textPrimary)
+                                    
+                                    Text("Waiting for you!")
+                                        .font(.system(size: 12))
+                                    .foregroundColor(StepCompColors.textSecondary)
+                                }
+                            }
+                            .padding(.horizontal, 20)
+                            .padding(.bottom, 20)
+                        }
+                    }
+                    .background(StepCompColors.surface)
+                    .cornerRadius(12)
+                    .shadow(color: Color.black.opacity(0.1), radius: 8, x: 0, y: 4)
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 24)
+                    
+                    // Expandable About/Rules Section
+                    ExpandableAboutRulesSection(
+                        challenge: challenge,
+                        isExpanded: $showAboutRules,
+                        colorScheme: colorScheme
+                    )
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 140) // Space for buttons
+                }
+            }
+            
+            // Fixed Footer with Buttons
+            VStack {
+                Spacer()
+                
+                // Join Challenge Button
+                Button(action: onJoin) {
+                        HStack(spacing: 8) {
+                        Text("Join Challenge")
+                            .font(.system(size: 18, weight: .bold))
+                        
                         if isLoading {
                             ProgressView()
-                                .progressViewStyle(CircularProgressViewStyle(tint: colorScheme == .dark ? .black : .white))
+                                    .progressViewStyle(CircularProgressViewStyle(tint: .black))
                         } else {
                             Image(systemName: "arrow.right")
                                 .font(.system(size: 18, weight: .bold))
-                                .foregroundColor(colorScheme == .dark ? .black : .white)
+                            }
                         }
-                    }
-                    .padding(.horizontal, 24)
-                    .padding(.vertical, 16)
-                    .background(
-                        RoundedRectangle(cornerRadius: 16)
-                            .fill(colorScheme == .dark ? StepCompColors.primary : StepCompColors.textPrimary)
-                            .shadow(color: (colorScheme == .dark ? StepCompColors.primary : StepCompColors.textPrimary).opacity(0.4), radius: 20, x: 0, y: 10)
-                    )
+                        .foregroundColor(.black)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 56)
+                        .background(StepCompColors.primary)
+                        .cornerRadius(28)
+                        .shadow(color: StepCompColors.primary.opacity(0.5), radius: 14, x: 0, y: 4)
                 }
                 .disabled(isLoading)
-                .padding(.horizontal, 24)
+                .padding(.horizontal, 16)
                 .padding(.bottom, 32)
+                .background(
+                    LinearGradient(
+                        colors: [
+                            StepCompColors.background.opacity(0),
+                            StepCompColors.background,
+                            StepCompColors.background
+                        ],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                    .frame(height: 140)
+                    .ignoresSafeArea(edges: .bottom)
+                )
             }
         }
     }
+    
+    private func challengeDuration(in challenge: Challenge) -> Int {
+        let calendar = Calendar.current
+        let components = calendar.dateComponents([.day], from: challenge.startDate, to: challenge.endDate)
+        return max(1, components.day ?? 1)
+    }
+    
+    // MARK: - Helper Functions (keeping existing ones)
     
     private var loadingPlaceholder: some View {
         ZStack {
@@ -1349,6 +1689,8 @@ struct ChallengePreviewView: View {
             }
         }
     }
+    
+    // MARK: - Helper Functions
     
     // Helper functions
     private func categoryBadgeIcon(_ category: Challenge.ChallengeCategory?) -> String {
@@ -1412,6 +1754,182 @@ struct ChallengePreviewView: View {
     }
     
     private func defaultDescription(_ challenge: Challenge) -> String {
+        let categoryName = challenge.category?.displayName ?? "challenge"
+        return "Welcome to the **\(challenge.name)**! This \(categoryName.lowercased()) challenge is designed to push your limits and help you achieve your step goals. Join now to compete with other participants and track your progress on the leaderboard."
+    }
+}
+
+// MARK: - Challenge Timer Badge
+
+struct ChallengeTimerBadge: View {
+    let startDate: Date
+    let endDate: Date
+    @State private var timeRemaining: TimeInterval = 0
+    @State private var timer: Timer?
+    
+    private var hasStarted: Bool {
+        Date() >= startDate
+    }
+    
+    private var hasEnded: Bool {
+        Date() >= endDate
+    }
+    
+    private var hours: Int {
+        Int(timeRemaining) / 3600
+    }
+    
+    private var minutes: Int {
+        (Int(timeRemaining) % 3600) / 60
+    }
+    
+    private var seconds: Int {
+        Int(timeRemaining) % 60
+    }
+    
+    var body: some View {
+        if !hasEnded {
+            HStack(spacing: 6) {
+                Image(systemName: "timer")
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundColor(StepCompColors.primary)
+                
+                Text(hasStarted ? "ENDS IN" : "STARTS IN")
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundColor(.white)
+                    .tracking(0.5)
+                
+                Text(String(format: "%02d:%02d:%02d", hours, minutes, seconds))
+                    .font(.system(size: 12, weight: .bold, design: .monospaced))
+                    .foregroundColor(.white)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .background(Color.black.opacity(0.4))
+            .background(.ultraThinMaterial)
+            .cornerRadius(20)
+            .overlay(
+                RoundedRectangle(cornerRadius: 20)
+                    .stroke(Color.white.opacity(0.1), lineWidth: 1)
+            )
+            .onAppear {
+                updateTimeRemaining()
+                timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
+                    updateTimeRemaining()
+                }
+                if let timer = timer {
+                    RunLoop.main.add(timer, forMode: .common)
+                }
+            }
+            .onDisappear {
+                timer?.invalidate()
+                timer = nil
+            }
+        }
+    }
+    
+    private func updateTimeRemaining() {
+        let now = Date()
+        let targetDate = hasStarted ? endDate : startDate
+        if targetDate > now {
+            timeRemaining = targetDate.timeIntervalSince(now)
+        } else {
+            timeRemaining = 0
+        }
+    }
+}
+
+// MARK: - Expandable About/Rules Section
+
+struct ExpandableAboutRulesSection: View {
+    let challenge: Challenge
+    @Binding var isExpanded: Bool
+    let colorScheme: ColorScheme
+    
+    var body: some View {
+        VStack(spacing: 0) {
+            Button(action: {
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                    isExpanded.toggle()
+                }
+            }) {
+                HStack {
+                    Text("About Challenge & Rules")
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundColor(StepCompColors.textPrimary)
+                    
+                    Spacer()
+                    
+                    Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(StepCompColors.textSecondary)
+                }
+                .padding(20)
+            }
+            
+            if isExpanded {
+                VStack(alignment: .leading, spacing: 24) {
+                    // About Challenge Section
+                    VStack(alignment: .leading, spacing: 12) {
+                        HStack(spacing: 8) {
+                            Image(systemName: "info.circle.fill")
+                                .font(.system(size: 18))
+                                .foregroundColor(colorScheme == .dark ? StepCompColors.primary : Color(red: 0.9, green: 0.8, blue: 0))
+                            
+                            Text("About Challenge")
+                                .font(.system(size: 18, weight: .bold))
+                                .foregroundColor(StepCompColors.textPrimary)
+                        }
+                        
+                        Text(challenge.description.isEmpty ? defaultChallengeDescription(challenge) : challenge.description)
+                            .font(.system(size: 14, weight: .regular))
+                            .foregroundColor(StepCompColors.textSecondary)
+                            .lineSpacing(6)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    
+                    // Divider
+                    Rectangle()
+                        .fill(StepCompColors.textSecondary.opacity(colorScheme == .dark ? 0.1 : 0.15))
+                        .frame(height: 1)
+                    
+                    // Challenge Rules Section
+                    VStack(alignment: .leading, spacing: 16) {
+                        Text("CHALLENGE RULES")
+                            .font(.system(size: 11, weight: .bold))
+                            .tracking(1.2)
+                            .foregroundColor(StepCompColors.textSecondary)
+                        
+                        VStack(spacing: 16) {
+                            ModernRuleRow(
+                                icon: "checkmark",
+                                iconBackground: Color.green.opacity(colorScheme == .dark ? 0.3 : 0.15),
+                                iconColor: Color.green,
+                                title: "Verified Sources Only",
+                                subtitle: "Steps must come from a wearable device or phone pedometer. Manual entry is disabled."
+                            )
+                            
+                            ModernRuleRow(
+                                icon: "checkmark",
+                                iconBackground: Color.green.opacity(colorScheme == .dark ? 0.3 : 0.15),
+                                iconColor: Color.green,
+                                title: "3-Day Sync Window",
+                                subtitle: "Open the app at least once every 3 days to sync your progress."
+                            )
+                        }
+                    }
+                }
+                .padding(.horizontal, 20)
+                .padding(.bottom, 20)
+                .transition(.opacity.combined(with: .move(edge: .top)))
+            }
+        }
+        .background(StepCompColors.surface)
+        .cornerRadius(16)
+        .shadow(color: Color.black.opacity(0.05), radius: 8, x: 0, y: 2)
+    }
+    
+    private func defaultChallengeDescription(_ challenge: Challenge) -> String {
         let categoryName = challenge.category?.displayName ?? "challenge"
         return "Welcome to the **\(challenge.name)**! This \(categoryName.lowercased()) challenge is designed to push your limits and help you achieve your step goals. Join now to compete with other participants and track your progress on the leaderboard."
     }
@@ -1887,3 +2405,4 @@ struct JoinChallengeButton: View {
         }
     }
 }
+
