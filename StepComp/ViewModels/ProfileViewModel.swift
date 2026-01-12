@@ -85,7 +85,10 @@ final class ProfileViewModel: ObservableObject {
     }
     
     deinit {
-        stopAutoRefresh()
+        // Immediately invalidate timer - don't create async tasks in deinit
+        refreshTimer?.invalidate()
+        refreshTimer = nil
+        cancellables.removeAll()
     }
     
     func setThemeManager(_ themeManager: ThemeManager) {
@@ -397,12 +400,10 @@ final class ProfileViewModel: ObservableObject {
         }
     }
     
-    nonisolated private func stopAutoRefresh() {
-        Task { @MainActor in
-            refreshTimer?.invalidate()
-            refreshTimer = nil
-            cancellables.removeAll()
-        }
+    private func stopAutoRefresh() {
+        refreshTimer?.invalidate()
+        refreshTimer = nil
+        cancellables.removeAll()
     }
     
     func pauseAutoRefresh() {

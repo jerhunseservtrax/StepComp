@@ -5,21 +5,34 @@
 
 ## Problem
 
-The app was freezing/deadlocking when users signed out, becoming completely unresponsive even after force quitting and reopening. The stack trace showed the app stuck in `pthread_kill`, indicating a deadlock on the main thread.
+The app was freezing/deadlocking when users signed out, becoming completely unresponsive even after force quitting and reopening. The stack trace showed the app stuck in `pthread_kill`, indicating a deadlock on the main thread. Error messages revealed:
+
+```
+Object 0x132eaee00 of class DashboardViewModel deallocated with non-zero retain count 2. 
+This object's deinit, or something called from it, may have created a strong reference 
+to self which outlived deinit, resulting in a dangling reference.
+```
 
 ## Root Cause
 
-The freeze was caused by a **deadlock** due to calling `await MainActor.run` from within a `@MainActor`-isolated context:
+The freeze was caused by **multiple retain cycles and deadlocks**:
 
-1. **@MainActor Deadlock**: Both `SessionViewModel` and `AuthService` are marked with `@MainActor`, meaning all their methods already run on the main actor. Calling `await MainActor.run` from within these methods causes a deadlock because:
-   - The code is already running on the main actor
-   - It tries to schedule work on the main actor and wait for it
-   - But the main actor is blocked waiting for this work to complete
-   - This creates a circular wait = deadlock
+### 1. @MainActor Deadlock
+Both `SessionViewModel` and `AuthService` are marked with `@MainActor`, meaning all their methods already run on the main actor. Calling `await MainActor.run` from within these methods causes a deadlock because:
+- The code is already running on the main actor
+- It tries to schedule work on the main actor and wait for it
+- But the main actor is blocked waiting for this work to complete
+- This creates a circular wait = deadlock
 
-2. **Unnecessary dismiss() Call**: The SettingsView was calling `dismiss()` after sign-out, trying to manually dismiss a view that was already being removed as part of the view hierarchy transition from `MainTabView` to `OnboardingFlowView`.
+### 2. Retain Cycle in deinit
+`DashboardViewModel.deinit` was calling `stopAutoRefresh()`, which was marked as `nonisolated` and created a `Task { @MainActor in ... }` that captured `self`. This caused:
+- `deinit` is called when retain count should be 0
+- `stopAutoRefresh()` creates a Task that captures `self`
+- This increases the retain count back up while the object is being deallocated
+- Result: "deallocated with non-zero retain count" and memory corruption
 
-3. **View Lifecycle Issues**: As previously identified, `MainTabView` was wrapping the `SessionViewModel` in a `@StateObject`, causing ownership conflicts during view deallocation.
+### 3. Unnecessary dismiss() Call
+The SettingsView was calling `dismiss()` after sign-out, trying to manually dismiss a view that was already being removed as part of the view hierarchy transition.
 
 ## Solution
 
@@ -59,9 +72,43 @@ func signOut() async {
 }
 ```
 
-**Why:** Since `SessionViewModel` is marked with `@MainActor`, all its methods (including `signOut()`) already execute on the main actor. Calling `await MainActor.run` from within creates a deadlock.
+**Why:** Since `SessionViewModel` is marked with `@MainActor`, all its methods already execute on the main actor.
 
-### 2. Removed Unnecessary dismiss() Call (SettingsView.swift)
+### 2. Fixed Retain Cycle in deinit (DashboardViewModel.swift & ProfileViewModel.swift)
+
+**Changed:**
+```swift
+// Before - RETAIN CYCLE
+deinit {
+    stopAutoRefresh()  // ❌ Calls nonisolated function that creates Task
+}
+
+nonisolated private func stopAutoRefresh() {
+    Task { @MainActor in  // ❌ Captures self, increases retain count during dealloc
+        refreshTimer?.invalidate()
+        refreshTimer = nil
+        cancellables.removeAll()
+    }
+}
+
+// After - FIXED
+deinit {
+    // Immediately invalidate timer - don't create async tasks in deinit
+    refreshTimer?.invalidate()
+    refreshTimer = nil
+    cancellables.removeAll()
+}
+
+private func stopAutoRefresh() {
+    refreshTimer?.invalidate()
+    refreshTimer = nil
+    cancellables.removeAll()
+}
+```
+
+**Why:** Never create async Tasks or capture `self` in `deinit`. Timer invalidation is synchronous and safe to call directly.
+
+### 3. Removed Unnecessary dismiss() Call (SettingsView.swift)
 
 **Changed:**
 ```swift
@@ -82,9 +129,9 @@ onSignOut: {
 }
 ```
 
-**Why:** When `isAuthenticated` becomes `false`, RootView automatically transitions from `MainTabView` to `OnboardingFlowView`. Manually calling `dismiss()` on a view that's being removed causes conflicts.
+**Why:** When `isAuthenticated` becomes `false`, RootView automatically transitions from `MainTabView` to `OnboardingFlowView`.
 
-### 3. Fixed MainTabView Ownership (MainTabView.swift)
+### 4. Fixed MainTabView Ownership (MainTabView.swift)
 
 **Changed:**
 ```swift
@@ -103,9 +150,9 @@ init(sessionViewModel: SessionViewModel) {
 }
 ```
 
-**Why:** `MainTabView` should observe the `SessionViewModel` rather than own it. The `SessionViewModel` is already managed by `RootView`.
+**Why:** `MainTabView` should observe the `SessionViewModel` rather than own it.
 
-### 4. Added View Identity Reset (RootView.swift)
+### 5. Added View Identity Reset (RootView.swift)
 
 **Changed:**
 ```swift
@@ -117,26 +164,30 @@ MainTabView(sessionViewModel: sessionViewModel)
 
 ## Technical Details
 
+### Understanding deinit and Retain Cycles
+
+**CRITICAL RULES:**
+1. **Never create async Tasks in `deinit`** - They capture `self` and increase retain count during deallocation
+2. **Never call `await` in `deinit`** - deinit is synchronous
+3. **Never use `nonisolated` functions that create Tasks from `deinit`** - Same retain cycle problem
+4. **Timer invalidation is synchronous and safe** - Can be called directly in deinit
+
 ### Understanding @MainActor
 
-- `@MainActor` is a Swift concurrency attribute that ensures all code in a class/struct runs on the main thread
+- `@MainActor` is a Swift concurrency attribute that ensures all code runs on the main thread
 - When you're already in a `@MainActor` context, you **don't** need `await MainActor.run`
-- Using `await MainActor.run` from within `@MainActor` causes a deadlock because:
-  - You're asking the main actor to run code
-  - While the main actor is already running your code
-  - The main actor can't run new work while waiting for itself
+- Using `await MainActor.run` from within `@MainActor` causes a deadlock
 
 ### Tradeoffs
 
-1. **Simplicity**: Removing the `MainActor.run` wrapper makes the code simpler and eliminates the deadlock risk.
-
-2. **View Hierarchy**: Relying on automatic view hierarchy updates is cleaner than manual dismiss calls, but requires understanding SwiftUI's declarative nature.
+1. **Simplicity**: Direct timer invalidation in deinit is simpler and avoids all async complexity
+2. **Safety**: Removing async operations from deinit prevents retain cycles and memory corruption
 
 ### Potential Failure Modes
 
-1. **Race Conditions**: If any code outside of `@MainActor` contexts tries to access these properties, there could be race conditions. However, SwiftUI's `@Published` and `@ObservedObject` already handle this.
+1. **Timer Thread Safety**: Timer invalidation must happen on the thread that created it. Since our timers are created on the main thread and our ViewModels are @MainActor, this is guaranteed safe.
 
-2. **Async Task Cancellation**: Long-running tasks in child views should handle cancellation properly. The `.id()` modifier helps by forcing view recreation.
+2. **Race Conditions**: If timer fires during deallocation, the weak self check in the timer closure will catch it and prevent crashes.
 
 ## Testing
 
@@ -161,16 +212,21 @@ xcodebuild -project StepComp.xcodeproj -scheme StepComp -destination 'platform=i
 ## Files Modified
 
 1. `StepComp/ViewModels/SessionViewModel.swift` - Removed `MainActor.run` deadlock
-2. `StepComp/Screens/Settings/SettingsView.swift` - Removed unnecessary `dismiss()` call
-3. `StepComp/Navigation/MainTabView.swift` - Changed to `@ObservedObject`
-4. `StepComp/App/RootView.swift` - Added `.id()` modifier for view recreation
+2. `StepComp/ViewModels/DashboardViewModel.swift` - Fixed retain cycle in deinit
+3. `StepComp/ViewModels/ProfileViewModel.swift` - Fixed retain cycle in deinit
+4. `StepComp/Screens/Settings/SettingsView.swift` - Removed unnecessary `dismiss()` call
+5. `StepComp/Navigation/MainTabView.swift` - Changed to `@ObservedObject`
+6. `StepComp/App/RootView.swift` - Added `.id()` modifier for view recreation
 
 ## Related Issues
 
-This fix addresses a critical deadlock in session management. Related documentation:
+This fix addresses critical concurrency and memory management issues. Related documentation:
 - [SESSION_PERSISTENCE_FIX.md](./SESSION_PERSISTENCE_FIX.md) - Session restoration on app launch
 - [SECURITY_MIGRATION_COMPLETE.md](../features/SECURITY_MIGRATION_COMPLETE.md) - Authentication flow improvements
 
-## Key Lesson
+## Key Lessons
 
-**Never call `await MainActor.run` from within a `@MainActor` context** - it will cause a deadlock. If your class/struct is already marked with `@MainActor`, all your code is already running on the main thread.
+1. **Never call `await MainActor.run` from within a `@MainActor` context** - it will cause a deadlock
+2. **Never create async Tasks in `deinit`** - they capture self and create retain cycles
+3. **Keep deinit synchronous and simple** - just cleanup, no async work
+4. **Timer.invalidate() is synchronous** - safe to call in deinit

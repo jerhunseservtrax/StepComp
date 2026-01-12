@@ -53,7 +53,11 @@ final class DashboardViewModel: ObservableObject {
     }
     
     deinit {
-        stopAutoRefresh()
+        // Immediately invalidate timer on the current thread
+        // Don't use async/await in deinit as it can create retain cycles
+        refreshTimer?.invalidate()
+        refreshTimer = nil
+        cancellables.removeAll()
     }
     
     func updateServices(challengeService: ChallengeService, healthKitService: HealthKitService, userId: String) {
@@ -273,12 +277,10 @@ final class DashboardViewModel: ObservableObject {
         }
     }
     
-    nonisolated private func stopAutoRefresh() {
-        Task { @MainActor in
-            refreshTimer?.invalidate()
-            refreshTimer = nil
-            cancellables.removeAll()
-        }
+    func stopAutoRefresh() {
+        refreshTimer?.invalidate()
+        refreshTimer = nil
+        cancellables.removeAll()
     }
     
     func pauseAutoRefresh() {
