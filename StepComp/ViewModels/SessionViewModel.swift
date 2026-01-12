@@ -88,13 +88,11 @@ final class SessionViewModel: ObservableObject {
             print("⚠️ Error signing out: \(error.localizedDescription)")
         }
         
-        // Always clear local state on main thread to ensure UI updates properly
-        await MainActor.run {
-            currentUser = nil
-            isAuthenticated = false
-            hasCompletedOnboarding = false
-            UserDefaults.standard.removeObject(forKey: "hasCompletedOnboarding")
-        }
+        // Clear local state - already on main actor since class is @MainActor
+        currentUser = nil
+        isAuthenticated = false
+        hasCompletedOnboarding = false
+        UserDefaults.standard.removeObject(forKey: "hasCompletedOnboarding")
     }
     
     func updateUser(_ user: User) {

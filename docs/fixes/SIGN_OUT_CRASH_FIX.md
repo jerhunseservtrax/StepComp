@@ -1,25 +1,90 @@
-# Sign-Out Crash Fix
+# Sign-Out Freeze/Deadlock Fix
 
 **Date:** January 12, 2026  
 **Status:** ✅ Fixed
 
 ## Problem
 
-The app was crashing when users signed out. This was caused by improper lifecycle management when transitioning from `MainTabView` to `OnboardingFlowView`.
+The app was freezing/deadlocking when users signed out, becoming completely unresponsive even after force quitting and reopening. The stack trace showed the app stuck in `pthread_kill`, indicating a deadlock on the main thread.
 
 ## Root Cause
 
-The crash was caused by several issues:
+The freeze was caused by a **deadlock** due to calling `await MainActor.run` from within a `@MainActor`-isolated context:
 
-1. **Double StateObject Ownership**: `MainTabView` was wrapping the `SessionViewModel` in a `@StateObject`, even though it was already managed as a `@StateObject` in `RootView`. This created ownership conflicts during view deallocation.
+1. **@MainActor Deadlock**: Both `SessionViewModel` and `AuthService` are marked with `@MainActor`, meaning all their methods already run on the main actor. Calling `await MainActor.run` from within these methods causes a deadlock because:
+   - The code is already running on the main actor
+   - It tries to schedule work on the main actor and wait for it
+   - But the main actor is blocked waiting for this work to complete
+   - This creates a circular wait = deadlock
 
-2. **Asynchronous State Updates**: When signing out, state updates weren't guaranteed to happen on the main thread, which could cause race conditions during the view transition.
+2. **Unnecessary dismiss() Call**: The SettingsView was calling `dismiss()` after sign-out, trying to manually dismiss a view that was already being removed as part of the view hierarchy transition from `MainTabView` to `OnboardingFlowView`.
 
-3. **View Lifecycle Issues**: Active views in the tab bar (Home, Friends, Challenges, Settings) might still be trying to access user data while being deallocated, causing crashes.
+3. **View Lifecycle Issues**: As previously identified, `MainTabView` was wrapping the `SessionViewModel` in a `@StateObject`, causing ownership conflicts during view deallocation.
 
 ## Solution
 
-### 1. Fixed MainTabView Ownership (MainTabView.swift)
+### 1. Removed MainActor.run Deadlock (SessionViewModel.swift)
+
+**Changed:**
+```swift
+// Before - DEADLOCK
+func signOut() async {
+    do {
+        try await authService.signOut()
+    } catch {
+        print("⚠️ Error signing out: \(error.localizedDescription)")
+    }
+    
+    await MainActor.run {  // ❌ DEADLOCK: Already on main actor!
+        currentUser = nil
+        isAuthenticated = false
+        hasCompletedOnboarding = false
+        UserDefaults.standard.removeObject(forKey: "hasCompletedOnboarding")
+    }
+}
+
+// After - FIXED
+func signOut() async {
+    do {
+        try await authService.signOut()
+    } catch {
+        print("⚠️ Error signing out: \(error.localizedDescription)")
+    }
+    
+    // Clear local state - already on main actor since class is @MainActor
+    currentUser = nil
+    isAuthenticated = false
+    hasCompletedOnboarding = false
+    UserDefaults.standard.removeObject(forKey: "hasCompletedOnboarding")
+}
+```
+
+**Why:** Since `SessionViewModel` is marked with `@MainActor`, all its methods (including `signOut()`) already execute on the main actor. Calling `await MainActor.run` from within creates a deadlock.
+
+### 2. Removed Unnecessary dismiss() Call (SettingsView.swift)
+
+**Changed:**
+```swift
+// Before
+onSignOut: {
+    Task {
+        await sessionViewModel.signOut()
+        dismiss()  // ❌ Causes issues during view hierarchy transition
+    }
+}
+
+// After
+onSignOut: {
+    Task {
+        await sessionViewModel.signOut()
+        // View hierarchy will update automatically when isAuthenticated changes
+    }
+}
+```
+
+**Why:** When `isAuthenticated` becomes `false`, RootView automatically transitions from `MainTabView` to `OnboardingFlowView`. Manually calling `dismiss()` on a view that's being removed causes conflicts.
+
+### 3. Fixed MainTabView Ownership (MainTabView.swift)
 
 **Changed:**
 ```swift
@@ -38,32 +103,9 @@ init(sessionViewModel: SessionViewModel) {
 }
 ```
 
-**Why:** `MainTabView` should observe the `SessionViewModel` rather than own it. The `SessionViewModel` is already managed by `RootView`, so using `@ObservedObject` prevents double ownership.
+**Why:** `MainTabView` should observe the `SessionViewModel` rather than own it. The `SessionViewModel` is already managed by `RootView`.
 
-### 2. Ensured Main Thread Execution (SessionViewModel.swift)
-
-**Changed:**
-```swift
-func signOut() async {
-    do {
-        try await authService.signOut()
-    } catch {
-        print("⚠️ Error signing out: \(error.localizedDescription)")
-    }
-    
-    // Always clear local state on main thread to ensure UI updates properly
-    await MainActor.run {
-        currentUser = nil
-        isAuthenticated = false
-        hasCompletedOnboarding = false
-        UserDefaults.standard.removeObject(forKey: "hasCompletedOnboarding")
-    }
-}
-```
-
-**Why:** Wrapping state updates in `MainActor.run` ensures that UI-impacting changes happen on the main thread, preventing race conditions during the transition.
-
-### 3. Added View Identity Reset (RootView.swift)
+### 4. Added View Identity Reset (RootView.swift)
 
 **Changed:**
 ```swift
@@ -71,34 +113,42 @@ MainTabView(sessionViewModel: sessionViewModel)
     .id(sessionViewModel.isAuthenticated) // Force view recreation on auth state change
 ```
 
-**Why:** The `.id()` modifier forces SwiftUI to completely recreate `MainTabView` when the authentication state changes, ensuring clean teardown of all child views and their subscriptions.
+**Why:** Forces SwiftUI to completely recreate `MainTabView` when authentication state changes, ensuring clean teardown.
 
 ## Technical Details
 
+### Understanding @MainActor
+
+- `@MainActor` is a Swift concurrency attribute that ensures all code in a class/struct runs on the main thread
+- When you're already in a `@MainActor` context, you **don't** need `await MainActor.run`
+- Using `await MainActor.run` from within `@MainActor` causes a deadlock because:
+  - You're asking the main actor to run code
+  - While the main actor is already running your code
+  - The main actor can't run new work while waiting for itself
+
 ### Tradeoffs
 
-1. **Performance**: Adding `.id()` modifier means `MainTabView` is completely recreated on auth state change, which is slightly more expensive than a normal view update. However, this only happens during sign-in/sign-out, so the performance impact is negligible.
+1. **Simplicity**: Removing the `MainActor.run` wrapper makes the code simpler and eliminates the deadlock risk.
 
-2. **Memory**: Using `@ObservedObject` instead of `@StateObject` means the view doesn't own the object, so it won't automatically keep it alive. This is correct in our case since `RootView` owns the `SessionViewModel`.
+2. **View Hierarchy**: Relying on automatic view hierarchy updates is cleaner than manual dismiss calls, but requires understanding SwiftUI's declarative nature.
 
 ### Potential Failure Modes
 
-1. **Combine Subscriptions**: If any child views in the tabs have Combine subscriptions that aren't properly cleaned up, they might still cause issues. The `.id()` modifier helps by forcing complete view recreation.
+1. **Race Conditions**: If any code outside of `@MainActor` contexts tries to access these properties, there could be race conditions. However, SwiftUI's `@Published` and `@ObservedObject` already handle this.
 
-2. **Long-Running Tasks**: If any views have long-running async tasks that reference `sessionViewModel.currentUser`, those tasks need to handle the case where the user becomes `nil`. This should already be handled with optional unwrapping throughout the codebase.
-
-3. **Environment Objects**: Views that use `@EnvironmentObject` for services (like `ChallengeService`, `FriendsService`) should handle the case where they're deallocated during sign-out. The forced view recreation helps with this.
+2. **Async Task Cancellation**: Long-running tasks in child views should handle cancellation properly. The `.id()` modifier helps by forcing view recreation.
 
 ## Testing
 
 ### Manual Test Steps
 
 1. Sign in to the app
-2. Navigate to different tabs (Home, Friends, Challenges, Settings)
-3. Go to Settings → Log Out
-4. Verify the app transitions smoothly to the onboarding/sign-in screen without crashing
-5. Sign back in
-6. Verify all features work correctly
+2. Navigate to Settings
+3. Tap "Log Out"
+4. Verify the app transitions smoothly without freezing
+5. Verify you can interact with the login screen
+6. Force quit and reopen - app should work normally
+7. Sign back in and verify all features work
 
 ### Build Verification
 
@@ -110,12 +160,17 @@ xcodebuild -project StepComp.xcodeproj -scheme StepComp -destination 'platform=i
 
 ## Files Modified
 
-1. `StepComp/Navigation/MainTabView.swift` - Changed to `@ObservedObject`
-2. `StepComp/ViewModels/SessionViewModel.swift` - Added `MainActor.run` for state updates
-3. `StepComp/App/RootView.swift` - Added `.id()` modifier for view recreation
+1. `StepComp/ViewModels/SessionViewModel.swift` - Removed `MainActor.run` deadlock
+2. `StepComp/Screens/Settings/SettingsView.swift` - Removed unnecessary `dismiss()` call
+3. `StepComp/Navigation/MainTabView.swift` - Changed to `@ObservedObject`
+4. `StepComp/App/RootView.swift` - Added `.id()` modifier for view recreation
 
 ## Related Issues
 
-This fix addresses general session management and view lifecycle issues. It's related to:
+This fix addresses a critical deadlock in session management. Related documentation:
 - [SESSION_PERSISTENCE_FIX.md](./SESSION_PERSISTENCE_FIX.md) - Session restoration on app launch
 - [SECURITY_MIGRATION_COMPLETE.md](../features/SECURITY_MIGRATION_COMPLETE.md) - Authentication flow improvements
+
+## Key Lesson
+
+**Never call `await MainActor.run` from within a `@MainActor` context** - it will cause a deadlock. If your class/struct is already marked with `@MainActor`, all your code is already running on the main thread.

@@ -68,7 +68,7 @@ struct SettingsView: View {
                 onSignOut: {
                     Task {
                         await sessionViewModel.signOut()
-                        dismiss()
+                        // Don't call dismiss() - view hierarchy will update automatically
                     }
                 },
                 onDeleteAccount: {
