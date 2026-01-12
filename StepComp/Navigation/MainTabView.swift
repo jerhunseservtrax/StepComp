@@ -20,11 +20,11 @@ class TabSelectionManager: ObservableObject {
 }
 
 struct MainTabView: View {
-    @StateObject private var sessionViewModel: SessionViewModel
+    @ObservedObject var sessionViewModel: SessionViewModel
     @StateObject private var tabManager = TabSelectionManager()
     
     init(sessionViewModel: SessionViewModel) {
-        _sessionViewModel = StateObject(wrappedValue: sessionViewModel)
+        self.sessionViewModel = sessionViewModel
     }
     
     @Environment(\.colorScheme) private var colorScheme

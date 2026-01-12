@@ -31,7 +31,7 @@ struct FriendsView: View {
                 FriendsHeader(
                     user: sessionViewModel.currentUser,
                     selectedTab: $vm.selectedTab,
-                    isEditing: $vm.isEditing
+                    searchText: $vm.discoverQuery
                 )
                 
                 // TabView without swipe gesture to avoid conflict with swipe-to-delete
@@ -42,11 +42,7 @@ struct FriendsView: View {
                     discoverTab
                         .tag(FriendsViewModel.Tab.discover)
                 }
-                .tabViewStyle(.automatic) // Use automatic style - no page swipe, controlled by header buttons
-                .onChange(of: vm.selectedTab) { oldValue, newValue in
-                    let logData = "{\"location\":\"FriendsView.swift:42\",\"message\":\"TabView selection changed\",\"data\":{\"oldTab\":\"\(oldValue)\",\"newTab\":\"\(newValue)\"},\"timestamp\":\(Int(Date().timeIntervalSince1970 * 1000)),\"sessionId\":\"debug-session\",\"runId\":\"post-fix\",\"hypothesisId\":\"FIX_APPLIED\"}\n"
-                    if let fileHandle = FileHandle(forWritingAtPath: "/Users/jefferyerhunse/GitRepos/StepComp/.cursor/debug.log") { fileHandle.seekToEndOfFile(); fileHandle.write(logData.data(using: .utf8)!); fileHandle.closeFile() }
-                }
+                .tabViewStyle(.page(indexDisplayMode: .never)) // Hide page indicator dots
             }
             
             // Profile card overlay
@@ -193,19 +189,10 @@ struct FriendsView: View {
     }
 
     private var discoverTab: some View {
-        VStack(spacing: 10) {
-            TextField("Search profiles…", text: $vm.discoverQuery)
-                .textFieldStyle(.roundedBorder)
-                .padding(.horizontal)
-                .onChange(of: vm.discoverQuery) { _, _ in
-                    Task { 
-                        try? await Task.sleep(nanoseconds: 350_000_000)
-                        try? await vm.refreshDiscover() 
-                    }
-                }
-
-            List {
-                ForEach(vm.discoverResults) { profile in
+        ScrollView {
+            VStack(spacing: 12) {
+                // Recommended Profiles List
+                ForEach(vm.discoverResults.prefix(10)) { profile in
                     DiscoverProfileRow(
                         profile: profile,
                         friendshipStatus: vm.getFriendshipStatus(for: profile.id),
@@ -216,25 +203,27 @@ struct FriendsView: View {
                             Task { await vm.cancelFriendRequest(to: profile.id) }
                         }
                     )
-                    .listRowBackground(StepCompColors.background)
+                    .padding(.horizontal, 24)
                     .onTapGesture {
-                        let logData = "{\"location\":\"FriendsView.swift:183\",\"message\":\"DiscoverProfileRow tapped - showing profile\",\"data\":{\"userId\":\"\(profile.id)\",\"username\":\"\(profile.username)\"},\"timestamp\":\(Int(Date().timeIntervalSince1970 * 1000)),\"sessionId\":\"debug-session\",\"runId\":\"profile-tap\",\"hypothesisId\":\"B\"}\n"
-                        if let fileHandle = FileHandle(forWritingAtPath: "/Users/jefferyerhunse/GitRepos/StepComp/.cursor/debug.log") { fileHandle.seekToEndOfFile(); fileHandle.write(logData.data(using: .utf8)!); fileHandle.closeFile() }
                         vm.selectedProfileUserId = profile.id
                     }
                 }
-
+                
                 if vm.discoverResults.isEmpty && !vm.discoverQuery.isEmpty {
                     Text("No public profiles found.")
-                        .foregroundStyle(.secondary)
-                        .listRowBackground(StepCompColors.background)
+                        .foregroundColor(StepCompColors.textSecondary)
+                        .padding(.top, 40)
                 }
             }
-            .listStyle(.plain)
-            .scrollContentBackground(.hidden)
-            .background(StepCompColors.background)
+            .padding(.bottom, 100) // Space for bottom navigation
         }
         .background(StepCompColors.background)
+        .onChange(of: vm.discoverQuery) { _, _ in
+            Task { 
+                try? await Task.sleep(nanoseconds: 350_000_000)
+                try? await vm.refreshDiscover() 
+            }
+        }
         .dismissKeyboardOnTap()
     }
 
@@ -279,16 +268,31 @@ struct FriendRow: View {
     let onRemove: () -> Void
     let onAccept: () -> Void
 
+    private var fullName: String {
+        if let firstName = item.profile.firstName, let lastName = item.profile.lastName {
+            return "\(firstName) \(lastName)".trimmingCharacters(in: .whitespaces)
+        } else if let displayName = item.profile.displayName, !displayName.isEmpty {
+            return displayName
+        } else {
+            return item.profile.username
+        }
+    }
+    
+    private var avatarFallback: String {
+        String(item.profile.username.prefix(1)).uppercased()
+    }
+    
     var body: some View {
         HStack(spacing: 12) {
-            AvatarCircle(url: item.profile.avatarUrl, fallback: String(item.profile.username.prefix(1)).uppercased())
+            AvatarCircle(url: item.profile.avatarUrl, fallback: avatarFallback)
 
             VStack(alignment: .leading, spacing: 2) {
-                Text(item.profile.username)
+                Text(fullName)
                     .font(.headline)
+                    .foregroundColor(StepCompColors.textPrimary)
                 Text("@\(item.profile.username)")
                     .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .foregroundColor(StepCompColors.textSecondary)
             }
 
             Spacer()
@@ -334,73 +338,109 @@ struct DiscoverProfileRow: View {
         return testAccountIds.contains(profile.id)
     }
 
+    private var avatarFallback: String {
+        let firstChar = profile.username.first.map { String($0) } ?? "?"
+        return firstChar.uppercased()
+    }
+
     var body: some View {
-        HStack(spacing: 12) {
-            AvatarCircle(url: profile.avatarUrl, fallback: String(profile.username.prefix(1)).uppercased())
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text(profile.displayName ?? profile.username)
-                    .font(.headline)
-                    .foregroundColor(.primary)
-                Text("@\(profile.username)")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-            }
-
+        cardContent
+            .padding(16)
+            .background(StepCompColors.surface)
+            .cornerRadius(16)
+            .shadow(color: Color.black.opacity(0.05), radius: 8, x: 0, y: 2)
+            .overlay(
+                RoundedRectangle(cornerRadius: 16)
+                    .stroke(StepCompColors.textSecondary.opacity(0.05), lineWidth: 0.5)
+            )
+    }
+    
+    private var cardContent: some View {
+        HStack(spacing: 16) {
+            avatarSection
+            nameSection
             Spacer()
-
-            Group {
-                switch friendshipStatus {
-                case .none:
-                    Button(action: {
-                        onAdd()
-                    }) {
-                        Text("Add")
-                            .foregroundColor(StepCompColors.buttonTextOnPrimary)
-                            .font(.system(size: 15, weight: .bold))
-                            .padding(.horizontal, 20)
-                            .padding(.vertical, 8)
-                            .background(StepCompColors.coral)
-                            .cornerRadius(20)
-                    }
-                    .buttonStyle(.plain)
-                case .pending:
-                    Button(action: {
-                        onCancel()
-                    }) {
-                        HStack(spacing: 4) {
-                            Text("Pending")
-                            Image(systemName: "xmark.circle.fill")
-                                .font(.system(size: 12))
-                        }
-                        .foregroundColor(StepCompColors.textSecondary)
-                        .font(.system(size: 15, weight: .medium))
-                        .padding(.horizontal, 20)
-                        .padding(.vertical, 8)
-                        .background(StepCompColors.surfaceElevated)
-                        .cornerRadius(20)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 20)
-                                .stroke(Color(.systemGray4), lineWidth: 1)
-                        )
-                    }
-                    .buttonStyle(.plain)
-                case .accepted:
-                    Text("Friend")
-                        .foregroundColor(StepCompColors.textPrimary)
-                        .font(.system(size: 15, weight: .semibold))
-                        .padding(.horizontal, 20)
-                        .padding(.vertical, 8)
-                        .background(StepCompColors.primary.opacity(0.2))
-                        .cornerRadius(20)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 20)
-                                .stroke(StepCompColors.primary, lineWidth: 2)
-                        )
-                }
-            }
+            actionButton
         }
-        .padding(.vertical, 6)
+    }
+    
+    private var avatarSection: some View {
+        AvatarCircle(url: profile.avatarUrl, fallback: avatarFallback)
+            .frame(width: 56, height: 56)
+    }
+    
+    private var nameSection: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(profile.displayName ?? profile.username)
+                .font(.system(size: 16, weight: .bold))
+                .foregroundColor(StepCompColors.textPrimary)
+                .lineLimit(1)
+            
+            Text("@\(profile.username)")
+                .font(.system(size: 13, weight: .medium))
+                .foregroundColor(StepCompColors.textSecondary)
+                .lineLimit(1)
+        }
+    }
+    
+    @ViewBuilder
+    private var actionButton: some View {
+        switch friendshipStatus {
+        case .none:
+            addButton
+        case .pending:
+            pendingButton
+        case .accepted:
+            friendButton
+        }
+    }
+    
+    private var addButton: some View {
+        Button(action: onAdd) {
+            Text("Add")
+                .font(.system(size: 14, weight: .black))
+                .foregroundColor(StepCompColors.buttonTextOnPrimary)
+                .frame(minWidth: 80)
+                .frame(height: 40)
+                .padding(.horizontal, 20)
+                .background(StepCompColors.primary)
+                .cornerRadius(20)
+                .shadow(color: Color.black.opacity(0.05), radius: 2, x: 0, y: 1)
+        }
+        .buttonStyle(.plain)
+    }
+    
+    private var pendingButton: some View {
+        Button(action: onCancel) {
+            HStack(spacing: 4) {
+                Text("Pending")
+                Image(systemName: "xmark.circle.fill")
+                    .font(.system(size: 12))
+            }
+            .font(.system(size: 14, weight: .medium))
+            .foregroundColor(StepCompColors.textSecondary)
+            .frame(minWidth: 80)
+            .frame(height: 40)
+            .padding(.horizontal, 20)
+            .background(StepCompColors.surfaceElevated)
+            .cornerRadius(20)
+            .overlay(
+                RoundedRectangle(cornerRadius: 20)
+                    .stroke(Color(.systemGray4), lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
+    }
+    
+    private var friendButton: some View {
+        Text("Friend")
+            .font(.system(size: 14, weight: .bold))
+            .foregroundColor(StepCompColors.textSecondary)
+            .frame(minWidth: 80)
+            .frame(height: 40)
+            .padding(.horizontal, 20)
+            .background(StepCompColors.surfaceElevated)
+            .cornerRadius(20)
     }
 }
 
@@ -444,6 +484,7 @@ struct PrivateDiscoveryCard: View {
 struct AvatarCircle: View {
     let url: String?
     let fallback: String
+    var size: CGFloat = 42
     
     /// Checks if the string is an emoji
     private var isEmoji: Bool {
@@ -457,30 +498,37 @@ struct AvatarCircle: View {
 
     var body: some View {
         ZStack {
-            Circle().fill(.thinMaterial)
-                .frame(width: 42, height: 42)
+            Circle()
+                .fill(StepCompColors.surfaceElevated)
+                .frame(width: size, height: size)
 
             if let url = url, !url.isEmpty {
                 if isEmoji {
                     // Display emoji directly
                     Text(url)
-                        .font(.system(size: 24))
+                        .font(.system(size: size * 0.5))
                 } else if let validURL = URL(string: url), url.hasPrefix("http") {
                     // Valid URL - load image
                     AsyncImage(url: validURL) { img in
                         img.resizable().scaledToFill()
                     } placeholder: {
-                        Text(fallback).font(.headline)
+                        Text(fallback)
+                            .font(.system(size: size * 0.4, weight: .bold))
+                            .foregroundColor(StepCompColors.textSecondary)
                     }
-                    .frame(width: 42, height: 42)
+                    .frame(width: size, height: size)
                     .clipShape(Circle())
                 } else {
                     // Invalid URL - show fallback
-                    Text(fallback).font(.headline)
+                    Text(fallback)
+                        .font(.system(size: size * 0.4, weight: .bold))
+                        .foregroundColor(StepCompColors.textSecondary)
                 }
             } else {
                 // No URL - show fallback
-                Text(fallback).font(.headline)
+                Text(fallback)
+                    .font(.system(size: size * 0.4, weight: .bold))
+                    .foregroundColor(StepCompColors.textSecondary)
             }
         }
     }
@@ -491,13 +539,25 @@ struct AvatarCircle: View {
 struct FriendsHeader: View {
     let user: User?
     @Binding var selectedTab: FriendsViewModel.Tab
-    @Binding var isEditing: Bool  // Keep for compatibility, but won't be used
+    @Binding var searchText: String
     
     var body: some View {
         VStack(spacing: 0) {
             // Top section with avatar and title
             HStack(spacing: 16) {
-                // Avatar with online indicator
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(selectedTab == .friends ? "Friends" : "Discover")
+                        .font(.system(size: 30, weight: .bold))
+                        .foregroundColor(StepCompColors.textPrimary)
+                    
+                    Text(selectedTab == .friends ? "Your circle" : "Find new friends")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(StepCompColors.textSecondary)
+                }
+                
+                Spacer()
+                
+                // Avatar with online indicator on the right
                 ZStack(alignment: .bottomTrailing) {
                     AvatarView(
                         displayName: user?.displayName ?? "User",
@@ -506,7 +566,7 @@ struct FriendsHeader: View {
                     )
                     .overlay(
                         Circle()
-                            .stroke(StepCompColors.primary, lineWidth: 2)
+                            .stroke(Color.white, lineWidth: 2)
                     )
                     
                     // Online indicator
@@ -518,47 +578,84 @@ struct FriendsHeader: View {
                                 .stroke(Color.white, lineWidth: 2)
                         )
                 }
-                
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(selectedTab == .friends ? "Friends" : "Discover")
-                        .font(.system(size: 20, weight: .bold))
-                    
-                    Text(selectedTab == .friends ? "Your circle" : "Find new friends")
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundColor(Color(red: 0.620, green: 0.616, blue: 0.278))
-                }
-                
-                Spacer()
             }
             .padding(.horizontal, 24)
-            .padding(.vertical, 16)
+            .padding(.top, 48)
+            .padding(.bottom, 16)
             
-            // Tab Selector
-            HStack(spacing: 0) {
-                FriendsTabButton(
-                    title: "Friends",
-                    isSelected: selectedTab == .friends,
-                    action: {
-                        withAnimation {
-                            selectedTab = .friends
-                        }
-                    }
-                )
+            // Search bar
+            HStack {
+                Image(systemName: "magnifyingglass")
+                    .foregroundColor(StepCompColors.textSecondary)
+                    .font(.system(size: 20))
                 
-                FriendsTabButton(
-                    title: "Discover",
-                    isSelected: selectedTab == .discover,
-                    action: {
-                        withAnimation {
-                            selectedTab = .discover
-                        }
-                    }
-                )
+                TextField("Search profiles...", text: $searchText)
+                    .textFieldStyle(.plain)
+                    .foregroundColor(StepCompColors.textPrimary)
             }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 14)
+            .background(StepCompColors.surface)
+            .cornerRadius(20)
+            .overlay(
+                RoundedRectangle(cornerRadius: 20)
+                    .stroke(StepCompColors.textSecondary.opacity(0.1), lineWidth: 1)
+            )
             .padding(.horizontal, 24)
             .padding(.bottom, 8)
+            
+            // Segmented Control (Pill-shaped toggle)
+            HStack(spacing: 4) {
+                Button(action: {
+                    withAnimation {
+                        selectedTab = .friends
+                    }
+                }) {
+                    Text("My Friends")
+                        .font(.system(size: 14, weight: selectedTab == .friends ? .bold : .bold))
+                        .foregroundColor(selectedTab == .friends ? StepCompColors.textPrimary : StepCompColors.textSecondary)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 48)
+                        .background(selectedTab == .friends ? StepCompColors.surface : Color.clear)
+                        .cornerRadius(24)
+                        .shadow(color: selectedTab == .friends ? Color.black.opacity(0.05) : Color.clear, radius: 1, x: 0, y: 1)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 24)
+                                .stroke(selectedTab == .friends ? Color.black.opacity(0.05) : Color.clear, lineWidth: 1)
+                        )
+                }
+                .buttonStyle(.plain)
+                
+                Button(action: {
+                    withAnimation {
+                        selectedTab = .discover
+                    }
+                }) {
+                    Text("Discover")
+                        .font(.system(size: 14, weight: selectedTab == .discover ? .bold : .bold))
+                        .foregroundColor(selectedTab == .discover ? StepCompColors.textPrimary : StepCompColors.textSecondary)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 48)
+                        .background(selectedTab == .discover ? StepCompColors.surface : Color.clear)
+                        .cornerRadius(24)
+                        .shadow(color: selectedTab == .discover ? Color.black.opacity(0.05) : Color.clear, radius: 1, x: 0, y: 1)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 24)
+                                .stroke(selectedTab == .discover ? Color.black.opacity(0.05) : Color.clear, lineWidth: 1)
+                        )
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(4)
+            .background(Color.black.opacity(0.04))
+            .cornerRadius(26)
+            .padding(.horizontal, 24)
+            .padding(.bottom, 16)
         }
-        .background(StepCompColors.surface)
+        .background(
+            StepCompColors.surface.opacity(0.8)
+                .background(.ultraThinMaterial)
+        )
     }
 }
 

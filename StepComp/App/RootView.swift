@@ -77,6 +77,7 @@ struct RootView: View {
                 OnboardingFlowView(sessionViewModel: sessionViewModel)
             } else {
                 MainTabView(sessionViewModel: sessionViewModel)
+                    .id(sessionViewModel.isAuthenticated) // Force view recreation on auth state change
             }
         }
         .environmentObject(authService)

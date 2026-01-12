@@ -88,7 +88,18 @@ final class FriendsViewModel: ObservableObject {
         // Refresh friendships first to get latest status
         try await refreshFriendships()
         // Then refresh discover results
-        discoverResults = try await service.searchPublicProfiles(query: discoverQuery, myUserId: myUserId)
+        let allResults = try await service.searchPublicProfiles(query: discoverQuery, myUserId: myUserId)
+        
+        // Get IDs of users who are already friends (accepted friendships only)
+        let friendIds = Set(friendships.compactMap { friendship -> String? in
+            if friendship.status == .accepted {
+                return friendship.requesterId == myUserId ? friendship.addresseeId : friendship.requesterId
+            }
+            return nil
+        })
+        
+        // Filter out users who are already friends
+        discoverResults = allResults.filter { !friendIds.contains($0.id) }
     }
 
     func togglePublicProfile(_ isPublic: Bool) async {
@@ -107,51 +118,16 @@ final class FriendsViewModel: ObservableObject {
     // MARK: - Invite Links
     
     func createInviteLink() async -> URL? {
-        // #region agent log
-        debugLog("FriendsViewModel.swift:85", "createInviteLink called", [:], "A")
-        // #endregion
-        do {
-            let result = try await service.createInviteRPC(expiresInHours: 168) // 7 days
-            
-            // #region agent log
-            debugLog("FriendsViewModel.swift:88", "RPC result received", ["token": result.token, "tokenLength": result.token.count], "A")
-            // #endregion
-            
-            // Create a shareable URL that works in Messages/Email/etc
-            // Use deep link scheme which works immediately without DNS/hosting setup
-            // Format: je.stepcomp://friend-invite?token={token}
-            // This will open the app directly if installed
-            // Note: Universal links (https://stepcomp.app/invite/friend/{token}) require domain setup
-            // and are better for App Store fallback, but deep links work without infrastructure
-            let urlString = "je.stepcomp://friend-invite?token=\(result.token)"
-            
-            // #region agent log
-            debugLog("FriendsViewModel.swift:97", "URL string generated (deep link)", ["urlString": urlString, "scheme": "je.stepcomp", "host": "friend-invite", "token": result.token], "A")
-            // #endregion
-            
-            print("✅ Created invite link: \(urlString)")
-            
-            guard let url = URL(string: urlString) else {
-                // #region agent log
-                debugLog("FriendsViewModel.swift:100", "URL construction failed", ["urlString": urlString], "D")
-                // #endregion
-                errorMessage = "Failed to create valid URL from token"
-                return nil
-            }
-            
-            // #region agent log
-            debugLog("FriendsViewModel.swift:105", "URL created successfully", ["url": url.absoluteString, "scheme": url.scheme ?? "nil", "host": url.host ?? "nil", "path": url.path], "A")
-            // #endregion
-            
-            return url
-        } catch {
-            // #region agent log
-            debugLog("FriendsViewModel.swift:108", "RPC call failed", ["error": error.localizedDescription], "A")
-            // #endregion
-            errorMessage = "Failed to create invite link: \(error.localizedDescription)"
-            print("❌ Error creating invite link: \(error)")
+        // Return the TestFlight beta link
+        let testFlightURL = "https://testflight.apple.com/join/EpWCKHpe"
+        
+        guard let url = URL(string: testFlightURL) else {
+            errorMessage = "Failed to create TestFlight URL"
             return nil
         }
+        
+        print("✅ Created TestFlight invite link: \(testFlightURL)")
+        return url
     }
     
     func consumeInviteToken(_ token: String) async -> Bool {
@@ -281,7 +257,7 @@ final class FriendsViewModel: ObservableObject {
 
         let profiles: [Profile] = try await supabase
             .from("profiles")
-            .select("id,username,avatar_url,public_profile")
+            .select("id,username,display_name,first_name,last_name,avatar_url,public_profile")
             .in("id", values: Array(ids))
             .execute()
             .value

@@ -11,6 +11,8 @@ struct Profile: Codable, Identifiable, Equatable {
     let id: String
     var username: String
     var displayName: String?
+    var firstName: String?
+    var lastName: String?
     var avatarUrl: String?
     var publicProfile: Bool
 
@@ -18,6 +20,8 @@ struct Profile: Codable, Identifiable, Equatable {
         case id
         case username
         case displayName = "display_name"
+        case firstName = "first_name"
+        case lastName = "last_name"
         case avatarUrl = "avatar_url"
         case publicProfile = "public_profile"
     }
