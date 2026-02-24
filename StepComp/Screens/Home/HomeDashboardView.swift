@@ -20,9 +20,11 @@ struct HomeDashboardView: View {
     
     @StateObject private var viewModel: DashboardViewModel
     @ObservedObject private var celebrationManager = GoalCelebrationManager.shared
+    @ObservedObject private var workoutViewModel = WorkoutViewModel.shared
     @State private var navigationPath = NavigationPath()
     @State private var showingAddFriends = false
     @State private var showingCreateChallenge = false
+    @State private var showingCreateWorkout = false
     @State private var dailyGoal: Int = 10000 // Default goal
     @State private var selectedDate: Date = Date()
     @State private var weeklyStepData: [Int] = Array(repeating: 0, count: 30) // 30 days of historical data
@@ -58,6 +60,18 @@ struct HomeDashboardView: View {
                         
                         // Date Selector
                         DateSelectorView(selectedDate: $selectedDate)
+                        
+                        // Upcoming Workout Card
+                        if let nextWorkout = workoutViewModel.getNextWorkout() {
+                            UpcomingWorkoutCard(
+                                workout: nextWorkout.workout,
+                                date: nextWorkout.date,
+                                onTap: {
+                                    tabManager.selectedTab = 3 // Switch to Workouts tab
+                                }
+                            )
+                            .padding(.horizontal, 20)
+                        }
                         
                         // Daily Goal Card (shows selected date's data)
                         DailyGoalCard(
@@ -106,30 +120,60 @@ struct HomeDashboardView: View {
                     .padding(.vertical)
                 }
                 
-                // Floating Start Challenge Button
+                // Floating Action Buttons
                 VStack {
                     Spacer()
                     
-                    Button(action: {
-                        showingCreateChallenge = true
-                        HapticManager.shared.medium()
-                    }) {
-                        HStack(spacing: 8) {
-                            Image(systemName: "plus.circle.fill")
-                                .font(.system(size: 16, weight: .semibold))
-                            Text("Start Challenge")
-                                .font(.stepBody())
-                                .fontWeight(.semibold)
+                    HStack(spacing: 12) {
+                        // Create Challenge Button
+                        Button(action: {
+                            showingCreateChallenge = true
+                            HapticManager.shared.medium()
+                        }) {
+                            HStack(spacing: 6) {
+                                Image(systemName: "flag.fill")
+                                    .font(.system(size: 14, weight: .semibold))
+                                Text("Create Challenge")
+                                    .font(.system(size: 14, weight: .semibold))
+                                    .lineLimit(1)
+                                    .minimumScaleFactor(0.8)
+                            }
+                            .foregroundColor(StepCompColors.buttonTextOnPrimary)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 16)
+                            .background(
+                                Capsule()
+                                    .fill(StepCompColors.primaryGradient(for: colorScheme))
+                                    .shadow(color: StepCompColors.primary.opacity(0.4), radius: 16, x: 0, y: 8)
+                            )
                         }
-                        .foregroundColor(StepCompColors.buttonTextOnPrimary)
-                        .padding(.horizontal, 28)
-                        .padding(.vertical, 16)
-                        .background(
-                            Capsule()
-                                .fill(StepCompColors.primaryGradient(for: colorScheme))
-                                .shadow(color: StepCompColors.primary.opacity(0.4), radius: 16, x: 0, y: 8)
-                        )
+                        .buttonStyle(PlainButtonStyle())
+                        
+                        // Create Workout Button
+                        Button(action: {
+                            showingCreateWorkout = true
+                            HapticManager.shared.medium()
+                        }) {
+                            HStack(spacing: 6) {
+                                Image(systemName: "dumbbell.fill")
+                                    .font(.system(size: 14, weight: .semibold))
+                                Text("Create Workout")
+                                    .font(.system(size: 14, weight: .semibold))
+                                    .lineLimit(1)
+                                    .minimumScaleFactor(0.8)
+                            }
+                            .foregroundColor(StepCompColors.buttonTextOnPrimary)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 16)
+                            .background(
+                                Capsule()
+                                    .fill(StepCompColors.primaryGradient(for: colorScheme))
+                                    .shadow(color: StepCompColors.primary.opacity(0.4), radius: 16, x: 0, y: 8)
+                            )
+                        }
+                        .buttonStyle(PlainButtonStyle())
                     }
+                    .padding(.horizontal, 20)
                     .padding(.bottom, 16)
                 }
             }
@@ -194,6 +238,9 @@ struct HomeDashboardView: View {
         }
         .sheet(isPresented: $showingCreateChallenge) {
             CreateChallengeView(sessionViewModel: sessionViewModel)
+        }
+        .sheet(isPresented: $showingCreateWorkout) {
+            CreateWorkoutView(viewModel: workoutViewModel)
         }
         .onChange(of: showingCreateChallenge) { oldValue, newValue in
             // Refresh challenges when sheet is dismissed

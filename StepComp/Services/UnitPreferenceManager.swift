@@ -131,5 +131,29 @@ final class UnitPreferenceManager: ObservableObject {
     var weightUnit: String {
         unitSystem.weightLabel
     }
+    
+    // MARK: - Workout Weight Storage Conversions
+    
+    /// Convert weight from user's display unit to storage unit (kg)
+    /// Use this when saving workout weights entered by the user
+    func convertWeightToStorage(_ displayWeight: Double) -> Double {
+        switch unitSystem {
+        case .metric:
+            return displayWeight // Already in kg
+        case .imperial:
+            return displayWeight / 2.20462 // Convert lbs to kg for storage
+        }
+    }
+    
+    /// Convert weight from storage unit (kg) to user's display unit
+    /// Use this when displaying workout weights to the user
+    func convertWeightFromStorage(_ storageWeight: Double) -> Double {
+        switch unitSystem {
+        case .metric:
+            return storageWeight // Display as kg
+        case .imperial:
+            return storageWeight * 2.20462 // Convert kg to lbs for display
+        }
+    }
 }
 

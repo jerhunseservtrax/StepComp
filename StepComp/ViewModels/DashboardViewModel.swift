@@ -128,7 +128,8 @@ final class DashboardViewModel: ObservableObject {
         
         do {
             print("🔄 Loading HealthKit data...")
-            let newSteps = try await healthKitService.getTodaySteps()
+            // Use getSteps(for: Date()) so today's steps match Home date picker and Workout page (same HealthKit query)
+            let newSteps = try await healthKitService.getSteps(for: Date())
             let today = Date()
             let calendar = Calendar.current
             let _ = calendar.startOfDay(for: today)

@@ -32,20 +32,35 @@ struct ChallengeSummaryView: View {
         )
     }
     
+    // Current user's total steps during the challenge
     var totalSteps: Int {
-        viewModel.entries.reduce(0) { $0 + $1.steps }
+        guard let userEntry = viewModel.currentUserEntry else { return 0 }
+        return userEntry.steps
     }
     
+    var challengeDurationDays: Int {
+        guard let challenge = challenge else { return 0 }
+        let calendar = Calendar.current
+        let days = calendar.dateComponents([.day], from: challenge.startDate, to: challenge.endDate).day ?? 0
+        return max(days, 1) // Ensure at least 1 day to avoid division by zero
+    }
+    
+    // Current user's average steps per day = total steps / challenge duration
     var averageSteps: Int {
-        guard !viewModel.entries.isEmpty else { return 0 }
-        return totalSteps / viewModel.entries.count
+        guard challengeDurationDays > 0 else { return 0 }
+        return totalSteps / challengeDurationDays
     }
     
     var challengeDuration: String {
+        return "\(challengeDurationDays) days"
+    }
+    
+    var endDateFormatted: String {
         guard let challenge = challenge else { return "N/A" }
-        let calendar = Calendar.current
-        let days = calendar.dateComponents([.day], from: challenge.startDate, to: challenge.endDate).day ?? 0
-        return "\(days) days"
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .none
+        return formatter.string(from: challenge.endDate)
     }
     
     var body: some View {
@@ -60,6 +75,21 @@ struct ChallengeSummaryView: View {
                         Text(challengeName)
                             .font(.system(size: 26, weight: .bold))
                             .multilineTextAlignment(.center)
+                        
+                        // Status Badge for Ended Challenge
+                        if let challenge = challenge, challenge.endDate < Date() {
+                            HStack(spacing: 4) {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .font(.system(size: 12))
+                                Text("Challenge Ended")
+                                    .font(.system(size: 14, weight: .semibold))
+                            }
+                            .foregroundColor(.secondary)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .background(Color.secondary.opacity(0.1))
+                            .cornerRadius(8)
+                        }
                         
                         Text("Challenge Summary")
                             .font(.system(size: 16, weight: .medium))
@@ -81,7 +111,7 @@ struct ChallengeSummaryView: View {
                             MetricCard(
                                 icon: "figure.walk",
                                 value: formatLargeNumber(totalSteps),
-                                label: "Total Steps",
+                                label: "Total Steps\n(Challenge Duration)",
                                 color: .blue
                             )
                             
@@ -95,7 +125,7 @@ struct ChallengeSummaryView: View {
                             MetricCard(
                                 icon: "chart.bar.fill",
                                 value: formatLargeNumber(averageSteps),
-                                label: "Avg Steps",
+                                label: "Avg Steps\n(Per Day)",
                                 color: .orange
                             )
                             
@@ -105,6 +135,16 @@ struct ChallengeSummaryView: View {
                                 label: "Duration",
                                 color: .purple
                             )
+                            
+                            // End Date Card (only show if challenge has ended)
+                            if let challenge = challenge, challenge.endDate < Date() {
+                                MetricCard(
+                                    icon: "checkmark.circle.fill",
+                                    value: endDateFormatted,
+                                    label: "Ended On",
+                                    color: .secondary
+                                )
+                            }
                         }
                     }
                     .padding(.horizontal, 24)

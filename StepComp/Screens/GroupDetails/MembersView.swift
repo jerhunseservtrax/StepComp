@@ -107,7 +107,7 @@ struct MembersView: View {
             if let currentUserEntry = viewModel.currentUserEntry {
                 VStack {
                     Spacer()
-                    UserStatsFooter(entry: currentUserEntry)
+                    UserStatsFooter(entry: currentUserEntry, scope: viewModel.selectedScope)
                         .padding(.horizontal, 16)
                         .padding(.bottom, 24)
                 }

@@ -49,7 +49,7 @@ final class StepSyncService: ObservableObject {
         
         do {
             // Get today's steps from HealthKit
-            let todaySteps = try await healthKitService.getTodaySteps()
+            let todaySteps = try await healthKitService.getSteps(for: Date())
             
             print("🔄 Syncing \(todaySteps) steps to backend")
             

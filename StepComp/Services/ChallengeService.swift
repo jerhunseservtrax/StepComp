@@ -11,6 +11,26 @@ import Combine // Required for @Published and ObservableObject
 import Supabase
 #endif
 
+// #region agent log
+extension String {
+    func appendLineToURL(fileURL: URL) throws {
+        try (self + "\n").appendToURL(fileURL: fileURL)
+    }
+    
+    func appendToURL(fileURL: URL) throws {
+        let data = self.data(using: .utf8)!
+        if FileManager.default.fileExists(atPath: fileURL.path) {
+            let fileHandle = try FileHandle(forWritingTo: fileURL)
+            fileHandle.seekToEndOfFile()
+            fileHandle.write(data)
+            fileHandle.closeFile()
+        } else {
+            try data.write(to: fileURL, options: .atomic)
+        }
+    }
+}
+// #endregion
+
 @MainActor
 final class ChallengeService: ObservableObject {
     @Published var challenges: [Challenge] = []
@@ -130,17 +150,138 @@ final class ChallengeService: ObservableObject {
         
         // Add creator as challenge member
         print("👤 Adding creator as challenge member...")
+        // #region agent log
+        let logFile = "/Users/jefferyerhunse/GitRepos/StepComp/.cursor/debug.log"
+        let creatorLog = [
+            "timestamp": Date().timeIntervalSince1970 * 1000,
+            "location": "ChallengeService.swift:131",
+            "message": "Adding creator as member",
+            "data": ["challengeId": challenge.id, "creatorId": challenge.creatorId],
+            "hypothesisId": "B"
+        ] as [String : Any]
+        if let jsonData = try? JSONSerialization.data(withJSONObject: creatorLog),
+           let jsonString = String(data: jsonData, encoding: .utf8) {
+            try? (jsonString + "\n").appendLineToURL(fileURL: URL(fileURLWithPath: logFile))
+        }
+        // #endregion
+        
         do {
             try await addChallengeMember(challengeId: challenge.id, userId: challenge.creatorId)
             print("✅ Creator added as challenge member")
+            
+            // Verify the creator was actually added
+            let verifyCreator: [ChallengeMember] = try await supabase
+                .from("challenge_members")
+                .select()
+                .eq("challenge_id", value: challenge.id)
+                .eq("user_id", value: challenge.creatorId)
+                .execute()
+                .value
+            
+            if verifyCreator.isEmpty {
+                print("❌ CRITICAL: Creator insertion claimed success but member not found in database!")
+                // #region agent log
+                let verifyLog = [
+                    "timestamp": Date().timeIntervalSince1970 * 1000,
+                    "location": "ChallengeService.swift:150",
+                    "message": "Creator verification FAILED - not in database",
+                    "data": ["challengeId": challenge.id, "creatorId": challenge.creatorId],
+                    "hypothesisId": "C"
+                ] as [String : Any]
+                if let jsonData = try? JSONSerialization.data(withJSONObject: verifyLog),
+                   let jsonString = String(data: jsonData, encoding: .utf8) {
+                    try? (jsonString + "\n").appendLineToURL(fileURL: URL(fileURLWithPath: logFile))
+                }
+                // #endregion
+            } else {
+                print("✅ Creator verified in database: \(verifyCreator.count) record(s)")
+            }
         } catch {
-            print("⚠️ Failed to add creator as member: \(error.localizedDescription)")
-            // Don't throw - challenge was created, we can try to add member later
+            let errorDetails = "\(error)"
+            print("❌ CRITICAL ERROR: Failed to add creator as member: \(errorDetails)")
+            // #region agent log
+            let errorLog = [
+                "timestamp": Date().timeIntervalSince1970 * 1000,
+                "location": "ChallengeService.swift:138",
+                "message": "Creator addition FAILED",
+                "data": ["challengeId": challenge.id, "creatorId": challenge.creatorId, "error": errorDetails],
+                "hypothesisId": "B,C"
+            ] as [String : Any]
+            if let jsonData = try? JSONSerialization.data(withJSONObject: errorLog),
+               let jsonString = String(data: jsonData, encoding: .utf8) {
+                try? (jsonString + "\n").appendLineToURL(fileURL: URL(fileURLWithPath: logFile))
+            }
+            // #endregion
+            // This is critical - if the creator can't join their own challenge, something is seriously wrong
+            // Don't silently continue - throw the error so the user knows
+            throw error
         }
         
         // Add selected participants
+        // #region agent log
+        let participantsLog = [
+            "timestamp": Date().timeIntervalSince1970 * 1000,
+            "location": "ChallengeService.swift:180",
+            "message": "Adding selected participants",
+            "data": ["challengeId": challenge.id, "participantIds": challenge.participantIds, "count": challenge.participantIds.count],
+            "hypothesisId": "B"
+        ] as [String : Any]
+        if let jsonData = try? JSONSerialization.data(withJSONObject: participantsLog),
+           let jsonString = String(data: jsonData, encoding: .utf8) {
+            try? (jsonString + "\n").appendLineToURL(fileURL: URL(fileURLWithPath: logFile))
+        }
+        // #endregion
+        
+        var successCount = 0
+        var failedParticipants: [(String, String)] = []
+        
         for participantId in challenge.participantIds where participantId != challenge.creatorId {
-            try? await addChallengeMember(challengeId: challenge.id, userId: participantId)
+            do {
+                try await addChallengeMember(challengeId: challenge.id, userId: participantId)
+                
+                // Verify the participant was actually added
+                let verifyMember: [ChallengeMember] = try await supabase
+                    .from("challenge_members")
+                    .select()
+                    .eq("challenge_id", value: challenge.id)
+                    .eq("user_id", value: participantId)
+                    .execute()
+                    .value
+                
+                if verifyMember.isEmpty {
+                    print("❌ WARNING: Participant \(participantId) insertion claimed success but not found in database!")
+                    failedParticipants.append((participantId, "Verification failed - not in database"))
+                } else {
+                    successCount += 1
+                    print("✅ Participant \(participantId) verified in database")
+                }
+            } catch {
+                let errorDetails = "\(error)"
+                print("❌ Failed to add participant \(participantId): \(errorDetails)")
+                failedParticipants.append((participantId, errorDetails))
+                // #region agent log
+                let partErrorLog = [
+                    "timestamp": Date().timeIntervalSince1970 * 1000,
+                    "location": "ChallengeService.swift:200",
+                    "message": "Participant addition FAILED",
+                    "data": ["challengeId": challenge.id, "participantId": participantId, "error": errorDetails],
+                    "hypothesisId": "B,C"
+                ] as [String : Any]
+                if let jsonData = try? JSONSerialization.data(withJSONObject: partErrorLog),
+                   let jsonString = String(data: jsonData, encoding: .utf8) {
+                    try? (jsonString + "\n").appendLineToURL(fileURL: URL(fileURLWithPath: logFile))
+                }
+                // #endregion
+            }
+        }
+        
+        // Log summary
+        print("📊 Member addition summary: \(successCount) succeeded, \(failedParticipants.count) failed")
+        if !failedParticipants.isEmpty {
+            print("❌ Failed participants:")
+            for (participantId, error) in failedParticipants {
+                print("  - \(participantId): \(error)")
+            }
         }
         
         // Refresh challenges from database to ensure consistency
@@ -160,6 +301,21 @@ final class ChallengeService: ObservableObject {
     }
     
     private func addChallengeMember(challengeId: String, userId: String) async throws {
+        // #region agent log
+        let logFile = "/Users/jefferyerhunse/GitRepos/StepComp/.cursor/debug.log"
+        let logData = [
+            "timestamp": Date().timeIntervalSince1970 * 1000,
+            "location": "ChallengeService.swift:162",
+            "message": "addChallengeMember called",
+            "data": ["challengeId": challengeId, "userId": userId],
+            "hypothesisId": "B"
+        ] as [String : Any]
+        if let jsonData = try? JSONSerialization.data(withJSONObject: logData),
+           let jsonString = String(data: jsonData, encoding: .utf8) {
+            try? (jsonString + "\n").appendLineToURL(fileURL: URL(fileURLWithPath: logFile))
+        }
+        // #endregion
+        
         let member = ChallengeMember(
             id: UUID().uuidString,
             challengeId: challengeId,
@@ -170,12 +326,43 @@ final class ChallengeService: ObservableObject {
             lastUpdated: Date()
         )
         
-        try await supabase
-            .from("challenge_members")
-            .insert(member)
-            .execute()
-        
-        print("✅ User \(userId) added to challenge \(challengeId)")
+        do {
+            try await supabase
+                .from("challenge_members")
+                .insert(member)
+                .execute()
+            
+            // #region agent log
+            let successLog = [
+                "timestamp": Date().timeIntervalSince1970 * 1000,
+                "location": "ChallengeService.swift:176",
+                "message": "Member inserted successfully",
+                "data": ["challengeId": challengeId, "userId": userId, "memberId": member.id],
+                "hypothesisId": "B"
+            ] as [String : Any]
+            if let jsonData = try? JSONSerialization.data(withJSONObject: successLog),
+               let jsonString = String(data: jsonData, encoding: .utf8) {
+                try? (jsonString + "\n").appendLineToURL(fileURL: URL(fileURLWithPath: logFile))
+            }
+            // #endregion
+            
+            print("✅ User \(userId) added to challenge \(challengeId)")
+        } catch {
+            // #region agent log
+            let errorLog = [
+                "timestamp": Date().timeIntervalSince1970 * 1000,
+                "location": "ChallengeService.swift:178",
+                "message": "Member insertion FAILED",
+                "data": ["challengeId": challengeId, "userId": userId, "error": error.localizedDescription],
+                "hypothesisId": "B,C"
+            ] as [String : Any]
+            if let jsonData = try? JSONSerialization.data(withJSONObject: errorLog),
+               let jsonString = String(data: jsonData, encoding: .utf8) {
+                try? (jsonString + "\n").appendLineToURL(fileURL: URL(fileURLWithPath: logFile))
+            }
+            // #endregion
+            throw error
+        }
     }
     #endif
     
@@ -383,6 +570,21 @@ final class ChallengeService: ObservableObject {
     
     #if canImport(Supabase)
     private func joinChallengeInSupabase(challengeId: String, userId: String) async throws {
+        // #region agent log
+        let logFile = "/Users/jefferyerhunse/GitRepos/StepComp/.cursor/debug.log"
+        let joinLog = [
+            "timestamp": Date().timeIntervalSince1970 * 1000,
+            "location": "ChallengeService.swift:385",
+            "message": "joinChallengeInSupabase called",
+            "data": ["challengeId": challengeId, "userId": userId],
+            "hypothesisId": "D"
+        ] as [String : Any]
+        if let jsonData = try? JSONSerialization.data(withJSONObject: joinLog),
+           let jsonString = String(data: jsonData, encoding: .utf8) {
+            try? (jsonString + "\n").appendLineToURL(fileURL: URL(fileURLWithPath: logFile))
+        }
+        // #endregion
+        
         // Check if already a member
         let existing: [ChallengeMember] = try await supabase
             .from("challenge_members")
@@ -391,6 +593,20 @@ final class ChallengeService: ObservableObject {
             .eq("user_id", value: userId)
             .execute()
             .value
+        
+        // #region agent log
+        let checkLog = [
+            "timestamp": Date().timeIntervalSince1970 * 1000,
+            "location": "ChallengeService.swift:395",
+            "message": "Checked existing membership",
+            "data": ["challengeId": challengeId, "userId": userId, "existingCount": existing.count],
+            "hypothesisId": "D"
+        ] as [String : Any]
+        if let jsonData = try? JSONSerialization.data(withJSONObject: checkLog),
+           let jsonString = String(data: jsonData, encoding: .utf8) {
+            try? (jsonString + "\n").appendLineToURL(fileURL: URL(fileURLWithPath: logFile))
+        }
+        // #endregion
         
         if !existing.isEmpty {
             throw ChallengeError.alreadyParticipating

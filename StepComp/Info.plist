@@ -21,5 +21,7 @@
 	<string>StepComp needs permission to save your step data for challenge tracking and progress updates.</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
+	<key>NSSupportsLiveActivities</key>
+	<true/>
 </dict>
 </plist>

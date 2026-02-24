@@ -657,6 +657,26 @@ struct LeaderboardTabView: View {
     var body: some View {
         ZStack {
             VStack(spacing: 24) {
+                // Info header explaining what's shown
+                HStack(spacing: 12) {
+                    Image(systemName: "info.circle.fill")
+                        .font(.system(size: 14))
+                        .foregroundColor(StepCompColors.primary)
+                    
+                    Text("Showing total steps accumulated since challenge started")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    
+                    Spacer()
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
+                .background(
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(StepCompColors.primary.opacity(0.1))
+                )
+                
                 // Top 3 Podium Display (Modern Design)
                 if !topThree.isEmpty {
                     ModernPodiumView(
@@ -668,10 +688,10 @@ struct LeaderboardTabView: View {
                     )
                 }
                 
-                // Rest of leaderboard (Modern List)
-                if !restOfLeaderboard.isEmpty {
+                // Full leaderboard list (including top 3)
+                if !sortedEntries.isEmpty {
                     VStack(spacing: 12) {
-                        ForEach(restOfLeaderboard) { entry in
+                        ForEach(sortedEntries) { entry in
                             ModernLeaderboardRow(
                                 entry: entry,
                                 isCurrentUser: entry.userId == currentUserId
@@ -1107,7 +1127,7 @@ struct MembersTabView: View {
                         .font(.system(size: 16, weight: .bold))
                         .foregroundColor(.primary)
                     
-                    Text("Total steps accumulated since joining this challenge")
+                    Text("Total steps accumulated since challenge started")
                         .font(.system(size: 12, weight: .medium))
                         .foregroundColor(.secondary)
                 }

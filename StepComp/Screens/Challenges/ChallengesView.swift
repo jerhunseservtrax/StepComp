@@ -20,6 +20,7 @@ struct ChallengesView: View {
     enum ChallengeTab {
         case active
         case discover
+        case archive
     }
     
     init(sessionViewModel: SessionViewModel) {
@@ -57,6 +58,12 @@ struct ChallengesView: View {
                     viewModel: viewModel
                 )
                 .tag(ChallengeTab.discover)
+                
+                ArchivedChallengesTab(
+                    sessionViewModel: sessionViewModel,
+                    viewModel: viewModel
+                )
+                .tag(ChallengeTab.archive)
             }
             .tabViewStyle(.page(indexDisplayMode: .never)) // Enable swipe, hide page dots
         }
@@ -130,11 +137,11 @@ struct ChallengesHeader: View {
                 }
                 
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(selectedTab == .active ? "Active" : "Discover")
+                    Text(selectedTab == .active ? "Active" : selectedTab == .discover ? "Discover" : "Archive")
                         .font(.system(size: 20, weight: .bold))
                         .foregroundColor(StepCompColors.textPrimary)
                     
-                    Text(selectedTab == .active ? "Your active challenges" : "Find your next battle")
+                    Text(selectedTab == .active ? "Your active challenges" : selectedTab == .discover ? "Find your next battle" : "Past challenges and results")
                         .font(.system(size: 14, weight: .medium))
                         .foregroundColor(StepCompColors.textSecondary)
                 }
@@ -169,6 +176,16 @@ struct ChallengesHeader: View {
                     action: {
                         withAnimation {
                             selectedTab = .discover
+                        }
+                    }
+                )
+                
+                TabButton(
+                    title: "Archive",
+                    isSelected: selectedTab == .archive,
+                    action: {
+                        withAnimation {
+                            selectedTab = .archive
                         }
                     }
                 )

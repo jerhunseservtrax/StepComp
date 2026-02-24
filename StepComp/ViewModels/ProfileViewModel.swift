@@ -183,7 +183,7 @@ final class ProfileViewModel: ObservableObject {
         do {
             print("🔄 Loading HealthKit data in Profile...")
             // Get today's steps
-            todaySteps = try await healthKitService.getTodaySteps()
+            todaySteps = (try? await healthKitService.getSteps(for: Date())) ?? 0
             print("✅ Today's steps: \(todaySteps)")
             
             // Get weekly stats for activity chart

@@ -49,11 +49,17 @@ struct MainTabView: View {
                 }
                 .tag(2)
             
+            WorkoutsView()
+                .tabItem {
+                    Label("Workouts", systemImage: "dumbbell.fill")
+                }
+                .tag(3)
+            
             SettingsView(sessionViewModel: sessionViewModel)
                 .tabItem {
                     Label("Settings", systemImage: "gearshape.fill")
                 }
-                .tag(3)
+                .tag(4)
         }
         .onAppear {
             setupTabBarAppearance(for: colorScheme)

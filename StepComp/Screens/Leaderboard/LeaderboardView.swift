@@ -120,7 +120,10 @@ struct LeaderboardView: View {
             if let currentUserEntry = viewModel.currentUserEntry {
                 VStack {
                     Spacer()
-                    UserStatsFooter(entry: currentUserEntry)
+                    UserStatsFooter(
+                        entry: currentUserEntry,
+                        scope: viewModel.selectedScope
+                    )
                         .padding(.horizontal, 16)
                         .padding(.bottom, 24)
                 }
@@ -146,7 +149,7 @@ struct SegmentedToggle: View {
                 }
             }
             
-            ToggleButton(title: "Overall", isSelected: selectedTab == 1) {
+            ToggleButton(title: "Since Start", isSelected: selectedTab == 1) {
                 withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
                     selectedTab = 1
                 }
@@ -405,6 +408,18 @@ struct LeaderboardListRow: View {
 
 struct UserStatsFooter: View {
     let entry: LeaderboardEntry
+    let scope: LeaderboardScope
+    
+    var stepsLabel: String {
+        switch scope {
+        case .daily:
+            return "STEPS TODAY"
+        case .weekly:
+            return "STEPS THIS WEEK"
+        case .allTime:
+            return "TOTAL STEPS"
+        }
+    }
     
     var body: some View {
         HStack(spacing: 12) {
@@ -441,7 +456,7 @@ struct UserStatsFooter: View {
                     .font(.system(size: 18, weight: .bold, design: .monospaced))
                     .foregroundColor(StepCompColors.primary)
                 
-                Text("STEPS TODAY")
+                Text(stepsLabel)
                     .font(.system(size: 10, weight: .semibold))
                     .tracking(0.8)
                     .foregroundColor(.white.opacity(0.6))

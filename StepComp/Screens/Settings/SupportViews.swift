@@ -224,7 +224,7 @@ struct FAQView: View {
                         ),
                         FAQItem(
                             question: "Can I join a challenge late?",
-                            answer: "That depends on the challenge settings chosen by the creator."
+                            answer: "Yes, you can join public challenges any time before they end. Your step count will start from the day you join."
                         )
                     ])
                     

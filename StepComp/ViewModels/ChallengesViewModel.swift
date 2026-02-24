@@ -16,6 +16,7 @@ import Supabase
 final class ChallengesViewModel: ObservableObject {
     @Published var activeChallenges: [Challenge] = [] // All challenges user is participating in (private + public)
     @Published var publicChallenges: [Challenge] = [] // Public challenges available to join
+    @Published var archivedChallenges: [Challenge] = [] // Ended/inactive challenges user participated in
     @Published var isLoading: Bool = false
     @Published var errorMessage: String?
     
@@ -41,6 +42,7 @@ final class ChallengesViewModel: ObservableObject {
         // Fallback to local challenges
         activeChallenges = challengeService.challenges.filter { $0.participantIds.contains(userId) && $0.isActive }
         publicChallenges = challengeService.challenges.filter { $0.isActive && !$0.participantIds.contains(userId) }
+        archivedChallenges = challengeService.challenges.filter { $0.participantIds.contains(userId) && !$0.isActive }
         #endif
         
         isLoading = false
@@ -56,10 +58,11 @@ final class ChallengesViewModel: ObservableObject {
                 // No session - user not authenticated yet
                 print("ℹ️ Skipping challenge load - user not authenticated yet")
                 // Don't clear existing data during refresh - only skip the update
-                if activeChallenges.isEmpty && publicChallenges.isEmpty {
+                if activeChallenges.isEmpty && publicChallenges.isEmpty && archivedChallenges.isEmpty {
                     // First load - can set to empty
                     activeChallenges = []
                     publicChallenges = []
+                    archivedChallenges = []
                 }
                 return
             }
@@ -128,15 +131,102 @@ final class ChallengesViewModel: ObservableObject {
             publicChallenges = allPublic            
             print("📊 ChallengesViewModel: Loaded \(publicChallenges.count) discoverable challenges (excluding \(participatingChallengeIds.count) user is already in)")
             
+            // Load archived challenges (ended or inactive challenges user participated in)
+            await loadArchivedChallengesFromSupabase()
+            
         } catch {
             print("⚠️ Error loading challenges: \(error.localizedDescription)")
             errorMessage = error.localizedDescription
             // Don't clear existing data on error - keep what we have
             // Only clear on first load if both arrays are empty
-            if activeChallenges.isEmpty && publicChallenges.isEmpty {
+            if activeChallenges.isEmpty && publicChallenges.isEmpty && archivedChallenges.isEmpty {
                 activeChallenges = []
                 publicChallenges = []
+                archivedChallenges = []
             }
+        }
+    }
+    
+    private func loadArchivedChallengesFromSupabase() async {
+        do {
+            // Get all challenges the user is participating in (via challenge_members)
+            let userChallengeIds = await getUserChallengeIds()
+            
+            // Get archived challenges the user created (ended or inactive)
+            let createdArchivedChallenges: [SupabaseChallenge] = try await supabase
+                .from("challenges")
+                .select()
+                .eq("created_by", value: userId)
+                .lt("end_date", value: ISO8601DateFormatter().string(from: Date()))
+                .execute()
+                .value
+            
+            print("📊 [ArchivedChallenges] Found \(createdArchivedChallenges.count) created archived challenges")
+            
+            // #region agent log
+            let logFile = "/Users/jefferyerhunse/GitRepos/StepComp/.cursor/debug.log"
+            for challenge in createdArchivedChallenges {
+                // Query challenge_members directly for each archived challenge
+                let members: [ChallengeMember] = (try? await supabase
+                    .from("challenge_members")
+                    .select()
+                    .eq("challenge_id", value: challenge.id)
+                    .execute()
+                    .value) ?? []
+                
+                let dbCheckLog = [
+                    "timestamp": Date().timeIntervalSince1970 * 1000,
+                    "location": "ChallengesViewModel.swift:156",
+                    "message": "Archived challenge member count",
+                    "data": ["challengeName": challenge.name, "challengeId": challenge.id, "memberCount": members.count, "memberUserIds": members.map { $0.userId }],
+                    "hypothesisId": "A"
+                ] as [String : Any]
+                if let jsonData = try? JSONSerialization.data(withJSONObject: dbCheckLog),
+                   let jsonString = String(data: jsonData, encoding: .utf8) {
+                    try? (jsonString + "\n").appendLineToURL(fileURL: URL(fileURLWithPath: logFile))
+                }
+            }
+            // #endregion
+            
+            // Get archived challenges user is a member of (ended or inactive)
+            var memberArchivedChallenges: [SupabaseChallenge] = []
+            if !userChallengeIds.isEmpty {
+                memberArchivedChallenges = try await supabase
+                    .from("challenges")
+                    .select()
+                    .in("id", values: userChallengeIds)
+                    .lt("end_date", value: ISO8601DateFormatter().string(from: Date()))
+                    .execute()
+                    .value
+            }
+            
+            print("📊 [ArchivedChallenges] Found \(memberArchivedChallenges.count) member archived challenges")
+            
+            // Combine and deduplicate
+            var allArchivedChallenges: [SupabaseChallenge] = createdArchivedChallenges
+            for memberChallenge in memberArchivedChallenges {
+                if !allArchivedChallenges.contains(where: { $0.id == memberChallenge.id }) {
+                    allArchivedChallenges.append(memberChallenge)
+                }
+            }
+            
+            print("📊 [ArchivedChallenges] Total unique archived challenges: \(allArchivedChallenges.count)")
+            
+            // Sort by end date descending (most recently ended first)
+            allArchivedChallenges.sort { $0.endDate > $1.endDate }
+            
+            // Convert to Challenge models
+            archivedChallenges = try await convertToChallenges(allArchivedChallenges)
+            print("📊 ChallengesViewModel: Loaded \(archivedChallenges.count) archived challenges for user")
+            
+            // Debug each archived challenge
+            for challenge in archivedChallenges {
+                print("📊 [ArchivedChallenge] '\(challenge.name)': \(challenge.participantIds.count) participants - IDs: \(challenge.participantIds)")
+            }
+            
+        } catch {
+            print("⚠️ Error loading archived challenges: \(error.localizedDescription)")
+            // Keep existing archived challenges on error
         }
     }
     
@@ -168,6 +258,8 @@ final class ChallengesViewModel: ObservableObject {
                 .execute()
                 .value
             
+            print("🔍 [convertToChallenges] Challenge '\(supabaseChallenge.name)' (ID: \(supabaseChallenge.id)): Found \(members.count) members in database")
+            
             let participantIds = members.map { $0.userId }
             
             // Ensure creator is in participantIds (they should be, but double-check)
@@ -182,6 +274,7 @@ final class ChallengesViewModel: ObservableObject {
             
             // Debug: Log participant count for this challenge
             print("🔍 [ChallengesViewModel] Challenge '\(supabaseChallenge.name)': \(finalParticipantIds.count) participants (including creator)")
+            print("🔍 [ChallengesViewModel] Participant IDs: \(finalParticipantIds)")
             
             // Convert category string to enum
             var category: Challenge.ChallengeCategory? = nil

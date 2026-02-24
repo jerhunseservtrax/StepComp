@@ -190,8 +190,8 @@ struct SettingsView: View {
             dailyStepGoal = goal
             print("🎯 Daily step goal: \(dailyStepGoal)")
             
-            // Get today's steps
-            todaySteps = try await healthKitService.getTodaySteps()
+            // Get today's steps (same as Home and Workout: full calendar day from HealthKit)
+            todaySteps = (try? await healthKitService.getSteps(for: Date())) ?? 0
             print("✅ Today's steps: \(todaySteps)")
             
             // Get 30 days of stats for streak calculation
