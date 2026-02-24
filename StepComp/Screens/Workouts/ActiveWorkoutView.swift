@@ -12,6 +12,7 @@ struct ActiveWorkoutView: View {
     @ObservedObject var unitManager = UnitPreferenceManager.shared
     @State private var showingFinishConfirmation = false
     @FocusState private var focusedField: UUID?
+    @State private var collapsedExerciseIds: Set<UUID> = []
     
     /// True when a set weight/reps field is focused (keyboard likely open) – we collapse the Finish area to give more room.
     private var isEditing: Bool { focusedField != nil }
@@ -34,7 +35,8 @@ struct ActiveWorkoutView: View {
                                         workoutExercise: workoutExercise,
                                         viewModel: viewModel,
                                         unitManager: unitManager,
-                                        focusedField: $focusedField
+                                        focusedField: $focusedField,
+                                        collapsedExerciseIds: $collapsedExerciseIds
                                     )
                                 }
                             }
@@ -91,28 +93,28 @@ struct ActiveWorkoutView: View {
     }
     
     private var header: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: 8) {
             HStack {
                 Text(viewModel.currentSession?.workoutName ?? "Workout")
-                    .font(.system(size: 28, weight: .black))
+                    .font(.system(size: 24, weight: .black))
                     .foregroundColor(StepCompColors.textPrimary)
                 
                 Spacer()
                 
                 // Timer and pause/resume button
-                HStack(spacing: 8) {
-                    HStack(spacing: 8) {
+                HStack(spacing: 6) {
+                    HStack(spacing: 6) {
                         Image(systemName: "timer")
-                            .font(.system(size: 14, weight: .bold))
+                            .font(.system(size: 12, weight: .bold))
                         Text(viewModel.formattedElapsedTime())
-                            .font(.system(size: 14, weight: .black))
+                            .font(.system(size: 13, weight: .black))
                             .monospacedDigit()
                     }
                     .foregroundColor(StepCompColors.textPrimary)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 6)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 5)
                     .background(StepCompColors.textSecondary.opacity(0.1))
-                    .cornerRadius(20)
+                    .cornerRadius(16)
                     
                     // Pause/Resume button
                     Button(action: {
@@ -123,11 +125,11 @@ struct ActiveWorkoutView: View {
                         }
                     }) {
                         Image(systemName: viewModel.isPaused ? "play.fill" : "pause.fill")
-                            .font(.system(size: 14, weight: .bold))
+                            .font(.system(size: 12, weight: .bold))
                             .foregroundColor(.white)
-                            .frame(width: 32, height: 32)
+                            .frame(width: 28, height: 28)
                             .background(Color.black)
-                            .cornerRadius(16)
+                            .cornerRadius(14)
                     }
                 }
             }
@@ -135,18 +137,18 @@ struct ActiveWorkoutView: View {
             if let session = viewModel.currentSession {
                 HStack(spacing: 4) {
                     Text("Monday Routine")
-                        .font(.system(size: 14, weight: .medium))
+                        .font(.system(size: 13, weight: .medium))
                         .foregroundColor(StepCompColors.textSecondary)
                     Text("•")
                         .foregroundColor(StepCompColors.textSecondary)
                     Text("\(session.exercises.count) Exercises")
-                        .font(.system(size: 14, weight: .medium))
+                        .font(.system(size: 13, weight: .medium))
                         .foregroundColor(StepCompColors.textSecondary)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
-        .padding(20)
+        .padding(16)
         .background(StepCompColors.surface.opacity(0.9))
         .overlay(
             Rectangle()
@@ -199,6 +201,7 @@ struct ExerciseCard: View {
     @ObservedObject var viewModel: WorkoutViewModel
     @ObservedObject var unitManager: UnitPreferenceManager
     @FocusState.Binding var focusedField: UUID?
+    @Binding var collapsedExerciseIds: Set<UUID>
     @State private var expandedSetId: UUID?
     
     @Environment(\.colorScheme) private var colorScheme
@@ -222,6 +225,21 @@ struct ExerciseCard: View {
     }
     
     var body: some View {
+        let isCollapsed = collapsedExerciseIds.contains(workoutExercise.id)
+        
+        VStack(spacing: 0) {
+            if isCollapsed {
+                collapsedView
+            } else {
+                expandedView
+            }
+        }
+        .background(colorScheme == .dark ? Color.black : Color.white)
+        .cornerRadius(20)
+        .shadow(color: StepCompColors.shadowSecondary, radius: 10, x: 0, y: 4)
+    }
+    
+    private var expandedView: some View {
         VStack(spacing: 0) {
             // Exercise header
             HStack(spacing: 12) {
@@ -257,61 +275,49 @@ struct ExerciseCard: View {
                             .cornerRadius(8)
                         }
                     }
+                    
+                    // Progressive overload summary
+                    if let summary = getProgressiveSummary(for: workoutExercise) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(summary.lastBest)
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundColor(StepCompColors.textSecondary)
+                            Text(summary.suggested)
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundColor(StepCompColors.primary)
+                        }
+                        .padding(.top, 4)
+                    } else if !allSetsCompleted {
+                        Text("First time - set your baseline")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundColor(StepCompColors.textSecondary)
+                            .padding(.top, 4)
+                    }
                 }
                 
                 Spacer()
             }
-            .padding(16)
+            .padding(12)
             .opacity(allSetsCompleted ? 0.5 : 1.0)
-            
-            // Sets header
-            HStack(spacing: 12) {
-                Text("SET")
-                    .font(.system(size: 10, weight: .bold))
-                    .foregroundColor(StepCompColors.textSecondary.opacity(0.5))
-                    .frame(width: 30, alignment: .leading)
-                
-                Text("PREV")
-                    .font(.system(size: 10, weight: .bold))
-                    .foregroundColor(StepCompColors.textSecondary.opacity(0.5))
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                
-                Text("TARGET")
-                    .font(.system(size: 10, weight: .bold))
-                    .foregroundColor(StepCompColors.primary.opacity(0.8))
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                
-                Text(unitManager.weightUnit)
-                    .font(.system(size: 10, weight: .bold))
-                    .foregroundColor(StepCompColors.textSecondary.opacity(0.5))
-                    .frame(width: 80, alignment: .center)
-                
-                Text("REPS")
-                    .font(.system(size: 10, weight: .bold))
-                    .foregroundColor(StepCompColors.textSecondary.opacity(0.5))
-                    .frame(width: 80, alignment: .center)
-                
-                Spacer()
-                    .frame(width: 40)
-            }
-            .padding(.horizontal, 16)
-            .padding(.bottom, 8)
             
             // Sets list (each row has .id for ScrollViewReader so focused set scrolls into view)
             VStack(spacing: 8) {
-                ForEach(workoutExercise.sets) { set in
+                ForEach(Array(workoutExercise.sets.enumerated()), id: \.element.id) { index, set in
+                    let contextText = calculateContextText(for: set, at: index, in: workoutExercise)
                     SetRow(
                         set: set,
                         exerciseId: workoutExercise.id,
                         viewModel: viewModel,
                         unitManager: unitManager,
-                        focusedField: $focusedField
+                        focusedField: $focusedField,
+                        collapsedExerciseIds: $collapsedExerciseIds,
+                        contextText: contextText
                     )
                     .id(set.id)
                 }
             }
-            .padding(.horizontal, 16)
-            .padding(.bottom, 16)
+            .padding(.horizontal, 12)
+            .padding(.bottom, 12)
             
             // Add set button
             Button(action: {
@@ -325,9 +331,121 @@ struct ExerciseCard: View {
                     .background(StepCompColors.textSecondary.opacity(0.05))
             }
         }
-        .background(colorScheme == .dark ? Color.black : Color.white)
-        .cornerRadius(20)
-        .shadow(color: StepCompColors.shadowSecondary, radius: 10, x: 0, y: 4)
+    }
+    
+    private var collapsedView: some View {
+        HStack(spacing: 12) {
+            // Checkmark or progress indicator
+            if allSetsCompleted {
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.system(size: 16))
+                    .foregroundColor(.green)
+            } else {
+                Image(systemName: "circle.dotted")
+                    .font(.system(size: 16))
+                    .foregroundColor(.orange)
+            }
+            
+            // Exercise name
+            Text(workoutExercise.exercise.name)
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundColor(StepCompColors.textPrimary)
+            
+            Text("|")
+                .foregroundColor(StepCompColors.textSecondary.opacity(0.3))
+            
+            // Summary
+            Text(collapsedSummary)
+                .font(.system(size: 14, weight: .medium))
+                .foregroundColor(StepCompColors.textSecondary)
+            
+            Spacer()
+        }
+        .padding(16)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            withAnimation(.spring(response: 0.3)) {
+                collapsedExerciseIds.remove(workoutExercise.id)
+            }
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(workoutExercise.exercise.name), \(collapsedSummary)")
+        .accessibilityHint("Tap to expand and view sets")
+    }
+    
+    private var collapsedSummary: String {
+        let completedSets = workoutExercise.sets.filter { $0.isCompleted }.count
+        let totalSets = workoutExercise.sets.count
+        
+        let volume = workoutExercise.sets.reduce(0) { total, set in
+            guard let weight = set.weight, let reps = set.reps else { return total }
+            let displayWeight = Int(unitManager.convertWeightFromStorage(Double(weight)).rounded())
+            return total + (displayWeight * reps)
+        }
+        
+        let progression = calculateProgression()
+        
+        if allSetsCompleted {
+            if progression > 0 {
+                let displayProgression = unitManager.convertWeightFromStorage(Double(progression))
+                return "\(totalSets) sets • \(volume.formatted()) \(unitManager.weightUnit.lowercased()) • +\(Int(displayProgression)) \(unitManager.weightUnit.lowercased())"
+            } else {
+                return "\(totalSets) sets • \(volume.formatted()) \(unitManager.weightUnit.lowercased())"
+            }
+        } else {
+            return "\(completedSets)/\(totalSets) sets • \(volume.formatted()) \(unitManager.weightUnit.lowercased())"
+        }
+    }
+    
+    private func calculateProgression() -> Int {
+        guard let firstSet = workoutExercise.sets.first,
+              let weight = firstSet.weight,
+              let prevWeight = firstSet.previousWeight else {
+            return 0
+        }
+        return weight - prevWeight
+    }
+    
+    private func calculateContextText(for set: WorkoutSet, at index: Int, in exercise: WorkoutExercise) -> String? {
+        // Set 1: Always show "Last: X x Y" if previous data exists
+        if index == 0 {
+            if let prevWeight = set.previousWeight, let prevReps = set.previousReps {
+                let displayWeight = Int(unitManager.convertWeightFromStorage(Double(prevWeight)).rounded())
+                return "Last: \(displayWeight) x \(prevReps)"
+            }
+        }
+        
+        // Set 2: Show progression suggestion if available
+        if index == 1 {
+            if let sugWeight = set.suggestedWeight, let prevWeight = set.previousWeight {
+                let delta = sugWeight - prevWeight
+                if delta > 0 {
+                    let displayDelta = unitManager.convertWeightFromStorage(Double(delta))
+                    return String(format: "+%.1f \(unitManager.weightUnit.lowercased()) suggested", displayDelta)
+                }
+            }
+        }
+        
+        // Set 3+: No context
+        return nil
+    }
+    
+    private func getProgressiveSummary(for exercise: WorkoutExercise) -> (lastBest: String, suggested: String)? {
+        guard let firstSet = exercise.sets.first,
+              let prevWeight = firstSet.previousWeight,
+              let prevReps = firstSet.previousReps,
+              let sugWeight = firstSet.suggestedWeight,
+              let sugReps = firstSet.suggestedReps else {
+            return nil
+        }
+        
+        let displayPrevWeight = Int(unitManager.convertWeightFromStorage(Double(prevWeight)).rounded())
+        let displaySugWeight = Int(unitManager.convertWeightFromStorage(Double(sugWeight)).rounded())
+        
+        let lastBest = "Last best: \(displayPrevWeight) x \(prevReps)"
+        let suggested = "Suggested: \(displaySugWeight) x \(sugReps)"
+        
+        return (lastBest, suggested)
     }
 }
 
@@ -337,18 +455,22 @@ struct SetRow: View {
     @ObservedObject var viewModel: WorkoutViewModel
     @ObservedObject var unitManager: UnitPreferenceManager
     @FocusState.Binding var focusedField: UUID?
+    @Binding var collapsedExerciseIds: Set<UUID>
+    let contextText: String?
     
     @Environment(\.colorScheme) private var colorScheme
     @State private var weightText: String
     @State private var repsText: String
     @State private var showSuggestionApplied: Bool = false
     
-    init(set: WorkoutSet, exerciseId: UUID, viewModel: WorkoutViewModel, unitManager: UnitPreferenceManager, focusedField: FocusState<UUID?>.Binding) {
+    init(set: WorkoutSet, exerciseId: UUID, viewModel: WorkoutViewModel, unitManager: UnitPreferenceManager, focusedField: FocusState<UUID?>.Binding, collapsedExerciseIds: Binding<Set<UUID>>, contextText: String? = nil) {
         self.set = set
         self.exerciseId = exerciseId
         self.viewModel = viewModel
         self.unitManager = unitManager
         self._focusedField = focusedField
+        self._collapsedExerciseIds = collapsedExerciseIds
+        self.contextText = contextText
         // Convert stored weight (kg) to display unit (lbs or kg)
         _weightText = State(initialValue: set.weight.map { String(Int(unitManager.convertWeightFromStorage(Double($0)).rounded())) } ?? "")
         _repsText = State(initialValue: set.reps.map { String($0) } ?? "")
@@ -358,7 +480,7 @@ struct SetRow: View {
     private static let setCompleteCheckmarkBlue = Color(red: 0.45, green: 0.78, blue: 0.95)
 
     var body: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: 4) {
             HStack(spacing: 12) {
                 // Set number
                 Text("\(set.setNumber)")
@@ -366,128 +488,108 @@ struct SetRow: View {
                     .foregroundColor(set.isCompleted ? StepCompColors.textSecondary.opacity(0.3) : StepCompColors.textSecondary)
                     .frame(width: 30, alignment: .leading)
                 
-                // Previous set
-                Text(previousSetText)
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundColor(StepCompColors.textSecondary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                
-                // Suggested target (progressive overload) - tappable to apply
-                if !set.isCompleted && set.suggestedWeight != nil && set.suggestedReps != nil {
-                    Button(action: applySuggestion) {
-                        HStack(spacing: 4) {
-                            Image(systemName: "arrow.up.right")
-                                .font(.system(size: 9, weight: .bold))
-                            Text(suggestedText)
-                                .font(.system(size: 11, weight: .bold))
-                        }
-                        .foregroundColor(StepCompColors.primary)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(StepCompColors.primary.opacity(0.1))
-                        .cornerRadius(8)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                } else {
-                    Text(suggestedText)
-                        .font(.system(size: 11, weight: .bold))
-                        .foregroundColor(StepCompColors.textSecondary.opacity(0.5))
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                }
-                
                 // Weight input
                 TextField("", text: $weightText)
-                    .keyboardType(.numberPad)
+                    .keyboardType(.decimalPad)
                     .multilineTextAlignment(.center)
-                    .font(.system(size: 14, weight: .bold))
+                    .font(.system(size: 16, weight: .bold))
                     .foregroundColor(StepCompColors.textPrimary)
-                    .frame(width: 80, height: 40)
+                    .frame(width: 100, height: 44)
                     .background(set.isCompleted ? StepCompColors.textSecondary.opacity(0.1) : (colorScheme == .dark ? StepCompColors.surface : Color.white))
-                    .cornerRadius(20)
+                    .cornerRadius(12)
                     .overlay(
-                        RoundedRectangle(cornerRadius: 20)
-                            .stroke(inputBorderColor, lineWidth: 2)
+                        RoundedRectangle(cornerRadius: 12)
+                            .stroke(inputBorderColor, lineWidth: focusedField == set.id ? 2 : 1)
                     )
                     .focused($focusedField, equals: set.id)
                     .disabled(set.isCompleted)
                     .onChange(of: weightText) { oldValue, newValue in
                         if let displayWeight = Int(newValue) {
-                            // Convert from display unit (lbs or kg) to storage unit (kg)
                             let storageWeight = Int(unitManager.convertWeightToStorage(Double(displayWeight)).rounded())
                             viewModel.updateSet(exerciseId: exerciseId, setId: set.id, weight: storageWeight, reps: set.reps)
+                            
+                            // Auto-advance to reps if empty
+                            if repsText.isEmpty {
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                                    focusedField = set.id
+                                }
+                            }
                         }
                     }
-                    .onTapGesture {
-                        focusedField = set.id
-                    }
+                
+                // x separator
+                Text("x")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(StepCompColors.textSecondary)
                 
                 // Reps input
                 TextField("", text: $repsText)
                     .keyboardType(.numberPad)
                     .multilineTextAlignment(.center)
-                    .font(.system(size: 14, weight: .bold))
+                    .font(.system(size: 16, weight: .bold))
                     .foregroundColor(StepCompColors.textPrimary)
-                    .frame(width: 80, height: 40)
+                    .frame(width: 100, height: 44)
                     .background(set.isCompleted ? StepCompColors.textSecondary.opacity(0.1) : (colorScheme == .dark ? StepCompColors.surface : Color.white))
-                    .cornerRadius(20)
+                    .cornerRadius(12)
                     .overlay(
-                        RoundedRectangle(cornerRadius: 20)
-                            .stroke(inputBorderColor, lineWidth: 2)
+                        RoundedRectangle(cornerRadius: 12)
+                            .stroke(inputBorderColor, lineWidth: focusedField == set.id ? 2 : 1)
                     )
                     .focused($focusedField, equals: set.id)
                     .disabled(set.isCompleted)
                     .onChange(of: repsText) { oldValue, newValue in
                         if let reps = Int(newValue) {
                             viewModel.updateSet(exerciseId: exerciseId, setId: set.id, weight: set.weight, reps: reps)
+                            
+                            // Auto-advance to next set if available
+                            if let nextSet = viewModel.getNextIncompleteSet(after: set.id, in: exerciseId) {
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                                    focusedField = nextSet.id
+                                }
+                            } else {
+                                // Last set, dismiss keyboard
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                                    focusedField = nil
+                                }
+                            }
                         }
                     }
-                    .onTapGesture {
-                        focusedField = set.id
-                    }
                 
-                // Complete/Delete buttons
+                Spacer()
+                
+                // Complete button
                 if set.isCompleted {
-                    // Delete button for completed sets
                     Button(action: {
                         viewModel.removeSet(exerciseId: exerciseId, setId: set.id)
                     }) {
                         Image(systemName: "trash.fill")
                             .font(.system(size: 16, weight: .bold))
                             .foregroundColor(.white)
-                            .frame(width: 36, height: 36)
+                            .frame(width: 40, height: 40)
                             .background(Color.red)
-                            .cornerRadius(18)
+                            .cornerRadius(20)
                     }
                 } else {
-                    // Complete button for incomplete sets — light blue checkmark to stand out
                     Button(action: {
                         viewModel.completeSet(exerciseId: exerciseId, setId: set.id)
                     }) {
                         Image(systemName: "checkmark")
                             .font(.system(size: 18, weight: .bold))
                             .foregroundColor(Self.setCompleteCheckmarkBlue)
-                            .frame(width: 36, height: 36)
+                            .frame(width: 40, height: 40)
                             .background(StepCompColors.textSecondary.opacity(0.2))
-                            .cornerRadius(18)
+                            .cornerRadius(20)
                     }
                 }
             }
             
-            // Target met indicator
-            if targetMetOrExceeded && !set.isCompleted {
-                HStack(spacing: 6) {
-                    Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 12))
-                    Text("Target achieved! 🎯")
-                        .font(.system(size: 12, weight: .bold))
-                }
-                .foregroundColor(.green)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 6)
-                .background(Color.green.opacity(0.1))
-                .cornerRadius(8)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.leading, 42)
+            // Context line (shown conditionally)
+            if let contextText = contextText, !set.isCompleted {
+                Text(contextText)
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundColor(StepCompColors.textSecondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.leading, 42)
             }
         }
         .padding(.vertical, 6)
@@ -497,16 +599,79 @@ struct SetRow: View {
                 .fill(backgroundFill)
         )
         .opacity(set.isCompleted ? 0.5 : 1.0)
-        .contextMenu {
-            // Context menu for deleting uncompleted sets
+        .contentShape(Rectangle())
+        .onTapGesture {
             if !set.isCompleted {
-                Button(role: .destructive) {
-                    viewModel.removeSet(exerciseId: exerciseId, setId: set.id)
-                } label: {
-                    Label("Delete Set", systemImage: "trash")
-                }
+                handleSetTap()
             }
         }
+        .onLongPressGesture(minimumDuration: 0.5) {
+            // Trigger haptic
+            HapticManager.shared.light()
+        }
+        .contextMenu {
+            if !set.isCompleted {
+                Button(action: {
+                    handleSetTap()
+                }) {
+                    Label("Complete Set", systemImage: "checkmark.circle")
+                }
+                
+                Button(action: {
+                    focusedField = set.id
+                }) {
+                    Label("Edit Set", systemImage: "pencil")
+                }
+            }
+            
+            Button(role: .destructive, action: {
+                viewModel.removeSet(exerciseId: exerciseId, setId: set.id)
+            }) {
+                Label("Delete Set", systemImage: "trash")
+            }
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(accessibilityLabel)
+        .accessibilityHint("Tap to complete set, long press for more options")
+        .accessibilityAddTraits(set.isCompleted ? [.isSelected] : [])
+    }
+    
+    private var accessibilityLabel: String {
+        let weightValue = weightText.isEmpty ? "empty" : "\(weightText) \(unitManager.weightUnit)"
+        let repsValue = repsText.isEmpty ? "empty" : "\(repsText) reps"
+        let status = set.isCompleted ? "completed" : "incomplete"
+        
+        return "Set \(set.setNumber), \(status), weight \(weightValue), \(repsValue)"
+    }
+    
+    private func handleSetTap() {
+        // Complete current set
+        viewModel.completeSet(exerciseId: exerciseId, setId: set.id)
+        
+        // Check if all sets complete
+        let allComplete = viewModel.allSetsCompleted(in: exerciseId)
+        
+        if allComplete {
+            // Auto-collapse after short delay
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                withAnimation(.spring(response: 0.3)) {
+                    collapsedExerciseIds.insert(exerciseId)
+                }
+                focusedField = nil
+            }
+        } else {
+            // Find and focus next incomplete set
+            if let nextSet = viewModel.getNextIncompleteSet(after: set.id, in: exerciseId) {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    focusedField = nextSet.id
+                }
+            } else {
+                focusedField = nil
+            }
+        }
+        
+        // Haptic feedback
+        HapticManager.shared.success()
     }
     
     private var backgroundFill: Color {
