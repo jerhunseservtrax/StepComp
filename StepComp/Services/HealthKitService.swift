@@ -393,6 +393,29 @@ final class HealthKitService: ObservableObject {
         #endif
     }
     
+    func saveWeight(weightKg: Double, date: Date) async throws {
+        #if os(iOS)
+        guard isAuthorized,
+              let healthStore = healthStore,
+              let weightType = weightType else {
+            throw HealthKitError.notAuthorized
+        }
+        
+        let weightQuantity = HKQuantity(unit: HKUnit.gramUnit(with: .kilo), doubleValue: weightKg)
+        let weightSample = HKQuantitySample(
+            type: weightType,
+            quantity: weightQuantity,
+            start: date,
+            end: date
+        )
+        
+        try await healthStore.save(weightSample)
+        print("✅ Saved weight to HealthKit: \(weightKg) kg on \(date)")
+        #else
+        throw HealthKitError.notAvailable
+        #endif
+    }
+    
     func getAge() -> Int? {
         #if os(iOS)
         guard let healthStore = healthStore else {
