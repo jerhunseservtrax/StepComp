@@ -486,20 +486,20 @@ struct DaySelectionButton: View {
             HStack {
                 Text(day.fullName)
                     .font(.system(size: 16, weight: .bold))
-                    .foregroundColor(.black)
+                    .foregroundColor(StepCompColors.textPrimary)
                 
                 Spacer()
                 
                 Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
                     .font(.system(size: 24))
-                    .foregroundColor(isSelected ? StepCompColors.primary : Color.gray.opacity(0.3))
+                    .foregroundColor(isSelected ? StepCompColors.primary : StepCompColors.textTertiary)
             }
             .padding(16)
-            .background(isSelected ? StepCompColors.primary.opacity(0.1) : Color.white)
+            .background(isSelected ? StepCompColors.primary.opacity(0.1) : StepCompColors.surface)
             .cornerRadius(16)
             .overlay(
                 RoundedRectangle(cornerRadius: 16)
-                    .stroke(isSelected ? StepCompColors.primary : Color.gray.opacity(0.2), lineWidth: isSelected ? 2 : 1)
+                    .stroke(isSelected ? StepCompColors.primary : StepCompColors.cardBorder, lineWidth: isSelected ? 2 : 1)
             )
         }
     }

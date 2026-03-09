@@ -24,15 +24,15 @@ struct Exercise: Identifiable, Codable, Hashable {
 struct WorkoutSet: Identifiable, Codable {
     let id: UUID
     var setNumber: Int
-    var previousWeight: Int?
+    var previousWeight: Double?
     var previousReps: Int?
-    var weight: Int?
+    var weight: Double?
     var reps: Int?
     var isCompleted: Bool
-    var suggestedWeight: Int?
+    var suggestedWeight: Double?
     var suggestedReps: Int?
     
-    init(id: UUID = UUID(), setNumber: Int, previousWeight: Int? = nil, previousReps: Int? = nil, weight: Int? = nil, reps: Int? = nil, isCompleted: Bool = false, suggestedWeight: Int? = nil, suggestedReps: Int? = nil) {
+    init(id: UUID = UUID(), setNumber: Int, previousWeight: Double? = nil, previousReps: Int? = nil, weight: Double? = nil, reps: Int? = nil, isCompleted: Bool = false, suggestedWeight: Double? = nil, suggestedReps: Int? = nil) {
         self.id = id
         self.setNumber = setNumber
         self.previousWeight = previousWeight
@@ -129,16 +129,16 @@ struct CompletedWorkoutSession: Identifiable, Codable {
         return endTime.timeIntervalSince(startTime)
     }
     
-    var totalVolume: Int {
+    var totalVolume: Double {
         return exercises.reduce(0) { total, exercise in
             total + exercise.sets.reduce(0) { setTotal, set in
                 guard let weight = set.weight, let reps = set.reps else { return setTotal }
-                return setTotal + (weight * reps)
+                return setTotal + (weight * Double(reps))
             }
         }
     }
     
-    var maxWeight: Int {
+    var maxWeight: Double {
         return exercises.reduce(0) { max, exercise in
             let exerciseMax = exercise.sets.compactMap { $0.weight }.max() ?? 0
             return Swift.max(max, exerciseMax)

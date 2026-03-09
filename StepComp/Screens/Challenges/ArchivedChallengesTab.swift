@@ -47,7 +47,8 @@ struct ArchivedChallengesTab: View {
                 ChallengeSummaryView(
                     challengeId: challengeId,
                     challengeName: challenge.name,
-                    sessionViewModel: sessionViewModel
+                    sessionViewModel: sessionViewModel,
+                    challenge: challenge
                 )
             }
         }

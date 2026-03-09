@@ -111,6 +111,46 @@ struct ChallengeMember: Codable, Identifiable {
     }
 }
 
+// MARK: - Challenge Snapshot Model (from challenge_snapshots table)
+
+struct ChallengeSnapshot: Codable, Identifiable {
+    let id: String
+    let challengeId: String
+    let userId: String
+    let username: String
+    let displayName: String
+    let avatarUrl: String?
+    let totalSteps: Int
+    let rank: Int
+    let snapshottedAt: Date
+    
+    enum CodingKeys: String, CodingKey {
+        case id
+        case challengeId = "challenge_id"
+        case userId = "user_id"
+        case username
+        case displayName = "display_name"
+        case avatarUrl = "avatar_url"
+        case totalSteps = "total_steps"
+        case rank
+        case snapshottedAt = "snapshotted_at"
+    }
+    
+    func toLeaderboardEntry() -> LeaderboardEntry {
+        LeaderboardEntry(
+            id: id,
+            userId: userId,
+            challengeId: challengeId,
+            username: username,
+            displayName: displayName,
+            avatarURL: avatarUrl,
+            steps: totalSteps,
+            rank: rank,
+            lastUpdated: snapshottedAt
+        )
+    }
+}
+
 // MARK: - Leaderboard Result from Database Function
 
 struct LeaderboardResult: Codable {

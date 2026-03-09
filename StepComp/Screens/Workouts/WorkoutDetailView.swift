@@ -14,6 +14,7 @@ struct WorkoutDetailView: View {
     @ObservedObject var unitManager = UnitPreferenceManager.shared
     @Environment(\.dismiss) private var dismiss
     @Environment(\.colorScheme) private var colorScheme
+    var tabManager: TabSelectionManager?
     
     private var cardBackground: Color {
         colorScheme == .dark ? Color(hex: "1a1a1a") : Color.white
@@ -75,6 +76,12 @@ struct WorkoutDetailView: View {
                                 viewModel.startWorkout(workout, targetDate: Date())
                             }
                             dismiss()
+                            // Switch to Workouts tab to show active workout
+                            if let tabManager = tabManager {
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                                    tabManager.selectedTab = 3
+                                }
+                            }
                         }) {
                             HStack {
                                 Image(systemName: "play.fill")
@@ -262,7 +269,7 @@ struct ExerciseDetailCard: View {
         colorScheme == .dark ? Color(hex: "1a1a1a") : Color.white
     }
     
-    private var previousData: (weight: Int, reps: Int)? {
+    private var previousData: (weight: Double, reps: Int)? {
         // Get the most recent completed data for this exercise
         for session in viewModel.completedSessions.sorted(by: { $0.endTime > $1.endTime }) {
             for exercise in session.exercises {
@@ -313,8 +320,11 @@ struct ExerciseDetailCard: View {
                     Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
                         .font(.system(size: 14, weight: .semibold))
                         .foregroundColor(StepCompColors.textSecondary)
+                        .frame(minWidth: 44, minHeight: 44)
+                        .contentShape(Rectangle())
                 }
                 .padding(16)
+                .contentShape(Rectangle())
             }
             .buttonStyle(PlainButtonStyle())
             
@@ -333,7 +343,11 @@ struct ExerciseDetailCard: View {
                         HStack {
                             Image(systemName: "clock.arrow.circlepath")
                                 .font(.system(size: 12))
-                            Text("Last time: \(Int(unitManager.convertWeightFromStorage(Double(previous.weight)).rounded())) \(unitManager.weightUnit.lowercased()) × \(previous.reps) reps")
+                            let displayWeight = unitManager.convertWeightFromStorage(previous.weight)
+                            let weightStr = displayWeight.truncatingRemainder(dividingBy: 1) == 0
+                                ? String(Int(displayWeight))
+                                : String(format: "%.1f", displayWeight)
+                            Text("Last time: \(weightStr) \(unitManager.weightUnit.lowercased()) × \(previous.reps) reps")
                                 .font(.system(size: 12, weight: .medium))
                         }
                         .foregroundColor(colorScheme == .dark ? StepCompColors.primary : .black)
@@ -366,7 +380,11 @@ struct SetPreviewRow: View {
             
             if let prevWeight = set.previousWeight, let prevReps = set.previousReps {
                 HStack(spacing: 4) {
-                    Text("\(Int(unitManager.convertWeightFromStorage(Double(prevWeight)).rounded()))")
+                    let displayWeight = unitManager.convertWeightFromStorage(prevWeight)
+                    let weightStr = displayWeight.truncatingRemainder(dividingBy: 1) == 0
+                        ? String(Int(displayWeight))
+                        : String(format: "%.1f", displayWeight)
+                    Text(weightStr)
                         .font(.system(size: 14, weight: .bold))
                     Text(unitManager.weightUnit.lowercased())
                         .font(.system(size: 11, weight: .medium))
@@ -383,7 +401,11 @@ struct SetPreviewRow: View {
                 .foregroundColor(StepCompColors.textPrimary)
             } else if let suggestedWeight = set.suggestedWeight, let suggestedReps = set.suggestedReps {
                 HStack(spacing: 4) {
-                    Text("\(Int(unitManager.convertWeightFromStorage(Double(suggestedWeight)).rounded()))")
+                    let displayWeight = unitManager.convertWeightFromStorage(suggestedWeight)
+                    let weightStr = displayWeight.truncatingRemainder(dividingBy: 1) == 0
+                        ? String(Int(displayWeight))
+                        : String(format: "%.1f", displayWeight)
+                    Text(weightStr)
                         .font(.system(size: 14, weight: .bold))
                     Text(unitManager.weightUnit.lowercased())
                         .font(.system(size: 11, weight: .medium))

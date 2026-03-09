@@ -264,7 +264,8 @@ struct WorkoutsView: View {
             return []
         }
         
-        return (0..<7).compactMap { offset in
+        // Show current week + 8 weeks ahead (9 weeks total = 63 days)
+        return (0..<63).compactMap { offset in
             calendar.date(byAdding: .day, value: offset, to: sunday)
         }
     }
@@ -792,7 +793,7 @@ struct BigThreeLiftCard: View {
     @ObservedObject var unitManager: UnitPreferenceManager
     @Environment(\.colorScheme) private var colorScheme
     
-    private var bigThreeData: (squat: Int?, bench: Int?, deadlift: Int?) {
+    private var bigThreeData: (squat: Double?, bench: Double?, deadlift: Double?) {
         viewModel.getBigThreeEstimated1RMs()
     }
     
@@ -1051,7 +1052,11 @@ struct ExerciseDetailRow: View {
                         
                         if let weight = set.weight, let reps = set.reps {
                             HStack(spacing: 4) {
-                                Text("\(Int(unitManager.convertWeightFromStorage(Double(weight)).rounded()))")
+                                let displayWeight = unitManager.convertWeightFromStorage(weight)
+                                let weightStr = displayWeight.truncatingRemainder(dividingBy: 1) == 0
+                                    ? String(Int(displayWeight))
+                                    : String(format: "%.1f", displayWeight)
+                                Text(weightStr)
                                     .font(.system(size: 14, weight: .bold))
                                 Text(unitManager.weightUnit.lowercased())
                                     .font(.system(size: 11, weight: .medium))
@@ -1104,9 +1109,9 @@ struct RecentWorkoutLogCard: View {
     }
     
     // Get the best set from the session (highest estimated 1RM)
-    private var bestSet: (exercise: String, weight: Int, reps: Int, isPR: Bool)? {
-        var best: (exercise: String, weight: Int, reps: Int, estimated1RM: Int, isPR: Bool)?
-        
+    private var bestSet: (exercise: String, weight: Double, reps: Int, isPR: Bool)? {
+        var best: (exercise: String, weight: Double, reps: Int, estimated1RM: Double, isPR: Bool)?
+
         for exercise in session.exercises {
             for set in exercise.sets {
                 if let weight = set.weight, let reps = set.reps, reps >= 1 && reps <= 10 {
@@ -1118,11 +1123,11 @@ struct RecentWorkoutLogCard: View {
                 }
             }
         }
-        
+
         return best.map { ($0.exercise, $0.weight, $0.reps, $0.isPR) }
     }
-    
-    private func checkIfPR(exercise: String, weight: Int, reps: Int, sessionDate: Date) -> Bool {
+
+    private func checkIfPR(exercise: String, weight: Double, reps: Int, sessionDate: Date) -> Bool {
         let currentEstimated = viewModel.calculateEstimated1RM(weight: weight, reps: reps)
         
         // Check all sessions BEFORE this one
@@ -1159,7 +1164,7 @@ struct RecentWorkoutLogCard: View {
                 
                 if let best = bestSet {
                     HStack(alignment: .firstTextBaseline, spacing: 4) {
-                        Text(unitManager.formatWeight(Double(best.weight), decimals: 0))
+                        Text(unitManager.formatWeight(best.weight, decimals: 1))
                             .font(.system(size: 18, weight: .black))
                             .foregroundColor(StepCompColors.textPrimary)
                         Text(unitManager.weightUnit.lowercased())

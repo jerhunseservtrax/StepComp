@@ -32,45 +32,68 @@ class TransformationPhotoViewModel: ObservableObject {
     
     // MARK: - Public Methods
     
-    func addPhoto(image: UIImage, date: Date = Date(), note: String? = nil) {
-        // Compress and resize image
-        guard let processedImage = processImage(image),
-              let imageData = processedImage.jpegData(compressionQuality: 0.8) else {
-            print("❌ Failed to process image")
+    func addPhotoSet(frontImage: UIImage, sideImage: UIImage, backImage: UIImage, date: Date = Date(), note: String? = nil) {
+        // Process and save all three images
+        guard let processedFront = processImage(frontImage),
+              let processedSide = processImage(sideImage),
+              let processedBack = processImage(backImage),
+              let frontData = processedFront.jpegData(compressionQuality: 0.8),
+              let sideData = processedSide.jpegData(compressionQuality: 0.8),
+              let backData = processedBack.jpegData(compressionQuality: 0.8) else {
+            print("❌ Failed to process images")
             return
         }
         
-        // Generate filename
-        let filename = "\(UUID().uuidString).jpg"
-        let fileURL = photoDirectory.appendingPathComponent(filename)
+        // Generate filenames
+        let baseId = UUID().uuidString
+        let frontFilename = "\(baseId)_front.jpg"
+        let sideFilename = "\(baseId)_side.jpg"
+        let backFilename = "\(baseId)_back.jpg"
+        
+        let frontURL = photoDirectory.appendingPathComponent(frontFilename)
+        let sideURL = photoDirectory.appendingPathComponent(sideFilename)
+        let backURL = photoDirectory.appendingPathComponent(backFilename)
         
         // Save to disk
         do {
-            try imageData.write(to: fileURL)
+            try frontData.write(to: frontURL)
+            try sideData.write(to: sideURL)
+            try backData.write(to: backURL)
             
             // Create metadata entry
-            let photo = TransformationPhoto(date: date, filename: filename, note: note)
+            let photo = TransformationPhoto(
+                date: date,
+                frontFilename: frontFilename,
+                sideFilename: sideFilename,
+                backFilename: backFilename,
+                note: note
+            )
             photos.append(photo)
             photos.sort { $0.date > $1.date } // Newest first
             
-            // Update latest photo
-            latestPhoto = processedImage
+            // Update latest photo (use front as the preview)
+            latestPhoto = processedFront
             
             // Save metadata
             savePhotos()
             
-            print("✅ Saved transformation photo: \(filename)")
+            print("✅ Saved transformation photo set: front=\(frontFilename), side=\(sideFilename), back=\(backFilename)")
         } catch {
-            print("❌ Failed to save photo: \(error)")
+            print("❌ Failed to save photos: \(error)")
         }
     }
     
     func deletePhoto(id: UUID) {
         guard let photo = photos.first(where: { $0.id == id }) else { return }
         
-        // Delete file from disk
-        let fileURL = photoDirectory.appendingPathComponent(photo.filename)
-        try? FileManager.default.removeItem(at: fileURL)
+        // Delete all three files from disk
+        let frontURL = photoDirectory.appendingPathComponent(photo.frontFilename)
+        let sideURL = photoDirectory.appendingPathComponent(photo.sideFilename)
+        let backURL = photoDirectory.appendingPathComponent(photo.backFilename)
+        
+        try? FileManager.default.removeItem(at: frontURL)
+        try? FileManager.default.removeItem(at: sideURL)
+        try? FileManager.default.removeItem(at: backURL)
         
         // Remove from array
         photos.removeAll { $0.id == id }
@@ -81,18 +104,21 @@ class TransformationPhotoViewModel: ObservableObject {
         // Save metadata
         savePhotos()
         
-        print("✅ Deleted transformation photo: \(photo.filename)")
+        print("✅ Deleted transformation photo set")
     }
     
-    func updateNote(id: UUID, note: String?) {
-        if let index = photos.firstIndex(where: { $0.id == id }) {
-            photos[index].note = note
-            savePhotos()
+    func loadImage(for photo: TransformationPhoto, angle: PhotoAngle) -> UIImage? {
+        let filename: String
+        switch angle {
+        case .front:
+            filename = photo.frontFilename
+        case .side:
+            filename = photo.sideFilename
+        case .back:
+            filename = photo.backFilename
         }
-    }
-    
-    func loadImage(for photo: TransformationPhoto) -> UIImage? {
-        let fileURL = photoDirectory.appendingPathComponent(photo.filename)
+        
+        let fileURL = photoDirectory.appendingPathComponent(filename)
         guard let data = try? Data(contentsOf: fileURL),
               let image = UIImage(data: data) else {
             return nil
@@ -144,6 +170,6 @@ class TransformationPhotoViewModel: ObservableObject {
             latestPhoto = nil
             return
         }
-        latestPhoto = loadImage(for: latest)
+        latestPhoto = loadImage(for: latest, angle: .front)
     }
 }

@@ -11,6 +11,7 @@ struct UpcomingWorkoutCard: View {
     let workout: Workout
     let date: Date
     let onTap: () -> Void
+    var tabManager: TabSelectionManager?
     
     @Environment(\.colorScheme) private var colorScheme
     @State private var showingWorkoutDetail = false
@@ -87,7 +88,8 @@ struct UpcomingWorkoutCard: View {
             WorkoutDetailView(
                 workout: workout,
                 selectedDate: date,
-                viewModel: WorkoutViewModel.shared
+                viewModel: WorkoutViewModel.shared,
+                tabManager: tabManager
             )
         }
     }

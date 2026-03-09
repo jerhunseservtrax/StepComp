@@ -68,7 +68,8 @@ struct HomeDashboardView: View {
                                 date: nextWorkout.date,
                                 onTap: {
                                     tabManager.selectedTab = 3 // Switch to Workouts tab
-                                }
+                                },
+                                tabManager: tabManager
                             )
                             .padding(.horizontal, 20)
                         }

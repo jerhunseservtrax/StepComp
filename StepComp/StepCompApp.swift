@@ -30,6 +30,12 @@ struct StepCompApp: App {
             _ = await MainActor.run { NotificationManager.shared }
             try? await NotificationManager.shared.requestAuthorization()
         }
+        
+        // Sync any locally-saved workout sessions and weight entries that
+        // haven't been pushed to Supabase yet (handles offline catch-up).
+        Task.detached(priority: .utility) {
+            await MetricsService.shared.syncAllLocalData()
+        }
     }
     
     var body: some Scene {

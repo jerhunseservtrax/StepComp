@@ -122,14 +122,26 @@ struct DashboardHeader: View {
             // Load unread counts
             await loadUnreadCounts()
         }
+        .onChange(of: showingChats) { _, isShowing in
+            if !isShowing {
+                Task {
+                    await loadChatUnreadCount()
+                }
+            }
+        }
+        .onChange(of: showingInbox) { _, isShowing in
+            if !isShowing {
+                Task {
+                    await loadNotificationUnreadCount()
+                }
+            }
+        }
         .onReceive(NotificationCenter.default.publisher(for: .chatMessageReceived)) { _ in
-            // Refresh chat count when new message received
             Task {
                 await loadChatUnreadCount()
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: .chatViewDismissed)) { _ in
-            // Refresh chat count when user returns from a chat
             Task {
                 await loadChatUnreadCount()
             }

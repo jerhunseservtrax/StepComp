@@ -153,8 +153,13 @@ struct EditSetRow: View {
         
         // Initialize display values from storage (kg) to display unit
         if let weight = set.wrappedValue.weight {
-            let converted = Int(unitManager.convertWeightFromStorage(Double(weight)).rounded())
-            _displayWeight = State(initialValue: String(converted))
+            let converted = unitManager.convertWeightFromStorage(Double(weight))
+            // Show decimals if present, otherwise show as integer
+            if converted.truncatingRemainder(dividingBy: 1) == 0 {
+                _displayWeight = State(initialValue: String(Int(converted)))
+            } else {
+                _displayWeight = State(initialValue: String(format: "%.1f", converted))
+            }
         }
         if let reps = set.wrappedValue.reps {
             _displayReps = State(initialValue: String(reps))
@@ -177,18 +182,24 @@ struct EditSetRow: View {
                     .textCase(.uppercase)
                 
                 TextField("0", text: $displayWeight)
-                    .keyboardType(.numberPad)
+                    .keyboardType(.decimalPad)
                     .font(.system(size: 16, weight: .bold))
                     .foregroundColor(StepCompColors.textPrimary)
                     .padding(12)
                     .background(StepCompColors.textSecondary.opacity(0.1))
                     .cornerRadius(12)
                     .focused($focusedField, equals: .weight)
+                    .onTapGesture {
+                        displayWeight = ""
+                        focusedField = .weight
+                    }
                     .onChange(of: displayWeight) { _, newValue in
-                        if let display = Int(newValue) {
+                        if let display = Double(newValue), display > 0 {
                             // Convert from display unit to storage (kg)
-                            let storage = Int(unitManager.convertWeightToStorage(Double(display)).rounded())
+                            let storage = unitManager.convertWeightToStorage(display)
                             set.weight = storage
+                        } else if newValue.isEmpty {
+                            set.weight = nil
                         }
                     }
             }
@@ -208,6 +219,10 @@ struct EditSetRow: View {
                     .background(StepCompColors.textSecondary.opacity(0.1))
                     .cornerRadius(12)
                     .focused($focusedField, equals: .reps)
+                    .onTapGesture {
+                        displayReps = ""
+                        focusedField = .reps
+                    }
                     .onChange(of: displayReps) { _, newValue in
                         set.reps = Int(newValue)
                     }

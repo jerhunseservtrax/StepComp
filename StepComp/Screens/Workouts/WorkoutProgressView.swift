@@ -21,7 +21,7 @@ struct WorkoutProgressView: View {
     }
     
     /// Auto-calculated 1RMs for squat, bench, deadlift from completed workout sets (Brzycki formula).
-    private var bigThree1RMs: (squat: Int?, bench: Int?, deadlift: Int?) {
+    private var bigThree1RMs: (squat: Double?, bench: Double?, deadlift: Double?) {
         viewModel.getBigThreeEstimated1RMs()
     }
     
@@ -69,7 +69,7 @@ struct WorkoutProgressView: View {
         )
     }
     
-    private func bigThreeRow(label: String, value: Int?) -> some View {
+    private func bigThreeRow(label: String, value: Double?) -> some View {
         HStack {
             Text(label)
                 .font(.system(size: 15, weight: .semibold))
@@ -78,7 +78,11 @@ struct WorkoutProgressView: View {
             if let value = value, value > 0 {
                 HStack(alignment: .firstTextBaseline, spacing: 4) {
                     // value is in kg, convert to display unit
-                    Text("\(Int(unitManager.convertWeightFromStorage(Double(value)).rounded()))")
+                    let displayWeight = unitManager.convertWeightFromStorage(value)
+                    let weightStr = displayWeight.truncatingRemainder(dividingBy: 1) == 0
+                        ? String(Int(displayWeight))
+                        : String(format: "%.1f", displayWeight)
+                    Text(weightStr)
                         .font(.system(size: 20, weight: .black))
                         .italic()
                         .foregroundColor(StepCompColors.primary)

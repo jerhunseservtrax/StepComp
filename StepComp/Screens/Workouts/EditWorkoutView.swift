@@ -17,6 +17,7 @@ struct EditWorkoutView: View {
     @State private var selectedDays: Set<DayOfWeek>
     @State private var showingExercisePicker = false
     @State private var showingDeleteConfirmation = false
+    @State private var exerciseToConfigure: Exercise? = nil
     
     init(viewModel: WorkoutViewModel, workout: Workout) {
         self.viewModel = viewModel
@@ -46,13 +47,13 @@ struct EditWorkoutView: View {
                         VStack(alignment: .leading, spacing: 8) {
                             Text("WORKOUT NAME")
                                 .font(.system(size: 12, weight: .bold))
-                                .foregroundColor(.gray)
+                                .foregroundColor(StepCompColors.textSecondary)
                             
                             TextField("Workout name", text: $workoutName)
                                 .font(.system(size: 18, weight: .semibold))
-                                .foregroundColor(.black)
+                                .foregroundColor(StepCompColors.textPrimary)
                                 .padding(16)
-                                .background(Color.white)
+                                .background(StepCompColors.surface)
                                 .cornerRadius(16)
                         }
                         
@@ -60,15 +61,15 @@ struct EditWorkoutView: View {
                         VStack(alignment: .leading, spacing: 12) {
                             Text("EXERCISES")
                                 .font(.system(size: 12, weight: .bold))
-                                .foregroundColor(.gray)
+                                .foregroundColor(StepCompColors.textSecondary)
                             
                             if selectedExercises.isEmpty {
                                 Text("No exercises added")
                                     .font(.system(size: 16))
-                                    .foregroundColor(.gray)
+                                    .foregroundColor(StepCompColors.textSecondary)
                                     .frame(maxWidth: .infinity)
                                     .frame(height: 100)
-                                    .background(Color.white)
+                                    .background(StepCompColors.surface)
                                     .cornerRadius(16)
                             } else {
                                 ForEach(Array(selectedExercises.enumerated()), id: \.element.id) { index, exercise in
@@ -76,9 +77,10 @@ struct EditWorkoutView: View {
                                         VStack(alignment: .leading, spacing: 4) {
                                             Text(exercise.exercise.name)
                                                 .font(.system(size: 16, weight: .bold))
+                                                .foregroundColor(StepCompColors.textPrimary)
                                             Text("\(exercise.sets) sets × \(exercise.reps) reps")
                                                 .font(.system(size: 12))
-                                                .foregroundColor(.gray)
+                                                .foregroundColor(StepCompColors.textSecondary)
                                         }
                                         
                                         Spacer()
@@ -92,7 +94,7 @@ struct EditWorkoutView: View {
                                         }
                                     }
                                     .padding(12)
-                                    .background(Color.white)
+                                    .background(StepCompColors.surface)
                                     .cornerRadius(12)
                                 }
                             }
@@ -105,8 +107,8 @@ struct EditWorkoutView: View {
                                 }
                                 .frame(maxWidth: .infinity)
                                 .frame(height: 48)
-                                .background(Color.white)
-                                .foregroundColor(.black)
+                                .background(StepCompColors.surface)
+                                .foregroundColor(StepCompColors.textPrimary)
                                 .cornerRadius(12)
                                 .overlay(
                                     RoundedRectangle(cornerRadius: 12)
@@ -119,7 +121,7 @@ struct EditWorkoutView: View {
                         VStack(alignment: .leading, spacing: 12) {
                             Text("ASSIGNED DAYS")
                                 .font(.system(size: 12, weight: .bold))
-                                .foregroundColor(.gray)
+                                .foregroundColor(StepCompColors.textSecondary)
                             
                             ForEach(DayOfWeek.allCases) { day in
                                 DaySelectionButton(
@@ -165,12 +167,12 @@ struct EditWorkoutView: View {
                             .frame(maxWidth: .infinity)
                             .frame(height: 56)
                             .background(canSave ? StepCompColors.primary : Color.gray.opacity(0.3))
-                            .foregroundColor(.black)
+                            .foregroundColor(canSave ? StepCompColors.buttonTextOnPrimary : StepCompColors.textSecondary)
                             .cornerRadius(28)
                     }
                     .disabled(!canSave)
                     .padding(20)
-                    .background(Color.white)
+                    .background(StepCompColors.surface)
                 }
             }
             .navigationTitle("Edit Workout")
@@ -180,14 +182,28 @@ struct EditWorkoutView: View {
                     Button("Cancel") {
                         dismiss()
                     }
+                    .foregroundColor(StepCompColors.textPrimary)
                 }
             }
         }
         .sheet(isPresented: $showingExercisePicker) {
             ExercisePickerView { exercise in
-                let newExercise = SelectedExercise(exercise: exercise, sets: 3, reps: 10)
-                selectedExercises.append(newExercise)
+                exerciseToConfigure = exercise
             }
+        }
+        .sheet(item: $exerciseToConfigure) { exercise in
+            AddExerciseConfigSheet(
+                exercise: exercise,
+                defaultSets: 3,
+                defaultReps: 10,
+                onAdd: { sets, reps in
+                    selectedExercises.append(SelectedExercise(exercise: exercise, sets: sets, reps: reps))
+                    exerciseToConfigure = nil
+                },
+                onCancel: {
+                    exerciseToConfigure = nil
+                }
+            )
         }
         .confirmationDialog("Delete Workout", isPresented: $showingDeleteConfirmation, titleVisibility: .visible) {
             Button("Delete Workout", role: .destructive) {
@@ -229,6 +245,80 @@ struct EditWorkoutView: View {
         viewModel.updateWorkout(updatedWorkout)
         HapticManager.shared.success()
         dismiss()
+    }
+}
+
+// MARK: - Add Exercise Config Sheet
+
+struct AddExerciseConfigSheet: View {
+    let exercise: Exercise
+    let defaultSets: Int
+    let defaultReps: Int
+    let onAdd: (Int, Int) -> Void
+    let onCancel: () -> Void
+    
+    @State private var sets: Int
+    @State private var reps: Int
+    
+    init(exercise: Exercise, defaultSets: Int = 3, defaultReps: Int = 10, onAdd: @escaping (Int, Int) -> Void, onCancel: @escaping () -> Void) {
+        self.exercise = exercise
+        self.defaultSets = defaultSets
+        self.defaultReps = defaultReps
+        self.onAdd = onAdd
+        self.onCancel = onCancel
+        self._sets = State(initialValue: defaultSets)
+        self._reps = State(initialValue: defaultReps)
+    }
+    
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                StepCompColors.background.ignoresSafeArea()
+                
+                VStack(spacing: 24) {
+                    Text("Set the number of sets and reps for this exercise")
+                        .font(.system(size: 16))
+                        .foregroundColor(StepCompColors.textSecondary)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal)
+                    
+                    ExerciseConfigCard(
+                        exercise: SelectedExercise(exercise: exercise, sets: sets, reps: reps),
+                        onSetsChange: { sets = $0 },
+                        onRepsChange: { reps = $0 }
+                    )
+                    .padding(.horizontal, 20)
+                    
+                    Spacer()
+                    
+                    Button(action: {
+                        onAdd(sets, reps)
+                        HapticManager.shared.success()
+                    }) {
+                        Text("Add Exercise")
+                            .font(.system(size: 16, weight: .bold))
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 56)
+                            .background(StepCompColors.primary)
+                            .foregroundColor(StepCompColors.buttonTextOnPrimary)
+                            .cornerRadius(28)
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 20)
+                }
+                .padding(.top, 24)
+            }
+            .navigationTitle(exercise.name)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Cancel") {
+                        onCancel()
+                    }
+                    .foregroundColor(StepCompColors.textPrimary)
+                }
+            }
+        }
     }
 }
 

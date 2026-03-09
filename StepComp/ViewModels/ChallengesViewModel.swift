@@ -163,31 +163,6 @@ final class ChallengesViewModel: ObservableObject {
             
             print("📊 [ArchivedChallenges] Found \(createdArchivedChallenges.count) created archived challenges")
             
-            // #region agent log
-            let logFile = "/Users/jefferyerhunse/GitRepos/StepComp/.cursor/debug.log"
-            for challenge in createdArchivedChallenges {
-                // Query challenge_members directly for each archived challenge
-                let members: [ChallengeMember] = (try? await supabase
-                    .from("challenge_members")
-                    .select()
-                    .eq("challenge_id", value: challenge.id)
-                    .execute()
-                    .value) ?? []
-                
-                let dbCheckLog = [
-                    "timestamp": Date().timeIntervalSince1970 * 1000,
-                    "location": "ChallengesViewModel.swift:156",
-                    "message": "Archived challenge member count",
-                    "data": ["challengeName": challenge.name, "challengeId": challenge.id, "memberCount": members.count, "memberUserIds": members.map { $0.userId }],
-                    "hypothesisId": "A"
-                ] as [String : Any]
-                if let jsonData = try? JSONSerialization.data(withJSONObject: dbCheckLog),
-                   let jsonString = String(data: jsonData, encoding: .utf8) {
-                    try? (jsonString + "\n").appendLineToURL(fileURL: URL(fileURLWithPath: logFile))
-                }
-            }
-            // #endregion
-            
             // Get archived challenges user is a member of (ended or inactive)
             var memberArchivedChallenges: [SupabaseChallenge] = []
             if !userChallengeIds.isEmpty {
@@ -260,21 +235,88 @@ final class ChallengesViewModel: ObservableObject {
             
             print("🔍 [convertToChallenges] Challenge '\(supabaseChallenge.name)' (ID: \(supabaseChallenge.id)): Found \(members.count) members in database")
             
-            let participantIds = members.map { $0.userId }
+            var participantIds = members.map { $0.userId }
+            
+            // If challenge_members is empty (common for archived challenges),
+            // attempt to recover participants from snapshot or other sources
+            if participantIds.isEmpty && supabaseChallenge.endDate < Date() {
+                print("🔧 [convertToChallenges] No members found for archived challenge - attempting recovery...")
+                
+                // Try 1: Check challenge_snapshots (most reliable for archived challenges)
+                do {
+                    let snapshots: [ChallengeSnapshot] = try await supabase
+                        .from("challenge_snapshots")
+                        .select()
+                        .eq("challenge_id", value: supabaseChallenge.id)
+                        .execute()
+                        .value
+                    
+                    if !snapshots.isEmpty {
+                        participantIds = snapshots.map { $0.userId }
+                        print("✅ [convertToChallenges] Recovered \(participantIds.count) participants from challenge_snapshots")
+                    } else {
+                        // No snapshot exists - try to create one
+                        print("📸 [convertToChallenges] No snapshot found - attempting to create one...")
+                        
+                        struct SnapshotResult: Codable {
+                            let userId: String
+                            enum CodingKeys: String, CodingKey {
+                                case userId = "user_id"
+                            }
+                        }
+                        
+                        let snapshotResults: [SnapshotResult] = try await supabase
+                            .rpc("snapshot_challenge_results", params: ["p_challenge_id": supabaseChallenge.id])
+                            .execute()
+                            .value
+                        
+                        participantIds = snapshotResults.map { $0.userId }
+                        print("✅ [convertToChallenges] Created snapshot with \(participantIds.count) participants")
+                    }
+                } catch {
+                    print("⚠️ [convertToChallenges] Snapshot recovery failed: \(error.localizedDescription)")
+                    
+                    // Try 2: Check challenge_invites for accepted invitations
+                    do {
+                        struct InviteRow: Codable {
+                            let inviteeId: String
+                            enum CodingKeys: String, CodingKey {
+                                case inviteeId = "invitee_id"
+                            }
+                        }
+                        
+                        let acceptedInvites: [InviteRow] = try await supabase
+                            .from("challenge_invites")
+                            .select("invitee_id")
+                            .eq("challenge_id", value: supabaseChallenge.id)
+                            .eq("status", value: "accepted")
+                            .execute()
+                            .value
+                        
+                        participantIds = acceptedInvites.map { $0.inviteeId }
+                        print("✅ [convertToChallenges] Recovered \(participantIds.count) participants from challenge_invites")
+                    } catch {
+                        print("⚠️ [convertToChallenges] Failed to recover from challenge_invites: \(error.localizedDescription)")
+                    }
+                }
+                
+                if participantIds.isEmpty {
+                    print("⚠️ [convertToChallenges] No recovery method succeeded - only creator will be shown")
+                }
+            }
             
             // Ensure creator is in participantIds (they should be, but double-check)
             // Use case-insensitive comparison since UUIDs might have different casing
             let normalizedCreatorId = supabaseChallenge.createdBy.lowercased()
-            var finalParticipantIds = participantIds
-            let creatorExists = finalParticipantIds.contains { $0.lowercased() == normalizedCreatorId }
+            let creatorExists = participantIds.contains { $0.lowercased() == normalizedCreatorId }
             if !creatorExists {
-                finalParticipantIds.append(supabaseChallenge.createdBy)
+                participantIds.append(supabaseChallenge.createdBy)
                 print("⚠️ [ChallengesViewModel] Creator \(supabaseChallenge.createdBy) not in participantIds for challenge \(supabaseChallenge.name), adding them")
             }
             
             // Debug: Log participant count for this challenge
-            print("🔍 [ChallengesViewModel] Challenge '\(supabaseChallenge.name)': \(finalParticipantIds.count) participants (including creator)")
-            print("🔍 [ChallengesViewModel] Participant IDs: \(finalParticipantIds)")
+            print("🔍 [ChallengesViewModel] Challenge '\(supabaseChallenge.name)': \(participantIds.count) participants (including creator)")
+            print("🔍 [ChallengesViewModel] Participant IDs: \(participantIds)")
             
             // Convert category string to enum
             var category: Challenge.ChallengeCategory? = nil
@@ -290,7 +332,7 @@ final class ChallengesViewModel: ObservableObject {
                 endDate: supabaseChallenge.endDate,
                 targetSteps: 10000, // Default, could be stored in DB
                 creatorId: supabaseChallenge.createdBy,
-                participantIds: finalParticipantIds,
+                participantIds: participantIds,
                 isActive: supabaseChallenge.endDate >= Date(),
                 createdAt: supabaseChallenge.createdAt,
                 inviteCode: supabaseChallenge.inviteCode,

@@ -22,6 +22,7 @@ class WorkoutViewModel: ObservableObject {
     private var timer: Timer?
     private var pauseStartTime: Date?
     private var totalPausedTime: TimeInterval = 0
+    private let autoFinishThreshold: TimeInterval = 6 * 3600
     
     private init() {
         loadWorkouts()
@@ -191,6 +192,12 @@ class WorkoutViewModel: ObservableObject {
         completedSessions.append(completedSession)
         saveCompletedSessions()
         
+        // Sync to Supabase in the background (fire-and-forget)
+        let sessionToSync = completedSession
+        Task.detached(priority: .utility) {
+            await MetricsService.shared.syncWorkoutSession(sessionToSync)
+        }
+        
         // Update the workout's last completed date
         if let workoutIndex = workouts.firstIndex(where: { $0.id == session.workoutId }) {
             workouts[workoutIndex].lastCompletedAt = Date()
@@ -219,9 +226,9 @@ class WorkoutViewModel: ObservableObject {
     
     // MARK: - Set Management
     
-    func updateSet(exerciseId: UUID, setId: UUID, weight: Int?, reps: Int?) {
+    func updateSet(exerciseId: UUID, setId: UUID, weight: Double?, reps: Int?) {
         guard var session = currentSession else { return }
-        
+
         if let exerciseIndex = session.exercises.firstIndex(where: { $0.id == exerciseId }),
            let setIndex = session.exercises[exerciseIndex].sets.firstIndex(where: { $0.id == setId }) {
             session.exercises[exerciseIndex].sets[setIndex].weight = weight
@@ -322,6 +329,10 @@ class WorkoutViewModel: ObservableObject {
         timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
             guard let self = self, let startTime = self.sessionStartTime else { return }
             self.elapsedTime = Date().timeIntervalSince(startTime) - self.totalPausedTime
+
+            if self.elapsedTime >= self.autoFinishThreshold {
+                self.finishWorkout()
+            }
         }
     }
     
@@ -406,20 +417,20 @@ class WorkoutViewModel: ObservableObject {
     /// - If previous reps 8-11: suggest +2 reps (maintain weight)
     /// - If previous reps < 8: suggest +2-3 reps (maintain weight)
     /// - If no previous data: return nil so user can set their starting weight
-    private func calculateProgressiveOverload(previousWeight: Int?, previousReps: Int?) -> (suggestedWeight: Int?, suggestedReps: Int?) {
+    private func calculateProgressiveOverload(previousWeight: Double?, previousReps: Int?) -> (suggestedWeight: Double?, suggestedReps: Int?) {
         guard let prevWeight = previousWeight, let prevReps = previousReps else {
             return (nil, nil)
         }
-        
+
         var suggestedWeight = prevWeight
         var suggestedReps = prevReps
-        
+
         // Progressive overload logic (weights stored in kg)
         if prevReps >= 12 {
             // High reps - suggest weight increase
             // For smaller weights (<25kg/55lbs), increase by 2.5kg (5lbs)
             // For larger weights, increase by 5kg (10lbs)
-            let weightIncrement = prevWeight < 25 ? 2 : 5  // kg increments
+            let weightIncrement = prevWeight < 25 ? 2.5 : 5.0  // kg increments
             suggestedWeight = prevWeight + weightIncrement
             suggestedReps = max(8, prevReps - 2) // Drop reps slightly when increasing weight
         } else if prevReps >= 8 {
@@ -429,11 +440,11 @@ class WorkoutViewModel: ObservableObject {
             // Low reps (<8) - suggest more reps to build volume
             suggestedReps = min(10, prevReps + 3) // Build up to 8-10 rep range
         }
-        
+
         return (suggestedWeight, suggestedReps)
     }
     
-    func calculateEstimated1RM(weight: Int, reps: Int) -> Int {
+    func calculateEstimated1RM(weight: Double, reps: Int) -> Double {
         // Only calculate 1RM for rep ranges between 1-10 for best accuracy
         // Reps above 10 involve more endurance and less strength
         guard reps >= 1 && reps <= 10 else { return weight }
@@ -443,12 +454,12 @@ class WorkoutViewModel: ObservableObject {
         
         // Epley formula: 1RM = weight × (1 + reps/30)
         // This is more conservative than Brzycki for higher reps
-        let oneRM = Double(weight) * (1.0 + Double(reps) / 30.0)
-        return Int(oneRM.rounded())
+        let oneRM = weight * (1.0 + Double(reps) / 30.0)
+        return oneRM
     }
     
-    func getMaxEstimated1RM() -> Int {
-        var maxOneRM = 0
+    func getMaxEstimated1RM() -> Double {
+        var maxOneRM: Double = 0
         
         for session in completedSessions {
             for exercise in session.exercises {
@@ -462,8 +473,8 @@ class WorkoutViewModel: ObservableObject {
         return maxOneRM
     }
     
-    func getMaxEstimated1RMForExercise(exerciseName: String) -> (weight: Int, exerciseName: String)? {
-        var maxOneRM = 0
+    func getMaxEstimated1RMForExercise(exerciseName: String) -> (weight: Double, exerciseName: String)? {
+        var maxOneRM: Double = 0
         var foundExercise = false
         
         for session in completedSessions {
@@ -484,10 +495,10 @@ class WorkoutViewModel: ObservableObject {
     
     /// Returns estimated 1RMs for squat, bench, and deadlift from all completed sessions.
     /// Uses Brzycki formula on best set per lift; nil for a lift if no matching data exists.
-    func getBigThreeEstimated1RMs() -> (squat: Int?, bench: Int?, deadlift: Int?) {
-        var squatRM: Int?
-        var benchRM: Int?
-        var deadliftRM: Int?
+    func getBigThreeEstimated1RMs() -> (squat: Double?, bench: Double?, deadlift: Double?) {
+        var squatRM: Double?
+        var benchRM: Double?
+        var deadliftRM: Double?
         
         if let s = getMaxEstimated1RMForExercise(exerciseName: "Squat") { squatRM = s.weight }
         if let b = getMaxEstimated1RMForExercise(exerciseName: "Bench") { benchRM = b.weight }
@@ -527,9 +538,9 @@ class WorkoutViewModel: ObservableObject {
         return available
     }
     
-    func getPersonalBests() -> (maxWeight: Int, maxVolume: Int) {
-        var maxWeight = 0
-        var maxVolume = 0
+    func getPersonalBests() -> (maxWeight: Double, maxVolume: Double) {
+        var maxWeight: Double = 0
+        var maxVolume: Double = 0
         
         for session in completedSessions {
             maxWeight = max(maxWeight, session.maxWeight)
@@ -658,15 +669,15 @@ class WorkoutViewModel: ObservableObject {
                 let migratedSets = exercise.sets.map { set in
                     var newSet = set
                     if let weight = set.weight {
-                        newSet.weight = Int((Double(weight) / 2.20462).rounded())
+                        newSet.weight = weight / 2.20462
                         didMigrate = true
                     }
                     if let prevWeight = set.previousWeight {
-                        newSet.previousWeight = Int((Double(prevWeight) / 2.20462).rounded())
+                        newSet.previousWeight = prevWeight / 2.20462
                         didMigrate = true
                     }
                     if let sugWeight = set.suggestedWeight {
-                        newSet.suggestedWeight = Int((Double(sugWeight) / 2.20462).rounded())
+                        newSet.suggestedWeight = sugWeight / 2.20462
                         didMigrate = true
                     }
                     return newSet
@@ -689,15 +700,15 @@ class WorkoutViewModel: ObservableObject {
                 let migratedSets = exercise.sets.map { set in
                     var newSet = set
                     if let weight = set.weight {
-                        newSet.weight = Int((Double(weight) / 2.20462).rounded())
+                        newSet.weight = weight / 2.20462
                         didMigrate = true
                     }
                     if let prevWeight = set.previousWeight {
-                        newSet.previousWeight = Int((Double(prevWeight) / 2.20462).rounded())
+                        newSet.previousWeight = prevWeight / 2.20462
                         didMigrate = true
                     }
                     if let sugWeight = set.suggestedWeight {
-                        newSet.suggestedWeight = Int((Double(sugWeight) / 2.20462).rounded())
+                        newSet.suggestedWeight = sugWeight / 2.20462
                         didMigrate = true
                     }
                     return newSet

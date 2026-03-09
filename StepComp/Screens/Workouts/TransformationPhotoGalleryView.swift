@@ -6,17 +6,17 @@
 //
 
 import SwiftUI
-import PhotosUI
+import UIKit
 
 struct TransformationPhotoGalleryView: View {
     @ObservedObject var viewModel: TransformationPhotoViewModel
     @Environment(\.dismiss) private var dismiss
     @Environment(\.colorScheme) private var colorScheme
     
-    @State private var selectedItem: PhotosPickerItem?
     @State private var photoToDelete: TransformationPhoto?
     @State private var showingDeleteConfirmation = false
     @State private var showingFullScreen: TransformationPhoto?
+    @State private var showingAddPhotoSet = false
     
     private var cardBackground: Color {
         colorScheme == .dark ? Color(hex: "1a1a1a") : Color(hex: "f8f8f5")
@@ -33,9 +33,13 @@ struct TransformationPhotoGalleryView: View {
                     photoTimeline
                 }
             }
-            .navigationTitle("Transformation Photos")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                ToolbarItem(placement: .principal) {
+                    Text("Transformation Photos")
+                        .font(.headline)
+                        .foregroundColor(colorScheme == .light ? .black : .white)
+                }
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button("Done") {
                         dismiss()
@@ -44,21 +48,22 @@ struct TransformationPhotoGalleryView: View {
                 }
                 
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    PhotosPicker(selection: $selectedItem, matching: .images) {
-                        Image(systemName: "camera.fill")
-                            .font(.system(size: 18, weight: .semibold))
-                            .foregroundColor(StepCompColors.primary)
+                    Button {
+                        print("📸 Add photo button tapped")
+                        showingAddPhotoSet = true
+                    } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: "plus")
+                                .font(.system(size: 16, weight: .bold))
+                            Text("Add")
+                                .font(.system(size: 16, weight: .semibold))
+                        }
+                        .foregroundColor(StepCompColors.primary)
                     }
                 }
             }
-            .onChange(of: selectedItem) { oldValue, newValue in
-                Task {
-                    if let data = try? await newValue?.loadTransferable(type: Data.self),
-                       let image = UIImage(data: data) {
-                        viewModel.addPhoto(image: image)
-                        HapticManager.shared.success()
-                    }
-                }
+            .fullScreenCover(isPresented: $showingAddPhotoSet) {
+                AddTransformationPhotoSetView(viewModel: viewModel)
             }
             .confirmationDialog("Delete Photo", isPresented: $showingDeleteConfirmation, titleVisibility: .visible) {
                 Button("Delete", role: .destructive) {
@@ -95,13 +100,15 @@ struct TransformationPhotoGalleryView: View {
                 .font(.system(size: 14, weight: .medium))
                 .foregroundColor(StepCompColors.textSecondary)
             
-            PhotosPicker(selection: $selectedItem, matching: .images) {
+            Button {
+                showingAddPhotoSet = true
+            } label: {
                 HStack {
-                    Image(systemName: "plus.circle.fill")
-                    Text("Add First Photo")
+                    Image(systemName: "camera.badge.plus")
+                    Text("Add First Photo Set")
                         .font(.system(size: 16, weight: .bold))
                 }
-                .frame(width: 200, height: 56)
+                .frame(width: 220, height: 56)
                 .background(StepCompColors.primary)
                 .foregroundColor(.black)
                 .cornerRadius(28)
@@ -153,41 +160,43 @@ struct PhotoTimelineCard: View {
     
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            // Photo
-            Button(action: onTap) {
-                ZStack(alignment: .topTrailing) {
-                    if let image = viewModel.loadImage(for: photo) {
-                        Image(uiImage: image)
-                            .resizable()
-                            .scaledToFill()
-                            .frame(maxWidth: .infinity)
-                            .frame(height: 300)
-                            .clipped()
-                    } else {
-                        Rectangle()
-                            .fill(Color.gray.opacity(0.3))
-                            .frame(maxWidth: .infinity)
-                            .frame(height: 300)
-                            .overlay(
-                                Image(systemName: "photo")
-                                    .font(.system(size: 48))
-                                    .foregroundColor(.gray)
-                            )
-                    }
+            // Three photos in a row with delete button overlay
+            ZStack(alignment: .topTrailing) {
+                HStack(spacing: 0) {
+                    PhotoAngleView(
+                        photo: photo,
+                        angle: .front,
+                        viewModel: viewModel,
+                        onTap: onTap
+                    )
                     
-                    // Delete button
-                    Button(action: onDelete) {
-                        Image(systemName: "trash.fill")
-                            .font(.system(size: 14))
-                            .foregroundColor(.white)
-                            .padding(10)
-                            .background(Color.red)
-                            .clipShape(Circle())
-                    }
-                    .padding(12)
+                    PhotoAngleView(
+                        photo: photo,
+                        angle: .side,
+                        viewModel: viewModel,
+                        onTap: onTap
+                    )
+                    
+                    PhotoAngleView(
+                        photo: photo,
+                        angle: .back,
+                        viewModel: viewModel,
+                        onTap: onTap
+                    )
                 }
+                .frame(height: 300)
+                
+                // Delete button overlay
+                Button(action: onDelete) {
+                    Image(systemName: "trash.fill")
+                        .font(.system(size: 14))
+                        .foregroundColor(.white)
+                        .padding(10)
+                        .background(Color.red)
+                        .clipShape(Circle())
+                }
+                .padding(12)
             }
-            .buttonStyle(PlainButtonStyle())
             
             // Date and note
             VStack(alignment: .leading, spacing: 8) {
@@ -209,10 +218,55 @@ struct PhotoTimelineCard: View {
     }
 }
 
+struct PhotoAngleView: View {
+    let photo: TransformationPhoto
+    let angle: PhotoAngle
+    @ObservedObject var viewModel: TransformationPhotoViewModel
+    let onTap: () -> Void
+    
+    var body: some View {
+        Button(action: onTap) {
+            VStack(spacing: 0) {
+                if let image = viewModel.loadImage(for: photo, angle: angle) {
+                    Image(uiImage: image)
+                        .resizable()
+                        .scaledToFill()
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 270)
+                        .clipped()
+                } else {
+                    Rectangle()
+                        .fill(Color.gray.opacity(0.3))
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 270)
+                        .overlay(
+                            Image(systemName: "photo")
+                                .font(.system(size: 32))
+                                .foregroundColor(.gray)
+                        )
+                }
+                
+                // Label
+                Text(angle.rawValue)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(StepCompColors.textSecondary)
+                    .frame(height: 30)
+                    .frame(maxWidth: .infinity)
+                    .background(StepCompColors.background)
+            }
+        }
+        .buttonStyle(PlainButtonStyle())
+    }
+}
+
+// MARK: - Full Screen Photo View
+
 struct FullScreenPhotoView: View {
     let photo: TransformationPhoto
     @ObservedObject var viewModel: TransformationPhotoViewModel
     let dismiss: () -> Void
+    
+    @State private var selectedAngle: PhotoAngle = .front
     
     private var dateString: String {
         let formatter = DateFormatter()
@@ -224,13 +278,8 @@ struct FullScreenPhotoView: View {
         ZStack {
             Color.black.ignoresSafeArea()
             
-            if let image = viewModel.loadImage(for: photo) {
-                Image(uiImage: image)
-                    .resizable()
-                    .scaledToFit()
-            }
-            
-            VStack {
+            VStack(spacing: 0) {
+                // Close button
                 HStack {
                     Button(action: dismiss) {
                         Image(systemName: "xmark.circle.fill")
@@ -244,6 +293,42 @@ struct FullScreenPhotoView: View {
                 
                 Spacer()
                 
+                // Image
+                if let image = viewModel.loadImage(for: photo, angle: selectedAngle) {
+                    Image(uiImage: image)
+                        .resizable()
+                        .scaledToFit()
+                        .transition(.opacity)
+                }
+                
+                Spacer()
+                
+                // Angle selector
+                HStack(spacing: 20) {
+                    ForEach(PhotoAngle.allCases, id: \.self) { angle in
+                        Button {
+                            withAnimation {
+                                selectedAngle = angle
+                            }
+                        } label: {
+                            VStack(spacing: 8) {
+                                Text(angle.rawValue)
+                                    .font(.system(size: 14, weight: .semibold))
+                                    .foregroundColor(selectedAngle == angle ? StepCompColors.primary : .white.opacity(0.6))
+                                
+                                Rectangle()
+                                    .fill(selectedAngle == angle ? StepCompColors.primary : Color.clear)
+                                    .frame(height: 3)
+                                    .cornerRadius(1.5)
+                            }
+                            .frame(width: 80)
+                        }
+                    }
+                }
+                .padding(.vertical, 12)
+                .background(Color.black.opacity(0.7))
+                
+                // Date and note
                 VStack(alignment: .leading, spacing: 8) {
                     Text(dateString)
                         .font(.system(size: 16, weight: .bold))

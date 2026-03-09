@@ -68,6 +68,9 @@ struct ChatListView: View {
                 await viewModel.loadChats()
             }
         }
+        .onDisappear {
+            NotificationCenter.default.post(name: .chatViewDismissed, object: nil)
+        }
         .onReceive(NotificationCenter.default.publisher(for: .chatViewDismissed)) { _ in
             // Refresh chat list when user returns from viewing a chat
             Task {

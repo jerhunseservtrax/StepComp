@@ -46,6 +46,12 @@ class WeightViewModel: ObservableObject {
                 await writeToHealthKit(weightKg: weightKg, date: date)
             }
         }
+        
+        // Sync to Supabase in the background
+        let entryToSync = entry
+        Task.detached(priority: .utility) {
+            await MetricsService.shared.syncWeightEntry(entryToSync)
+        }
     }
     
     func deleteEntry(id: UUID) {

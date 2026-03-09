@@ -51,8 +51,8 @@ final class UnitPreferenceManager: ObservableObject {
            let system = UnitSystem(rawValue: savedUnit) {
             self.unitSystem = system
         } else {
-            // Default to metric
-            self.unitSystem = .metric
+            // Default to imperial (lbs)
+            self.unitSystem = .imperial
         }
     }
     
