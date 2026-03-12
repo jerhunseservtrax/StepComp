@@ -45,6 +45,7 @@ struct RootView: View {
     @StateObject private var friendsService = FriendsService()
     @StateObject private var themeManager = ThemeManager()
     @ObservedObject private var router = DeepLinkRouter.shared
+    @ObservedObject private var workoutViewModel = WorkoutViewModel.shared
     
     @StateObject private var sessionViewModel: SessionViewModel
     @State private var showingPasswordReset = false
@@ -92,10 +93,20 @@ struct RootView: View {
             
             // Clear delivered notifications and badge when app opens
             clearDeliveredNotificationsAndBadge()
+            
+            // Reconcile active workout state on app launch
+            workoutViewModel.reconcileActiveWorkoutState()
         }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
             // Clear delivered notifications and badge when app becomes active
             clearDeliveredNotificationsAndBadge()
+            
+            // Reconcile active workout state when app enters foreground
+            workoutViewModel.reconcileActiveWorkoutState()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.didEnterBackgroundNotification)) { _ in
+            // Save active workout draft when app enters background
+            workoutViewModel.reconcileActiveWorkoutState()
         }
         .onReceive(router.$pendingPasswordResetURL) { url in
             if let url = url {

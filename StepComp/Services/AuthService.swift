@@ -146,6 +146,10 @@ final class AuthService: ObservableObject {
         currentUser = nil
         isAuthenticated = false
         UserDefaults.standard.removeObject(forKey: userDefaultsKey)
+        
+        // Clear active workout state (draft, widget, live activity)
+        WorkoutViewModel.clearAllActiveWorkoutState()
+        
         print("🚪 User logged out")
     }
     
@@ -477,6 +481,10 @@ final class AuthService: ObservableObject {
         currentUser = nil
         isAuthenticated = false
         UserDefaults.standard.removeObject(forKey: userDefaultsKey)
+        
+        // Clear active workout state (draft, widget, live activity)
+        WorkoutViewModel.clearAllActiveWorkoutState()
+        
         print("🚪 User logged out - will show login screen")
     }
     

@@ -8,6 +8,17 @@
 import Foundation
 import Combine
 
+// MARK: - Active Workout Draft Model
+/// Persisted state for in-progress workouts to survive app suspension/termination
+private struct ActiveWorkoutDraft: Codable {
+    let session: WorkoutSession
+    let sessionStartTime: Date
+    let totalPausedTime: TimeInterval
+    let isPaused: Bool
+    let pauseStartTime: Date?
+    let workoutTargetDate: Date?
+}
+
 class WorkoutViewModel: ObservableObject {
     static let shared = WorkoutViewModel()
     
@@ -28,6 +39,7 @@ class WorkoutViewModel: ObservableObject {
         loadWorkouts()
         loadCompletedSessions()
         migrateWeightsToKgIfNeeded()
+        loadActiveWorkoutDraftIfAny()
     }
     
     // MARK: - Workout Management
@@ -139,6 +151,7 @@ class WorkoutViewModel: ObservableObject {
         totalPausedTime = 0
         isPaused = false
         startTimer()
+        saveActiveWorkoutDraft()
         pushWidgetState()
     }
     
@@ -146,6 +159,7 @@ class WorkoutViewModel: ObservableObject {
         isPaused = true
         pauseStartTime = Date()
         stopTimer()
+        saveActiveWorkoutDraft()
         pushWidgetState()
     }
     
@@ -156,6 +170,7 @@ class WorkoutViewModel: ObservableObject {
         isPaused = false
         pauseStartTime = nil
         startTimer()
+        saveActiveWorkoutDraft()
         pushWidgetState()
     }
     
@@ -209,6 +224,7 @@ class WorkoutViewModel: ObservableObject {
         sessionStartTime = nil
         elapsedTime = 0
         totalPausedTime = 0
+        clearActiveWorkoutDraft()
         WorkoutLiveActivityManager.end()
         WorkoutWidgetStore.clear()
     }
@@ -220,6 +236,7 @@ class WorkoutViewModel: ObservableObject {
         elapsedTime = 0
         totalPausedTime = 0
         isPaused = false
+        clearActiveWorkoutDraft()
         WorkoutLiveActivityManager.end()
         WorkoutWidgetStore.clear()
     }
@@ -234,6 +251,7 @@ class WorkoutViewModel: ObservableObject {
             session.exercises[exerciseIndex].sets[setIndex].weight = weight
             session.exercises[exerciseIndex].sets[setIndex].reps = reps
             currentSession = session
+            saveActiveWorkoutDraft()
         }
     }
     
@@ -245,6 +263,7 @@ class WorkoutViewModel: ObservableObject {
             session.exercises[exerciseIndex].sets[setIndex].isCompleted = true
             currentSession = session
             HapticManager.shared.success()
+            saveActiveWorkoutDraft()
             pushWidgetState()
         }
     }
@@ -303,6 +322,7 @@ class WorkoutViewModel: ObservableObject {
             )
             session.exercises[exerciseIndex].sets.append(newSet)
             currentSession = session
+            saveActiveWorkoutDraft()
         }
     }
     
@@ -320,6 +340,7 @@ class WorkoutViewModel: ObservableObject {
             
             currentSession = session
             HapticManager.shared.light()
+            saveActiveWorkoutDraft()
         }
     }
     
@@ -645,6 +666,111 @@ class WorkoutViewModel: ObservableObject {
            let decoded = try? JSONDecoder().decode([CompletedWorkoutSession].self, from: data) {
             completedSessions = decoded
         }
+    }
+    
+    // MARK: - Active Workout Draft Persistence
+    
+    /// Saves the current active workout state to survive app suspension/termination
+    private func saveActiveWorkoutDraft() {
+        guard let session = currentSession,
+              let startTime = sessionStartTime else {
+            clearActiveWorkoutDraft()
+            return
+        }
+        
+        let draft = ActiveWorkoutDraft(
+            session: session,
+            sessionStartTime: startTime,
+            totalPausedTime: totalPausedTime,
+            isPaused: isPaused,
+            pauseStartTime: pauseStartTime,
+            workoutTargetDate: workoutTargetDate
+        )
+        
+        if let encoded = try? JSONEncoder().encode(draft) {
+            UserDefaults.standard.set(encoded, forKey: "active_workout_draft")
+            print("💾 Active workout draft saved")
+        }
+    }
+    
+    /// Loads and restores an active workout draft if one exists
+    private func loadActiveWorkoutDraftIfAny() {
+        guard let data = UserDefaults.standard.data(forKey: "active_workout_draft"),
+              let draft = try? JSONDecoder().decode(ActiveWorkoutDraft.self, from: data) else {
+            print("ℹ️ No active workout draft found")
+            return
+        }
+        
+        print("🔄 Restoring active workout draft")
+        
+        // Restore session state
+        currentSession = draft.session
+        sessionStartTime = draft.sessionStartTime
+        totalPausedTime = draft.totalPausedTime
+        isPaused = draft.isPaused
+        pauseStartTime = draft.pauseStartTime
+        workoutTargetDate = draft.workoutTargetDate
+        
+        // Refresh elapsed time based on saved timestamps
+        refreshElapsedTime()
+        
+        // Restart timer if not paused
+        if !isPaused {
+            startTimer()
+        }
+        
+        // Sync widget and live activity state
+        pushWidgetState()
+        
+        print("✅ Active workout draft restored successfully")
+    }
+    
+    /// Clears the active workout draft from persistence
+    private func clearActiveWorkoutDraft() {
+        UserDefaults.standard.removeObject(forKey: "active_workout_draft")
+        print("🧹 Active workout draft cleared")
+    }
+    
+    /// Recalculates elapsed time based on stored timestamps and paused duration
+    private func refreshElapsedTime() {
+        guard let startTime = sessionStartTime else {
+            elapsedTime = 0
+            return
+        }
+        
+        // Calculate current paused time if currently paused
+        let currentPausedTime: TimeInterval
+        if isPaused, let pauseStart = pauseStartTime {
+            currentPausedTime = totalPausedTime + Date().timeIntervalSince(pauseStart)
+        } else {
+            currentPausedTime = totalPausedTime
+        }
+        
+        // Calculate elapsed time
+        elapsedTime = Date().timeIntervalSince(startTime) - currentPausedTime
+    }
+    
+    /// Public method to reconcile state on app lifecycle transitions
+    func reconcileActiveWorkoutState() {
+        if currentSession != nil {
+            // Refresh elapsed time and save draft
+            refreshElapsedTime()
+            saveActiveWorkoutDraft()
+        } else {
+            // No active session, ensure draft and widget are cleared
+            clearActiveWorkoutDraft()
+            WorkoutWidgetStore.clear()
+            WorkoutLiveActivityManager.end()
+        }
+    }
+    
+    /// Clears all active workout state (draft, widget, live activity)
+    static func clearAllActiveWorkoutState() {
+        let vm = WorkoutViewModel.shared
+        vm.clearActiveWorkoutDraft()
+        WorkoutWidgetStore.clear()
+        WorkoutLiveActivityManager.end()
+        print("🧹 All active workout state cleared")
     }
     
     // MARK: - Data Migration
