@@ -1,6 +1,6 @@
 //
 //  InboxModels.swift
-//  StepComp
+//  FitComp
 //
 //  Models for inbox notifications and challenge invites
 //

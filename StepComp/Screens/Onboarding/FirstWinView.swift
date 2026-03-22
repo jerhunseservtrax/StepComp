@@ -1,6 +1,6 @@
 //
 //  FirstWinView.swift
-//  StepComp
+//  FitComp
 //
 //  Celebration screen after onboarding completion
 //
@@ -24,7 +24,7 @@ struct FirstWinOnboardingView: View {
                     // Pulsing background circles
                     ForEach(0..<3) { index in
                         Circle()
-                            .stroke(StepCompColors.primary.opacity(0.3 - Double(index) * 0.1), lineWidth: 2)
+                            .stroke(FitCompColors.primary.opacity(0.3 - Double(index) * 0.1), lineWidth: 2)
                             .frame(width: 200 + CGFloat(index * 50), height: 200 + CGFloat(index * 50))
                             .scaleEffect(showConfetti ? 1.2 : 1.0)
                             .opacity(showConfetti ? 0 : 1)
@@ -39,13 +39,13 @@ struct FirstWinOnboardingView: View {
                     // Main success icon
                     ZStack {
                         Circle()
-                            .fill(StepCompColors.primary)
+                            .fill(FitCompColors.primary)
                             .frame(width: 160, height: 160)
-                            .shadow(color: StepCompColors.primary.opacity(0.5), radius: 30, x: 0, y: 10)
+                            .shadow(color: FitCompColors.primary.opacity(0.5), radius: 30, x: 0, y: 10)
                         
                         Image(systemName: "checkmark")
                             .font(.system(size: 80, weight: .bold))
-                            .foregroundColor(StepCompColors.buttonTextOnPrimary)
+                            .foregroundColor(FitCompColors.buttonTextOnPrimary)
                             .scaleEffect(bounceAnimation ? 1.0 : 0.5)
                             .animation(.spring(response: 0.6, dampingFraction: 0.5), value: bounceAnimation)
                     }
@@ -72,19 +72,19 @@ struct FirstWinOnboardingView: View {
                     FeatureHighlight(
                         icon: "figure.walk",
                         text: "Track your daily steps automatically",
-                        primaryColor: StepCompColors.primary
+                        primaryColor: FitCompColors.primary
                     )
                     
                     FeatureHighlight(
                         icon: "trophy.fill",
                         text: "Create challenges with friends",
-                        primaryColor: StepCompColors.primary
+                        primaryColor: FitCompColors.primary
                     )
                     
                     FeatureHighlight(
                         icon: "chart.line.uptrend.xyaxis",
                         text: "Watch your progress grow",
-                        primaryColor: StepCompColors.primary
+                        primaryColor: FitCompColors.primary
                     )
                 }
                 .padding(.horizontal, 32)
@@ -102,12 +102,12 @@ struct FirstWinOnboardingView: View {
                         Image(systemName: "arrow.right")
                             .font(.system(size: 16, weight: .bold))
                     }
-                    .foregroundColor(StepCompColors.buttonTextOnPrimary)
+                    .foregroundColor(FitCompColors.buttonTextOnPrimary)
                     .frame(maxWidth: .infinity)
                     .frame(height: 56)
-                    .background(StepCompColors.primary)
+                    .background(FitCompColors.primary)
                     .cornerRadius(999)
-                    .shadow(color: StepCompColors.primary.opacity(0.3), radius: 16, x: 0, y: 8)
+                    .shadow(color: FitCompColors.primary.opacity(0.3), radius: 16, x: 0, y: 8)
                 }
                 .padding(.horizontal, 24)
                 .padding(.bottom, 40)

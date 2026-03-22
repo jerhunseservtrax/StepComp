@@ -8,9 +8,9 @@
 -- ============================================
 
 -- Note: You'll need to generate bcrypt password hashes for the passwords
--- Default password for all test accounts: "TestPassword123!"
+-- Default password for all test accounts: [set securely at provisioning time]
 -- You can generate hashes at: https://bcrypt-generator.com/
--- Or use: SELECT crypt('TestPassword123!', gen_salt('bf', 10));
+-- Or use: SELECT crypt('<secure-password>', gen_salt('bf', 10));
 
 -- Test Account 1
 INSERT INTO auth.users (
@@ -32,11 +32,11 @@ INSERT INTO auth.users (
     '00000000-0000-0000-0000-000000000000'::uuid,
     'authenticated',
     'authenticated',
-    'testuser1@stepcomp.test',
+    'testuser1@fitcomp.test',
     '$2a$10$6x4YlKtQZJh2uTutCAYad.Ay5iQvaW7wMcGSiJ1P/CroUgAd4q5YO',
     NOW(),
     '{"provider": "email", "providers": ["email"]}'::jsonb,
-    '{"sub": "11111111-1111-1111-1111-111111111111", "email": "testuser1@stepcomp.test", "email_verified": true, "phone_verified": false, "first_name": "Alex", "last_name": "Morgan", "username": "alex.walks"}'::jsonb,
+    '{"sub": "11111111-1111-1111-1111-111111111111", "email": "testuser1@fitcomp.test", "email_verified": true, "phone_verified": false, "first_name": "Alex", "last_name": "Morgan", "username": "alex.walks"}'::jsonb,
     NOW(),
     NOW(),
     FALSE,
@@ -63,11 +63,11 @@ INSERT INTO auth.users (
     '00000000-0000-0000-0000-000000000000'::uuid,
     'authenticated',
     'authenticated',
-    'testuser2@stepcomp.test',
+    'testuser2@fitcomp.test',
     '$2a$10$6x4YlKtQZJh2uTutCAYad.Ay5iQvaW7wMcGSiJ1P/CroUgAd4q5YO',
     NOW(),
     '{"provider": "email", "providers": ["email"]}'::jsonb,
-    '{"sub": "22222222-2222-2222-2222-222222222222", "email": "testuser2@stepcomp.test", "email_verified": true, "phone_verified": false, "first_name": "Jamie", "last_name": "Chen", "username": "jamie.steps"}'::jsonb,
+    '{"sub": "22222222-2222-2222-2222-222222222222", "email": "testuser2@fitcomp.test", "email_verified": true, "phone_verified": false, "first_name": "Jamie", "last_name": "Chen", "username": "jamie.steps"}'::jsonb,
     NOW(),
     NOW(),
     FALSE,
@@ -94,11 +94,11 @@ INSERT INTO auth.users (
     '00000000-0000-0000-0000-000000000000'::uuid,
     'authenticated',
     'authenticated',
-    'testuser3@stepcomp.test',
+    'testuser3@fitcomp.test',
     '$2a$10$6x4YlKtQZJh2uTutCAYad.Ay5iQvaW7wMcGSiJ1P/CroUgAd4q5YO',
     NOW(),
     '{"provider": "email", "providers": ["email"]}'::jsonb,
-    '{"sub": "33333333-3333-3333-3333-333333333333", "email": "testuser3@stepcomp.test", "email_verified": true, "phone_verified": false, "first_name": "Marcus", "last_name": "Reed", "username": "marcus.fit"}'::jsonb,
+    '{"sub": "33333333-3333-3333-3333-333333333333", "email": "testuser3@fitcomp.test", "email_verified": true, "phone_verified": false, "first_name": "Marcus", "last_name": "Reed", "username": "marcus.fit"}'::jsonb,
     NOW(),
     NOW(),
     FALSE,
@@ -125,11 +125,11 @@ INSERT INTO auth.users (
     '00000000-0000-0000-0000-000000000000'::uuid,
     'authenticated',
     'authenticated',
-    'testuser4@stepcomp.test',
+    'testuser4@fitcomp.test',
     '$2a$10$6x4YlKtQZJh2uTutCAYad.Ay5iQvaW7wMcGSiJ1P/CroUgAd4q5YO',
     NOW(),
     '{"provider": "email", "providers": ["email"]}'::jsonb,
-    '{"sub": "44444444-4444-4444-4444-444444444444", "email": "testuser4@stepcomp.test", "email_verified": true, "phone_verified": false, "first_name": "Nina", "last_name": "Alvarez", "username": "nina.moves"}'::jsonb,
+    '{"sub": "44444444-4444-4444-4444-444444444444", "email": "testuser4@fitcomp.test", "email_verified": true, "phone_verified": false, "first_name": "Nina", "last_name": "Alvarez", "username": "nina.moves"}'::jsonb,
     NOW(),
     NOW(),
     FALSE,
@@ -156,11 +156,11 @@ INSERT INTO auth.users (
     '00000000-0000-0000-0000-000000000000'::uuid,
     'authenticated',
     'authenticated',
-    'testuser5@stepcomp.test',
+    'testuser5@fitcomp.test',
     '$2a$10$6x4YlKtQZJh2uTutCAYad.Ay5iQvaW7wMcGSiJ1P/CroUgAd4q5YO',
     NOW(),
     '{"provider": "email", "providers": ["email"]}'::jsonb,
-    '{"sub": "55555555-5555-5555-5555-555555555555", "email": "testuser5@stepcomp.test", "email_verified": true, "phone_verified": false, "first_name": "Leo", "last_name": "Park", "username": "leo.stride"}'::jsonb,
+    '{"sub": "55555555-5555-5555-5555-555555555555", "email": "testuser5@fitcomp.test", "email_verified": true, "phone_verified": false, "first_name": "Leo", "last_name": "Park", "username": "leo.stride"}'::jsonb,
     NOW(),
     NOW(),
     FALSE,
@@ -197,11 +197,11 @@ BEGIN
     IF has_email_column AND has_public_profile_column AND has_display_name_column THEN
         INSERT INTO public.profiles (id, username, display_name, first_name, last_name, email, public_profile, avatar_url, created_at, updated_at)
         VALUES
-            ('11111111-1111-1111-1111-111111111111'::uuid, 'alex.walks', 'Alex Morgan', 'Alex', 'Morgan', 'testuser1@stepcomp.test', TRUE, '🤖', NOW(), NOW()),
-            ('22222222-2222-2222-2222-222222222222'::uuid, 'jamie.steps', 'Jamie Chen', 'Jamie', 'Chen', 'testuser2@stepcomp.test', TRUE, '🐱', NOW(), NOW()),
-            ('33333333-3333-3333-3333-333333333333'::uuid, 'marcus.fit', 'Marcus Reed', 'Marcus', 'Reed', 'testuser3@stepcomp.test', TRUE, '👽', NOW(), NOW()),
-            ('44444444-4444-4444-4444-444444444444'::uuid, 'nina.moves', 'Nina Alvarez', 'Nina', 'Alvarez', 'testuser4@stepcomp.test', FALSE, '🦊', NOW(), NOW()),
-            ('55555555-5555-5555-5555-555555555555'::uuid, 'leo.stride', 'Leo Park', 'Leo', 'Park', 'testuser5@stepcomp.test', FALSE, '🥷', NOW(), NOW())
+            ('11111111-1111-1111-1111-111111111111'::uuid, 'alex.walks', 'Alex Morgan', 'Alex', 'Morgan', 'testuser1@fitcomp.test', TRUE, '🤖', NOW(), NOW()),
+            ('22222222-2222-2222-2222-222222222222'::uuid, 'jamie.steps', 'Jamie Chen', 'Jamie', 'Chen', 'testuser2@fitcomp.test', TRUE, '🐱', NOW(), NOW()),
+            ('33333333-3333-3333-3333-333333333333'::uuid, 'marcus.fit', 'Marcus Reed', 'Marcus', 'Reed', 'testuser3@fitcomp.test', TRUE, '👽', NOW(), NOW()),
+            ('44444444-4444-4444-4444-444444444444'::uuid, 'nina.moves', 'Nina Alvarez', 'Nina', 'Alvarez', 'testuser4@fitcomp.test', FALSE, '🦊', NOW(), NOW()),
+            ('55555555-5555-5555-5555-555555555555'::uuid, 'leo.stride', 'Leo Park', 'Leo', 'Park', 'testuser5@fitcomp.test', FALSE, '🥷', NOW(), NOW())
         ON CONFLICT (id) DO UPDATE SET
             username = EXCLUDED.username,
             display_name = EXCLUDED.display_name,
@@ -213,11 +213,11 @@ BEGIN
     ELSIF has_email_column THEN
         INSERT INTO public.profiles (id, username, display_name, first_name, last_name, email, avatar_url, created_at, updated_at)
         VALUES
-            ('11111111-1111-1111-1111-111111111111'::uuid, 'alex.walks', 'Alex Morgan', 'Alex', 'Morgan', 'testuser1@stepcomp.test', '🤖', NOW(), NOW()),
-            ('22222222-2222-2222-2222-222222222222'::uuid, 'jamie.steps', 'Jamie Chen', 'Jamie', 'Chen', 'testuser2@stepcomp.test', '🐱', NOW(), NOW()),
-            ('33333333-3333-3333-3333-333333333333'::uuid, 'marcus.fit', 'Marcus Reed', 'Marcus', 'Reed', 'testuser3@stepcomp.test', '👽', NOW(), NOW()),
-            ('44444444-4444-4444-4444-444444444444'::uuid, 'nina.moves', 'Nina Alvarez', 'Nina', 'Alvarez', 'testuser4@stepcomp.test', '🦊', NOW(), NOW()),
-            ('55555555-5555-5555-5555-555555555555'::uuid, 'leo.stride', 'Leo Park', 'Leo', 'Park', 'testuser5@stepcomp.test', '🥷', NOW(), NOW())
+            ('11111111-1111-1111-1111-111111111111'::uuid, 'alex.walks', 'Alex Morgan', 'Alex', 'Morgan', 'testuser1@fitcomp.test', '🤖', NOW(), NOW()),
+            ('22222222-2222-2222-2222-222222222222'::uuid, 'jamie.steps', 'Jamie Chen', 'Jamie', 'Chen', 'testuser2@fitcomp.test', '🐱', NOW(), NOW()),
+            ('33333333-3333-3333-3333-333333333333'::uuid, 'marcus.fit', 'Marcus Reed', 'Marcus', 'Reed', 'testuser3@fitcomp.test', '👽', NOW(), NOW()),
+            ('44444444-4444-4444-4444-444444444444'::uuid, 'nina.moves', 'Nina Alvarez', 'Nina', 'Alvarez', 'testuser4@fitcomp.test', '🦊', NOW(), NOW()),
+            ('55555555-5555-5555-5555-555555555555'::uuid, 'leo.stride', 'Leo Park', 'Leo', 'Park', 'testuser5@fitcomp.test', '🥷', NOW(), NOW())
         ON CONFLICT (id) DO UPDATE SET
             username = EXCLUDED.username,
             display_name = EXCLUDED.display_name,
@@ -406,46 +406,46 @@ SELECT
     p.public_profile
 FROM auth.users u
 LEFT JOIN public.profiles p ON p.id = u.id
-WHERE u.email LIKE 'testuser%@stepcomp.test'
+WHERE u.email LIKE 'testuser%@fitcomp.test'
 ORDER BY u.email;
 
 -- ============================================
 -- Test Account Credentials
 -- ============================================
--- All accounts use the same password: TestPassword123!
+-- All accounts use the same password: [see secure provisioning docs]
 --
 -- Account 1: Alex Morgan (🤖)
---   Email: testuser1@stepcomp.test
+--   Email: testuser1@fitcomp.test
 --   Username: alex.walks
 --   Display Name: Alex Morgan
 --   Public Profile: TRUE
---   Password: TestPassword123!
+--   Password: [redacted]
 --
 -- Account 2: Jamie Chen (🐱)
---   Email: testuser2@stepcomp.test
+--   Email: testuser2@fitcomp.test
 --   Username: jamie.steps
 --   Display Name: Jamie Chen
 --   Public Profile: TRUE
---   Password: TestPassword123!
+--   Password: [redacted]
 --
 -- Account 3: Marcus Reed (👽)
---   Email: testuser3@stepcomp.test
+--   Email: testuser3@fitcomp.test
 --   Username: marcus.fit
 --   Display Name: Marcus Reed
 --   Public Profile: TRUE
---   Password: TestPassword123!
+--   Password: [redacted]
 --
 -- Account 4: Nina Alvarez (🦊)
---   Email: testuser4@stepcomp.test
+--   Email: testuser4@fitcomp.test
 --   Username: nina.moves
 --   Display Name: Nina Alvarez
 --   Public Profile: FALSE
---   Password: TestPassword123!
+--   Password: [redacted]
 --
 -- Account 5: Leo Park (🥷)
---   Email: testuser5@stepcomp.test
+--   Email: testuser5@fitcomp.test
 --   Username: leo.stride
 --   Display Name: Leo Park
 --   Public Profile: FALSE
---   Password: TestPassword123!
+--   Password: [redacted]
 -- ============================================

@@ -1,6 +1,6 @@
 //
 //  GoalCelebrationView.swift
-//  StepComp
+//  FitComp
 //
 //  Duolingo-style celebration when user hits their daily step goal
 //
@@ -402,7 +402,7 @@ struct DuolingoConfettiView: View {
     private func generateConfetti(in size: CGSize) {
         let colors: [Color] = [
             .red, .orange, .yellow, .green, .blue, .purple, .pink,
-            StepCompColors.primary, StepCompColors.accent, StepCompColors.cyan
+            FitCompColors.primary, FitCompColors.accent, FitCompColors.cyan
         ]
         
         let emojis = ["🎉", "⭐️", "💪", "🔥", "✨", "🏆", "👏", "🎊"]

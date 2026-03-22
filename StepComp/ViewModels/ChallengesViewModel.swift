@@ -1,6 +1,6 @@
 //
 //  ChallengesViewModel.swift
-//  StepComp
+//  FitComp
 //
 //  Created by Jeffery Erhunse on 12/24/25.
 //
@@ -20,11 +20,12 @@ final class ChallengesViewModel: ObservableObject {
     @Published var isLoading: Bool = false
     @Published var errorMessage: String?
     
-    private var challengeService: ChallengeService
+    private var challengeService: ChallengeService?
     private let userId: String
+    private var loadChallengesTask: Task<Void, Never>?
+    private var loadArchivedTask: Task<Void, Never>?
     
-    init(challengeService: ChallengeService, userId: String) {
-        self.challengeService = challengeService
+    init(userId: String) {
         self.userId = userId
     }
     
@@ -33,19 +34,59 @@ final class ChallengesViewModel: ObservableObject {
     }
     
     func loadChallenges() async {
-        isLoading = true
-        errorMessage = nil
+        if let existingTask = loadChallengesTask {
+            await existingTask.value
+            return
+        }
         
-        #if canImport(Supabase)
-        await loadChallengesFromSupabase()
-        #else
-        // Fallback to local challenges
-        activeChallenges = challengeService.challenges.filter { $0.participantIds.contains(userId) && $0.isActive }
-        publicChallenges = challengeService.challenges.filter { $0.isActive && !$0.participantIds.contains(userId) }
-        archivedChallenges = challengeService.challenges.filter { $0.participantIds.contains(userId) && !$0.isActive }
-        #endif
+        let task = Task { @MainActor [weak self] in
+            guard let self else { return }
+            self.isLoading = true
+            self.errorMessage = nil
+            
+            #if canImport(Supabase)
+            await self.loadChallengesFromSupabase()
+            #else
+            guard let challengeService = self.challengeService else {
+                self.isLoading = false
+                return
+            }
+            // Fallback to local challenges
+            self.activeChallenges = challengeService.challenges.filter { $0.participantIds.contains(self.userId) && $0.isActive }
+            self.publicChallenges = challengeService.challenges.filter { $0.isActive && !$0.participantIds.contains(self.userId) }
+            #endif
+            
+            self.isLoading = false
+        }
         
-        isLoading = false
+        loadChallengesTask = task
+        await task.value
+        loadChallengesTask = nil
+    }
+    
+    func loadArchivedChallengesIfNeeded(force: Bool = false) async {
+        if !force && !archivedChallenges.isEmpty {
+            return
+        }
+        
+        if let existingTask = loadArchivedTask {
+            await existingTask.value
+            return
+        }
+        
+        let task = Task { @MainActor [weak self] in
+            guard let self else { return }
+            #if canImport(Supabase)
+            await self.loadArchivedChallengesFromSupabase()
+            #else
+            guard let challengeService = self.challengeService else { return }
+            self.archivedChallenges = challengeService.challenges.filter { $0.participantIds.contains(self.userId) && !$0.isActive }
+            #endif
+        }
+        
+        loadArchivedTask = task
+        await task.value
+        loadArchivedTask = nil
     }
     
     #if canImport(Supabase)
@@ -130,9 +171,6 @@ final class ChallengesViewModel: ObservableObject {
             // This allows users to discover and join new challenges
             publicChallenges = allPublic            
             print("📊 ChallengesViewModel: Loaded \(publicChallenges.count) discoverable challenges (excluding \(participatingChallengeIds.count) user is already in)")
-            
-            // Load archived challenges (ended or inactive challenges user participated in)
-            await loadArchivedChallengesFromSupabase()
             
         } catch {
             print("⚠️ Error loading challenges: \(error.localizedDescription)")

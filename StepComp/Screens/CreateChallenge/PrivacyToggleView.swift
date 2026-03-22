@@ -1,6 +1,6 @@
 //
 //  PrivacyToggleView.swift
-//  StepComp
+//  FitComp
 //
 //  Privacy toggle for challenge creation (Public vs Private)
 //
@@ -29,7 +29,7 @@ struct PrivacyToggleView: View {
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 12)
-                    .background(isPrivate ? StepCompColors.primary : Color(.systemGray6))
+                    .background(isPrivate ? FitCompColors.primary : Color(.systemGray6))
                     .foregroundColor(isPrivate ? .black : .secondary)
                     .cornerRadius(12)
                 }
@@ -47,7 +47,7 @@ struct PrivacyToggleView: View {
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 12)
-                    .background(!isPrivate ? StepCompColors.primary : Color(.systemGray6))
+                    .background(!isPrivate ? FitCompColors.primary : Color(.systemGray6))
                     .foregroundColor(!isPrivate ? .black : .secondary)
                     .cornerRadius(12)
                 }

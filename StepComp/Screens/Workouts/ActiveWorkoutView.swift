@@ -1,6 +1,6 @@
 //
 //  ActiveWorkoutView.swift
-//  StepComp
+//  FitComp
 //
 //  Created by Jeffery Erhunse on 2/16/26.
 //
@@ -32,7 +32,7 @@ struct WorkoutNumberPad: View {
     var body: some View {
         VStack(spacing: 0) {
             Divider()
-                .background(StepCompColors.textSecondary.opacity(0.3))
+                .background(FitCompColors.textSecondary.opacity(0.3))
 
             LazyVGrid(columns: columns, spacing: 8) {
                 ForEach(["1","2","3","4","5","6","7","8","9"], id: \.self) { key in
@@ -52,14 +52,14 @@ struct WorkoutNumberPad: View {
             Button(action: onDone) {
                 Text("Done")
                     .font(.system(size: 17, weight: .semibold))
-                    .foregroundColor(StepCompColors.primary)
+                    .foregroundColor(FitCompColors.primary)
                     .frame(maxWidth: .infinity)
                     .frame(height: 44)
             }
             .padding(.horizontal, 16)
             .padding(.bottom, 8)
         }
-        .background(StepCompColors.surface)
+        .background(FitCompColors.surface)
     }
 }
 
@@ -94,10 +94,10 @@ private struct NumberPadButton: View {
                         .font(.system(size: 22, weight: .semibold))
                 }
             }
-            .foregroundColor(StepCompColors.textPrimary)
+            .foregroundColor(FitCompColors.textPrimary)
             .frame(maxWidth: .infinity)
             .frame(height: 48)
-            .background(StepCompColors.textSecondary.opacity(0.12))
+            .background(FitCompColors.textSecondary.opacity(0.12))
             .cornerRadius(10)
         }
         .buttonStyle(.plain)
@@ -109,6 +109,7 @@ private struct NumberPadButton: View {
 struct ActiveWorkoutView: View {
     @ObservedObject var viewModel: WorkoutViewModel
     @ObservedObject var unitManager = UnitPreferenceManager.shared
+    @StateObject private var restTimerManager = RestTimerManager()
     @State private var showingFinishConfirmation = false
     @State private var activeField: SetFieldIdentifier? = nil
     @State private var editBuffer: String = ""
@@ -118,7 +119,7 @@ struct ActiveWorkoutView: View {
 
     var body: some View {
         ZStack {
-            StepCompColors.background.ignoresSafeArea()
+            FitCompColors.background.ignoresSafeArea()
 
             VStack(spacing: 0) {
                 header
@@ -134,7 +135,8 @@ struct ActiveWorkoutView: View {
                                         unitManager: unitManager,
                                         activeField: $activeField,
                                         editBuffer: $editBuffer,
-                                        collapsedExerciseIds: $collapsedExerciseIds
+                                        collapsedExerciseIds: $collapsedExerciseIds,
+                                        restTimerManager: restTimerManager
                                     )
                                 }
                             }
@@ -154,6 +156,13 @@ struct ActiveWorkoutView: View {
                             }
                         }
                     }
+                }
+
+                // Compact rest timer bar (visible when timer running but overlay dismissed)
+                if restTimerManager.isRunning && !restTimerManager.showOverlay && !isEditing {
+                    RestTimerCompactBar(timerManager: restTimerManager)
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                        .animation(.spring(response: 0.3, dampingFraction: 0.85), value: restTimerManager.isRunning)
                 }
 
                 if !isEditing {
@@ -192,12 +201,19 @@ struct ActiveWorkoutView: View {
                 }
                 .animation(.spring(response: 0.3, dampingFraction: 0.85), value: isEditing)
             }
+
+            // Rest timer overlay
+            if restTimerManager.showOverlay {
+                RestTimerOverlayView(timerManager: restTimerManager)
+            }
         }
         .confirmationDialog("End Workout", isPresented: $showingFinishConfirmation, titleVisibility: .visible) {
             Button("Finish Workout") {
+                restTimerManager.resetForNewSession()
                 viewModel.finishWorkout()
             }
             Button("Cancel Workout", role: .destructive) {
+                restTimerManager.resetForNewSession()
                 viewModel.cancelWorkout()
             }
             Button("Keep Training", role: .cancel) {}
@@ -246,7 +262,7 @@ struct ActiveWorkoutView: View {
             HStack {
                 Text(viewModel.currentSession?.workoutName ?? "Workout")
                     .font(.system(size: 24, weight: .black))
-                    .foregroundColor(StepCompColors.textPrimary)
+                    .foregroundColor(FitCompColors.textPrimary)
 
                 Spacer()
 
@@ -258,11 +274,23 @@ struct ActiveWorkoutView: View {
                             .font(.system(size: 13, weight: .black))
                             .monospacedDigit()
                     }
-                    .foregroundColor(StepCompColors.textPrimary)
+                    .foregroundColor(FitCompColors.textPrimary)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 5)
-                    .background(StepCompColors.textSecondary.opacity(0.1))
+                    .background(FitCompColors.textSecondary.opacity(0.1))
                     .cornerRadius(16)
+
+                    Button(action: {
+                        HapticManager.shared.light()
+                        restTimerManager.startTimer()
+                    }) {
+                        Image(systemName: "bed.double.fill")
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundColor(restTimerManager.isRunning ? FitCompColors.buttonTextOnPrimary : FitCompColors.textPrimary)
+                            .frame(width: 28, height: 28)
+                            .background(restTimerManager.isRunning ? FitCompColors.primary : FitCompColors.textSecondary.opacity(0.1))
+                            .cornerRadius(14)
+                    }
 
                     Button(action: {
                         if viewModel.isPaused {
@@ -285,21 +313,21 @@ struct ActiveWorkoutView: View {
                 HStack(spacing: 4) {
                     Text("Monday Routine")
                         .font(.system(size: 13, weight: .medium))
-                        .foregroundColor(StepCompColors.textSecondary)
+                        .foregroundColor(FitCompColors.textSecondary)
                     Text("•")
-                        .foregroundColor(StepCompColors.textSecondary)
+                        .foregroundColor(FitCompColors.textSecondary)
                     Text("\(session.exercises.count) Exercises")
                         .font(.system(size: 13, weight: .medium))
-                        .foregroundColor(StepCompColors.textSecondary)
+                        .foregroundColor(FitCompColors.textSecondary)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
         .padding(16)
-        .background(StepCompColors.surface.opacity(0.9))
+        .background(FitCompColors.surface.opacity(0.9))
         .overlay(
             Rectangle()
-                .fill(StepCompColors.divider.opacity(0.1))
+                .fill(FitCompColors.divider.opacity(0.1))
                 .frame(height: 1),
             alignment: .bottom
         )
@@ -311,9 +339,9 @@ struct ActiveWorkoutView: View {
         VStack(spacing: 0) {
             LinearGradient(
                 colors: [
-                    StepCompColors.background.opacity(0),
-                    StepCompColors.background,
-                    StepCompColors.background
+                    FitCompColors.background.opacity(0),
+                    FitCompColors.background,
+                    FitCompColors.background
                 ],
                 startPoint: .top,
                 endPoint: .bottom
@@ -331,14 +359,14 @@ struct ActiveWorkoutView: View {
                 }
                 .frame(maxWidth: .infinity)
                 .frame(height: 52)
-                .background(StepCompColors.primary)
-                .foregroundColor(StepCompColors.buttonTextOnPrimary)
+                .background(FitCompColors.primary)
+                .foregroundColor(FitCompColors.buttonTextOnPrimary)
                 .cornerRadius(26)
-                .shadow(color: StepCompColors.primary.opacity(0.25), radius: 12, x: 0, y: 6)
+                .shadow(color: FitCompColors.primary.opacity(0.25), radius: 12, x: 0, y: 6)
             }
             .padding(.horizontal, 24)
             .padding(.bottom, 32)
-            .background(StepCompColors.background)
+            .background(FitCompColors.background)
         }
     }
 }
@@ -352,6 +380,7 @@ struct ExerciseCard: View {
     @Binding var activeField: SetFieldIdentifier?
     @Binding var editBuffer: String
     @Binding var collapsedExerciseIds: Set<UUID>
+    @ObservedObject var restTimerManager: RestTimerManager
     @State private var expandedSetId: UUID?
     @State private var overloadApplied = false
     @State private var originalSetValues: [UUID: (weight: Double?, reps: Int?)] = [:]
@@ -390,42 +419,36 @@ struct ExerciseCard: View {
         }
         .background(colorScheme == .dark ? Color.black : Color.white)
         .cornerRadius(20)
-        .shadow(color: StepCompColors.shadowSecondary, radius: 10, x: 0, y: 4)
+        .shadow(color: FitCompColors.shadowSecondary, radius: 10, x: 0, y: 4)
     }
 
     private var expandedView: some View {
         VStack(spacing: 0) {
             HStack(spacing: 12) {
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(StepCompColors.textSecondary.opacity(0.1))
-                    .frame(width: 56, height: 56)
-                    .overlay(
-                        Image(systemName: "dumbbell")
-                            .foregroundColor(StepCompColors.textSecondary)
-                    )
+                ExerciseDemoButton(exercise: workoutExercise.exercise)
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(workoutExercise.exercise.name)
                         .font(.system(size: 16, weight: .bold))
-                        .foregroundColor(StepCompColors.textPrimary)
+                        .foregroundColor(FitCompColors.textPrimary)
                     Text("Target: \(workoutExercise.exercise.targetMuscles)")
                         .font(.system(size: 12))
-                        .foregroundColor(StepCompColors.textSecondary)
+                        .foregroundColor(FitCompColors.textSecondary)
 
                     if let summary = getProgressiveSummary(for: workoutExercise) {
                         VStack(alignment: .leading, spacing: 2) {
                             Text(summary.lastBest)
                                 .font(.system(size: 12, weight: .medium))
-                                .foregroundColor(StepCompColors.textSecondary)
+                                .foregroundColor(FitCompColors.textSecondary)
                             Text(summary.suggested)
                                 .font(.system(size: 12, weight: .medium))
-                                .foregroundColor(overloadApplied ? Self.overloadBlue : StepCompColors.textSecondary)
+                                .foregroundColor(overloadApplied ? Self.overloadBlue : FitCompColors.textSecondary)
                         }
                         .padding(.top, 4)
                     } else if !allSetsCompleted {
                         Text("First time - set your baseline")
                             .font(.system(size: 12, weight: .medium))
-                            .foregroundColor(StepCompColors.textSecondary)
+                            .foregroundColor(FitCompColors.textSecondary)
                             .padding(.top, 4)
                     }
                 }
@@ -436,16 +459,16 @@ struct ExerciseCard: View {
                     HStack(spacing: 8) {
                         Text("Progressive Overload")
                             .font(.system(size: 12, weight: .medium))
-                            .foregroundColor(StepCompColors.textSecondary)
+                            .foregroundColor(FitCompColors.textSecondary)
 
                         Button(action: toggleProgressiveOverload) {
                             ZStack {
                                 RoundedRectangle(cornerRadius: 16)
-                                    .fill(overloadApplied ? Self.overloadBlue : StepCompColors.cardBackground)
+                                    .fill(overloadApplied ? Self.overloadBlue : FitCompColors.cardBackground)
                                     .frame(width: 44, height: 26)
                                     .overlay(
                                         RoundedRectangle(cornerRadius: 16)
-                                            .stroke(overloadApplied ? Self.overloadBlue : StepCompColors.textSecondary.opacity(0.3), lineWidth: 2)
+                                            .stroke(overloadApplied ? Self.overloadBlue : FitCompColors.textSecondary.opacity(0.3), lineWidth: 2)
                                     )
 
                                 Circle()
@@ -469,11 +492,13 @@ struct ExerciseCard: View {
                     SetRow(
                         set: set,
                         exerciseId: workoutExercise.id,
+                        exerciseName: workoutExercise.exercise.name,
                         viewModel: viewModel,
                         unitManager: unitManager,
                         activeField: $activeField,
                         editBuffer: $editBuffer,
                         collapsedExerciseIds: $collapsedExerciseIds,
+                        restTimerManager: restTimerManager,
                         contextText: contextText,
                         overloadApplied: overloadApplied
                     )
@@ -488,10 +513,10 @@ struct ExerciseCard: View {
             }) {
                 Text("+ ADD SET")
                     .font(.system(size: 12, weight: .black))
-                    .foregroundColor(StepCompColors.textSecondary)
+                    .foregroundColor(FitCompColors.textSecondary)
                     .frame(maxWidth: .infinity)
                     .frame(height: 48)
-                    .background(StepCompColors.textSecondary.opacity(0.05))
+                    .background(FitCompColors.textSecondary.opacity(0.05))
             }
         }
     }
@@ -510,14 +535,14 @@ struct ExerciseCard: View {
 
             Text(workoutExercise.exercise.name)
                 .font(.system(size: 14, weight: .semibold))
-                .foregroundColor(StepCompColors.textPrimary)
+                .foregroundColor(FitCompColors.textPrimary)
 
             Text("|")
-                .foregroundColor(StepCompColors.textSecondary.opacity(0.3))
+                .foregroundColor(FitCompColors.textSecondary.opacity(0.3))
 
             Text(collapsedSummary)
                 .font(.system(size: 14, weight: .medium))
-                .foregroundColor(StepCompColors.textSecondary)
+                .foregroundColor(FitCompColors.textSecondary)
 
             Spacer()
         }
@@ -623,17 +648,27 @@ struct ExerciseCard: View {
 
         let displayPrevWeight = unitManager.convertWeightFromStorage(prevWeight)
         let displaySugWeight = unitManager.convertWeightFromStorage(sugWeight)
-        
-        // Format weights nicely
+
         let prevWeightStr = displayPrevWeight.truncatingRemainder(dividingBy: 1) == 0
             ? String(Int(displayPrevWeight))
             : String(format: "%.1f", displayPrevWeight)
-        let sugWeightStr = displaySugWeight.truncatingRemainder(dividingBy: 1) == 0
-            ? String(Int(displaySugWeight))
-            : String(format: "%.1f", displaySugWeight)
 
         let lastBest = "Last best: \(prevWeightStr) x \(prevReps)"
-        let suggested = "Suggested: \(sugWeightStr) x \(sugReps)"
+
+        // Use smart engine reasoning if available
+        let history = viewModel.getExerciseHistory(exerciseName: exercise.exercise.name)
+        let analytics = WorkoutAnalyticsEngine()
+        if let smartSuggestion = analytics.smartOverloadSuggestion(history: history, exerciseName: exercise.exercise.name) {
+            return (lastBest, smartSuggestion.reasoning)
+        }
+
+        let delta = displaySugWeight - displayPrevWeight
+        let suggested: String
+        if delta > 0.1 {
+            suggested = String(format: "Suggested: Add %.1f %@ next session", delta, unitManager.weightUnit.lowercased())
+        } else {
+            suggested = "Suggested: Hold weight, push reps to \(sugReps)"
+        }
 
         return (lastBest, suggested)
     }
@@ -644,23 +679,20 @@ struct ExerciseCard: View {
 struct SetRow: View {
     let set: WorkoutSet
     let exerciseId: UUID
+    let exerciseName: String
     @ObservedObject var viewModel: WorkoutViewModel
     @ObservedObject var unitManager: UnitPreferenceManager
     @Binding var activeField: SetFieldIdentifier?
     @Binding var editBuffer: String
     @Binding var collapsedExerciseIds: Set<UUID>
+    @ObservedObject var restTimerManager: RestTimerManager
     let contextText: String?
     let overloadApplied: Bool
 
     @Environment(\.colorScheme) private var colorScheme
-    @State private var offset: CGFloat = 0
-    @State private var isSwiped: Bool = false
-    @State private var pressStartTime: Date?
-    @State private var hasMoved: Bool = false
 
     private static let setCompleteCheckmarkBlue = Color(red: 0.45, green: 0.78, blue: 0.95)
     private static let overloadBlue = Color(red: 0.25, green: 0.47, blue: 0.95)
-    private static let deleteButtonWidth: CGFloat = 80
 
     private var weightFieldId: SetFieldIdentifier { SetFieldIdentifier(setId: set.id, fieldType: .weight) }
     private var repsFieldId: SetFieldIdentifier { SetFieldIdentifier(setId: set.id, fieldType: .reps) }
@@ -682,39 +714,11 @@ struct SetRow: View {
     }
 
     var body: some View {
-        ZStack(alignment: .trailing) {
-            // Delete button background - only visible when swiped
-            if offset < 0 {
-                HStack {
-                    Spacer()
-                    Button(action: {
-                        HapticManager.shared.light()
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                            offset = 0
-                            isSwiped = false
-                        }
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                            viewModel.removeSet(exerciseId: exerciseId, setId: set.id)
-                        }
-                    }) {
-                        Image(systemName: "trash.fill")
-                            .font(.system(size: 18, weight: .bold))
-                            .foregroundColor(.white)
-                            .frame(width: Self.deleteButtonWidth, height: 72)
-                    }
-                    .buttonStyle(.plain)
-                }
-                .frame(maxWidth: .infinity, alignment: .trailing)
-                .background(StepCompColors.textSecondary.opacity(0.3))
-                .cornerRadius(12)
-            }
-
-            // Main set content
-            VStack(spacing: 4) {
+        VStack(spacing: 4) {
                 HStack(spacing: 12) {
                     Text("\(set.setNumber)")
                         .font(.system(size: 14, weight: .bold))
-                        .foregroundColor(set.isCompleted ? StepCompColors.textSecondary.opacity(0.3) : StepCompColors.textSecondary)
+                        .foregroundColor(set.isCompleted ? FitCompColors.textSecondary.opacity(0.3) : FitCompColors.textSecondary)
                         .frame(width: 30, alignment: .leading)
 
                     // Weight — tappable display
@@ -727,7 +731,7 @@ struct SetRow: View {
 
                     Text("x")
                         .font(.system(size: 14, weight: .medium))
-                        .foregroundColor(StepCompColors.textSecondary)
+                        .foregroundColor(FitCompColors.textSecondary)
 
                     // Reps — tappable display
                     inputCell(
@@ -747,7 +751,7 @@ struct SetRow: View {
                                 .font(.system(size: 16, weight: .bold))
                                 .foregroundColor(.white)
                                 .frame(width: 40, height: 40)
-                                .background(StepCompColors.textSecondary.opacity(0.5))
+                                .background(FitCompColors.textSecondary.opacity(0.5))
                                 .cornerRadius(20)
                         }
                     } else {
@@ -758,7 +762,7 @@ struct SetRow: View {
                                 .font(.system(size: 18, weight: .bold))
                                 .foregroundColor(Self.setCompleteCheckmarkBlue)
                                 .frame(width: 40, height: 40)
-                                .background(StepCompColors.textSecondary.opacity(0.2))
+                                .background(FitCompColors.textSecondary.opacity(0.2))
                                 .cornerRadius(20)
                         }
                     }
@@ -767,7 +771,7 @@ struct SetRow: View {
                 if let contextText = contextText, !set.isCompleted {
                     Text(contextText)
                         .font(.system(size: 11, weight: .medium))
-                        .foregroundColor(StepCompColors.textSecondary)
+                        .foregroundColor(FitCompColors.textSecondary)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.leading, 42)
                 }
@@ -779,47 +783,6 @@ struct SetRow: View {
                     .fill(backgroundFill)
             )
             .opacity(set.isCompleted ? 0.5 : 1.0)
-            .offset(x: offset)
-            .gesture(
-                DragGesture(minimumDistance: 0)
-                    .onChanged { gesture in
-                        if pressStartTime == nil {
-                            pressStartTime = Date()
-                            hasMoved = false
-                        }
-                        
-                        // Check if user has moved significantly
-                        if abs(gesture.translation.width) > 5 || abs(gesture.translation.height) > 5 {
-                            hasMoved = true
-                        }
-                        
-                        // Only allow left swipe (negative translation)
-                        if gesture.translation.width < 0 {
-                            offset = max(gesture.translation.width, -Self.deleteButtonWidth)
-                        } else if isSwiped {
-                            // Allow closing swipe
-                            offset = max(gesture.translation.width - Self.deleteButtonWidth, -Self.deleteButtonWidth)
-                        }
-                    }
-                    .onEnded { gesture in
-                        _ = pressStartTime.map { Date().timeIntervalSince($0) } ?? 0
-                        pressStartTime = nil
-                        
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                            if gesture.translation.width < -50 {
-                                // Swiped left enough to reveal delete
-                                offset = -Self.deleteButtonWidth
-                                isSwiped = true
-                                HapticManager.shared.light()
-                            } else {
-                                // Reset to original position
-                                offset = 0
-                                isSwiped = false
-                            }
-                        }
-                    }
-            )
-        }
         .onLongPressGesture(minimumDuration: 0.5) {
             HapticManager.shared.light()
         }
@@ -840,20 +803,20 @@ struct SetRow: View {
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel(accessibilityLabel)
-        .accessibilityHint("Swipe left to delete, tap checkmark to complete set, long press for more options")
+        .accessibilityHint("Tap checkmark to complete set, long press for more options")
         .accessibilityAddTraits(set.isCompleted ? [.isSelected] : [])
     }
 
     @ViewBuilder
     private func inputCell(value: String, placeholder: String, fieldId: SetFieldIdentifier, isWeight: Bool) -> some View {
         let isFocused = activeField == fieldId
-        let textColor: Color = overloadApplied ? Self.overloadBlue : StepCompColors.textPrimary
+        let textColor: Color = overloadApplied ? Self.overloadBlue : FitCompColors.textPrimary
 
         Text(value.isEmpty ? placeholder : value)
             .font(.system(size: 16, weight: .bold))
-            .foregroundColor(value.isEmpty ? StepCompColors.textSecondary.opacity(0.5) : textColor)
+            .foregroundColor(value.isEmpty ? FitCompColors.textSecondary.opacity(0.5) : textColor)
             .frame(width: 100, height: 44)
-            .background(set.isCompleted ? StepCompColors.textSecondary.opacity(0.1) : (colorScheme == .dark ? StepCompColors.surface : Color.white))
+            .background(set.isCompleted ? FitCompColors.textSecondary.opacity(0.1) : (colorScheme == .dark ? FitCompColors.surface : Color.white))
             .cornerRadius(12)
             .overlay(
                 RoundedRectangle(cornerRadius: 12)
@@ -918,6 +881,20 @@ struct SetRow: View {
                     collapsedExerciseIds.insert(exerciseId)
                 }
             }
+        } else {
+            // Smart rest timer: suggest duration based on set exertion
+            let weight = set.weight ?? 0
+            let reps = set.reps ?? 0
+            if weight > 0 && reps > 0 {
+                let suggestion = viewModel.suggestRestDuration(
+                    exerciseName: exerciseName,
+                    weight: weight,
+                    reps: reps
+                )
+                restTimerManager.startTimer(duration: suggestion.duration, reasoning: suggestion.reasoning)
+            } else {
+                restTimerManager.startTimer()
+            }
         }
         HapticManager.shared.success()
     }
@@ -933,11 +910,11 @@ struct SetRow: View {
 
     private func borderColor(focused: Bool) -> Color {
         if focused {
-            return StepCompColors.primary
+            return FitCompColors.primary
         } else if targetMetOrExceeded && !set.isCompleted {
             return Color.green.opacity(0.5)
         }
-        return StepCompColors.textSecondary.opacity(0.2)
+        return FitCompColors.textSecondary.opacity(0.2)
     }
 
     private var targetMetOrExceeded: Bool {

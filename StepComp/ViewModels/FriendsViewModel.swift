@@ -1,6 +1,6 @@
 //
 //  FriendsViewModel.swift
-//  StepComp
+//  FitComp
 //
 //  Created by Jeffery Erhunse on 12/24/25.
 //
@@ -24,13 +24,13 @@ private func debugLog(_ location: String, _ message: String, _ data: [String: An
     ]
     if let logData = try? JSONSerialization.data(withJSONObject: logEntry),
        let logString = String(data: logData, encoding: .utf8) {
-        if let fileHandle = FileHandle(forWritingAtPath: "/Users/jefferyerhunse/GitRepos/StepComp/.cursor/debug.log") {
+        if let fileHandle = FileHandle(forWritingAtPath: "/Users/jefferyerhunse/GitRepos/FitComp/.cursor/debug.log") {
             fileHandle.seekToEndOfFile()
             fileHandle.write(logString.data(using: .utf8)!)
             fileHandle.write("\n".data(using: .utf8)!)
             fileHandle.closeFile()
         } else {
-            try? logString.write(toFile: "/Users/jefferyerhunse/GitRepos/StepComp/.cursor/debug.log", atomically: false, encoding: .utf8)
+            try? logString.write(toFile: "/Users/jefferyerhunse/GitRepos/FitComp/.cursor/debug.log", atomically: false, encoding: .utf8)
         }
     }
 }
@@ -54,6 +54,8 @@ final class FriendsViewModel: ObservableObject {
 
     @Published var discoverQuery: String = ""
     @Published var discoverResults: [Profile] = []
+    @Published var discoverOffset: Int = 0
+    private let discoverPageSize: Int = 30
 
     @Published var errorMessage: String?
 
@@ -80,7 +82,7 @@ final class FriendsViewModel: ObservableObject {
     }
 
     func refreshFriendships() async throws {
-        friendships = try await service.listMyFriendships(myUserId: myUserId)
+        friendships = try await service.listMyFriendships(myUserId: myUserId, limit: 100, offset: 0)
         friendItems = try await mapToFriendItems(friendships: friendships)
     }
 
@@ -88,7 +90,13 @@ final class FriendsViewModel: ObservableObject {
         // Refresh friendships first to get latest status
         try await refreshFriendships()
         // Then refresh discover results
-        let allResults = try await service.searchPublicProfiles(query: discoverQuery, myUserId: myUserId)
+        discoverOffset = 0
+        let allResults = try await service.searchPublicProfiles(
+            query: discoverQuery,
+            myUserId: myUserId,
+            limit: discoverPageSize,
+            offset: discoverOffset
+        )
         
         // Get IDs of users who are already friends (accepted friendships only)
         let friendIds = Set(friendships.compactMap { friendship -> String? in
@@ -100,6 +108,24 @@ final class FriendsViewModel: ObservableObject {
         
         // Filter out users who are already friends
         discoverResults = allResults.filter { !friendIds.contains($0.id) }
+    }
+
+    func loadMoreDiscover() async {
+        do {
+            discoverOffset += discoverPageSize
+            let nextPage = try await service.searchPublicProfiles(
+                query: discoverQuery,
+                myUserId: myUserId,
+                limit: discoverPageSize,
+                offset: discoverOffset
+            )
+            guard !nextPage.isEmpty else { return }
+            let existingIds = Set(discoverResults.map(\.id))
+            let toAppend = nextPage.filter { !existingIds.contains($0.id) }
+            discoverResults.append(contentsOf: toAppend)
+        } catch {
+            errorMessage = error.localizedDescription
+        }
     }
 
     func togglePublicProfile(_ isPublic: Bool) async {

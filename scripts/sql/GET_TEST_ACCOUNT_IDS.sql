@@ -12,11 +12,11 @@ SELECT
   created_at
 FROM auth.users 
 WHERE email IN (
-  'sarah.test@stepcomp.app',
-  'mike.test@stepcomp.app',
-  'emma.test@stepcomp.app',
-  'alex.test@stepcomp.app',
-  'jordan.test@stepcomp.app'
+  'sarah.test@fitcomp.app',
+  'mike.test@fitcomp.app',
+  'emma.test@fitcomp.app',
+  'alex.test@fitcomp.app',
+  'jordan.test@fitcomp.app'
 )
 ORDER BY email;
 
@@ -28,11 +28,11 @@ SELECT
 FROM auth.users u
 LEFT JOIN profiles p ON u.id = p.id
 WHERE u.email IN (
-  'sarah.test@stepcomp.app',
-  'mike.test@stepcomp.app',
-  'emma.test@stepcomp.app',
-  'alex.test@stepcomp.app',
-  'jordan.test@stepcomp.app'
+  'sarah.test@fitcomp.app',
+  'mike.test@fitcomp.app',
+  'emma.test@fitcomp.app',
+  'alex.test@fitcomp.app',
+  'jordan.test@fitcomp.app'
 )
 ORDER BY u.email;
 

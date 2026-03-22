@@ -1,6 +1,6 @@
 //
 //  ChallengeViewMode.swift
-//  StepComp
+//  FitComp
 //
 //  Shared view mode enum for challenge displays
 //

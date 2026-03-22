@@ -1,6 +1,6 @@
 //
 //  StackedChallengesView.swift
-//  StepComp
+//  FitComp
 //
 //  Created by Jeffery Erhunse on 01/05/26.
 //
@@ -173,7 +173,7 @@ struct MainStackedCard: View {
                     .foregroundColor(.black)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 6)
-                    .background(StepCompColors.primary)
+                    .background(FitCompColors.primary)
                     .cornerRadius(999)
                     
                     // First challenge name
@@ -319,7 +319,7 @@ struct ExpandedChallengeCard: View {
             .shadow(color: Color.black.opacity(0.04), radius: 12, x: 0, y: 2)
             .overlay(
                 RoundedRectangle(cornerRadius: 20)
-                    .stroke(index == 0 ? StepCompColors.primary.opacity(0.5) : Color.clear, lineWidth: 2)
+                    .stroke(index == 0 ? FitCompColors.primary.opacity(0.5) : Color.clear, lineWidth: 2)
             )
         }
         .buttonStyle(ScaleButtonStyle())
@@ -327,7 +327,7 @@ struct ExpandedChallengeCard: View {
     
     private var badgeColor: Color {
         switch index {
-        case 0: return StepCompColors.primary
+        case 0: return FitCompColors.primary
         case 1: return Color(.systemGray3)
         case 2: return Color(.systemGray4)
         default: return Color(.systemGray5)

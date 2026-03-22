@@ -1,6 +1,6 @@
 //
 //  LegalAndSupportViews.swift
-//  StepComp
+//  FitComp
 //
 //  Legal, Support, and About content views
 //
@@ -25,7 +25,7 @@ struct TermsOfServiceView: View {
                         .foregroundColor(.secondary)
                 }
                 
-                Text("Welcome to StepComp. By accessing or using the StepComp app, you agree to these Terms of Service (\"Terms\"). If you do not agree, please do not use the app.")
+                Text("Welcome to FitComp. By accessing or using the FitComp app, you agree to these Terms of Service (\"Terms\"). If you do not agree, please do not use the app.")
                     .font(.system(size: 15))
                 
                 // Section 1
@@ -33,7 +33,7 @@ struct TermsOfServiceView: View {
                     Text("1. Eligibility")
                         .font(.system(size: 20, weight: .bold))
                     
-                    Text("You must be at least 13 years old to use StepComp. By using the app, you confirm that you meet this requirement.")
+                    Text("You must be at least 13 years old to use FitComp. By using the app, you confirm that you meet this requirement.")
                         .font(.system(size: 15))
                 }
                 
@@ -51,7 +51,7 @@ struct TermsOfServiceView: View {
                         BulletPoint(text: "Providing accurate information")
                     }
                     
-                    Text("StepComp is not responsible for unauthorized access caused by user negligence.")
+                    Text("FitComp is not responsible for unauthorized access caused by user negligence.")
                         .font(.system(size: 15))
                 }
                 
@@ -60,13 +60,13 @@ struct TermsOfServiceView: View {
                     Text("3. Health Data Disclaimer")
                         .font(.system(size: 20, weight: .bold))
                     
-                    Text("StepComp is not a medical app.")
+                    Text("FitComp is not a medical app.")
                         .font(.system(size: 15, weight: .semibold))
                     
                     VStack(alignment: .leading, spacing: 8) {
-                        BulletPoint(text: "StepComp provides fitness tracking for motivation and entertainment")
+                        BulletPoint(text: "FitComp provides fitness tracking for motivation and entertainment")
                         BulletPoint(text: "Data is sourced from Apple Health")
-                        BulletPoint(text: "Do not rely on StepComp for medical advice, diagnosis, or treatment")
+                        BulletPoint(text: "Do not rely on FitComp for medical advice, diagnosis, or treatment")
                         BulletPoint(text: "Always consult a healthcare professional before making health decisions")
                     }
                 }
@@ -137,7 +137,7 @@ struct TermsOfServiceView: View {
                     Text("7. Limitation of Liability")
                         .font(.system(size: 20, weight: .bold))
                     
-                    Text("StepComp is provided \"as is\". We are not liable for:")
+                    Text("FitComp is provided \"as is\". We are not liable for:")
                         .font(.system(size: 15))
                     
                     VStack(alignment: .leading, spacing: 8) {
@@ -189,7 +189,7 @@ struct CommunityGuidelinesView: View {
                     Text("Community Guidelines")
                         .font(.system(size: 28, weight: .bold))
                     
-                    Text("StepComp is a positive, competitive, and respectful space. These guidelines exist to protect the community.")
+                    Text("FitComp is a positive, competitive, and respectful space. These guidelines exist to protect the community.")
                         .font(.system(size: 15))
                 }
                 
@@ -329,7 +329,7 @@ struct ChallengeRulesView: View {
                     Text("5. Enforcement")
                         .font(.system(size: 20, weight: .bold))
                     
-                    Text("StepComp reserves the right to:")
+                    Text("FitComp reserves the right to:")
                         .font(.system(size: 15))
                     
                     VStack(alignment: .leading, spacing: 8) {
@@ -432,7 +432,7 @@ struct ContactSupportView: View {
                             Spacer()
                         }
                         .padding()
-                        .background(StepCompColors.primary)
+                        .background(FitCompColors.primary)
                         .foregroundColor(.black)
                         .cornerRadius(12)
                     }
@@ -489,11 +489,11 @@ struct AppVersionView: View {
             }
             
             Section {
-                Link("View on App Store", destination: URL(string: "https://apps.apple.com/app/stepcomp")!)
-                Link("Rate StepComp", destination: URL(string: "https://apps.apple.com/app/stepcomp")!)
+                Link("View on App Store", destination: URL(string: "https://apps.apple.com/app/fitcomp")!)
+                Link("Rate FitComp", destination: URL(string: "https://apps.apple.com/app/fitcomp")!)
             }
             
-            Section(footer: Text("© 2026 StepComp. All rights reserved.")) {
+            Section(footer: Text("© 2026 FitComp. All rights reserved.")) {
                 HStack {
                     Text("Made with")
                     Image(systemName: "heart.fill")

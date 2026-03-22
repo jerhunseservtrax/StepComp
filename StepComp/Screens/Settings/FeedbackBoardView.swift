@@ -1,6 +1,6 @@
 //
 //  FeedbackBoardView.swift
-//  StepComp
+//  FitComp
 //
 //  Created by Jeffery Erhunse
 //
@@ -14,6 +14,7 @@ struct FeedbackBoardView: View {
     @State private var selectedPost: FeedbackPost?
     @State private var showingDeleteAlert = false
     @State private var postToDelete: FeedbackPost?
+    @State private var searchDebounceTask: Task<Void, Never>?
     
     
     var body: some View {
@@ -23,12 +24,11 @@ struct FeedbackBoardView: View {
                 SearchBarView(searchText: $viewModel.searchText)
                     .padding()
                     .onChange(of: viewModel.searchText) { oldValue, newValue in
-                        Task {
-                            // Debounce search
+                        searchDebounceTask?.cancel()
+                        searchDebounceTask = Task {
                             try? await Task.sleep(nanoseconds: 500_000_000)
-                            if viewModel.searchText == newValue {
-                                await viewModel.loadFeedback()
-                            }
+                            guard !Task.isCancelled else { return }
+                            await viewModel.loadFeedback()
                         }
                     }
                 
@@ -146,7 +146,7 @@ struct FeedbackBoardView: View {
                     }) {
                         Image(systemName: "plus.circle.fill")
                             .font(.system(size: 24))
-                            .foregroundColor(StepCompColors.primary)
+                            .foregroundColor(FitCompColors.primary)
                     }
                 }
             }
@@ -172,6 +172,9 @@ struct FeedbackBoardView: View {
             }
             .task {
                 await viewModel.loadFeedback()
+            }
+            .onDisappear {
+                searchDebounceTask?.cancel()
             }
         }
     }
@@ -226,7 +229,7 @@ struct FilterChip: View {
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
-            .background(isSelected ? StepCompColors.primary : Color(.systemGray6))
+            .background(isSelected ? FitCompColors.primary : Color(.systemGray6))
             .foregroundColor(isSelected ? .black : .primary)
             .cornerRadius(16)
         }
@@ -264,10 +267,10 @@ struct FeedbackPostCard: View {
                         if post.isAuthor {
                             Text("YOU")
                                 .font(.system(size: 10, weight: .bold))
-                                .foregroundColor(StepCompColors.primary)
+                                .foregroundColor(FitCompColors.primary)
                                 .padding(.horizontal, 6)
                                 .padding(.vertical, 2)
-                                .background(StepCompColors.primary.opacity(0.2))
+                                .background(FitCompColors.primary.opacity(0.2))
                                 .cornerRadius(4)
                         }
                     }

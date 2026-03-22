@@ -1,6 +1,6 @@
 //
 //  SignInView.swift
-//  StepComp
+//  FitComp
 //
 //  Created by Jeffery Erhunse on 12/24/25.
 //
@@ -54,7 +54,7 @@ struct SignInOnboardingView: View {
                                 .offset(x: -20, y: 20)
                             
                             Circle()
-                                .fill(StepCompColors.primary.opacity(0.1))
+                                .fill(FitCompColors.primary.opacity(0.1))
                                 .frame(width: 128, height: 128)
                                 .blur(radius: 30)
                                 .offset(x: 20, y: -20)
@@ -70,7 +70,7 @@ struct SignInOnboardingView: View {
                                     
                                     Image(systemName: "trophy.fill")
                                         .font(.system(size: 60))
-                                        .foregroundColor(StepCompColors.primary)
+                                        .foregroundColor(FitCompColors.primary)
                                 }
                                 .rotationEffect(.degrees(-6))
                                 .offset(y: 20)
@@ -144,7 +144,7 @@ struct SignInOnboardingView: View {
                                 .foregroundColor(.primary)
                                 .frame(maxWidth: .infinity)
                                 .frame(height: 56)
-                                .background(StepCompColors.surface)
+                                .background(FitCompColors.surface)
                                 .overlay(
                                     RoundedRectangle(cornerRadius: 999)
                                         .stroke(Color(.systemGray4), lineWidth: 1)
@@ -207,7 +207,7 @@ struct SignInOnboardingView: View {
                                     .foregroundColor(.secondary)
                                 Text(" Tap here")
                                     .font(.system(size: 14, weight: .semibold))
-                                    .foregroundColor(currentColorScheme == .light ? .black : StepCompColors.primary)
+                                    .foregroundColor(currentColorScheme == .light ? .black : FitCompColors.primary)
                             }
                         }
                         .padding(.trailing, 24)
@@ -695,17 +695,17 @@ struct SignInOnboardingView: View {
         // Check if URL scheme is registered
         if let urlTypes = Bundle.main.infoDictionary?["CFBundleURLTypes"] as? [[String: Any]] {
             let schemes = urlTypes.compactMap { $0["CFBundleURLSchemes"] as? [String] }.flatMap { $0 }
-            if schemes.contains("stepcomp") {
-                print("✅ [H5] URL scheme 'stepcomp' IS registered")
+            if schemes.contains("fitcomp") {
+                print("✅ [H5] URL scheme 'fitcomp' IS registered")
             } else {
-                print("❌ [H5] URL scheme 'stepcomp' NOT registered! This is the problem.")
+                print("❌ [H5] URL scheme 'fitcomp' NOT registered! This is the problem.")
                 print("❌ [H5] Available schemes: \(schemes)")
             }
         } else {
             print("❌ [H5] No URL types found in Info.plist")
         }
         
-        let callbackURLScheme = "stepcomp" // Must match Info.plist URL scheme
+        let callbackURLScheme = "fitcomp" // Must match Info.plist URL scheme
         
         // Cancel any existing session first
         if let existingSession = webAuthSession {
@@ -929,13 +929,14 @@ struct SignUpView: View {
     let onAppleSignIn: () -> Void
     
     @State private var fullName: String = ""
+    @ObservedObject private var unitManager = UnitPreferenceManager.shared
     
     
     var body: some View {
         NavigationStack {
             ZStack {
                 // Background
-                StepCompColors.background
+                FitCompColors.background
                     .ignoresSafeArea()
                 
                 ScrollView {
@@ -946,12 +947,12 @@ struct SignUpView: View {
                             ZStack {
                                 // Outer glow circle
                                 Circle()
-                                    .fill(StepCompColors.primary.opacity(0.2))
+                                    .fill(FitCompColors.primary.opacity(0.2))
                                     .frame(width: 128, height: 128)
                                 
                                 // Pulsing animation circle
                                 Circle()
-                                    .fill(StepCompColors.primary.opacity(0.1))
+                                    .fill(FitCompColors.primary.opacity(0.1))
                                     .frame(width: 128, height: 128)
                                     .scaleEffect(1.2)
                                     .opacity(0.5)
@@ -959,7 +960,7 @@ struct SignUpView: View {
                                 // Email icon
                                 Image(systemName: "envelope.fill")
                                     .font(.system(size: 52, weight: .medium))
-                                        .foregroundColor(StepCompColors.primary)
+                                        .foregroundColor(FitCompColors.primary)
                             }
                             
                             // Title and Subtitle
@@ -1130,43 +1131,25 @@ struct SignUpView: View {
                                 )
                             }
                             
-                            // Height and Weight in a row
+                            // Height and Weight
                             VStack(spacing: 16) {
-                                // Height in feet/inches
+                                // Height
                                 VStack(alignment: .leading, spacing: 8) {
-                                    Text("Height")
+                                    Text(unitManager.unitSystem == .metric ? "Height (cm)" : "Height")
                                         .font(.system(size: 14, weight: .bold))
                                         .foregroundColor(.primary)
                                     
-                                    HStack(spacing: 12) {
+                                    if unitManager.unitSystem == .metric {
                                         HStack {
                                             Image(systemName: "ruler")
                                                 .foregroundColor(.secondary)
                                                 .frame(width: 24)
                                             
-                                            TextField("5", text: Binding(
-                                                get: {
-                                                    // Convert stored cm to feet for display
-                                                    if let cm = Int(height), cm > 0 {
-                                                        let totalInches = Double(cm) / 2.54
-                                                        let feet = Int(totalInches / 12)
-                                                        return "\(feet)"
-                                                    }
-                                                    return ""
-                                                },
-                                                set: { newValue in
-                                                    if let feet = Int(newValue) {
-                                                        let currentCm = Int(height) ?? 0
-                                                        let currentInches = Int((Double(currentCm) / 2.54).truncatingRemainder(dividingBy: 12))
-                                                        let newCm = Int(Double(feet * 12 + currentInches) * 2.54)
-                                                        height = "\(newCm)"
-                                                    }
-                                                }
-                                            ))
-                                            .keyboardType(.numberPad)
-                                            .foregroundColor(.primary)
+                                            TextField("175", text: $height)
+                                                .keyboardType(.numberPad)
+                                                .foregroundColor(.primary)
                                             
-                                            Text("ft")
+                                            Text("cm")
                                                 .foregroundColor(.gray)
                                         }
                                         .padding(.horizontal, 16)
@@ -1177,47 +1160,74 @@ struct SignUpView: View {
                                             RoundedRectangle(cornerRadius: 12)
                                                 .stroke(Color(.systemGray4), lineWidth: 1)
                                         )
-                                        
-                                        HStack {
-                                            TextField("10", text: Binding(
-                                                get: {
-                                                    // Convert stored cm to inches for display
-                                                    if let cm = Int(height), cm > 0 {
-                                                        let totalInches = Double(cm) / 2.54
-                                                        let inches = Int(totalInches.truncatingRemainder(dividingBy: 12))
-                                                        return "\(inches)"
-                                                    }
-                                                    return ""
-                                                },
-                                                set: { newValue in
-                                                    if let inches = Int(newValue) {
+                                    } else {
+                                        HStack(spacing: 12) {
+                                            HStack {
+                                                Image(systemName: "ruler")
+                                                    .foregroundColor(.secondary)
+                                                    .frame(width: 24)
+                                                
+                                                TextField("5", text: Binding(
+                                                    get: {
+                                                        guard let cm = Int(height), cm > 0 else { return "" }
+                                                        return "\(unitManager.heightComponents(fromCm: cm).feet)"
+                                                    },
+                                                    set: { newValue in
+                                                        guard let feet = Int(newValue) else { return }
                                                         let currentCm = Int(height) ?? 0
-                                                        let currentFeet = Int((Double(currentCm) / 2.54) / 12)
-                                                        let newCm = Int(Double(currentFeet * 12 + inches) * 2.54)
-                                                        height = "\(newCm)"
+                                                        let current = unitManager.heightComponents(fromCm: currentCm)
+                                                        height = "\(unitManager.heightToStorage(feet: feet, inches: current.inches))"
                                                     }
-                                                }
-                                            ))
-                                            .keyboardType(.numberPad)
-                                            .foregroundColor(.primary)
+                                                ))
+                                                .keyboardType(.numberPad)
+                                                .foregroundColor(.primary)
+                                                
+                                                Text("ft")
+                                                    .foregroundColor(.gray)
+                                            }
+                                            .padding(.horizontal, 16)
+                                            .frame(height: 56)
+                                            .background(Color(.systemGray6))
+                                            .cornerRadius(12)
+                                            .overlay(
+                                                RoundedRectangle(cornerRadius: 12)
+                                                    .stroke(Color(.systemGray4), lineWidth: 1)
+                                            )
                                             
-                                            Text("in")
-                                                .foregroundColor(.gray)
+                                            HStack {
+                                                TextField("10", text: Binding(
+                                                    get: {
+                                                        guard let cm = Int(height), cm > 0 else { return "" }
+                                                        return "\(unitManager.heightComponents(fromCm: cm).inches)"
+                                                    },
+                                                    set: { newValue in
+                                                        guard let inches = Int(newValue) else { return }
+                                                        let currentCm = Int(height) ?? 0
+                                                        let current = unitManager.heightComponents(fromCm: currentCm)
+                                                        height = "\(unitManager.heightToStorage(feet: current.feet, inches: inches))"
+                                                    }
+                                                ))
+                                                .keyboardType(.numberPad)
+                                                .foregroundColor(.primary)
+                                                
+                                                Text("in")
+                                                    .foregroundColor(.gray)
+                                            }
+                                            .padding(.horizontal, 16)
+                                            .frame(height: 56)
+                                            .background(Color(.systemGray6))
+                                            .cornerRadius(12)
+                                            .overlay(
+                                                RoundedRectangle(cornerRadius: 12)
+                                                    .stroke(Color(.systemGray4), lineWidth: 1)
+                                            )
                                         }
-                                        .padding(.horizontal, 16)
-                                        .frame(height: 56)
-                                        .background(Color(.systemGray6))
-                                        .cornerRadius(12)
-                                        .overlay(
-                                            RoundedRectangle(cornerRadius: 12)
-                                                .stroke(Color(.systemGray4), lineWidth: 1)
-                                        )
                                     }
                                 }
                                 
-                                // Weight in lbs
+                                // Weight
                                 VStack(alignment: .leading, spacing: 8) {
-                                    Text("Weight (lbs)")
+                                    Text(unitManager.unitSystem == .metric ? "Weight (kg)" : "Weight (lbs)")
                                         .font(.system(size: 14, weight: .bold))
                                         .foregroundColor(.primary)
                                     
@@ -1226,24 +1236,24 @@ struct SignUpView: View {
                                             .foregroundColor(.secondary)
                                             .frame(width: 24)
                                         
-                                        TextField("150", text: Binding(
+                                        TextField(unitManager.unitSystem == .metric ? "70" : "150", text: Binding(
                                             get: {
-                                                // Convert stored kg to lbs for display
                                                 if let kg = Int(weight), kg > 0 {
-                                                    let lbs = Int(Double(kg) * 2.20462)
-                                                    return "\(lbs)"
+                                                    return "\(unitManager.weightFromStorage(kg))"
                                                 }
                                                 return ""
                                             },
                                             set: { newValue in
-                                                if let lbs = Int(newValue) {
-                                                    let kg = Int(Double(lbs) / 2.20462)
-                                                    weight = "\(kg)"
+                                                if let displayWeight = Int(newValue) {
+                                                    weight = "\(unitManager.weightToStorage(displayWeight))"
                                                 }
                                             }
                                         ))
                                         .keyboardType(.numberPad)
                                         .foregroundColor(.primary)
+
+                                        Text(unitManager.unitSystem == .metric ? "kg" : "lbs")
+                                            .foregroundColor(.gray)
                                     }
                                     .padding(.horizontal, 16)
                                     .frame(height: 56)
@@ -1298,10 +1308,10 @@ struct SignUpView: View {
                             }
                             .frame(maxWidth: .infinity)
                             .frame(height: 56)
-                            .background(StepCompColors.primary)
-                            .foregroundColor(StepCompColors.buttonTextOnPrimary)
+                            .background(FitCompColors.primary)
+                            .foregroundColor(FitCompColors.buttonTextOnPrimary)
                             .cornerRadius(12)
-                            .shadow(color: StepCompColors.primary.opacity(0.39), radius: 14, x: 0, y: 4)
+                            .shadow(color: FitCompColors.primary.opacity(0.39), radius: 14, x: 0, y: 4)
                         }
                         .disabled(isLoading || fullName.isEmpty || username.isEmpty || email.isEmpty || password.isEmpty || confirmPassword.isEmpty || password != confirmPassword)
                         .padding(.horizontal, 24)
@@ -1355,7 +1365,7 @@ struct SignUpView: View {
                             Button(action: onSwitchToSignIn) {
                                 Text("Log In")
                                     .font(.system(size: 14, weight: .bold))
-                                    .foregroundColor(StepCompColors.primary)
+                                    .foregroundColor(FitCompColors.primary)
                             }
                         }
                         .padding(.bottom, 32)
@@ -1403,7 +1413,7 @@ struct SignInView: View {
         NavigationStack {
             ZStack {
                 // Background
-                StepCompColors.background
+                FitCompColors.background
                     .ignoresSafeArea()
                 
                 ScrollView {
@@ -1414,12 +1424,12 @@ struct SignInView: View {
                             ZStack {
                                 // Outer glow circle
                                 Circle()
-                                    .fill(StepCompColors.primary.opacity(0.2))
+                                    .fill(FitCompColors.primary.opacity(0.2))
                                     .frame(width: 128, height: 128)
                                 
                                 // Pulsing animation circle
                                 Circle()
-                                    .fill(StepCompColors.primary.opacity(0.1))
+                                    .fill(FitCompColors.primary.opacity(0.1))
                                     .frame(width: 128, height: 128)
                                     .scaleEffect(1.2)
                                     .opacity(0.5)
@@ -1427,7 +1437,7 @@ struct SignInView: View {
                                 // Email icon
                                 Image(systemName: "envelope.fill")
                                     .font(.system(size: 52, weight: .medium))
-                                        .foregroundColor(StepCompColors.primary)
+                                        .foregroundColor(FitCompColors.primary)
                             }
                             
                             // Title and Subtitle
@@ -1520,7 +1530,7 @@ struct SignInView: View {
                             Button(action: onForgotPassword) {
                                 Text("Forgot Password?")
                                     .font(.system(size: 14, weight: .medium))
-                                    .foregroundColor(currentColorScheme == .light ? .black : StepCompColors.primary)
+                                    .foregroundColor(currentColorScheme == .light ? .black : FitCompColors.primary)
                             }
                         }
                         .padding(.horizontal, 24)
@@ -1550,10 +1560,10 @@ struct SignInView: View {
                             }
                             .frame(maxWidth: .infinity)
                             .frame(height: 56)
-                            .background(StepCompColors.primary)
-                            .foregroundColor(StepCompColors.buttonTextOnPrimary)
+                            .background(FitCompColors.primary)
+                            .foregroundColor(FitCompColors.buttonTextOnPrimary)
                             .cornerRadius(12)
-                            .shadow(color: StepCompColors.primary.opacity(0.39), radius: 14, x: 0, y: 4)
+                            .shadow(color: FitCompColors.primary.opacity(0.39), radius: 14, x: 0, y: 4)
                         }
                         .disabled(isLoading || email.isEmpty || password.isEmpty)
                         .padding(.horizontal, 24)
@@ -1607,7 +1617,7 @@ struct SignInView: View {
                             Button(action: onSwitchToSignUp) {
                                 Text("Sign Up")
                                     .font(.system(size: 14, weight: .bold))
-                                    .foregroundColor(currentColorScheme == .light ? .black : StepCompColors.primary)
+                                    .foregroundColor(currentColorScheme == .light ? .black : FitCompColors.primary)
                             }
                         }
                         .padding(.bottom, 32)
@@ -1648,7 +1658,7 @@ struct ForgotPasswordSheet: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                StepCompColors.background
+                FitCompColors.background
                     .ignoresSafeArea()
                 
                 ScrollView {
@@ -1656,12 +1666,12 @@ struct ForgotPasswordSheet: View {
                         // Header Icon
                         ZStack {
                             Circle()
-                                .fill(StepCompColors.primary.opacity(0.2))
+                                .fill(FitCompColors.primary.opacity(0.2))
                                 .frame(width: 128, height: 128)
                             
                             Image(systemName: "key.fill")
                                 .font(.system(size: 52, weight: .medium))
-                                .foregroundColor(StepCompColors.primary)
+                                .foregroundColor(FitCompColors.primary)
                         }
                         .padding(.top, 40)
                         
@@ -1754,8 +1764,8 @@ struct ForgotPasswordSheet: View {
                         }
                         .frame(maxWidth: .infinity)
                                 .padding(.vertical, 16)
-                                .background(StepCompColors.primary)
-                                .foregroundColor(StepCompColors.buttonTextOnPrimary)
+                                .background(FitCompColors.primary)
+                                .foregroundColor(FitCompColors.buttonTextOnPrimary)
                                 .cornerRadius(12)
                     }
                     .disabled(isLoading || resetEmail.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
@@ -1810,7 +1820,7 @@ struct ForgotPasswordSheet: View {
         do {
             #if canImport(Supabase)
             // Use custom URL scheme for deep link
-            let redirectURL = URL(string: "je.stepcomp://reset-password")!
+            let redirectURL = URL(string: "je.fitcomp://reset-password")!
             try await supabase.auth.resetPasswordForEmail(
                 trimmedEmail,
                 redirectTo: redirectURL
@@ -1855,7 +1865,7 @@ struct PasswordResetView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                StepCompColors.background
+                FitCompColors.background
                     .ignoresSafeArea()
                 
                 ScrollView {
@@ -1864,7 +1874,7 @@ struct PasswordResetView: View {
                         VStack(spacing: 12) {
                             Image(systemName: "lock.rotation")
                                 .font(.system(size: 64))
-                                .foregroundColor(StepCompColors.primary)
+                                .foregroundColor(FitCompColors.primary)
                             
                             Text("Reset Your Password")
                                 .font(.system(size: 32, weight: .bold))
@@ -1981,8 +1991,8 @@ struct PasswordResetView: View {
                             }
                             .frame(maxWidth: .infinity)
                             .frame(height: 56)
-                            .background(StepCompColors.primary)
-                            .foregroundColor(StepCompColors.buttonTextOnPrimary)
+                            .background(FitCompColors.primary)
+                            .foregroundColor(FitCompColors.buttonTextOnPrimary)
                             .cornerRadius(12)
                         }
                         .disabled(isLoading || newPassword.isEmpty || confirmPassword.isEmpty || newPassword != confirmPassword)

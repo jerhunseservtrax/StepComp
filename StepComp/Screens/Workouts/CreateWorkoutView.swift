@@ -1,6 +1,6 @@
 //
 //  CreateWorkoutView.swift
-//  StepComp
+//  FitComp
 //
 //  Created by Jeffery Erhunse on 2/16/26.
 //
@@ -15,6 +15,7 @@ struct CreateWorkoutView: View {
     @State private var workoutName = ""
     @State private var selectedExercises: [SelectedExercise] = []
     @State private var selectedDays: Set<DayOfWeek> = []
+    @State private var isOneTimeWorkout = false
     @State private var currentStep: CreateWorkoutStep = .nameWorkout
     @State private var showingExercisePicker = false
     
@@ -28,7 +29,7 @@ struct CreateWorkoutView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                StepCompColors.background.ignoresSafeArea()
+                FitCompColors.background.ignoresSafeArea()
                 
                 VStack(spacing: 0) {
                     // Progress indicator
@@ -82,6 +83,7 @@ struct CreateWorkoutView: View {
                     )
                 }
                 selectedDays = Set(workout.assignedDays)
+                isOneTimeWorkout = workout.isOneTime
             }
         }
     }
@@ -90,7 +92,7 @@ struct CreateWorkoutView: View {
         HStack(spacing: 8) {
             ForEach(0..<4) { index in
                 RoundedRectangle(cornerRadius: 2)
-                    .fill(index <= stepIndex ? StepCompColors.primary : Color.gray.opacity(0.2))
+                    .fill(index <= stepIndex ? FitCompColors.primary : Color.gray.opacity(0.2))
                     .frame(height: 4)
             }
         }
@@ -164,7 +166,7 @@ struct CreateWorkoutView: View {
                 .cornerRadius(16)
                 .overlay(
                     RoundedRectangle(cornerRadius: 16)
-                        .stroke(StepCompColors.primary, lineWidth: 2)
+                        .stroke(FitCompColors.primary, lineWidth: 2)
                 )
             }
         }
@@ -248,20 +250,65 @@ struct CreateWorkoutView: View {
     
     private var selectDaysStep: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("Select Days")
+            Text("Schedule")
                 .font(.system(size: 28, weight: .black))
                 .foregroundColor(.black)
-            
-            Text("Choose which days you want to do this workout")
+
+            Text("How often do you want to do this workout?")
                 .font(.system(size: 16))
                 .foregroundColor(.gray)
-            
+
+            // Today Only option
+            Button(action: {
+                isOneTimeWorkout = true
+                selectedDays.removeAll()
+            }) {
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Today Only")
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundColor(FitCompColors.textPrimary)
+                        Text("One-time workout for \(todayFormatted)")
+                            .font(.system(size: 13))
+                            .foregroundColor(FitCompColors.textSecondary)
+                    }
+
+                    Spacer()
+
+                    Image(systemName: isOneTimeWorkout ? "checkmark.circle.fill" : "circle")
+                        .font(.system(size: 24))
+                        .foregroundColor(isOneTimeWorkout ? FitCompColors.primary : FitCompColors.textTertiary)
+                }
+                .padding(16)
+                .background(isOneTimeWorkout ? FitCompColors.primary.opacity(0.1) : FitCompColors.surface)
+                .cornerRadius(16)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16)
+                        .stroke(isOneTimeWorkout ? FitCompColors.primary : FitCompColors.cardBorder, lineWidth: isOneTimeWorkout ? 2 : 1)
+                )
+            }
+
+            // Divider with "or"
+            HStack {
+                Rectangle()
+                    .fill(FitCompColors.textTertiary.opacity(0.3))
+                    .frame(height: 1)
+                Text("or repeat on")
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundColor(FitCompColors.textTertiary)
+                Rectangle()
+                    .fill(FitCompColors.textTertiary.opacity(0.3))
+                    .frame(height: 1)
+            }
+
+            // Recurring day selection
             VStack(spacing: 12) {
                 ForEach(DayOfWeek.allCases) { day in
                     DaySelectionButton(
                         day: day,
                         isSelected: selectedDays.contains(day),
                         action: {
+                            isOneTimeWorkout = false
                             if selectedDays.contains(day) {
                                 selectedDays.remove(day)
                             } else {
@@ -272,6 +319,12 @@ struct CreateWorkoutView: View {
                 }
             }
         }
+    }
+
+    private var todayFormatted: String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "EEEE, MMM d"
+        return formatter.string(from: Date())
     }
     
     // MARK: - Bottom Action Bar
@@ -295,7 +348,7 @@ struct CreateWorkoutView: View {
                     .font(.system(size: 16, weight: .bold))
                     .frame(maxWidth: .infinity)
                     .frame(height: 56)
-                    .background(canProceed ? StepCompColors.primary : Color.gray.opacity(0.3))
+                    .background(canProceed ? FitCompColors.primary : Color.gray.opacity(0.3))
                     .foregroundColor(.black)
                     .cornerRadius(28)
             }
@@ -314,7 +367,7 @@ struct CreateWorkoutView: View {
         case .configureSets:
             return true
         case .selectDays:
-            return !selectedDays.isEmpty
+            return isOneTimeWorkout || !selectedDays.isEmpty
         }
     }
     
@@ -359,6 +412,8 @@ struct CreateWorkoutView: View {
             )
         }
         
+        let oneTime: Date? = isOneTimeWorkout ? Calendar.current.startOfDay(for: Date()) : nil
+
         if let existing = editingWorkout {
             let workout = Workout(
                 id: existing.id,
@@ -366,14 +421,16 @@ struct CreateWorkoutView: View {
                 exercises: workoutExercises,
                 assignedDays: Array(selectedDays),
                 createdAt: existing.createdAt,
-                lastCompletedAt: existing.lastCompletedAt
+                lastCompletedAt: existing.lastCompletedAt,
+                oneTimeDate: oneTime
             )
             viewModel.updateWorkout(workout)
         } else {
             let workout = Workout(
                 name: workoutName,
                 exercises: workoutExercises,
-                assignedDays: Array(selectedDays)
+                assignedDays: Array(selectedDays),
+                oneTimeDate: oneTime
             )
             viewModel.addWorkout(workout)
         }
@@ -414,7 +471,7 @@ struct ExerciseConfigCard: View {
                         }) {
                             Image(systemName: "minus.circle.fill")
                                 .font(.system(size: 24))
-                                .foregroundColor(exercise.sets > 1 ? StepCompColors.primary : Color.gray.opacity(0.3))
+                                .foregroundColor(exercise.sets > 1 ? FitCompColors.primary : Color.gray.opacity(0.3))
                         }
                         
                         Text("\(exercise.sets)")
@@ -429,7 +486,7 @@ struct ExerciseConfigCard: View {
                         }) {
                             Image(systemName: "plus.circle.fill")
                                 .font(.system(size: 24))
-                                .foregroundColor(exercise.sets < 10 ? StepCompColors.primary : Color.gray.opacity(0.3))
+                                .foregroundColor(exercise.sets < 10 ? FitCompColors.primary : Color.gray.opacity(0.3))
                         }
                     }
                 }
@@ -449,7 +506,7 @@ struct ExerciseConfigCard: View {
                         }) {
                             Image(systemName: "minus.circle.fill")
                                 .font(.system(size: 24))
-                                .foregroundColor(exercise.reps > 1 ? StepCompColors.primary : Color.gray.opacity(0.3))
+                                .foregroundColor(exercise.reps > 1 ? FitCompColors.primary : Color.gray.opacity(0.3))
                         }
                         
                         Text("\(exercise.reps)")
@@ -464,7 +521,7 @@ struct ExerciseConfigCard: View {
                         }) {
                             Image(systemName: "plus.circle.fill")
                                 .font(.system(size: 24))
-                                .foregroundColor(exercise.reps < 50 ? StepCompColors.primary : Color.gray.opacity(0.3))
+                                .foregroundColor(exercise.reps < 50 ? FitCompColors.primary : Color.gray.opacity(0.3))
                         }
                     }
                 }
@@ -486,20 +543,20 @@ struct DaySelectionButton: View {
             HStack {
                 Text(day.fullName)
                     .font(.system(size: 16, weight: .bold))
-                    .foregroundColor(StepCompColors.textPrimary)
+                    .foregroundColor(FitCompColors.textPrimary)
                 
                 Spacer()
                 
                 Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
                     .font(.system(size: 24))
-                    .foregroundColor(isSelected ? StepCompColors.primary : StepCompColors.textTertiary)
+                    .foregroundColor(isSelected ? FitCompColors.primary : FitCompColors.textTertiary)
             }
             .padding(16)
-            .background(isSelected ? StepCompColors.primary.opacity(0.1) : StepCompColors.surface)
+            .background(isSelected ? FitCompColors.primary.opacity(0.1) : FitCompColors.surface)
             .cornerRadius(16)
             .overlay(
                 RoundedRectangle(cornerRadius: 16)
-                    .stroke(isSelected ? StepCompColors.primary : StepCompColors.cardBorder, lineWidth: isSelected ? 2 : 1)
+                    .stroke(isSelected ? FitCompColors.primary : FitCompColors.cardBorder, lineWidth: isSelected ? 2 : 1)
             )
         }
     }

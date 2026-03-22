@@ -1,6 +1,6 @@
 //
 //  DashboardHeader.swift
-//  StepComp
+//  FitComp
 //
 //  Created by Jeffery Erhunse on 12/24/25.
 //
@@ -12,7 +12,8 @@ import Supabase
 
 struct DashboardHeader: View {
     let user: User?
-    @State private var showingInbox = false
+    let sessionViewModel: SessionViewModel
+    @State private var showingFriends = false
     @State private var showingChats = false
     @State private var unreadNotificationCount: Int = 0
     @State private var unreadChatCount: Int = 0
@@ -87,19 +88,19 @@ struct DashboardHeader: View {
                     }
                 }
                 
-                // Profile button
+                // Friends button
                 Button(action: {
-                    showingInbox = true
+                    showingFriends = true
                 }) {
                     ZStack(alignment: .topTrailing) {
-                        Image(systemName: "person")
+                        Image(systemName: "person.2.fill")
                             .font(.system(size: 16, weight: .medium))
                             .foregroundColor(.secondary)
                             .frame(width: 40, height: 40)
                             .background(Color(.systemBackground))
                             .clipShape(Circle())
                             .shadow(color: Color.black.opacity(0.04), radius: 4, x: 0, y: 2)
-                        
+
                         // Badge indicator for notifications
                         if unreadNotificationCount > 0 {
                             Text("\(unreadNotificationCount)")
@@ -112,8 +113,8 @@ struct DashboardHeader: View {
                         }
                     }
                 }
-                .sheet(isPresented: $showingInbox) {
-                    InboxView(userId: user?.id ?? "")
+                .sheet(isPresented: $showingFriends) {
+                    FriendsView(sessionViewModel: sessionViewModel)
                 }
             }
         }
@@ -129,7 +130,7 @@ struct DashboardHeader: View {
                 }
             }
         }
-        .onChange(of: showingInbox) { _, isShowing in
+        .onChange(of: showingFriends) { _, isShowing in
             if !isShowing {
                 Task {
                     await loadNotificationUnreadCount()

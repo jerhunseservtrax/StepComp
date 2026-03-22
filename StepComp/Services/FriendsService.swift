@@ -1,6 +1,6 @@
 //
 //  FriendsService.swift
-//  StepComp
+//  FitComp
 //
 //  Created by Jeffery Erhunse on 12/24/25.
 //
@@ -25,7 +25,7 @@ final class FriendsService: ObservableObject {
         #endif
     }
 
-    func searchPublicProfiles(query: String, myUserId: String) async throws -> [Profile] {
+    func searchPublicProfiles(query: String, myUserId: String, limit: Int = 30, offset: Int = 0) async throws -> [Profile] {
         #if canImport(Supabase)
         let q = query.trimmingCharacters(in: .whitespacesAndNewlines)
         var builder = supabase
@@ -38,7 +38,12 @@ final class FriendsService: ObservableObject {
             builder = builder.ilike("username", pattern: "%\(q)%")
         }
 
-        let res: [Profile] = try await builder.limit(30).execute().value
+        let res: [Profile] = try await RetryUtility.withExponentialBackoff {
+            try await builder
+                .range(from: offset, to: offset + max(limit - 1, 0))
+                .execute()
+                .value
+        }
         return res
         #else
         return []
@@ -47,14 +52,17 @@ final class FriendsService: ObservableObject {
 
     // MARK: - Friendships
 
-    func listMyFriendships(myUserId: String) async throws -> [Friendship] {
+    func listMyFriendships(myUserId: String, limit: Int = 100, offset: Int = 0) async throws -> [Friendship] {
         #if canImport(Supabase)
-        let res: [Friendship] = try await supabase
-            .from("friendships")
-            .select("id,requester_id,addressee_id,status")
-            .or("requester_id.eq.\(myUserId),addressee_id.eq.\(myUserId)")
-            .execute()
-            .value
+        let res: [Friendship] = try await RetryUtility.withExponentialBackoff {
+            try await supabase
+                .from("friendships")
+                .select("id,requester_id,addressee_id,status")
+                .or("requester_id.eq.\(myUserId),addressee_id.eq.\(myUserId)")
+                .range(from: offset, to: offset + max(limit - 1, 0))
+                .execute()
+                .value
+        }
         return res
         #else
         return []

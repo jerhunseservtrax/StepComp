@@ -1,6 +1,6 @@
 //
 //  LeaderboardView.swift
-//  StepComp
+//  FitComp
 //
 //  Modern leaderboard with podium design
 //
@@ -23,7 +23,7 @@ struct LeaderboardView: View {
         let userId = sessionViewModel.currentUser?.id ?? ""
         _viewModel = StateObject(
             wrappedValue: LeaderboardViewModel(
-                challengeService: ChallengeService(),
+                challengeService: ChallengeService.shared,
                 challengeId: challengeId,
                 userId: userId
             )
@@ -80,7 +80,7 @@ struct LeaderboardView: View {
                     VStack(spacing: 0) {
                         if viewModel.isLoading {
                             ProgressView()
-                                .progressViewStyle(CircularProgressViewStyle(tint: StepCompColors.primary))
+                                .progressViewStyle(CircularProgressViewStyle(tint: FitCompColors.primary))
                                 .padding(.vertical, 60)
                         } else if viewModel.entries.isEmpty {
                             EmptyLeaderboardView()
@@ -174,7 +174,7 @@ struct ToggleButton: View {
                 .foregroundColor(isSelected ? .black : Color(.systemGray))
                 .frame(maxWidth: .infinity)
                 .frame(height: 48)
-                .background(isSelected ? StepCompColors.primary : Color.clear)
+                .background(isSelected ? FitCompColors.primary : Color.clear)
                 .cornerRadius(24)
         }
         .buttonStyle(.plain)
@@ -254,11 +254,11 @@ struct PodiumCard: View {
                 // Background
                 if isWinner {
                     LinearGradient(
-                        colors: [StepCompColors.primary, gradientEnd],
+                        colors: [FitCompColors.primary, gradientEnd],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     )
-                    .shadow(color: StepCompColors.primary.opacity(0.3), radius: 15, x: 0, y: 0)
+                    .shadow(color: FitCompColors.primary.opacity(0.3), radius: 15, x: 0, y: 0)
                 } else {
                     Color(.systemBackground)
                         .shadow(color: Color.black.opacity(0.05), radius: 20, x: 0, y: 8)
@@ -454,7 +454,7 @@ struct UserStatsFooter: View {
             VStack(alignment: .trailing, spacing: 2) {
                 Text(entry.steps.formatted())
                     .font(.system(size: 18, weight: .bold, design: .monospaced))
-                    .foregroundColor(StepCompColors.primary)
+                    .foregroundColor(FitCompColors.primary)
                 
                 Text(stepsLabel)
                     .font(.system(size: 10, weight: .semibold))

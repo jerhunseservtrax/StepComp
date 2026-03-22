@@ -1,6 +1,6 @@
 //
 //  WeightEntryView.swift
-//  StepComp
+//  FitComp
 //
 //  Created by Jeffery Erhunse on 2/23/26.
 //
@@ -53,7 +53,7 @@ struct WeightEntryView: View {
                 .padding(.horizontal, 20)
                 .padding(.bottom, 100)
             }
-            .background(StepCompColors.background.ignoresSafeArea())
+            .background(FitCompColors.background.ignoresSafeArea())
             .contentShape(Rectangle())
             .onTapGesture {
                 UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
@@ -82,7 +82,7 @@ struct WeightEntryView: View {
             Text("DATE")
                 .font(.system(size: 13, weight: .black))
                 .tracking(1.5)
-                .foregroundColor(StepCompColors.textSecondary)
+                .foregroundColor(FitCompColors.textSecondary)
             
             CustomCalendarView(
                 selectedDate: $selectedDate,
@@ -95,11 +95,11 @@ struct WeightEntryView: View {
             if !viewModel.entries.isEmpty {
                 HStack(spacing: 6) {
                     Circle()
-                        .fill(StepCompColors.primary.opacity(0.3))
+                        .fill(FitCompColors.primary.opacity(0.3))
                         .frame(width: 8, height: 8)
                     Text("Days with weight entries")
                         .font(.system(size: 11, weight: .medium))
-                        .foregroundColor(StepCompColors.textSecondary)
+                        .foregroundColor(FitCompColors.textSecondary)
                 }
                 .padding(.top, 8)
             }
@@ -114,19 +114,19 @@ struct WeightEntryView: View {
             Text("WEIGHT")
                 .font(.system(size: 13, weight: .black))
                 .tracking(1.5)
-                .foregroundColor(StepCompColors.textSecondary)
+                .foregroundColor(FitCompColors.textSecondary)
             
             HStack(spacing: 16) {
                 TextField("Enter weight", text: $weightInput)
                     .keyboardType(.decimalPad)
                     .font(.system(size: 24, weight: .bold))
                     .padding()
-                    .background(StepCompColors.textSecondary.opacity(0.1))
+                    .background(FitCompColors.textSecondary.opacity(0.1))
                     .cornerRadius(12)
                 
                 Text(unitManager.weightUnit)
                     .font(.system(size: 16, weight: .semibold))
-                    .foregroundColor(StepCompColors.textSecondary)
+                    .foregroundColor(FitCompColors.textSecondary)
                     .frame(width: 50)
             }
             
@@ -138,7 +138,7 @@ struct WeightEntryView: View {
                 }
                 .frame(maxWidth: .infinity)
                 .frame(height: 56)
-                .background(StepCompColors.primary)
+                .background(FitCompColors.primary)
                 .foregroundColor(.black)
                 .cornerRadius(28)
             }
@@ -155,52 +155,14 @@ struct WeightEntryView: View {
             Text("TREND (LAST 90 DAYS)")
                 .font(.system(size: 13, weight: .black))
                 .tracking(1.5)
-                .foregroundColor(StepCompColors.textSecondary)
-            
+                .foregroundColor(FitCompColors.textSecondary)
+
             let graphData = viewModel.getEntriesForGraph(days: 90)
-            
-            if graphData.isEmpty {
-                VStack(spacing: 12) {
-                    Image(systemName: "chart.line.uptrend.xyaxis")
-                        .font(.system(size: 48))
-                        .foregroundColor(.gray.opacity(0.3))
-                    Text("Add weight entries to see trends")
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundColor(StepCompColors.textSecondary)
-                }
-                .frame(maxWidth: .infinity)
-                .frame(height: 200)
-            } else {
-                Chart(graphData) { entry in
-                    LineMark(
-                        x: .value("Date", entry.date),
-                        y: .value("Weight", unitManager.convertWeightFromStorage(entry.weightKg))
-                    )
-                    .foregroundStyle(StepCompColors.primary)
-                    .lineStyle(StrokeStyle(lineWidth: 2))
-                    
-                    PointMark(
-                        x: .value("Date", entry.date),
-                        y: .value("Weight", unitManager.convertWeightFromStorage(entry.weightKg))
-                    )
-                    .foregroundStyle(StepCompColors.primary)
-                }
-                .frame(height: 200)
-                .chartXAxis {
-                    AxisMarks(values: .stride(by: .day, count: 15)) { _ in
-                        AxisGridLine()
-                        AxisTick()
-                        AxisValueLabel(format: .dateTime.month().day())
-                    }
-                }
-                .chartYAxis {
-                    AxisMarks { value in
-                        AxisGridLine()
-                        AxisTick()
-                        AxisValueLabel()
-                    }
-                }
+            let historyPoints = graphData.map { entry in
+                WeightHistoryPoint(entry: entry)
             }
+
+            WeightTrendChart(points: historyPoints)
         }
         .padding(20)
         .background(cardBackground)
@@ -212,12 +174,12 @@ struct WeightEntryView: View {
             Text("RECENT ENTRIES")
                 .font(.system(size: 13, weight: .black))
                 .tracking(1.5)
-                .foregroundColor(StepCompColors.textSecondary)
+                .foregroundColor(FitCompColors.textSecondary)
             
             if viewModel.entries.isEmpty {
                 Text("No weight entries yet")
                     .font(.system(size: 14, weight: .medium))
-                    .foregroundColor(StepCompColors.textSecondary)
+                    .foregroundColor(FitCompColors.textSecondary)
                     .frame(maxWidth: .infinity, alignment: .center)
                     .padding(.vertical, 20)
             } else {
@@ -278,14 +240,14 @@ struct WeightEntryRow: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text(dateString)
                     .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(StepCompColors.textPrimary)
+                    .foregroundColor(FitCompColors.textPrimary)
                 
                 HStack(alignment: .firstTextBaseline, spacing: 4) {
                     Text(unitManager.formatWeight(entry.weightKg, decimals: 1))
                         .font(.system(size: 18, weight: .bold))
                     Text(unitManager.weightUnit.lowercased())
                         .font(.system(size: 12, weight: .medium))
-                        .foregroundColor(StepCompColors.textSecondary)
+                        .foregroundColor(FitCompColors.textSecondary)
                 }
             }
             
@@ -363,7 +325,7 @@ struct CustomCalendarView: View {
                 } label: {
                     Image(systemName: "chevron.left")
                         .font(.system(size: 16, weight: .semibold))
-                        .foregroundColor(StepCompColors.primary)
+                        .foregroundColor(FitCompColors.primary)
                         .frame(width: 44, height: 44)
                 }
                 
@@ -371,7 +333,7 @@ struct CustomCalendarView: View {
                 
                 Text(monthYearString)
                     .font(.system(size: 18, weight: .bold))
-                    .foregroundColor(StepCompColors.textPrimary)
+                    .foregroundColor(FitCompColors.textPrimary)
                 
                 Spacer()
                 
@@ -380,7 +342,7 @@ struct CustomCalendarView: View {
                 } label: {
                     Image(systemName: "chevron.right")
                         .font(.system(size: 16, weight: .semibold))
-                        .foregroundColor(canGoForward ? StepCompColors.primary : StepCompColors.textSecondary.opacity(0.3))
+                        .foregroundColor(canGoForward ? FitCompColors.primary : FitCompColors.textSecondary.opacity(0.3))
                         .frame(width: 44, height: 44)
                 }
                 .disabled(!canGoForward)
@@ -391,7 +353,7 @@ struct CustomCalendarView: View {
                 ForEach(daysOfWeek, id: \.self) { day in
                     Text(day)
                         .font(.system(size: 12, weight: .bold))
-                        .foregroundColor(StepCompColors.textSecondary)
+                        .foregroundColor(FitCompColors.textSecondary)
                         .frame(maxWidth: .infinity)
                 }
             }
@@ -457,11 +419,11 @@ struct DayCell: View {
             // Selection background
             if isSelected {
                 Circle()
-                    .fill(StepCompColors.primary)
+                    .fill(FitCompColors.primary)
                     .frame(width: 40, height: 40)
             } else if isToday {
                 Circle()
-                    .stroke(StepCompColors.primary, lineWidth: 2)
+                    .stroke(FitCompColors.primary, lineWidth: 2)
                     .frame(width: 40, height: 40)
             }
             
@@ -471,13 +433,13 @@ struct DayCell: View {
                     Text(dayNumber)
                         .font(.system(size: 16, weight: isToday ? .bold : .medium))
                         .foregroundColor(
-                            isFuture ? StepCompColors.textSecondary.opacity(0.3) :
-                            isToday ? StepCompColors.primary :
-                            StepCompColors.textPrimary
+                            isFuture ? FitCompColors.textSecondary.opacity(0.3) :
+                            isToday ? FitCompColors.primary :
+                            FitCompColors.textPrimary
                         )
                     
                     Circle()
-                        .fill(StepCompColors.primary)
+                        .fill(FitCompColors.primary)
                         .frame(width: 6, height: 6)
                 }
                 .frame(width: 44, height: 44)
@@ -485,10 +447,10 @@ struct DayCell: View {
                 Text(dayNumber)
                     .font(.system(size: 16, weight: isToday || isSelected ? .bold : .medium))
                     .foregroundColor(
-                        isSelected ? StepCompColors.buttonTextOnPrimary :
-                        isFuture ? StepCompColors.textSecondary.opacity(0.3) :
-                        isToday ? StepCompColors.primary :
-                        StepCompColors.textPrimary
+                        isSelected ? FitCompColors.buttonTextOnPrimary :
+                        isFuture ? FitCompColors.textSecondary.opacity(0.3) :
+                        isToday ? FitCompColors.primary :
+                        FitCompColors.textPrimary
                     )
                     .frame(width: 44, height: 44)
             }

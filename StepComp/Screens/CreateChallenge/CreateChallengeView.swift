@@ -1,6 +1,6 @@
 //
 //  CreateChallengeView.swift
-//  StepComp
+//  FitComp
 //
 //  Created by Jeffery Erhunse on 12/24/25.
 //
@@ -29,7 +29,7 @@ struct CreateChallengeView: View {
         // Initialize with placeholder - will be updated in onAppear
         _viewModel = StateObject(
             wrappedValue: CreateChallengeViewModel(
-                challengeService: ChallengeService(),
+                challengeService: ChallengeService.shared,
                 creatorId: userId
             )
         )
@@ -305,7 +305,7 @@ struct ChallengePreviewCard: View {
                         .foregroundColor(.black)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 6)
-                        .background(StepCompColors.primary)
+                        .background(FitCompColors.primary)
                         .cornerRadius(20)
                 }
                 .padding()
@@ -433,11 +433,11 @@ struct DurationSelectorView: View {
                 }) {
                     Text("Custom")
                         .font(.system(size: 14, weight: selectedDuration == .custom ? .bold : .semibold))
-                        .foregroundColor(selectedDuration == .custom ? .black : StepCompColors.primary)
+                        .foregroundColor(selectedDuration == .custom ? .black : FitCompColors.primary)
                         .padding(.horizontal, 16)
                         .padding(.vertical, 8)
                         .background(
-                            selectedDuration == .custom ? StepCompColors.primary : Color.clear
+                            selectedDuration == .custom ? FitCompColors.primary : Color.clear
                         )
                         .cornerRadius(8)
                 }
@@ -475,7 +475,7 @@ struct DurationButton: View {
                 .padding(.horizontal, 24)
                 .padding(.vertical, 12)
                 .background(
-                    isSelected ? StepCompColors.primary : Color(.systemBackground)
+                    isSelected ? FitCompColors.primary : Color(.systemBackground)
                 )
                 .overlay(
                     RoundedRectangle(cornerRadius: 999)
@@ -483,7 +483,7 @@ struct DurationButton: View {
                 )
                 .cornerRadius(999)
                 .shadow(
-                    color: isSelected ? StepCompColors.primary.opacity(0.2) : Color.clear,
+                    color: isSelected ? FitCompColors.primary.opacity(0.2) : Color.clear,
                     radius: isSelected ? 8 : 0,
                     x: 0,
                     y: isSelected ? 4 : 0
@@ -559,7 +559,7 @@ struct StartDateButton: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(16)
             .background(
-                isSelected ? StepCompColors.primary : Color(.systemBackground)
+                isSelected ? FitCompColors.primary : Color(.systemBackground)
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 16)
@@ -627,7 +627,7 @@ struct InviteSectionView: View {
                         Text("Share Link")
                             .font(.system(size: 14, weight: .bold))
                     }
-                    .foregroundColor(StepCompColors.primary)
+                    .foregroundColor(FitCompColors.primary)
                 }
             }
             
@@ -763,7 +763,7 @@ struct FriendAvatarButton: View {
                     )
                     .overlay(
                         Circle()
-                            .stroke(isSelected ? StepCompColors.primary : Color.clear, lineWidth: 2)
+                            .stroke(isSelected ? FitCompColors.primary : Color.clear, lineWidth: 2)
                     )
                     
                     if isSelected {
@@ -771,7 +771,7 @@ struct FriendAvatarButton: View {
                             .font(.system(size: 20, weight: .bold))
                             .foregroundColor(.black)
                             .padding(4)
-                            .background(StepCompColors.primary)
+                            .background(FitCompColors.primary)
                             .clipShape(Circle())
                             .offset(x: 20, y: -20)
                     }
@@ -928,7 +928,7 @@ struct DurationQuickSelectButton: View {
                 .padding(.horizontal, 16)
                 .padding(.vertical, 8)
                 .background(
-                    selectedText == "\(days)" ? StepCompColors.primary : Color(.systemGray6)
+                    selectedText == "\(days)" ? FitCompColors.primary : Color(.systemGray6)
                 )
                 .cornerRadius(8)
         }
@@ -980,10 +980,10 @@ struct StickyFooterButton: View {
                 }
                 .frame(maxWidth: .infinity)
                 .frame(height: 56)
-                .background(isEnabled ? StepCompColors.primary : Color(.systemGray4))
+                .background(isEnabled ? FitCompColors.primary : Color(.systemGray4))
                 .cornerRadius(999)
                 .shadow(
-                    color: isEnabled ? StepCompColors.primary.opacity(0.25) : Color.clear,
+                    color: isEnabled ? FitCompColors.primary.opacity(0.25) : Color.clear,
                     radius: 16,
                     x: 0,
                     y: 4
@@ -1011,7 +1011,7 @@ struct CategorySelectorView: View {
             HStack {
                 Image(systemName: "tag.fill")
                     .font(.system(size: 16))
-                    .foregroundColor(StepCompColors.primary)
+                    .foregroundColor(FitCompColors.primary)
                 
                 Text("Choose a Category")
                     .font(.system(size: 16, weight: .bold))
@@ -1066,7 +1066,7 @@ struct CreateChallengeCategoryButton: View {
                     .frame(width: 48, height: 48)
                     .background(
                         Circle()
-                            .fill(isSelected ? StepCompColors.primary : Color(.systemBackground))
+                            .fill(isSelected ? FitCompColors.primary : Color(.systemBackground))
                     )
                     .overlay(
                         Circle()
@@ -1093,10 +1093,10 @@ struct CreateChallengeCategoryButton: View {
             .cornerRadius(12)
             .overlay(
                 RoundedRectangle(cornerRadius: 12)
-                    .stroke(isSelected ? StepCompColors.primary : Color.clear, lineWidth: 2)
+                    .stroke(isSelected ? FitCompColors.primary : Color.clear, lineWidth: 2)
             )
             .shadow(
-                color: isSelected ? StepCompColors.primary.opacity(0.2) : Color.clear,
+                color: isSelected ? FitCompColors.primary.opacity(0.2) : Color.clear,
                 radius: isSelected ? 8 : 0,
                 x: 0,
                 y: isSelected ? 4 : 0
@@ -1138,7 +1138,7 @@ struct RulesSelectorView: View {
                             .foregroundColor(.white)
                             .padding(.horizontal, 10)
                             .padding(.vertical, 4)
-                            .background(StepCompColors.primary)
+                            .background(FitCompColors.primary)
                             .cornerRadius(999)
                     }
                     
@@ -1388,8 +1388,8 @@ struct ChallengeImageUploadView: View {
                     ZStack {
                         LinearGradient(
                             colors: [
-                                StepCompColors.primary.opacity(0.3),
-                                StepCompColors.primary.opacity(0.1),
+                                FitCompColors.primary.opacity(0.3),
+                                FitCompColors.primary.opacity(0.1),
                                 Color(.systemGray6)
                             ],
                             startPoint: .topLeading,
@@ -1401,7 +1401,7 @@ struct ChallengeImageUploadView: View {
                             ZStack {
                                 ForEach(0..<6, id: \.self) { index in
                                     Circle()
-                                        .fill(StepCompColors.primary.opacity(0.1))
+                                        .fill(FitCompColors.primary.opacity(0.1))
                                         .frame(width: CGFloat.random(in: 40...80))
                                         .offset(
                                             x: CGFloat.random(in: -geo.size.width/2...geo.size.width/2),

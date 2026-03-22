@@ -1,6 +1,6 @@
 //
 //  CreateChallengeCTA.swift
-//  StepComp
+//  FitComp
 //
 //  Created by Jeffery Erhunse on 12/24/25.
 //
@@ -47,7 +47,7 @@ struct CreateChallengeCTA: View {
                             .frame(width: 48, height: 48)
                         
                         Image(systemName: "flame.fill")
-                            .foregroundColor(StepCompColors.primary)
+                            .foregroundColor(FitCompColors.primary)
                             .font(.system(size: 20))
                     }
                 }

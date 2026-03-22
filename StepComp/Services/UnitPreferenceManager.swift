@@ -1,6 +1,6 @@
 //
 //  UnitPreferenceManager.swift
-//  StepComp
+//  FitComp
 //
 //  Centralized unit preference management for the entire app
 //
@@ -30,6 +30,13 @@ enum UnitSystem: String, Codable {
         switch self {
         case .metric: return "KG"
         case .imperial: return "LBS"
+        }
+    }
+
+    var distanceDisplayName: String {
+        switch self {
+        case .metric: return "Metric (kg, km, cm)"
+        case .imperial: return "Imperial (lbs, miles, inches)"
         }
     }
 }
@@ -108,6 +115,19 @@ final class UnitPreferenceManager: ObservableObject {
             return "\(feet)'\(inches)\""
         }
     }
+
+    func heightComponents(fromCm cm: Int) -> (feet: Int, inches: Int) {
+        let totalInches = Double(cm) / 2.54
+        return (
+            feet: Int(totalInches / 12),
+            inches: Int(totalInches.truncatingRemainder(dividingBy: 12).rounded())
+        )
+    }
+
+    func heightToStorage(feet: Int, inches: Int) -> Int {
+        let totalInches = Double((feet * 12) + inches)
+        return Int((totalInches * 2.54).rounded())
+    }
     
     // MARK: - Weight Conversions
     
@@ -130,6 +150,73 @@ final class UnitPreferenceManager: ObservableObject {
     /// Get the weight unit label
     var weightUnit: String {
         unitSystem.weightLabel
+    }
+
+    func weightToStorage(_ displayWeight: Int) -> Int {
+        switch unitSystem {
+        case .metric:
+            return displayWeight
+        case .imperial:
+            return Int((Double(displayWeight) / 2.20462).rounded())
+        }
+    }
+
+    func weightFromStorage(_ storageWeight: Int) -> Int {
+        switch unitSystem {
+        case .metric:
+            return storageWeight
+        case .imperial:
+            return Int((Double(storageWeight) * 2.20462).rounded())
+        }
+    }
+    
+    // MARK: - Pace Conversions
+    
+    /// Convert pace from min/km to the user's preferred unit
+    func convertPace(minPerKm: Double) -> Double {
+        switch unitSystem {
+        case .metric:
+            return minPerKm
+        case .imperial:
+            return minPerKm * 1.60934
+        }
+    }
+    
+    /// Format pace with the appropriate unit label
+    func formatPace(_ minPerKm: Double) -> String {
+        let value = convertPace(minPerKm: minPerKm)
+        return String(format: "%.2f %@", value, paceUnit)
+    }
+    
+    /// Get the pace unit label
+    var paceUnit: String {
+        switch unitSystem {
+        case .metric: return "min/km"
+        case .imperial: return "min/mi"
+        }
+    }
+    
+    // MARK: - Waist Measurement Conversions
+    
+    var waistLabel: String {
+        switch unitSystem {
+        case .metric: return "cm"
+        case .imperial: return "in"
+        }
+    }
+    
+    func convertWaist(cm: Double) -> Double {
+        switch unitSystem {
+        case .metric: return cm
+        case .imperial: return cm / 2.54
+        }
+    }
+    
+    func convertWaistToStorage(_ displayValue: Double) -> Double {
+        switch unitSystem {
+        case .metric: return displayValue
+        case .imperial: return displayValue * 2.54
+        }
     }
     
     // MARK: - Workout Weight Storage Conversions

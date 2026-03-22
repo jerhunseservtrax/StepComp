@@ -1,6 +1,6 @@
 //
 //  ExercisePickerView.swift
-//  StepComp
+//  FitComp
 //
 //  Created by Jeffery Erhunse on 2/16/26.
 //
@@ -31,7 +31,7 @@ struct ExercisePickerView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                StepCompColors.background.ignoresSafeArea()
+                FitCompColors.background.ignoresSafeArea()
                 
                 VStack(spacing: 0) {
                     // Search bar
@@ -90,38 +90,42 @@ struct ExercisePickerView: View {
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 8)
-        .background(StepCompColors.background)
+        .background(FitCompColors.background)
     }
 }
 
 struct ExerciseRow: View {
     let exercise: Exercise
     let action: () -> Void
-    
+
     var body: some View {
-        Button(action: action) {
-            HStack(spacing: 12) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(exercise.name)
-                        .font(.system(size: 16, weight: .bold))
-                        .foregroundColor(.black)
-                    
-                    Text(exercise.targetMuscles)
-                        .font(.system(size: 12))
-                        .foregroundColor(.gray)
+        HStack(spacing: 12) {
+            ExerciseDemoButton(exercise: exercise, size: 48)
+
+            Button(action: action) {
+                HStack(spacing: 12) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(exercise.name)
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundColor(.black)
+
+                        Text(exercise.targetMuscles)
+                            .font(.system(size: 12))
+                            .foregroundColor(.gray)
+                    }
+
+                    Spacer()
+
+                    Image(systemName: "plus.circle.fill")
+                        .font(.system(size: 24))
+                        .foregroundColor(FitCompColors.primary)
                 }
-                
-                Spacer()
-                
-                Image(systemName: "plus.circle.fill")
-                    .font(.system(size: 24))
-                    .foregroundColor(StepCompColors.primary)
             }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 12)
-            .background(Color.white)
+            .buttonStyle(PlainButtonStyle())
         }
-        .buttonStyle(PlainButtonStyle())
+        .padding(.horizontal, 20)
+        .padding(.vertical, 12)
+        .background(Color.white)
     }
 }
 

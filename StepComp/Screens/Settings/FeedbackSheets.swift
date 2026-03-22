@@ -1,6 +1,6 @@
 //
 //  FeedbackSheets.swift
-//  StepComp
+//  FitComp
 //
 //  Created by Jeffery Erhunse
 //
@@ -28,7 +28,7 @@ struct CreateFeedbackSheet: View {
                         Text("Share Your Feedback")
                             .font(.system(size: 24, weight: .bold))
                         
-                        Text("Help us improve StepComp by sharing your ideas, reporting bugs, or suggesting improvements.")
+                        Text("Help us improve FitComp by sharing your ideas, reporting bugs, or suggesting improvements.")
                             .font(.system(size: 14))
                             .foregroundColor(.secondary)
                     }
@@ -307,7 +307,7 @@ struct CategoryButton: View {
                     .frame(width: 48, height: 48)
                     .background(
                         Circle()
-                            .fill(isSelected ? StepCompColors.primary : Color(.systemGray6))
+                            .fill(isSelected ? FitCompColors.primary : Color(.systemGray6))
                     )
                 
                 Text(category.displayName)

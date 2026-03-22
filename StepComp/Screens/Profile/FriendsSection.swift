@@ -1,6 +1,6 @@
 //
 //  FriendsSection.swift
-//  StepComp
+//  FitComp
 //
 //  Created by Jeffery Erhunse on 12/24/25.
 //
@@ -41,7 +41,7 @@ struct ProfileFriendsSection: View {
                     .foregroundColor(.black)
                     .padding(.horizontal, 16)
                     .padding(.vertical, 10)
-                    .background(StepCompColors.primary)
+                    .background(FitCompColors.primary)
                     .cornerRadius(20)
                 }
             }

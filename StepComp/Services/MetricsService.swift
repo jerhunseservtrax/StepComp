@@ -1,6 +1,6 @@
 //
 //  MetricsService.swift
-//  StepComp
+//  FitComp
 //
 //  Syncs workout sessions and weight entries to Supabase and fetches
 //  historical metrics data for the Metrics page.
@@ -19,6 +19,7 @@ final class MetricsService: ObservableObject {
 
     private let syncedSessionsKey = "metrics_synced_session_ids"
     private let syncedWeightEntriesKey = "metrics_synced_weight_entry_ids"
+    private var nutritionLogTableUnavailable = false
 
     private init() {}
 
@@ -191,6 +192,118 @@ final class MetricsService: ObservableObject {
         }
         #else
         return []
+        #endif
+    }
+
+    // MARK: - Fetch: Personal Records
+
+    func fetchPersonalRecords(exerciseName: String? = nil) async -> [PersonalRecord] {
+        #if canImport(Supabase)
+        do {
+            let query = supabase
+                .from("personal_records")
+                .select()
+                .order("achieved_at", ascending: false)
+                .limit(100)
+            struct PersonalRecordRow: Codable {
+                let id: UUID
+                let exercise_name: String
+                let record_type: String
+                let value: Double
+                let achieved_at: Date
+            }
+            let rows: [PersonalRecordRow] = try await query.execute().value
+            return rows.compactMap { row in
+                if let exerciseName, !exerciseName.isEmpty, row.exercise_name != exerciseName {
+                    return nil
+                }
+                let mappedType: PersonalRecordType
+                switch row.record_type {
+                case "max_weight": mappedType = .maxWeight
+                case "max_reps": mappedType = .maxReps
+                case "max_volume": mappedType = .maxVolume
+                default: return nil
+                }
+                return PersonalRecord(
+                    id: row.id,
+                    exerciseName: row.exercise_name,
+                    type: mappedType,
+                    value: row.value,
+                    achievedAt: row.achieved_at
+                )
+            }
+        } catch {
+            print("❌ [MetricsService] Failed to fetch personal records: \(error.localizedDescription)")
+            return []
+        }
+        #else
+        return []
+        #endif
+    }
+
+    // MARK: - Sync: Body Metrics
+
+    func syncBodyMetric(bodyFatPercent: Double?, waistCm: Double?, date: Date = Date()) async {
+        #if canImport(Supabase)
+        do {
+            _ = try await supabase.auth.session
+        } catch {
+            return
+        }
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "yyyy-MM-dd"
+        let payload: [String: AnyJSON] = [
+            "recorded_on": .string(dateFormatter.string(from: date)),
+            "body_fat_pct": bodyFatPercent.map { .string(String($0)) } ?? .null,
+            "waist_cm": waistCm.map { .string(String($0)) } ?? .null,
+            "source": .string("manual")
+        ]
+        do {
+            _ = try await supabase.from("body_metrics").upsert(payload).execute()
+        } catch {
+            print("❌ [MetricsService] Failed to sync body metrics: \(error.localizedDescription)")
+        }
+        #endif
+    }
+
+    // MARK: - Sync: Nutrition Log
+
+    func syncNutritionLog(_ log: NutritionLog) async {
+        #if canImport(Supabase)
+        do {
+            _ = try await supabase.auth.session
+        } catch {
+            return
+        }
+
+        if nutritionLogTableUnavailable {
+            return
+        }
+
+        let iso = ISO8601DateFormatter().string(from: log.loggedAt)
+        let payload: [String: AnyJSON] = [
+            "logged_at": .string(iso),
+            "calories": .integer(log.calories),
+            "protein_g": .integer(log.proteinG),
+            "carbs_g": .integer(log.carbsG),
+            "fat_g": .integer(log.fatG),
+            "water_ml": .integer(log.waterMl)
+        ]
+        do {
+            _ = try await supabase.from("nutrition_log").insert(payload).execute()
+        } catch {
+            let lowercasedError = error.localizedDescription.lowercased()
+            let isMissingNutritionLogTable =
+                (lowercasedError.contains("public.nutrition_log") && lowercasedError.contains("schema cache"))
+                || (lowercasedError.contains("nutrition_log") && lowercasedError.contains("could not find the table"))
+
+            if isMissingNutritionLogTable {
+                nutritionLogTableUnavailable = true
+                print("⚠️ [MetricsService] Supabase table public.nutrition_log is missing. Run scripts/sql/CREATE_COMPREHENSIVE_METRICS_TABLES.sql in your Supabase SQL editor, then relaunch the app.")
+                return
+            }
+            print("❌ [MetricsService] Failed to sync nutrition log: \(error.localizedDescription)")
+        }
         #endif
     }
 

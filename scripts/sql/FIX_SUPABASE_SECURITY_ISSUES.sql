@@ -101,6 +101,10 @@ SECURITY DEFINER
 SET search_path = public, pg_catalog
 AS $$
 BEGIN
+  IF auth.uid() IS NULL OR auth.uid() <> p_user_id THEN
+    RAISE EXCEPTION 'Access denied';
+  END IF;
+
   RETURN COALESCE(
     (SELECT SUM(total_steps) FROM challenge_members WHERE user_id = p_user_id),
     0
@@ -122,6 +126,22 @@ SECURITY DEFINER
 SET search_path = public, pg_catalog
 AS $$
 BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM public.challenges c
+    WHERE c.id = p_challenge_id
+      AND (
+        c.is_public = TRUE
+        OR c.created_by = auth.uid()
+        OR EXISTS (
+          SELECT 1 FROM public.challenge_members cm
+          WHERE cm.challenge_id = c.id AND cm.user_id = auth.uid()
+        )
+      )
+  ) THEN
+    RAISE EXCEPTION 'Access denied';
+  END IF;
+
   RETURN QUERY
   SELECT 
     cm.user_id,

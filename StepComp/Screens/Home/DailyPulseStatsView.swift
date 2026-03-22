@@ -1,6 +1,6 @@
 //
 //  DailyPulseStatsView.swift
-//  StepComp
+//  FitComp
 //
 //  Created by Jeffery Erhunse on 12/24/25.
 //
@@ -31,7 +31,7 @@ struct DailyPulseStatsView: View {
                 
                 Text("Today")
                     .font(.system(size: 11, weight: .bold))
-                    .foregroundColor(StepCompColors.primary)
+                    .foregroundColor(FitCompColors.primary)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
                     .background(Color.black.opacity(0.05))

@@ -1,6 +1,6 @@
 //
 //  ActiveChallengesTab.swift
-//  StepComp
+//  FitComp
 //
 //  Created by Jeffery Erhunse on 12/24/25.
 //
@@ -71,7 +71,7 @@ struct ActiveChallengesTab: View {
                             .padding(.horizontal, horizontalPadding)
                         } else {
                             // List View
-                            VStack(spacing: 16) {
+                            LazyVStack(spacing: 16) {
                                 ForEach(viewModel.activeChallenges) { challenge in
                                     ActiveChallengeListItem(
                                         challenge: challenge,
@@ -87,7 +87,7 @@ struct ActiveChallengesTab: View {
                 }
                 .padding(.vertical, 16)
             }
-            .background(StepCompColors.background.ignoresSafeArea())
+            .background(FitCompColors.background.ignoresSafeArea())
             .navigationBarHidden(true)
             .navigationDestination(for: AppRoute.self) { route in
                 destinationView(for: route)
@@ -133,10 +133,10 @@ struct ActiveChallengeListItem: View {
             case .marathon: return Color.blue
             case .friends: return Color.purple
             case .shortTerm: return Color.green
-            case .fun: return StepCompColors.primary
+            case .fun: return FitCompColors.primary
             }
         }
-        let colors: [Color] = [Color.orange, Color.blue, StepCompColors.primary, Color.purple, Color.green]
+        let colors: [Color] = [Color.orange, Color.blue, FitCompColors.primary, Color.purple, Color.green]
         return colors[abs(challenge.name.hashValue) % colors.count]
     }
     
@@ -190,25 +190,25 @@ struct ActiveChallengeListItem: View {
                         if let category = challenge.category {
                             Text(category.displayName)
                                 .font(.system(size: 10, weight: .semibold))
-                                .foregroundColor(StepCompColors.textTertiary)
+                                .foregroundColor(FitCompColors.textTertiary)
                         }
                     }
                     
                     // Challenge name
                     Text(challenge.name)
                         .font(.system(size: 18, weight: .bold, design: .rounded))
-                        .foregroundColor(StepCompColors.textPrimary)
+                        .foregroundColor(FitCompColors.textPrimary)
                         .lineLimit(1)
                     
                     // Participants count
                     HStack(spacing: 4) {
                         Image(systemName: "person.2.fill")
                             .font(.system(size: 12))
-                            .foregroundColor(StepCompColors.textSecondary)
+                            .foregroundColor(FitCompColors.textSecondary)
                         
                         Text("\(challenge.participantIds.count) joined")
                             .font(.system(size: 12, weight: .medium))
-                            .foregroundColor(StepCompColors.textSecondary)
+                            .foregroundColor(FitCompColors.textSecondary)
                     }
                 }
                     
@@ -224,11 +224,11 @@ struct ActiveChallengeListItem: View {
                         
                         Text("\(daysLeft)d left")
                             .font(.system(size: 12, weight: .bold))
-                            .foregroundColor(StepCompColors.textPrimary)
+                            .foregroundColor(FitCompColors.textPrimary)
                     }
                     .padding(.horizontal, 10)
                     .padding(.vertical, 6)
-                    .background(StepCompColors.surfaceElevated)
+                    .background(FitCompColors.surfaceElevated)
                     .cornerRadius(12)
                 }
             }
@@ -236,7 +236,7 @@ struct ActiveChallengeListItem: View {
             .background(
                 ZStack {
                     // Subtle dot pattern background
-                    StepCompColors.surface
+                    FitCompColors.surface
                     
                     // Pattern overlay
                     GeometryReader { geometry in
@@ -253,16 +253,16 @@ struct ActiveChallengeListItem: View {
                                 }
                             }
                         }
-                        .fill(StepCompColors.textPrimary.opacity(0.03))
+                        .fill(FitCompColors.textPrimary.opacity(0.03))
                     }
                 }
             )
             .cornerRadius(24)
             .overlay(
                 RoundedRectangle(cornerRadius: 24)
-                    .stroke(StepCompColors.cardBorder, lineWidth: 1)
+                    .stroke(FitCompColors.cardBorder, lineWidth: 1)
             )
-            .shadow(color: StepCompColors.shadowPrimary, radius: 4, x: 0, y: 2)
+            .shadow(color: FitCompColors.shadowPrimary, radius: 4, x: 0, y: 2)
         }
         .buttonStyle(PlainButtonStyle())
     }
@@ -284,9 +284,9 @@ struct ActiveViewModeToggle: View {
             }) {
                 Image(systemName: "square.grid.2x2")
                     .font(.system(size: 16, weight: .medium))
-                    .foregroundColor(viewMode == .grid ? StepCompColors.buttonTextOnPrimary : StepCompColors.textSecondary)
+                    .foregroundColor(viewMode == .grid ? FitCompColors.buttonTextOnPrimary : FitCompColors.textSecondary)
                     .frame(width: 36, height: 36)
-                    .background(viewMode == .grid ? StepCompColors.primary : StepCompColors.surfaceElevated)
+                    .background(viewMode == .grid ? FitCompColors.primary : FitCompColors.surfaceElevated)
                     .cornerRadius(8)
             }
             
@@ -298,13 +298,13 @@ struct ActiveViewModeToggle: View {
             }) {
                 Image(systemName: "list.bullet")
                     .font(.system(size: 16, weight: .medium))
-                    .foregroundColor(viewMode == .list ? StepCompColors.buttonTextOnPrimary : StepCompColors.textSecondary)
+                    .foregroundColor(viewMode == .list ? FitCompColors.buttonTextOnPrimary : FitCompColors.textSecondary)
                     .frame(width: 36, height: 36)
-                    .background(viewMode == .list ? StepCompColors.primary : StepCompColors.surfaceElevated)
+                    .background(viewMode == .list ? FitCompColors.primary : FitCompColors.surfaceElevated)
                     .cornerRadius(8)
             }
         }
-        .background(StepCompColors.surfaceElevated)
+        .background(FitCompColors.surfaceElevated)
         .cornerRadius(10)
     }
 }
@@ -340,13 +340,13 @@ struct ActiveChallengeGridCard: View {
             case .shortTerm:
                 return [Color(red: 0.02, green: 0.59, blue: 0.41), Color(red: 0.02, green: 0.47, blue: 0.34)]
             case .fun:
-                return [StepCompColors.yellow, Color(red: 0.98, green: 0.76, blue: 0.25)]
+                return [FitCompColors.yellow, Color(red: 0.98, green: 0.76, blue: 0.25)]
             }
         }
         let gradients: [[Color]] = [
             [Color(red: 1.0, green: 0.42, blue: 0.29), Color(red: 0.976, green: 0.26, blue: 0.15)], // Orange
             [Color(red: 0.23, green: 0.51, blue: 0.96), Color(red: 0.15, green: 0.39, blue: 0.92)], // Blue
-            [StepCompColors.yellow, Color(red: 0.98, green: 0.76, blue: 0.25)], // Yellow
+            [FitCompColors.yellow, Color(red: 0.98, green: 0.76, blue: 0.25)], // Yellow
             [Color(red: 0.49, green: 0.23, blue: 0.93), Color(red: 0.43, green: 0.16, blue: 0.85)], // Purple
             [Color(red: 0.02, green: 0.59, blue: 0.41), Color(red: 0.02, green: 0.47, blue: 0.34)] // Green
         ]
@@ -385,7 +385,7 @@ struct ActiveChallengeGridCard: View {
         if let category = challenge.category {
             return category == .fun
         }
-        return gradientColors[0] == StepCompColors.yellow
+        return gradientColors[0] == FitCompColors.yellow
     }
     
     // Fixed card height for consistent grid layout

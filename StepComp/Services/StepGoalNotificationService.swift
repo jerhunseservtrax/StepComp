@@ -1,6 +1,6 @@
 //
 //  StepGoalNotificationService.swift
-//  StepComp
+//  FitComp
 //
 //  Service to send notifications when users hit step goal milestones
 //  Notifies at: 25%, 50%, 75%, 100%, and Above & Beyond (exceeding goal)

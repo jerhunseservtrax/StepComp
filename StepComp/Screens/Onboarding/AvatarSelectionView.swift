@@ -1,6 +1,6 @@
 //
 //  AvatarSelectionView.swift
-//  StepComp
+//  FitComp
 //
 //  Created by Jeffery Erhunse on 12/24/25.
 //
@@ -100,12 +100,12 @@ struct AvatarSelectionOnboardingView: View {
                     }) {
                         Text("Lookin' Good")
                             .font(.system(size: 18, weight: .bold))
-                            .foregroundColor(StepCompColors.buttonTextOnPrimary)
+                            .foregroundColor(FitCompColors.buttonTextOnPrimary)
                             .frame(maxWidth: .infinity)
                             .frame(height: 56)
-                            .background(StepCompColors.primary)
+                            .background(FitCompColors.primary)
                             .cornerRadius(999)
-                            .shadow(color: StepCompColors.primary.opacity(0.3), radius: 16, x: 0, y: 8)
+                            .shadow(color: FitCompColors.primary.opacity(0.3), radius: 16, x: 0, y: 8)
                     }
                     .padding(.horizontal, 24)
                     .padding(.bottom, 40)
@@ -172,12 +172,12 @@ struct CustomPhotoAvatarOption: View {
                         .overlay(
                             RoundedRectangle(cornerRadius: 16)
                                 .stroke(
-                                    isSelected ? StepCompColors.primary : Color.clear,
+                                    isSelected ? FitCompColors.primary : Color.clear,
                                     lineWidth: 4
                                 )
                         )
                         .shadow(
-                            color: isSelected ? StepCompColors.primary.opacity(0.3) : Color.black.opacity(0.05),
+                            color: isSelected ? FitCompColors.primary.opacity(0.3) : Color.black.opacity(0.05),
                             radius: isSelected ? 20 : 8,
                             x: 0,
                             y: isSelected ? 8 : 2
@@ -213,12 +213,12 @@ struct CustomPhotoAvatarOption: View {
                                 Spacer()
                                 ZStack {
                                     Circle()
-                                        .fill(StepCompColors.primary)
+                                        .fill(FitCompColors.primary)
                                         .frame(width: 24, height: 24)
                                     
                                     Image(systemName: "checkmark")
                                         .font(.system(size: 12, weight: .bold))
-                                        .foregroundColor(StepCompColors.buttonTextOnPrimary)
+                                        .foregroundColor(FitCompColors.buttonTextOnPrimary)
                                 }
                                 .padding(8)
                             }
@@ -302,12 +302,12 @@ struct AvatarOption: View {
                         .overlay(
                             RoundedRectangle(cornerRadius: 16)
                                 .stroke(
-                                    isSelected ? StepCompColors.primary : Color.clear,
+                                    isSelected ? FitCompColors.primary : Color.clear,
                                     lineWidth: 4
                                 )
                         )
                         .shadow(
-                            color: isSelected ? StepCompColors.primary.opacity(0.3) : Color.black.opacity(0.05),
+                            color: isSelected ? FitCompColors.primary.opacity(0.3) : Color.black.opacity(0.05),
                             radius: isSelected ? 20 : 8,
                             x: 0,
                             y: isSelected ? 8 : 2
@@ -329,12 +329,12 @@ struct AvatarOption: View {
                                 Spacer()
                                 ZStack {
                                     Circle()
-                                        .fill(StepCompColors.primary)
+                                        .fill(FitCompColors.primary)
                                         .frame(width: 24, height: 24)
                                     
                                     Image(systemName: "checkmark")
                                         .font(.system(size: 12, weight: .bold))
-                                        .foregroundColor(StepCompColors.buttonTextOnPrimary)
+                                        .foregroundColor(FitCompColors.buttonTextOnPrimary)
                                 }
                                 .padding(8)
                             }

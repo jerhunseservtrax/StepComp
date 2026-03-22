@@ -1,6 +1,6 @@
 //
 //  InviteFriendsToChallengeView.swift
-//  StepComp
+//  FitComp
 //
 //  Select friends to invite to a challenge
 //
@@ -29,7 +29,7 @@ struct InviteFriendsToChallengeView: View {
             VStack(spacing: 0) {
                 if isLoading {
                     ProgressView()
-                        .progressViewStyle(CircularProgressViewStyle(tint: StepCompColors.primary))
+                        .progressViewStyle(CircularProgressViewStyle(tint: FitCompColors.primary))
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else if friends.isEmpty {
                     EmptyFriendsView()
@@ -74,7 +74,7 @@ struct InviteFriendsToChallengeView: View {
                             }
                             .frame(maxWidth: .infinity)
                             .padding()
-                            .background(selectedFriendIds.isEmpty ? Color.gray : StepCompColors.primary)
+                            .background(selectedFriendIds.isEmpty ? Color.gray : FitCompColors.primary)
                             .foregroundColor(.black)
                             .cornerRadius(12)
                             .padding()
@@ -120,7 +120,7 @@ struct InviteFriendsToChallengeView: View {
     
     private func loadFriends() async {
         let logData = "{\"location\":\"InviteFriendsToChallengeView.swift:110\",\"message\":\"Loading friends for challenge invite\",\"data\":{\"challengeId\":\"\(challengeId)\",\"currentUserId\":\"\(currentUserId)\"},\"timestamp\":\(Int(Date().timeIntervalSince1970 * 1000)),\"sessionId\":\"debug-session\",\"runId\":\"challenge-invite\",\"hypothesisId\":\"A\"}\n"
-        if let fileHandle = FileHandle(forWritingAtPath: "/Users/jefferyerhunse/GitRepos/StepComp/.cursor/debug.log") {
+        if let fileHandle = FileHandle(forWritingAtPath: "/Users/jefferyerhunse/GitRepos/FitComp/.cursor/debug.log") {
             fileHandle.seekToEndOfFile()
             if let data = logData.data(using: .utf8) {
                 fileHandle.write(data)
@@ -133,7 +133,7 @@ struct InviteFriendsToChallengeView: View {
         #if canImport(Supabase)
         do {
             let logBeforeFriendships = "{\"location\":\"InviteFriendsToChallengeView.swift:115\",\"message\":\"Fetching friendships from database\",\"data\":{},\"timestamp\":\(Int(Date().timeIntervalSince1970 * 1000)),\"sessionId\":\"debug-session\",\"runId\":\"challenge-invite\",\"hypothesisId\":\"B\"}\n"
-            if let fileHandle = FileHandle(forWritingAtPath: "/Users/jefferyerhunse/GitRepos/StepComp/.cursor/debug.log") {
+            if let fileHandle = FileHandle(forWritingAtPath: "/Users/jefferyerhunse/GitRepos/FitComp/.cursor/debug.log") {
                 fileHandle.seekToEndOfFile()
                 if let data = logBeforeFriendships.data(using: .utf8) {
                     fileHandle.write(data)
@@ -157,7 +157,7 @@ struct InviteFriendsToChallengeView: View {
                 .value
             
             let logAfterFriendships = "{\"location\":\"InviteFriendsToChallengeView.swift:130\",\"message\":\"Friendships loaded\",\"data\":{\"count\":\(requests.count)},\"timestamp\":\(Int(Date().timeIntervalSince1970 * 1000)),\"sessionId\":\"debug-session\",\"runId\":\"challenge-invite\",\"hypothesisId\":\"B\"}\n"
-            if let fileHandle = FileHandle(forWritingAtPath: "/Users/jefferyerhunse/GitRepos/StepComp/.cursor/debug.log") {
+            if let fileHandle = FileHandle(forWritingAtPath: "/Users/jefferyerhunse/GitRepos/FitComp/.cursor/debug.log") {
                 fileHandle.seekToEndOfFile()
                 if let data = logAfterFriendships.data(using: .utf8) {
                     fileHandle.write(data)
@@ -195,7 +195,7 @@ struct InviteFriendsToChallengeView: View {
             let memberIds = Set(members.map { $0.user_id })
             
             let logMembers = "{\"location\":\"InviteFriendsToChallengeView.swift:160\",\"message\":\"Challenge members loaded\",\"data\":{\"memberCount\":\(memberIds.count)},\"timestamp\":\(Int(Date().timeIntervalSince1970 * 1000)),\"sessionId\":\"debug-session\",\"runId\":\"challenge-invite\",\"hypothesisId\":\"C\"}\n"
-            if let fileHandle = FileHandle(forWritingAtPath: "/Users/jefferyerhunse/GitRepos/StepComp/.cursor/debug.log") {
+            if let fileHandle = FileHandle(forWritingAtPath: "/Users/jefferyerhunse/GitRepos/FitComp/.cursor/debug.log") {
                 fileHandle.seekToEndOfFile()
                 if let data = logMembers.data(using: .utf8) {
                     fileHandle.write(data)
@@ -219,7 +219,7 @@ struct InviteFriendsToChallengeView: View {
                 .value
             
             let logProfiles = "{\"location\":\"InviteFriendsToChallengeView.swift:180\",\"message\":\"Friend profiles loaded\",\"data\":{\"profileCount\":\(profiles.count)},\"timestamp\":\(Int(Date().timeIntervalSince1970 * 1000)),\"sessionId\":\"debug-session\",\"runId\":\"challenge-invite\",\"hypothesisId\":\"D\"}\n"
-            if let fileHandle = FileHandle(forWritingAtPath: "/Users/jefferyerhunse/GitRepos/StepComp/.cursor/debug.log") {
+            if let fileHandle = FileHandle(forWritingAtPath: "/Users/jefferyerhunse/GitRepos/FitComp/.cursor/debug.log") {
                 fileHandle.seekToEndOfFile()
                 if let data = logProfiles.data(using: .utf8) {
                     fileHandle.write(data)
@@ -240,7 +240,7 @@ struct InviteFriendsToChallengeView: View {
             
         } catch {
             let logError = "{\"location\":\"InviteFriendsToChallengeView.swift:200\",\"message\":\"Error loading friends\",\"data\":{\"error\":\"\(error.localizedDescription)\"},\"timestamp\":\(Int(Date().timeIntervalSince1970 * 1000)),\"sessionId\":\"debug-session\",\"runId\":\"challenge-invite\",\"hypothesisId\":\"E\"}\n"
-            if let fileHandle = FileHandle(forWritingAtPath: "/Users/jefferyerhunse/GitRepos/StepComp/.cursor/debug.log") {
+            if let fileHandle = FileHandle(forWritingAtPath: "/Users/jefferyerhunse/GitRepos/FitComp/.cursor/debug.log") {
                 fileHandle.seekToEndOfFile()
                 if let data = logError.data(using: .utf8) {
                     fileHandle.write(data)
@@ -267,7 +267,7 @@ struct InviteFriendsToChallengeView: View {
                 let selectedCount = self.selectedFriendIds.count
                 let challenge = self.challengeId
                 let logStart = "{\"location\":\"InviteFriendsToChallengeView.swift:220\",\"message\":\"Sending challenge invites\",\"data\":{\"selectedCount\":\(selectedCount),\"challengeId\":\"\(challenge)\"},\"timestamp\":\(Int(Date().timeIntervalSince1970 * 1000)),\"sessionId\":\"debug-session\",\"runId\":\"challenge-invite\",\"hypothesisId\":\"F\"}\n"
-                if let fileHandle = FileHandle(forWritingAtPath: "/Users/jefferyerhunse/GitRepos/StepComp/.cursor/debug.log") {
+                if let fileHandle = FileHandle(forWritingAtPath: "/Users/jefferyerhunse/GitRepos/FitComp/.cursor/debug.log") {
                     fileHandle.seekToEndOfFile()
                     if let data = logStart.data(using: .utf8) {
                         fileHandle.write(data)
@@ -279,7 +279,7 @@ struct InviteFriendsToChallengeView: View {
                 let friendIdsArray = Array(self.selectedFriendIds)
                 
                 let logRPC = "{\"location\":\"InviteFriendsToChallengeView.swift:297\",\"message\":\"Calling send_challenge_invites RPC\",\"data\":{\"challengeId\":\"\(self.challengeId)\",\"friendIds\":\(friendIdsArray)},\"timestamp\":\(Int(Date().timeIntervalSince1970 * 1000)),\"sessionId\":\"debug-session\",\"runId\":\"challenge-invite\",\"hypothesisId\":\"F,H1\"}\n"
-                if let fileHandle = FileHandle(forWritingAtPath: "/Users/jefferyerhunse/GitRepos/StepComp/.cursor/debug.log") {
+                if let fileHandle = FileHandle(forWritingAtPath: "/Users/jefferyerhunse/GitRepos/FitComp/.cursor/debug.log") {
                     fileHandle.seekToEndOfFile()
                     if let data = logRPC.data(using: .utf8) {
                         fileHandle.write(data)
@@ -297,7 +297,7 @@ struct InviteFriendsToChallengeView: View {
                     .value
                 
                 let logSuccess = "{\"location\":\"InviteFriendsToChallengeView.swift:245\",\"message\":\"Invites sent successfully\",\"data\":{\"inviteCount\":\(inviteCount)},\"timestamp\":\(Int(Date().timeIntervalSince1970 * 1000)),\"sessionId\":\"debug-session\",\"runId\":\"challenge-invite\",\"hypothesisId\":\"F\"}\n"
-                if let fileHandle = FileHandle(forWritingAtPath: "/Users/jefferyerhunse/GitRepos/StepComp/.cursor/debug.log") {
+                if let fileHandle = FileHandle(forWritingAtPath: "/Users/jefferyerhunse/GitRepos/FitComp/.cursor/debug.log") {
                     fileHandle.seekToEndOfFile()
                     if let data = logSuccess.data(using: .utf8) {
                         fileHandle.write(data)
@@ -311,7 +311,7 @@ struct InviteFriendsToChallengeView: View {
             } catch {
                 let errorDesc = error.localizedDescription
                 let logError = "{\"location\":\"InviteFriendsToChallengeView.swift:260\",\"message\":\"Error sending invites\",\"data\":{\"error\":\"\(errorDesc)\"},\"timestamp\":\(Int(Date().timeIntervalSince1970 * 1000)),\"sessionId\":\"debug-session\",\"runId\":\"challenge-invite\",\"hypothesisId\":\"G\"}\n"
-                if let fileHandle = FileHandle(forWritingAtPath: "/Users/jefferyerhunse/GitRepos/StepComp/.cursor/debug.log") {
+                if let fileHandle = FileHandle(forWritingAtPath: "/Users/jefferyerhunse/GitRepos/FitComp/.cursor/debug.log") {
                     fileHandle.seekToEndOfFile()
                     if let data = logError.data(using: .utf8) {
                         fileHandle.write(data)
@@ -375,12 +375,12 @@ struct FriendInviteRow: View {
                 } else {
                     ZStack {
                         Circle()
-                            .stroke(isSelected ? StepCompColors.primary : Color(.systemGray4), lineWidth: 2)
+                            .stroke(isSelected ? FitCompColors.primary : Color(.systemGray4), lineWidth: 2)
                             .frame(width: 24, height: 24)
                         
                         if isSelected {
                             Circle()
-                                .fill(StepCompColors.primary)
+                                .fill(FitCompColors.primary)
                                 .frame(width: 16, height: 16)
                         }
                     }
@@ -404,7 +404,7 @@ struct EmptyFriendsView: View {
         VStack(spacing: 16) {
             Image(systemName: "person.2")
                 .font(.system(size: 60))
-                .foregroundColor(StepCompColors.primary)
+                .foregroundColor(FitCompColors.primary)
             
             Text("No Friends to Invite")
                 .font(.system(size: 20, weight: .bold))

@@ -1,6 +1,6 @@
 //
 //  ChallengesView.swift
-//  StepComp
+//  FitComp
 //
 //  Created by Jeffery Erhunse on 12/24/25.
 //
@@ -27,10 +27,7 @@ struct ChallengesView: View {
         self.sessionViewModel = sessionViewModel
         let userId = sessionViewModel.currentUser?.id ?? ""
         _viewModel = StateObject(
-            wrappedValue: ChallengesViewModel(
-                challengeService: ChallengeService(),
-                userId: userId
-            )
+            wrappedValue: ChallengesViewModel(userId: userId)
         )
     }
     
@@ -67,7 +64,7 @@ struct ChallengesView: View {
             }
             .tabViewStyle(.page(indexDisplayMode: .never)) // Enable swipe, hide page dots
         }
-        .background(StepCompColors.background.ignoresSafeArea())
+        .background(FitCompColors.background.ignoresSafeArea())
         .navigationBarHidden(true)
         .sheet(isPresented: $showingCreateChallenge) {
             CreateChallengeView(sessionViewModel: sessionViewModel)
@@ -91,6 +88,12 @@ struct ChallengesView: View {
             viewModel.updateService(challengeService)
             Task {
                 await viewModel.loadChallenges()
+            }
+        }
+        .onChange(of: selectedTab) { _, tab in
+            guard tab == .archive else { return }
+            Task {
+                await viewModel.loadArchivedChallengesIfNeeded()
             }
         }
         .onChange(of: challengeService.challenges.count) { oldValue, newValue in
@@ -123,27 +126,27 @@ struct ChallengesHeader: View {
                     )
                     .overlay(
                         Circle()
-                            .stroke(StepCompColors.primary, lineWidth: 2)
+                            .stroke(FitCompColors.primary, lineWidth: 2)
                     )
                     
                     // Online indicator
                     Circle()
-                        .fill(StepCompColors.primary)
+                        .fill(FitCompColors.primary)
                         .frame(width: 12, height: 12)
                         .overlay(
                             Circle()
-                                .stroke(StepCompColors.background, lineWidth: 2)
+                                .stroke(FitCompColors.background, lineWidth: 2)
                         )
                 }
                 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(selectedTab == .active ? "Active" : selectedTab == .discover ? "Discover" : "Archive")
                         .font(.system(size: 20, weight: .bold))
-                        .foregroundColor(StepCompColors.textPrimary)
+                        .foregroundColor(FitCompColors.textPrimary)
                     
                     Text(selectedTab == .active ? "Your active challenges" : selectedTab == .discover ? "Find your next battle" : "Past challenges and results")
                         .font(.system(size: 14, weight: .medium))
-                        .foregroundColor(StepCompColors.textSecondary)
+                        .foregroundColor(FitCompColors.textSecondary)
                 }
                 
                 Spacer()
@@ -152,7 +155,7 @@ struct ChallengesHeader: View {
                 Button(action: onCreateChallenge) {
                     Image(systemName: "plus.circle.fill")
                         .font(.system(size: 24))
-                        .foregroundColor(StepCompColors.primary)
+                        .foregroundColor(FitCompColors.primary)
                 }
             }
             .padding(.horizontal, 24)
@@ -193,7 +196,7 @@ struct ChallengesHeader: View {
             .padding(.horizontal, 24)
             .padding(.bottom, 8)
         }
-        .background(StepCompColors.background)
+        .background(FitCompColors.background)
     }
 }
 
@@ -208,10 +211,10 @@ struct TabButton: View {
             VStack(spacing: 4) {
                 Text(title)
                     .font(.system(size: 16, weight: isSelected ? .bold : .medium))
-                    .foregroundColor(isSelected ? StepCompColors.textPrimary : StepCompColors.textSecondary)
+                    .foregroundColor(isSelected ? FitCompColors.textPrimary : FitCompColors.textSecondary)
                 
                 Rectangle()
-                    .fill(isSelected ? StepCompColors.primary : Color.clear)
+                    .fill(isSelected ? FitCompColors.primary : Color.clear)
                     .frame(height: 3)
                     .cornerRadius(1.5)
             }

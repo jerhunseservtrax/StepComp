@@ -1,6 +1,6 @@
 //
 //  ProfileViewModel.swift
-//  StepComp
+//  FitComp
 //
 //  Created by Jeffery Erhunse on 12/24/25.
 //
@@ -43,12 +43,6 @@ final class ProfileViewModel: ObservableObject {
     @Published var dailyRecap: Bool = true
     @Published var leaderboardAlerts: Bool = false
     @Published var motivationalNudges: Bool = true
-    @Published var unitSystem: UnitSystem = .metric
-    
-    enum UnitSystem {
-        case metric // KM
-        case imperial // MI
-    }
     
     var level: Int {
         // Calculate level based on total steps (simplified)
@@ -63,6 +57,7 @@ final class ProfileViewModel: ObservableObject {
     private var challengeService: ChallengeService
     private var authService: AuthService
     private var healthKitService: HealthKitService?
+    private let metricsBuilder = ProfileMetricsBuilder()
     
     private var themeManager: ThemeManager?
     private var refreshTimer: Timer?
@@ -338,23 +333,11 @@ final class ProfileViewModel: ObservableObject {
     }
     
     private func generateWeeklyData() -> [Int] {
-        // Generate sample data for the week (matches HTML design percentages)
-        // Heights: 45%, 65%, 30%, 85%, 100%, 20%, 10%
-        let maxSteps = 10000
-        return [
-            Int(Double(maxSteps) * 0.45), // M
-            Int(Double(maxSteps) * 0.65), // T
-            Int(Double(maxSteps) * 0.30), // W
-            Int(Double(maxSteps) * 0.85), // T
-            maxSteps, // F (highlighted)
-            Int(Double(maxSteps) * 0.20), // S
-            Int(Double(maxSteps) * 0.10)  // S
-        ]
+        metricsBuilder.weeklyFallback()
     }
     
     private func generateMonthlyData() -> [Int] {
-        // Generate sample data for the month (30 days)
-        return (0..<30).map { _ in Int.random(in: 2000...12000) }
+        metricsBuilder.monthlyFallback()
     }
     
     func updateAccountInfo(height: Int, weight: Int) {

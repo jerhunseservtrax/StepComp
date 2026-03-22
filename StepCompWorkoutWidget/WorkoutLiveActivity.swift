@@ -1,6 +1,6 @@
 //
 //  WorkoutLiveActivity.swift
-//  StepCompWorkoutWidget
+//  FitCompWorkoutWidget
 //
 //  Live Activity configuration for active workouts. Uses system-driven
 //  timer rendering so the widget extension is never woken every second.

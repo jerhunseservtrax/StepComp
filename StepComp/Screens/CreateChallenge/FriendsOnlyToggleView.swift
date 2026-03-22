@@ -1,6 +1,6 @@
 //
 //  FriendsOnlyToggleView.swift
-//  StepComp
+//  FitComp
 //
 //  Created by Jeffery Erhunse on 12/24/25.
 //
@@ -21,11 +21,11 @@ struct FriendsOnlyToggleView: View {
             HStack(spacing: 12) {
                 ZStack {
                     Circle()
-                        .fill(StepCompColors.primary.opacity(0.2))
+                        .fill(FitCompColors.primary.opacity(0.2))
                         .frame(width: 40, height: 40)
                     
                     Image(systemName: "person.2.fill")
-                        .foregroundColor(StepCompColors.primary)
+                        .foregroundColor(FitCompColors.primary)
                         .font(.system(size: 16))
                 }
                 
@@ -42,7 +42,7 @@ struct FriendsOnlyToggleView: View {
             Spacer()
             
             Toggle("", isOn: $isFriendsOnly)
-                .toggleStyle(SwitchToggleStyle(tint: StepCompColors.primary))
+                .toggleStyle(SwitchToggleStyle(tint: FitCompColors.primary))
         }
         .padding(16)
         .background(Color(.systemBackground))

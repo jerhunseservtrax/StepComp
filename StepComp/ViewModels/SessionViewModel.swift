@@ -1,6 +1,6 @@
 //
 //  SessionViewModel.swift
-//  StepComp
+//  FitComp
 //
 //  Created by Jeffery Erhunse on 12/24/25.
 //
@@ -56,9 +56,9 @@ final class SessionViewModel: ObservableObject {
                     // This picks up the flag set by AuthService during session restore
                     self.checkOnboardingStatus()
                 } else {
-                    // If logged out, reset onboarding status
+                    // Keep onboarding status intact for transient auth drops.
+                    // Explicit logout flow is the only place that clears it.
                     self.hasCompletedOnboarding = false
-                    UserDefaults.standard.removeObject(forKey: "hasCompletedOnboarding")
                 }
             }
             .store(in: &cancellables)

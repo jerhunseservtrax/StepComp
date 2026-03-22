@@ -1,6 +1,6 @@
 //
 //  SettingsView.swift
-//  StepComp
+//  FitComp
 //
 //  Created by Jeffery Erhunse on 12/24/25.
 //
@@ -141,7 +141,7 @@ struct SettingsView: View {
                 }
             }
         }
-        .background(StepCompColors.background.ignoresSafeArea())
+        .background(FitCompColors.background.ignoresSafeArea())
     }
     
     private var mainContent: some View {
@@ -417,12 +417,12 @@ struct SettingsMobileHeader: View {
             
             Text("Settings")
                 .font(.system(size: 18, weight: .bold))
-                .foregroundColor(StepCompColors.textPrimary)
+                .foregroundColor(FitCompColors.textPrimary)
             
             Spacer()
         }
         .padding()
-        .background(StepCompColors.background)
+        .background(FitCompColors.background)
     }
 }
 
@@ -458,11 +458,11 @@ struct SettingsSidebar: View {
                 }
             }
         }
-        .background(StepCompColors.background)
+        .background(FitCompColors.background)
         .overlay(
             Rectangle()
                 .frame(width: 1)
-                .foregroundColor(StepCompColors.cardBorder),
+                .foregroundColor(FitCompColors.cardBorder),
             alignment: .trailing
         )
     }
@@ -478,6 +478,7 @@ struct SettingsProfileSection: View {
     let averageStepsThisMonth: Int
     
     @State private var showingProfileEditor = false
+    @ObservedObject private var unitPreferenceManager = UnitPreferenceManager.shared
     
     
     var displayName: String {
@@ -494,7 +495,8 @@ struct SettingsProfileSection: View {
     }
     
     var formattedDistance: String {
-        return String(format: "%.1f mi", totalDistanceMiles)
+        let totalDistanceKm = totalDistanceMiles * 1.60934
+        return "\(unitPreferenceManager.formatDistance(totalDistanceKm)) \(unitPreferenceManager.distanceUnit.lowercased())"
     }
     
     var formattedAverageSteps: String {
@@ -515,9 +517,9 @@ struct SettingsProfileSection: View {
                 )
                 .overlay(
                     Circle()
-                        .stroke(StepCompColors.primary, lineWidth: 4)
+                        .stroke(FitCompColors.primary, lineWidth: 4)
                 )
-                .shadow(color: StepCompColors.primary.opacity(0.1), radius: 10, x: 0, y: 4)
+                .shadow(color: FitCompColors.primary.opacity(0.1), radius: 10, x: 0, y: 4)
                 
                 // Edit button
                 Button(action: {
@@ -525,7 +527,7 @@ struct SettingsProfileSection: View {
                 }) {
                     ZStack {
                         Circle()
-                            .fill(StepCompColors.primary)
+                            .fill(FitCompColors.primary)
                             .frame(width: 36, height: 36)
                         
                         Image(systemName: "pencil")
@@ -555,10 +557,10 @@ struct SettingsProfileSection: View {
                     Text("Step Master")
                         .font(.system(size: 14, weight: .semibold))
                 }
-                .foregroundColor(StepCompColors.buttonTextOnPrimary)
+                .foregroundColor(FitCompColors.buttonTextOnPrimary)
                 .padding(.horizontal, 12)
                 .padding(.vertical, 6)
-                .background(StepCompColors.primary.opacity(0.2))
+                .background(FitCompColors.primary.opacity(0.2))
                 .cornerRadius(999)
             }
             
@@ -609,11 +611,11 @@ struct MiniStatCard: View {
         }
         .frame(maxWidth: .infinity)
         .padding(16)
-        .background(StepCompColors.surfaceElevated)
+        .background(FitCompColors.surfaceElevated)
         .cornerRadius(12)
         .overlay(
             RoundedRectangle(cornerRadius: 12)
-                .stroke(StepCompColors.cardBorder, lineWidth: 1)
+                .stroke(FitCompColors.cardBorder, lineWidth: 1)
         )
     }
 }
@@ -655,11 +657,11 @@ struct SettingsMainContent: View {
                         .foregroundColor(.primary)
                         .padding(.horizontal, 20)
                         .padding(.vertical, 10)
-                        .background(StepCompColors.surface)
+                        .background(FitCompColors.surface)
                         .cornerRadius(999)
                         .overlay(
                             RoundedRectangle(cornerRadius: 999)
-                                .stroke(StepCompColors.cardBorder, lineWidth: 1)
+                                .stroke(FitCompColors.cardBorder, lineWidth: 1)
                         )
                     }
                 }
@@ -765,7 +767,7 @@ struct SettingsMainContent: View {
                             }
                             .foregroundColor(.red)
                             .padding()
-                            .background(StepCompColors.surface)
+                            .background(FitCompColors.surface)
                             .cornerRadius(12)
                             .overlay(
                                 RoundedRectangle(cornerRadius: 12)
@@ -802,7 +804,7 @@ struct SettingsMainContent: View {
                 }
             }
         }
-        .background(StepCompColors.surface)
+        .background(FitCompColors.surface)
     }
 }
 
@@ -850,7 +852,7 @@ struct ConnectivityCard: View {
                                 }
                             }
                         ))
-                            .toggleStyle(SwitchToggleStyle(tint: StepCompColors.primary))
+                            .toggleStyle(SwitchToggleStyle(tint: FitCompColors.primary))
                     }
                 )
                 
@@ -866,11 +868,11 @@ struct ConnectivityCard: View {
                                 .foregroundColor(.secondary)
                                 .padding(.horizontal, 16)
                                 .padding(.vertical, 6)
-                                .background(StepCompColors.surfaceElevated)
+                                .background(FitCompColors.surfaceElevated)
                                 .cornerRadius(999)
                         } else {
                             Toggle("", isOn: $appleWatchSetup)
-                                .toggleStyle(SwitchToggleStyle(tint: StepCompColors.primary))
+                                .toggleStyle(SwitchToggleStyle(tint: FitCompColors.primary))
                                 .disabled(true)
                         }
                     }
@@ -934,7 +936,7 @@ struct NotificationsCard: View {
                         }
                         .foregroundColor(.white)
                         .padding(12)
-                        .background(StepCompColors.primary)
+                        .background(FitCompColors.primary)
                         .cornerRadius(12)
                     }
                     .disabled(isRequestingPermission)
@@ -961,11 +963,11 @@ struct NotificationsCard: View {
                         }) {
                             Text("Open Settings")
                                 .font(.system(size: 12, weight: .semibold))
-                                .foregroundColor(StepCompColors.primary)
+                                .foregroundColor(FitCompColors.primary)
                         }
                     }
                     .padding(12)
-                    .background(StepCompColors.surfaceElevated)
+                    .background(FitCompColors.surfaceElevated)
                     .cornerRadius(12)
                 }
                 
@@ -976,7 +978,7 @@ struct NotificationsCard: View {
                     subtitle: "8 PM summary",
                     trailing: {
                         Toggle("", isOn: $dailyRecap)
-                            .toggleStyle(SwitchToggleStyle(tint: StepCompColors.primary))
+                            .toggleStyle(SwitchToggleStyle(tint: FitCompColors.primary))
                             .disabled(!notificationManager.isAuthorized)
                     }
                 )
@@ -987,7 +989,7 @@ struct NotificationsCard: View {
                     subtitle: "Rank changes",
                     trailing: {
                         Toggle("", isOn: $leaderboardAlerts)
-                            .toggleStyle(SwitchToggleStyle(tint: StepCompColors.primary))
+                            .toggleStyle(SwitchToggleStyle(tint: FitCompColors.primary))
                             .disabled(!notificationManager.isAuthorized)
                     }
                 )
@@ -998,7 +1000,7 @@ struct NotificationsCard: View {
                     subtitle: "10 AM, 2 PM, 6 PM",
                     trailing: {
                         Toggle("", isOn: $motivationalNudges)
-                            .toggleStyle(SwitchToggleStyle(tint: StepCompColors.primary))
+                            .toggleStyle(SwitchToggleStyle(tint: FitCompColors.primary))
                             .disabled(!notificationManager.isAuthorized)
                     }
                 )
@@ -1017,7 +1019,14 @@ struct PreferencesCard: View {
     @ObservedObject private var unitPreferenceManager = UnitPreferenceManager.shared
     let sessionViewModel: SessionViewModel?
     @State private var showingDailyStepGoalEditor = false
-    @State private var refreshTrigger = UUID() // Add refresh trigger
+    @State private var refreshTrigger = UUID()
+    @State private var selectedAlertMode: RestTimerAlertMode = {
+        if let saved = UserDefaults.standard.string(forKey: "restTimerAlertMode"),
+           let mode = RestTimerAlertMode(rawValue: saved) {
+            return mode
+        }
+        return .visual
+    }()
     @EnvironmentObject var themeManager: ThemeManager
     
     var body: some View {
@@ -1040,29 +1049,29 @@ struct PreferencesCard: View {
                                 themeManager.isDarkMode = newValue
                             }
                         ))
-                            .toggleStyle(SwitchToggleStyle(tint: StepCompColors.primary))
+                            .toggleStyle(SwitchToggleStyle(tint: FitCompColors.primary))
                     }
                 )
                 
                 SettingItemRow(
                     icon: "ruler.fill",
                     title: "Unit System",
+                    subtitle: "Metric (kg, km, cm) or Imperial (lbs, miles, inches)",
                     trailing: {
                         HStack(spacing: 4) {
                             Button(action: { 
-                                print("🔘 KM button tapped")
                                 withAnimation(.easeInOut(duration: 0.2)) {
                                     unitPreferenceManager.unitSystem = .metric
                                 }
                             }) {
-                                Text("KM")
+                                Text("Metric")
                                     .font(.system(size: 11, weight: .bold))
                                     .foregroundColor(unitPreferenceManager.unitSystem == .metric ? .black : .secondary)
                                     .padding(.horizontal, 16)
                                     .padding(.vertical, 8)
                                     .background(
                                         unitPreferenceManager.unitSystem == .metric 
-                                            ? StepCompColors.primary  // Yellow when selected
+                                            ? FitCompColors.primary  // Yellow when selected
                                             : Color.clear
                                     )
                                     .cornerRadius(999)
@@ -1072,19 +1081,18 @@ struct PreferencesCard: View {
                             .allowsHitTesting(true)
                             
                             Button(action: { 
-                                print("🔘 MI button tapped")
                                 withAnimation(.easeInOut(duration: 0.2)) {
                                     unitPreferenceManager.unitSystem = .imperial
                                 }
                             }) {
-                                Text("MI")
+                                Text("Imperial")
                                     .font(.system(size: 11, weight: .bold))
                                     .foregroundColor(unitPreferenceManager.unitSystem == .imperial ? .black : .secondary)
                                     .padding(.horizontal, 16)
                                     .padding(.vertical, 8)
                                     .background(
                                         unitPreferenceManager.unitSystem == .imperial 
-                                            ? StepCompColors.primary  // Yellow when selected
+                                            ? FitCompColors.primary  // Yellow when selected
                                             : Color.clear
                                     )
                                     .cornerRadius(999)
@@ -1094,8 +1102,39 @@ struct PreferencesCard: View {
                             .allowsHitTesting(true)
                         }
                         .padding(4)
-                        .background(StepCompColors.surfaceElevated)
+                        .background(FitCompColors.surfaceElevated)
                         .cornerRadius(999)
+                    }
+                )
+                
+                SettingItemRow(
+                    icon: "timer",
+                    iconBackground: .orange,
+                    title: "Rest Timer Alert",
+                    subtitle: selectedAlertMode.label,
+                    trailing: {
+                        Menu {
+                            ForEach(RestTimerAlertMode.allCases, id: \.self) { mode in
+                                Button(action: {
+                                    selectedAlertMode = mode
+                                    UserDefaults.standard.set(mode.rawValue, forKey: "restTimerAlertMode")
+                                }) {
+                                    Label(mode.label, systemImage: mode.icon)
+                                }
+                            }
+                        } label: {
+                            HStack(spacing: 4) {
+                                Image(systemName: selectedAlertMode.icon)
+                                    .font(.system(size: 12))
+                                Image(systemName: "chevron.up.chevron.down")
+                                    .font(.system(size: 10))
+                            }
+                            .foregroundColor(FitCompColors.primary)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .background(FitCompColors.surfaceElevated)
+                            .cornerRadius(999)
+                        }
                     }
                 )
                 
@@ -1178,7 +1217,7 @@ struct SupportLegalCard: View {
                 .buttonStyle(PlainButtonStyle())
                 
                 Divider()
-                    .background(StepCompColors.cardBorder)
+                    .background(FitCompColors.cardBorder)
                 
                 Button(action: {
                     showingFAQ = true
@@ -1191,7 +1230,7 @@ struct SupportLegalCard: View {
                 .buttonStyle(PlainButtonStyle())
                 
                 Divider()
-                    .background(StepCompColors.cardBorder)
+                    .background(FitCompColors.cardBorder)
                 
                 Button(action: {
                     showingPrivacy = true
@@ -1204,7 +1243,7 @@ struct SupportLegalCard: View {
                 .buttonStyle(PlainButtonStyle())
                 
                 Divider()
-                    .background(StepCompColors.cardBorder)
+                    .background(FitCompColors.cardBorder)
                 
                 Button(action: {
                     showingAbout = true
@@ -1260,7 +1299,7 @@ struct SupportLinkRow: View {
                 .foregroundColor(.secondary)
         }
         .padding(8)
-        .background(StepCompColors.surface)
+        .background(FitCompColors.surface)
         .cornerRadius(12)
     }
 }
@@ -1295,11 +1334,11 @@ struct SettingsCard<Content: View>: View {
             content()
         }
         .padding(24)
-        .background(StepCompColors.surface)
+        .background(FitCompColors.surface)
         .cornerRadius(32)
         .overlay(
             RoundedRectangle(cornerRadius: 32)
-                .stroke(StepCompColors.cardBorder, lineWidth: 1)
+                .stroke(FitCompColors.cardBorder, lineWidth: 1)
         )
         .shadow(color: Color.black.opacity(0.02), radius: 8, x: 0, y: 2)
     }
@@ -1406,6 +1445,7 @@ struct EditHeightWeightSheet: View {
     
     @Environment(\.dismiss) var dismiss
     @EnvironmentObject var healthKitService: HealthKitService
+    @ObservedObject private var unitManager = UnitPreferenceManager.shared
     
     enum HeightUnit {
         case imperial // ft/in
@@ -1419,26 +1459,22 @@ struct EditHeightWeightSheet: View {
     
     // Convert cm to feet/inches
     private func cmToImperial(_ cm: Int) -> (feet: Int, inches: Int) {
-        let totalInches = Double(cm) / 2.54
-        let feet = Int(totalInches / 12)
-        let inches = Int(totalInches.truncatingRemainder(dividingBy: 12))
-        return (feet, inches)
+        unitManager.heightComponents(fromCm: cm)
     }
     
     // Convert feet/inches to cm
     private func imperialToCm(feet: Int, inches: Int) -> Int {
-        let totalInches = Double(feet * 12 + inches)
-        return Int(totalInches * 2.54)
+        unitManager.heightToStorage(feet: feet, inches: inches)
     }
     
     // Convert kg to lbs
     private func kgToLbs(_ kg: Int) -> Int {
-        return Int(Double(kg) * 2.20462)
+        unitManager.weightFromStorage(kg)
     }
     
     // Convert lbs to kg
     private func lbsToKg(_ lbs: Int) -> Int {
-        return Int(Double(lbs) / 2.20462)
+        unitManager.weightToStorage(lbs)
     }
     
     var body: some View {
@@ -1521,7 +1557,7 @@ struct EditHeightWeightSheet: View {
                                     }
                                 }
                                 .padding(4)
-                                .background(StepCompColors.cardBorder)
+                                .background(FitCompColors.cardBorder)
                                 .clipShape(Capsule())
                             }
                             
@@ -1583,7 +1619,7 @@ struct EditHeightWeightSheet: View {
                                     }
                                 }
                                 .padding(4)
-                                .background(StepCompColors.cardBorder)
+                                .background(FitCompColors.cardBorder)
                                 .clipShape(Capsule())
                             }
                             
@@ -1909,7 +1945,7 @@ struct EditDailyStepGoalSheet: View {
                 HStack {
                     Button(action: { dismiss() }) {
                         Text("Cancel")
-                            .foregroundColor(StepCompColors.primary)
+                            .foregroundColor(FitCompColors.primary)
                             .fontWeight(.medium)
                     }
                     
@@ -1929,7 +1965,7 @@ struct EditDailyStepGoalSheet: View {
                             .fontWeight(.semibold)
                             .padding(.horizontal, 20)
                             .padding(.vertical, 8)
-                            .background(StepCompColors.primary)
+                            .background(FitCompColors.primary)
                             .cornerRadius(20)
                     }
                 }
@@ -1950,13 +1986,13 @@ struct EditDailyStepGoalSheet: View {
                                 ZStack {
                                     // Background circle
                                     Circle()
-                                        .stroke(StepCompColors.cardBorder, lineWidth: 12)
+                                        .stroke(FitCompColors.cardBorder, lineWidth: 12)
                                         .frame(width: 192, height: 192)
                                     
                                     // Progress arc
                                     Circle()
                                         .trim(from: 0, to: progressPercentage)
-                                        .stroke(StepCompColors.primary, style: StrokeStyle(lineWidth: 12, lineCap: .round))
+                                        .stroke(FitCompColors.primary, style: StrokeStyle(lineWidth: 12, lineCap: .round))
                                         .frame(width: 192, height: 192)
                                         .rotationEffect(.degrees(-90))
                                         .animation(.spring(response: 0.3), value: progressPercentage)
@@ -1984,16 +2020,16 @@ struct EditDailyStepGoalSheet: View {
                                         
                                         Text("Recommended")
                                             .font(.system(size: 12, weight: .bold))
-                                            .foregroundColor(StepCompColors.primary)
+                                            .foregroundColor(FitCompColors.primary)
                                             .padding(.horizontal, 8)
                                             .padding(.vertical, 4)
-                                            .background(StepCompColors.primary.opacity(0.2))
+                                            .background(FitCompColors.primary.opacity(0.2))
                                             .cornerRadius(8)
                                     }
                                     
                                     // Slider
                                     Slider(value: $sliderValue, in: 2000...25000, step: 500)
-                                        .tint(StepCompColors.primary)
+                                        .tint(FitCompColors.primary)
                                         .onChange(of: sliderValue) { _, newValue in
                                             // Deselect preset if manually adjusted
                                             if let preset = selectedPreset, Double(preset.rawValue) != newValue {
@@ -2015,7 +2051,7 @@ struct EditDailyStepGoalSheet: View {
                                 }
                             }
                             .padding(24)
-                            .background(StepCompColors.surfaceElevated)
+                            .background(FitCompColors.surfaceElevated)
                             .cornerRadius(24)
                         }
                         
@@ -2031,7 +2067,7 @@ struct EditDailyStepGoalSheet: View {
                                     QuickSelectButton(
                                         preset: preset,
                                         isSelected: selectedPreset == preset,
-                                        primaryColor: StepCompColors.primary
+                                        primaryColor: FitCompColors.primary
                                     ) {
                                         selectedPreset = preset
                                         sliderValue = Double(preset.rawValue)

@@ -1,6 +1,6 @@
 //
 //  TransformationPhotoGalleryView.swift
-//  StepComp
+//  FitComp
 //
 //  Created by Jeffery Erhunse on 2/23/26.
 //
@@ -25,7 +25,7 @@ struct TransformationPhotoGalleryView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                StepCompColors.background.ignoresSafeArea()
+                FitCompColors.background.ignoresSafeArea()
                 
                 if viewModel.photos.isEmpty {
                     emptyState
@@ -58,7 +58,7 @@ struct TransformationPhotoGalleryView: View {
                             Text("Add")
                                 .font(.system(size: 16, weight: .semibold))
                         }
-                        .foregroundColor(StepCompColors.primary)
+                        .foregroundColor(FitCompColors.primary)
                     }
                 }
             }
@@ -94,11 +94,11 @@ struct TransformationPhotoGalleryView: View {
             
             Text("No transformation photos yet")
                 .font(.system(size: 20, weight: .bold))
-                .foregroundColor(StepCompColors.textPrimary)
+                .foregroundColor(FitCompColors.textPrimary)
             
             Text("Document your fitness journey")
                 .font(.system(size: 14, weight: .medium))
-                .foregroundColor(StepCompColors.textSecondary)
+                .foregroundColor(FitCompColors.textSecondary)
             
             Button {
                 showingAddPhotoSet = true
@@ -109,7 +109,7 @@ struct TransformationPhotoGalleryView: View {
                         .font(.system(size: 16, weight: .bold))
                 }
                 .frame(width: 220, height: 56)
-                .background(StepCompColors.primary)
+                .background(FitCompColors.primary)
                 .foregroundColor(.black)
                 .cornerRadius(28)
             }
@@ -202,19 +202,19 @@ struct PhotoTimelineCard: View {
             VStack(alignment: .leading, spacing: 8) {
                 Text(dateString)
                     .font(.system(size: 14, weight: .bold))
-                    .foregroundColor(StepCompColors.textPrimary)
+                    .foregroundColor(FitCompColors.textPrimary)
                 
                 if let note = photo.note, !note.isEmpty {
                     Text(note)
                         .font(.system(size: 14, weight: .medium))
-                        .foregroundColor(StepCompColors.textSecondary)
+                        .foregroundColor(FitCompColors.textSecondary)
                 }
             }
             .padding(16)
         }
         .background(cardBackground)
         .cornerRadius(20)
-        .shadow(color: StepCompColors.shadowSecondary, radius: 10, x: 0, y: 4)
+        .shadow(color: FitCompColors.shadowSecondary, radius: 10, x: 0, y: 4)
     }
 }
 
@@ -249,10 +249,10 @@ struct PhotoAngleView: View {
                 // Label
                 Text(angle.rawValue)
                     .font(.system(size: 12, weight: .semibold))
-                    .foregroundColor(StepCompColors.textSecondary)
+                    .foregroundColor(FitCompColors.textSecondary)
                     .frame(height: 30)
                     .frame(maxWidth: .infinity)
-                    .background(StepCompColors.background)
+                    .background(FitCompColors.background)
             }
         }
         .buttonStyle(PlainButtonStyle())
@@ -314,10 +314,10 @@ struct FullScreenPhotoView: View {
                             VStack(spacing: 8) {
                                 Text(angle.rawValue)
                                     .font(.system(size: 14, weight: .semibold))
-                                    .foregroundColor(selectedAngle == angle ? StepCompColors.primary : .white.opacity(0.6))
+                                    .foregroundColor(selectedAngle == angle ? FitCompColors.primary : .white.opacity(0.6))
                                 
                                 Rectangle()
-                                    .fill(selectedAngle == angle ? StepCompColors.primary : Color.clear)
+                                    .fill(selectedAngle == angle ? FitCompColors.primary : Color.clear)
                                     .frame(height: 3)
                                     .cornerRadius(1.5)
                             }

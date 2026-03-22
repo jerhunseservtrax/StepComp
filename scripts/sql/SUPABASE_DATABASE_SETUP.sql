@@ -1,5 +1,5 @@
 -- ============================================
--- StepComp Database Setup Script
+-- FitComp Database Setup Script
 -- ============================================
 -- Run this script in Supabase Dashboard → SQL Editor
 -- ============================================
@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS profiles (
   user_id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   username TEXT NOT NULL,
   avatar TEXT,
+  public_profile BOOLEAN DEFAULT TRUE,
   is_premium BOOLEAN DEFAULT FALSE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
@@ -29,7 +30,7 @@ CREATE POLICY "Users can read own profile"
 -- Policy: Users can read other users' profiles (for leaderboards, etc.)
 CREATE POLICY "Users can read other profiles"
   ON profiles FOR SELECT
-  USING (true);
+  USING (auth.uid() = user_id OR public_profile = TRUE);
 
 -- Policy: Users can insert their own profile
 CREATE POLICY "Users can insert own profile"
@@ -248,6 +249,10 @@ CREATE TRIGGER update_friends_updated_at
 CREATE OR REPLACE FUNCTION get_user_total_steps(p_user_id UUID)
 RETURNS INTEGER AS $$
 BEGIN
+  IF auth.uid() IS NULL OR auth.uid() <> p_user_id THEN
+    RAISE EXCEPTION 'Access denied';
+  END IF;
+
   RETURN COALESCE(
     (SELECT SUM(total_steps) FROM challenge_members WHERE user_id = p_user_id),
     0

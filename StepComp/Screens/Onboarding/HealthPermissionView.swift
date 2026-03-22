@@ -1,6 +1,6 @@
 //
 //  HealthPermissionView.swift
-//  StepComp
+//  FitComp
 //
 //  Created by Jeffery Erhunse on 12/24/25.
 //
@@ -27,7 +27,7 @@ struct HealthPermissionOnboardingView: View {
                 ZStack {
                     // Glowing background circle
                     Circle()
-                        .fill(StepCompColors.primary.opacity(0.2))
+                        .fill(FitCompColors.primary.opacity(0.2))
                         .frame(width: 256, height: 256)
                         .blur(radius: 40)
                         .scaleEffect(isAnimating ? 1.1 : 1.0)
@@ -40,9 +40,9 @@ struct HealthPermissionOnboardingView: View {
                     // Main icon container - white/surface circle with primary glow
                     ZStack {
                         Circle()
-                            .fill(StepCompColors.surface)
+                            .fill(FitCompColors.surface)
                             .frame(width: 256, height: 256)
-                            .shadow(color: StepCompColors.primary.opacity(0.3), radius: 20, x: 0, y: 8)
+                            .shadow(color: FitCompColors.primary.opacity(0.3), radius: 20, x: 0, y: 8)
                         
                         // Red heart icon
                         Image(systemName: "heart.fill")
@@ -57,7 +57,7 @@ struct HealthPermissionOnboardingView: View {
                                 Spacer()
                                 ZStack {
                                     RoundedRectangle(cornerRadius: 16)
-                                        .fill(StepCompColors.surface)
+                                        .fill(FitCompColors.surface)
                                         .frame(width: 48, height: 48)
                                         .shadow(color: Color.black.opacity(0.1), radius: 8, x: 0, y: 4)
                                     
@@ -109,7 +109,7 @@ struct HealthPermissionOnboardingView: View {
                         .foregroundColor(.green)
                 }
                 .padding(16)
-                .background(StepCompColors.surfaceElevated)
+                .background(FitCompColors.surfaceElevated)
                 .cornerRadius(16)
                 .padding(.horizontal, 24)
                 .padding(.bottom, 24)

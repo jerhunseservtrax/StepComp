@@ -1,6 +1,6 @@
 //
 //  TransformationPhotoViewModel.swift
-//  StepComp
+//  FitComp
 //
 //  Created by Jeffery Erhunse on 2/23/26.
 //
@@ -33,53 +33,49 @@ class TransformationPhotoViewModel: ObservableObject {
     // MARK: - Public Methods
     
     func addPhotoSet(frontImage: UIImage, sideImage: UIImage, backImage: UIImage, date: Date = Date(), note: String? = nil) {
-        // Process and save all three images
-        guard let processedFront = processImage(frontImage),
-              let processedSide = processImage(sideImage),
-              let processedBack = processImage(backImage),
-              let frontData = processedFront.jpegData(compressionQuality: 0.8),
-              let sideData = processedSide.jpegData(compressionQuality: 0.8),
-              let backData = processedBack.jpegData(compressionQuality: 0.8) else {
-            print("❌ Failed to process images")
-            return
-        }
-        
-        // Generate filenames
-        let baseId = UUID().uuidString
-        let frontFilename = "\(baseId)_front.jpg"
-        let sideFilename = "\(baseId)_side.jpg"
-        let backFilename = "\(baseId)_back.jpg"
-        
-        let frontURL = photoDirectory.appendingPathComponent(frontFilename)
-        let sideURL = photoDirectory.appendingPathComponent(sideFilename)
-        let backURL = photoDirectory.appendingPathComponent(backFilename)
-        
-        // Save to disk
-        do {
-            try frontData.write(to: frontURL)
-            try sideData.write(to: sideURL)
-            try backData.write(to: backURL)
-            
-            // Create metadata entry
-            let photo = TransformationPhoto(
-                date: date,
-                frontFilename: frontFilename,
-                sideFilename: sideFilename,
-                backFilename: backFilename,
-                note: note
-            )
-            photos.append(photo)
-            photos.sort { $0.date > $1.date } // Newest first
-            
-            // Update latest photo (use front as the preview)
-            latestPhoto = processedFront
-            
-            // Save metadata
-            savePhotos()
-            
-            print("✅ Saved transformation photo set: front=\(frontFilename), side=\(sideFilename), back=\(backFilename)")
-        } catch {
-            print("❌ Failed to save photos: \(error)")
+        let directory = photoDirectory
+        Task.detached(priority: .utility) { [weak self] in
+            guard let self else { return }
+
+            guard let processedFront = self.processImage(frontImage),
+                  let processedSide = self.processImage(sideImage),
+                  let processedBack = self.processImage(backImage),
+                  let frontData = processedFront.jpegData(compressionQuality: 0.8),
+                  let sideData = processedSide.jpegData(compressionQuality: 0.8),
+                  let backData = processedBack.jpegData(compressionQuality: 0.8) else {
+                return
+            }
+
+            let baseId = UUID().uuidString
+            let frontFilename = "\(baseId)_front.jpg"
+            let sideFilename = "\(baseId)_side.jpg"
+            let backFilename = "\(baseId)_back.jpg"
+
+            let frontURL = directory.appendingPathComponent(frontFilename)
+            let sideURL = directory.appendingPathComponent(sideFilename)
+            let backURL = directory.appendingPathComponent(backFilename)
+
+            do {
+                try frontData.write(to: frontURL)
+                try sideData.write(to: sideURL)
+                try backData.write(to: backURL)
+
+                await MainActor.run {
+                    let photo = TransformationPhoto(
+                        date: date,
+                        frontFilename: frontFilename,
+                        sideFilename: sideFilename,
+                        backFilename: backFilename,
+                        note: note
+                    )
+                    self.photos.append(photo)
+                    self.photos.sort { $0.date > $1.date }
+                    self.latestPhoto = processedFront
+                    self.savePhotos()
+                }
+            } catch {
+                return
+            }
         }
     }
     
@@ -128,7 +124,7 @@ class TransformationPhotoViewModel: ObservableObject {
     
     // MARK: - Private Methods
     
-    private func processImage(_ image: UIImage) -> UIImage? {
+    nonisolated private func processImage(_ image: UIImage) -> UIImage? {
         // Resize to max dimension of 1200px
         let maxDimension: CGFloat = 1200
         let size = image.size

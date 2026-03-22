@@ -1,6 +1,6 @@
 //
 //  WorkoutDetailView.swift
-//  StepComp
+//  FitComp
 //
 //  Created by Jeffery Erhunse on 2/23/26.
 //
@@ -26,11 +26,60 @@ struct WorkoutDetailView: View {
         }
         return false
     }
+
+    private var totalSets: Int {
+        workout.exercises.reduce(0) { $0 + $1.sets.count }
+    }
+
+    private var workoutMuscleGroups: [MuscleGroup] {
+        let allTargetStrings = workout.exercises.map { $0.exercise.targetMuscles.lowercased() }
+        return MuscleGroup.allCases.filter { group in
+            allTargetStrings.contains(where: { target in
+                group.matchKeywords.contains(where: { target.contains($0.lowercased()) })
+            })
+        }
+    }
+
+    private var projectedVolume: Double {
+        workout.exercises.reduce(0) { runningTotal, workoutExercise in
+            runningTotal + workoutExercise.sets.reduce(0) { setTotal, set in
+                if let previousWeight = set.previousWeight, let previousReps = set.previousReps {
+                    return setTotal + (previousWeight * Double(previousReps))
+                }
+                if let suggestedWeight = set.suggestedWeight, let suggestedReps = set.suggestedReps {
+                    return setTotal + (suggestedWeight * Double(suggestedReps))
+                }
+                return setTotal
+            }
+        }
+    }
+
+    private var projectedDuration: TimeInterval {
+        let matchingSessions = viewModel.completedSessions.filter {
+            $0.workoutId == workout.id || namesMatch($0.workoutName, workout.name)
+        }
+
+        if !matchingSessions.isEmpty {
+            let totalDuration = matchingSessions.reduce(0.0) { $0 + $1.duration }
+            return totalDuration / Double(matchingSessions.count)
+        }
+
+        // Includes expected work and rest time when no historical data exists.
+        return TimeInterval(totalSets * 120)
+    }
+
+    private var projectedDurationText: String {
+        let total = Int(projectedDuration)
+        let hours = total / 3600
+        let minutes = (total % 3600) / 60
+        let seconds = total % 60
+        return String(format: "%d:%02d:%02d", hours, minutes, seconds)
+    }
     
     var body: some View {
         NavigationStack {
             ZStack {
-                StepCompColors.background.ignoresSafeArea()
+                FitCompColors.background.ignoresSafeArea()
                 
                 ScrollView {
                     VStack(alignment: .leading, spacing: 24) {
@@ -79,7 +128,7 @@ struct WorkoutDetailView: View {
                             // Switch to Workouts tab to show active workout
                             if let tabManager = tabManager {
                                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                                    tabManager.selectedTab = 3
+                                    tabManager.selectedTab = 2
                                 }
                             }
                         }) {
@@ -90,10 +139,10 @@ struct WorkoutDetailView: View {
                             }
                             .frame(maxWidth: .infinity)
                             .frame(height: 56)
-                            .background(StepCompColors.primary)
-                            .foregroundColor(StepCompColors.buttonTextOnPrimary)
+                            .background(FitCompColors.primary)
+                            .foregroundColor(FitCompColors.buttonTextOnPrimary)
                             .cornerRadius(28)
-                            .shadow(color: StepCompColors.primary.opacity(0.3), radius: 16, x: 0, y: 8)
+                            .shadow(color: FitCompColors.primary.opacity(0.3), radius: 16, x: 0, y: 8)
                         }
                         .padding(.horizontal, 20)
                         .padding(.bottom, 16)
@@ -118,12 +167,12 @@ struct WorkoutDetailView: View {
             HStack {
                 ZStack {
                     Circle()
-                        .fill(StepCompColors.primary.opacity(0.2))
+                        .fill(FitCompColors.primary.opacity(0.2))
                         .frame(width: 64, height: 64)
                     
                     Image(systemName: "dumbbell.fill")
                         .font(.system(size: 28))
-                        .foregroundColor(StepCompColors.primary)
+                        .foregroundColor(FitCompColors.primary)
                 }
                 
                 Spacer()
@@ -146,12 +195,12 @@ struct WorkoutDetailView: View {
             
             Text(workout.name)
                 .font(.system(size: 32, weight: .black))
-                .foregroundColor(StepCompColors.textPrimary)
+                .foregroundColor(FitCompColors.textPrimary)
             
             if let lastCompleted = workout.lastCompletedAt {
                 Text("Last completed: \(formatDate(lastCompleted))")
                     .font(.system(size: 14, weight: .medium))
-                    .foregroundColor(StepCompColors.textSecondary)
+                    .foregroundColor(FitCompColors.textSecondary)
             }
         }
         .padding(20)
@@ -166,40 +215,48 @@ struct WorkoutDetailView: View {
     
     private var workoutInfo: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("WORKOUT INFO")
-                .font(.system(size: 13, weight: .black))
-                .tracking(1.5)
-                .foregroundColor(StepCompColors.textSecondary)
-            
-            VStack(spacing: 12) {
-                InfoRow(
-                    icon: "calendar",
-                    label: "Scheduled Days",
-                    value: workout.assignedDays.map { $0.rawValue }.joined(separator: ", ")
+            Text("Workout Details")
+                .font(.system(size: 32, weight: .bold))
+                .foregroundColor(FitCompColors.textPrimary)
+
+            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+                DetailMetricCard(title: "Est. Duration", value: projectedDurationText, tint: Color.yellow)
+                DetailMetricCard(title: "Exercises", value: "\(workout.exercises.count)", tint: Color.red)
+                DetailMetricCard(
+                    title: "Est. Volume",
+                    value: "\(unitManager.formatWeight(projectedVolume, decimals: 0)) \(unitManager.weightUnit.lowercased())",
+                    tint: Color.green
                 )
-                
-                InfoRow(
-                    icon: "dumbbell",
-                    label: "Exercises",
-                    value: "\(workout.exercises.count)"
-                )
-                
-                let totalSets = workout.exercises.reduce(0) { $0 + $1.sets.count }
-                InfoRow(
-                    icon: "list.bullet",
-                    label: "Total Sets",
-                    value: "\(totalSets)"
-                )
+                DetailMetricCard(title: "Total Sets", value: "\(totalSets)", tint: Color.blue)
+            }
+
+            HStack(spacing: 8) {
+                Text("Muscles")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(FitCompColors.textSecondary)
+
+                HStack(spacing: 6) {
+                    ForEach(Array(workoutMuscleGroups.prefix(4)), id: \.id) { group in
+                        Image(systemName: group.icon)
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundColor(FitCompColors.textPrimary)
+                            .frame(width: 26, height: 26)
+                            .background(Color.white.opacity(0.08))
+                            .cornerRadius(8)
+                    }
+                }
+
+                Spacer()
+
+                Text("Exercises \(workout.exercises.count)")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(FitCompColors.textSecondary)
             }
         }
-        .padding(20)
+        .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(cardBackground)
-        .cornerRadius(24)
-        .overlay(
-            RoundedRectangle(cornerRadius: 24)
-                .stroke(colorScheme == .dark ? Color.white.opacity(0.05) : Color.clear, lineWidth: 1)
-        )
+        .background(Color.white.opacity(0.05))
+        .cornerRadius(18)
     }
     
     private var exercisesSection: some View {
@@ -207,7 +264,7 @@ struct WorkoutDetailView: View {
             Text("EXERCISES")
                 .font(.system(size: 13, weight: .black))
                 .tracking(1.5)
-                .foregroundColor(StepCompColors.textSecondary)
+                .foregroundColor(FitCompColors.textSecondary)
             
             VStack(spacing: 12) {
                 ForEach(Array(workout.exercises.enumerated()), id: \.element.id) { index, workoutExercise in
@@ -227,33 +284,11 @@ struct WorkoutDetailView: View {
         formatter.unitsStyle = .full
         return formatter.localizedString(for: date, relativeTo: Date())
     }
-}
 
-struct InfoRow: View {
-    let icon: String
-    let label: String
-    let value: String
-    
-    var body: some View {
-        HStack {
-            HStack(spacing: 12) {
-                Image(systemName: icon)
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundColor(StepCompColors.primary)
-                    .frame(width: 24)
-                
-                Text(label)
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundColor(StepCompColors.textSecondary)
-            }
-            
-            Spacer()
-            
-            Text(value)
-                .font(.system(size: 14, weight: .bold))
-                .foregroundColor(StepCompColors.textPrimary)
-        }
-        .padding(.vertical, 4)
+    private func namesMatch(_ lhs: String, _ rhs: String) -> Bool {
+        let left = lhs.lowercased()
+        let right = rhs.lowercased()
+        return left.contains(right) || right.contains(left)
     }
 }
 
@@ -288,45 +323,41 @@ struct ExerciseDetailCard: View {
     
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Button(action: { isExpanded.toggle() }) {
-                HStack {
-                    // Exercise number badge
-                    Text("\(exerciseNumber)")
-                        .font(.system(size: 14, weight: .black))
-                        .foregroundColor(.black)
-                        .frame(width: 32, height: 32)
-                        .background(StepCompColors.primary)
-                        .cornerRadius(16)
-                    
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(workoutExercise.exercise.name)
-                            .font(.system(size: 16, weight: .bold))
-                            .foregroundColor(StepCompColors.textPrimary)
-                        
-                        HStack(spacing: 4) {
-                            Text(workoutExercise.exercise.targetMuscles)
-                                .font(.system(size: 12, weight: .medium))
-                                .foregroundColor(StepCompColors.textSecondary)
-                            Text("•")
-                                .foregroundColor(StepCompColors.textSecondary)
-                            Text("\(workoutExercise.sets.count) sets")
-                                .font(.system(size: 12, weight: .medium))
-                                .foregroundColor(StepCompColors.textSecondary)
+            HStack(spacing: 12) {
+                ExerciseDemoButton(exercise: workoutExercise.exercise, size: 44)
+
+                Button(action: { isExpanded.toggle() }) {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(workoutExercise.exercise.name)
+                                .font(.system(size: 16, weight: .bold))
+                                .foregroundColor(FitCompColors.textPrimary)
+
+                            HStack(spacing: 4) {
+                                Text(workoutExercise.exercise.targetMuscles)
+                                    .font(.system(size: 12, weight: .medium))
+                                    .foregroundColor(FitCompColors.textSecondary)
+                                Text("•")
+                                    .foregroundColor(FitCompColors.textSecondary)
+                                Text("\(workoutExercise.sets.count) sets")
+                                    .font(.system(size: 12, weight: .medium))
+                                    .foregroundColor(FitCompColors.textSecondary)
+                            }
                         }
+
+                        Spacer()
+
+                        Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(FitCompColors.textSecondary)
+                            .frame(minWidth: 44, minHeight: 44)
+                            .contentShape(Rectangle())
                     }
-                    
-                    Spacer()
-                    
-                    Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(StepCompColors.textSecondary)
-                        .frame(minWidth: 44, minHeight: 44)
-                        .contentShape(Rectangle())
+                    .contentShape(Rectangle())
                 }
-                .padding(16)
-                .contentShape(Rectangle())
+                .buttonStyle(PlainButtonStyle())
             }
-            .buttonStyle(PlainButtonStyle())
+            .padding(16)
             
             // Expanded set details
             if isExpanded {
@@ -350,9 +381,19 @@ struct ExerciseDetailCard: View {
                             Text("Last time: \(weightStr) \(unitManager.weightUnit.lowercased()) × \(previous.reps) reps")
                                 .font(.system(size: 12, weight: .medium))
                         }
-                        .foregroundColor(colorScheme == .dark ? StepCompColors.primary : .black)
+                        .foregroundColor(colorScheme == .dark ? FitCompColors.primary : .black)
                         .padding(.horizontal, 16)
                         .padding(.top, 4)
+
+                        let oneRM = viewModel.calculateEstimated1RM(weight: previous.weight, reps: previous.reps)
+                        HStack {
+                            Image(systemName: "bolt.fill")
+                                .font(.system(size: 12))
+                            Text(String(format: "Estimated 1RM: %.1f %@", unitManager.convertWeightFromStorage(oneRM), unitManager.weightUnit.lowercased()))
+                                .font(.system(size: 12, weight: .semibold))
+                        }
+                        .foregroundColor(FitCompColors.textSecondary)
+                        .padding(.horizontal, 16)
                     }
                 }
                 .padding(.bottom, 16)
@@ -375,7 +416,7 @@ struct SetPreviewRow: View {
         HStack(spacing: 8) {
             Text("Set \(set.setNumber)")
                 .font(.system(size: 12, weight: .medium))
-                .foregroundColor(StepCompColors.textSecondary)
+                .foregroundColor(FitCompColors.textSecondary)
                 .frame(width: 60, alignment: .leading)
             
             if let prevWeight = set.previousWeight, let prevReps = set.previousReps {
@@ -388,17 +429,17 @@ struct SetPreviewRow: View {
                         .font(.system(size: 14, weight: .bold))
                     Text(unitManager.weightUnit.lowercased())
                         .font(.system(size: 11, weight: .medium))
-                        .foregroundColor(StepCompColors.textSecondary)
+                        .foregroundColor(FitCompColors.textSecondary)
                     Text("×")
                         .font(.system(size: 12))
-                        .foregroundColor(StepCompColors.textSecondary)
+                        .foregroundColor(FitCompColors.textSecondary)
                     Text("\(prevReps)")
                         .font(.system(size: 14, weight: .bold))
                     Text("reps")
                         .font(.system(size: 11, weight: .medium))
-                        .foregroundColor(StepCompColors.textSecondary)
+                        .foregroundColor(FitCompColors.textSecondary)
                 }
-                .foregroundColor(StepCompColors.textPrimary)
+                .foregroundColor(FitCompColors.textPrimary)
             } else if let suggestedWeight = set.suggestedWeight, let suggestedReps = set.suggestedReps {
                 HStack(spacing: 4) {
                     let displayWeight = unitManager.convertWeightFromStorage(suggestedWeight)
@@ -409,28 +450,28 @@ struct SetPreviewRow: View {
                         .font(.system(size: 14, weight: .bold))
                     Text(unitManager.weightUnit.lowercased())
                         .font(.system(size: 11, weight: .medium))
-                        .foregroundColor(StepCompColors.textSecondary)
+                        .foregroundColor(FitCompColors.textSecondary)
                     Text("×")
                         .font(.system(size: 12))
-                        .foregroundColor(StepCompColors.textSecondary)
+                        .foregroundColor(FitCompColors.textSecondary)
                     Text("\(suggestedReps)")
                         .font(.system(size: 14, weight: .bold))
                     Text("reps")
                         .font(.system(size: 11, weight: .medium))
-                        .foregroundColor(StepCompColors.textSecondary)
+                        .foregroundColor(FitCompColors.textSecondary)
                 }
-                .foregroundColor(StepCompColors.textPrimary.opacity(0.7))
+                .foregroundColor(FitCompColors.textPrimary.opacity(0.7))
             } else {
                 Text("—")
                     .font(.system(size: 14, weight: .bold))
-                    .foregroundColor(StepCompColors.textSecondary)
+                    .foregroundColor(FitCompColors.textSecondary)
             }
             
             Spacer()
         }
         .padding(.vertical, 8)
         .padding(.horizontal, 16)
-        .background(StepCompColors.textSecondary.opacity(0.05))
+        .background(FitCompColors.textSecondary.opacity(0.05))
         .cornerRadius(8)
         .padding(.horizontal, 16)
     }

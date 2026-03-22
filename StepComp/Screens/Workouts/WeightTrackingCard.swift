@@ -1,6 +1,6 @@
 //
 //  WeightTrackingCard.swift
-//  StepComp
+//  FitComp
 //
 //  Created by Jeffery Erhunse on 2/23/26.
 //
@@ -57,9 +57,9 @@ struct WeightTrackingCard: View {
             }
             .padding(20)
             .frame(maxWidth: .infinity)
-            .background(StepCompColors.primary)
+            .background(FitCompColors.primary)
             .cornerRadius(24)
-            .shadow(color: StepCompColors.primary.opacity(0.15), radius: 10, x: 0, y: 4)
+            .shadow(color: FitCompColors.primary.opacity(0.15), radius: 10, x: 0, y: 4)
         }
         .buttonStyle(PlainButtonStyle())
     }

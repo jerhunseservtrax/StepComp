@@ -1,6 +1,6 @@
 //
 //  AddFriendsCTA.swift
-//  StepComp
+//  FitComp
 //
 //  Created by Jeffery Erhunse on 12/24/25.
 //
@@ -16,12 +16,12 @@ struct AddFriendsCTA: View {
             HStack(spacing: 12) {
                 ZStack {
                     Circle()
-                        .fill(StepCompColors.primary.opacity(0.2))
+                        .fill(FitCompColors.primary.opacity(0.2))
                         .frame(width: 48, height: 48)
                     
                     Image(systemName: "person.badge.plus")
                         .font(.system(size: 20))
-                        .foregroundColor(StepCompColors.primary)
+                        .foregroundColor(FitCompColors.primary)
                 }
                 
                 VStack(alignment: .leading, spacing: 4) {

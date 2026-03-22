@@ -1,6 +1,6 @@
 //
 //  ChallengeSummaryView.swift
-//  StepComp
+//  FitComp
 //
 //  Challenge summary with metrics and final standings
 //
@@ -101,7 +101,7 @@ struct ChallengeSummaryView: View {
                     
                     if isLoading {
                         ProgressView()
-                            .progressViewStyle(CircularProgressViewStyle(tint: StepCompColors.primary))
+                            .progressViewStyle(CircularProgressViewStyle(tint: FitCompColors.primary))
                             .padding(.vertical, 40)
                     } else {
                         // Challenge Metrics
@@ -464,7 +464,7 @@ struct SummaryLeaderboardRow: View {
             ZStack {
                 if let emoji = rankEmoji {
                     Circle()
-                        .fill(isWinner ? StepCompColors.primary.opacity(0.15) : Color.secondary.opacity(0.1))
+                        .fill(isWinner ? FitCompColors.primary.opacity(0.15) : Color.secondary.opacity(0.1))
                         .frame(width: 36, height: 36)
                     Text(emoji)
                         .font(.system(size: 18))
@@ -486,7 +486,7 @@ struct SummaryLeaderboardRow: View {
             )
             .overlay(
                 Circle()
-                    .stroke(isWinner ? StepCompColors.primary : Color.clear, lineWidth: 2)
+                    .stroke(isWinner ? FitCompColors.primary : Color.clear, lineWidth: 2)
             )
             
             // Name and position label
@@ -498,7 +498,7 @@ struct SummaryLeaderboardRow: View {
                 if isWinner {
                     Text("Winner")
                         .font(.system(size: 12, weight: .semibold))
-                        .foregroundColor(StepCompColors.primary)
+                        .foregroundColor(FitCompColors.primary)
                 } else {
                     Text(ordinalPosition(entry.rank))
                         .font(.system(size: 12, weight: .medium))
@@ -512,7 +512,7 @@ struct SummaryLeaderboardRow: View {
             VStack(alignment: .trailing, spacing: 2) {
                 Text(entry.steps.formatted())
                     .font(.system(size: 16, weight: .bold, design: .monospaced))
-                    .foregroundColor(isWinner ? StepCompColors.primary : .primary)
+                    .foregroundColor(isWinner ? FitCompColors.primary : .primary)
                 Text("steps")
                     .font(.system(size: 10, weight: .medium))
                     .foregroundColor(.secondary)
@@ -521,11 +521,11 @@ struct SummaryLeaderboardRow: View {
         .padding(12)
         .background(
             RoundedRectangle(cornerRadius: 12)
-                .fill(isCurrentUser ? StepCompColors.primary.opacity(0.08) : (isWinner ? StepCompColors.primary.opacity(0.1) : Color(.systemBackground)))
+                .fill(isCurrentUser ? FitCompColors.primary.opacity(0.08) : (isWinner ? FitCompColors.primary.opacity(0.1) : Color(.systemBackground)))
         )
         .overlay(
             RoundedRectangle(cornerRadius: 12)
-                .stroke(isWinner ? StepCompColors.primary : (isCurrentUser ? StepCompColors.primary.opacity(0.3) : Color.clear), lineWidth: isWinner ? 2 : (isCurrentUser ? 1 : 0))
+                .stroke(isWinner ? FitCompColors.primary : (isCurrentUser ? FitCompColors.primary.opacity(0.3) : Color.clear), lineWidth: isWinner ? 2 : (isCurrentUser ? 1 : 0))
         )
         .shadow(color: Color.black.opacity(isWinner ? 0.08 : 0.04), radius: 8, x: 0, y: 2)
     }
@@ -582,7 +582,7 @@ struct PersonalPerformanceCard: View {
                     
                     Text("#\(entry.rank)")
                         .font(.system(size: 32, weight: .black))
-                        .foregroundColor(entry.rank == 1 ? StepCompColors.primary : .primary)
+                        .foregroundColor(entry.rank == 1 ? FitCompColors.primary : .primary)
                 }
                 
                 Spacer()
@@ -590,7 +590,7 @@ struct PersonalPerformanceCard: View {
                 VStack(alignment: .trailing, spacing: 4) {
                     Text("Top \(percentile)%")
                         .font(.system(size: 14, weight: .bold))
-                        .foregroundColor(StepCompColors.primary)
+                        .foregroundColor(FitCompColors.primary)
                     
                     Text("of \(totalParticipants) people")
                         .font(.system(size: 12))

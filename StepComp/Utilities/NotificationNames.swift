@@ -1,6 +1,6 @@
 //
 //  NotificationNames.swift
-//  StepComp
+//  FitComp
 //
 //  Centralized notification name definitions
 //

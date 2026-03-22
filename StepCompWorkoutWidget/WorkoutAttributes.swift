@@ -1,6 +1,6 @@
 //
 //  WorkoutAttributes.swift
-//  StepComp
+//  FitComp
 //
 //  ActivityAttributes for the workout Live Activity.
 //  This file must be included in BOTH the main app target and the widget extension target.

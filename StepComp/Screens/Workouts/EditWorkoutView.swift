@@ -1,6 +1,6 @@
 //
 //  EditWorkoutView.swift
-//  StepComp
+//  FitComp
 //
 //  Created by Jeffery Erhunse on 2/16/26.
 //
@@ -39,7 +39,7 @@ struct EditWorkoutView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                StepCompColors.background.ignoresSafeArea()
+                FitCompColors.background.ignoresSafeArea()
                 
                 ScrollView {
                     VStack(spacing: 24) {
@@ -47,13 +47,13 @@ struct EditWorkoutView: View {
                         VStack(alignment: .leading, spacing: 8) {
                             Text("WORKOUT NAME")
                                 .font(.system(size: 12, weight: .bold))
-                                .foregroundColor(StepCompColors.textSecondary)
+                                .foregroundColor(FitCompColors.textSecondary)
                             
                             TextField("Workout name", text: $workoutName)
                                 .font(.system(size: 18, weight: .semibold))
-                                .foregroundColor(StepCompColors.textPrimary)
+                                .foregroundColor(FitCompColors.textPrimary)
                                 .padding(16)
-                                .background(StepCompColors.surface)
+                                .background(FitCompColors.surface)
                                 .cornerRadius(16)
                         }
                         
@@ -61,15 +61,15 @@ struct EditWorkoutView: View {
                         VStack(alignment: .leading, spacing: 12) {
                             Text("EXERCISES")
                                 .font(.system(size: 12, weight: .bold))
-                                .foregroundColor(StepCompColors.textSecondary)
+                                .foregroundColor(FitCompColors.textSecondary)
                             
                             if selectedExercises.isEmpty {
                                 Text("No exercises added")
                                     .font(.system(size: 16))
-                                    .foregroundColor(StepCompColors.textSecondary)
+                                    .foregroundColor(FitCompColors.textSecondary)
                                     .frame(maxWidth: .infinity)
                                     .frame(height: 100)
-                                    .background(StepCompColors.surface)
+                                    .background(FitCompColors.surface)
                                     .cornerRadius(16)
                             } else {
                                 ForEach(Array(selectedExercises.enumerated()), id: \.element.id) { index, exercise in
@@ -77,10 +77,10 @@ struct EditWorkoutView: View {
                                         VStack(alignment: .leading, spacing: 4) {
                                             Text(exercise.exercise.name)
                                                 .font(.system(size: 16, weight: .bold))
-                                                .foregroundColor(StepCompColors.textPrimary)
+                                                .foregroundColor(FitCompColors.textPrimary)
                                             Text("\(exercise.sets) sets × \(exercise.reps) reps")
                                                 .font(.system(size: 12))
-                                                .foregroundColor(StepCompColors.textSecondary)
+                                                .foregroundColor(FitCompColors.textSecondary)
                                         }
                                         
                                         Spacer()
@@ -94,7 +94,7 @@ struct EditWorkoutView: View {
                                         }
                                     }
                                     .padding(12)
-                                    .background(StepCompColors.surface)
+                                    .background(FitCompColors.surface)
                                     .cornerRadius(12)
                                 }
                             }
@@ -107,12 +107,12 @@ struct EditWorkoutView: View {
                                 }
                                 .frame(maxWidth: .infinity)
                                 .frame(height: 48)
-                                .background(StepCompColors.surface)
-                                .foregroundColor(StepCompColors.textPrimary)
+                                .background(FitCompColors.surface)
+                                .foregroundColor(FitCompColors.textPrimary)
                                 .cornerRadius(12)
                                 .overlay(
                                     RoundedRectangle(cornerRadius: 12)
-                                        .stroke(StepCompColors.primary, lineWidth: 2)
+                                        .stroke(FitCompColors.primary, lineWidth: 2)
                                 )
                             }
                         }
@@ -121,7 +121,7 @@ struct EditWorkoutView: View {
                         VStack(alignment: .leading, spacing: 12) {
                             Text("ASSIGNED DAYS")
                                 .font(.system(size: 12, weight: .bold))
-                                .foregroundColor(StepCompColors.textSecondary)
+                                .foregroundColor(FitCompColors.textSecondary)
                             
                             ForEach(DayOfWeek.allCases) { day in
                                 DaySelectionButton(
@@ -166,13 +166,13 @@ struct EditWorkoutView: View {
                             .font(.system(size: 16, weight: .bold))
                             .frame(maxWidth: .infinity)
                             .frame(height: 56)
-                            .background(canSave ? StepCompColors.primary : Color.gray.opacity(0.3))
-                            .foregroundColor(canSave ? StepCompColors.buttonTextOnPrimary : StepCompColors.textSecondary)
+                            .background(canSave ? FitCompColors.primary : Color.gray.opacity(0.3))
+                            .foregroundColor(canSave ? FitCompColors.buttonTextOnPrimary : FitCompColors.textSecondary)
                             .cornerRadius(28)
                     }
                     .disabled(!canSave)
                     .padding(20)
-                    .background(StepCompColors.surface)
+                    .background(FitCompColors.surface)
                 }
             }
             .navigationTitle("Edit Workout")
@@ -182,7 +182,7 @@ struct EditWorkoutView: View {
                     Button("Cancel") {
                         dismiss()
                     }
-                    .foregroundColor(StepCompColors.textPrimary)
+                    .foregroundColor(FitCompColors.textPrimary)
                 }
             }
         }
@@ -273,12 +273,12 @@ struct AddExerciseConfigSheet: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                StepCompColors.background.ignoresSafeArea()
+                FitCompColors.background.ignoresSafeArea()
                 
                 VStack(spacing: 24) {
                     Text("Set the number of sets and reps for this exercise")
                         .font(.system(size: 16))
-                        .foregroundColor(StepCompColors.textSecondary)
+                        .foregroundColor(FitCompColors.textSecondary)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal)
                     
@@ -299,8 +299,8 @@ struct AddExerciseConfigSheet: View {
                             .font(.system(size: 16, weight: .bold))
                             .frame(maxWidth: .infinity)
                             .frame(height: 56)
-                            .background(StepCompColors.primary)
-                            .foregroundColor(StepCompColors.buttonTextOnPrimary)
+                            .background(FitCompColors.primary)
+                            .foregroundColor(FitCompColors.buttonTextOnPrimary)
                             .cornerRadius(28)
                     }
                     .padding(.horizontal, 20)
@@ -315,7 +315,7 @@ struct AddExerciseConfigSheet: View {
                     Button("Cancel") {
                         onCancel()
                     }
-                    .foregroundColor(StepCompColors.textPrimary)
+                    .foregroundColor(FitCompColors.textPrimary)
                 }
             }
         }

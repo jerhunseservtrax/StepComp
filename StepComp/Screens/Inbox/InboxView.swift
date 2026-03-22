@@ -1,6 +1,6 @@
 //
 //  InboxView.swift
-//  StepComp
+//  FitComp
 //
 //  Inbox for notifications and invites
 //
@@ -30,7 +30,7 @@ struct InboxView: View {
             Group {
                 if isLoading {
                     ProgressView()
-                        .progressViewStyle(CircularProgressViewStyle(tint: StepCompColors.primary))
+                        .progressViewStyle(CircularProgressViewStyle(tint: FitCompColors.primary))
                 } else if unreadNotifications.isEmpty {
                     EmptyInboxView()
                 } else {
@@ -95,7 +95,7 @@ struct InboxView: View {
     
     private func loadNotifications() async {
         let logStart = "{\"location\":\"InboxView.swift:60\",\"message\":\"Loading notifications\",\"data\":{\"userId\":\"\(userId)\"},\"timestamp\":\(Int(Date().timeIntervalSince1970 * 1000)),\"sessionId\":\"debug-session\",\"runId\":\"inbox-load\",\"hypothesisId\":\"H\"}\n"
-        if let fileHandle = FileHandle(forWritingAtPath: "/Users/jefferyerhunse/GitRepos/StepComp/.cursor/debug.log") {
+        if let fileHandle = FileHandle(forWritingAtPath: "/Users/jefferyerhunse/GitRepos/FitComp/.cursor/debug.log") {
             fileHandle.seekToEndOfFile()
             if let data = logStart.data(using: .utf8) {
                 fileHandle.write(data)
@@ -119,7 +119,7 @@ struct InboxView: View {
             notifications = fetchedNotifications
             
             let logSuccess = "{\"location\":\"InboxView.swift:75\",\"message\":\"Notifications loaded\",\"data\":{\"count\":\(notifications.count)},\"timestamp\":\(Int(Date().timeIntervalSince1970 * 1000)),\"sessionId\":\"debug-session\",\"runId\":\"inbox-load\",\"hypothesisId\":\"H\"}\n"
-            if let fileHandle = FileHandle(forWritingAtPath: "/Users/jefferyerhunse/GitRepos/StepComp/.cursor/debug.log") {
+            if let fileHandle = FileHandle(forWritingAtPath: "/Users/jefferyerhunse/GitRepos/FitComp/.cursor/debug.log") {
                 fileHandle.seekToEndOfFile()
                 if let data = logSuccess.data(using: .utf8) {
                     fileHandle.write(data)
@@ -130,7 +130,7 @@ struct InboxView: View {
             print("✅ Loaded \(notifications.count) notifications")
         } catch {
             let logError = "{\"location\":\"InboxView.swift:85\",\"message\":\"Error loading notifications\",\"data\":{\"error\":\"\(error.localizedDescription)\"},\"timestamp\":\(Int(Date().timeIntervalSince1970 * 1000)),\"sessionId\":\"debug-session\",\"runId\":\"inbox-load\",\"hypothesisId\":\"I\"}\n"
-            if let fileHandle = FileHandle(forWritingAtPath: "/Users/jefferyerhunse/GitRepos/StepComp/.cursor/debug.log") {
+            if let fileHandle = FileHandle(forWritingAtPath: "/Users/jefferyerhunse/GitRepos/FitComp/.cursor/debug.log") {
                 fileHandle.seekToEndOfFile()
                 if let data = logError.data(using: .utf8) {
                     fileHandle.write(data)
@@ -157,7 +157,7 @@ struct InboxView: View {
         #if canImport(Supabase)
         do {
             let logStart = "{\"location\":\"InboxView.swift:110\",\"message\":\"Accepting challenge invite\",\"data\":{\"notificationId\":\"\(notification.id)\",\"challengeId\":\"\(challengeId)\"},\"timestamp\":\(Int(Date().timeIntervalSince1970 * 1000)),\"sessionId\":\"debug-session\",\"runId\":\"accept-invite\",\"hypothesisId\":\"J\"}\n"
-            if let fileHandle = FileHandle(forWritingAtPath: "/Users/jefferyerhunse/GitRepos/StepComp/.cursor/debug.log") {
+            if let fileHandle = FileHandle(forWritingAtPath: "/Users/jefferyerhunse/GitRepos/FitComp/.cursor/debug.log") {
                 fileHandle.seekToEndOfFile()
                 if let data = logStart.data(using: .utf8) {
                     fileHandle.write(data)
@@ -195,7 +195,7 @@ struct InboxView: View {
                 .value
             
             let logSuccess = "{\"location\":\"InboxView.swift:145\",\"message\":\"Challenge invite accepted\",\"data\":{\"inviteId\":\"\(invite.id)\"},\"timestamp\":\(Int(Date().timeIntervalSince1970 * 1000)),\"sessionId\":\"debug-session\",\"runId\":\"accept-invite\",\"hypothesisId\":\"J\"}\n"
-            if let fileHandle = FileHandle(forWritingAtPath: "/Users/jefferyerhunse/GitRepos/StepComp/.cursor/debug.log") {
+            if let fileHandle = FileHandle(forWritingAtPath: "/Users/jefferyerhunse/GitRepos/FitComp/.cursor/debug.log") {
                 fileHandle.seekToEndOfFile()
                 if let data = logSuccess.data(using: .utf8) {
                     fileHandle.write(data)
@@ -212,7 +212,7 @@ struct InboxView: View {
             
         } catch {
             let logError = "{\"location\":\"InboxView.swift:160\",\"message\":\"Error accepting invite\",\"data\":{\"error\":\"\(error.localizedDescription)\"},\"timestamp\":\(Int(Date().timeIntervalSince1970 * 1000)),\"sessionId\":\"debug-session\",\"runId\":\"accept-invite\",\"hypothesisId\":\"K\"}\n"
-            if let fileHandle = FileHandle(forWritingAtPath: "/Users/jefferyerhunse/GitRepos/StepComp/.cursor/debug.log") {
+            if let fileHandle = FileHandle(forWritingAtPath: "/Users/jefferyerhunse/GitRepos/FitComp/.cursor/debug.log") {
                 fileHandle.seekToEndOfFile()
                 if let data = logError.data(using: .utf8) {
                     fileHandle.write(data)
@@ -236,7 +236,7 @@ struct InboxView: View {
         #if canImport(Supabase)
         do {
             let logStart = "{\"location\":\"InboxView.swift:185\",\"message\":\"Declining challenge invite\",\"data\":{\"notificationId\":\"\(notification.id)\",\"challengeId\":\"\(challengeId)\"},\"timestamp\":\(Int(Date().timeIntervalSince1970 * 1000)),\"sessionId\":\"debug-session\",\"runId\":\"decline-invite\",\"hypothesisId\":\"L\"}\n"
-            if let fileHandle = FileHandle(forWritingAtPath: "/Users/jefferyerhunse/GitRepos/StepComp/.cursor/debug.log") {
+            if let fileHandle = FileHandle(forWritingAtPath: "/Users/jefferyerhunse/GitRepos/FitComp/.cursor/debug.log") {
                 fileHandle.seekToEndOfFile()
                 if let data = logStart.data(using: .utf8) {
                     fileHandle.write(data)
@@ -274,7 +274,7 @@ struct InboxView: View {
                 .value
             
             let logSuccess = "{\"location\":\"InboxView.swift:220\",\"message\":\"Challenge invite declined\",\"data\":{\"inviteId\":\"\(invite.id)\"},\"timestamp\":\(Int(Date().timeIntervalSince1970 * 1000)),\"sessionId\":\"debug-session\",\"runId\":\"decline-invite\",\"hypothesisId\":\"L\"}\n"
-            if let fileHandle = FileHandle(forWritingAtPath: "/Users/jefferyerhunse/GitRepos/StepComp/.cursor/debug.log") {
+            if let fileHandle = FileHandle(forWritingAtPath: "/Users/jefferyerhunse/GitRepos/FitComp/.cursor/debug.log") {
                 fileHandle.seekToEndOfFile()
                 if let data = logSuccess.data(using: .utf8) {
                     fileHandle.write(data)
@@ -291,7 +291,7 @@ struct InboxView: View {
             
         } catch {
             let logError = "{\"location\":\"InboxView.swift:235\",\"message\":\"Error declining invite\",\"data\":{\"error\":\"\(error.localizedDescription)\"},\"timestamp\":\(Int(Date().timeIntervalSince1970 * 1000)),\"sessionId\":\"debug-session\",\"runId\":\"decline-invite\",\"hypothesisId\":\"M\"}\n"
-            if let fileHandle = FileHandle(forWritingAtPath: "/Users/jefferyerhunse/GitRepos/StepComp/.cursor/debug.log") {
+            if let fileHandle = FileHandle(forWritingAtPath: "/Users/jefferyerhunse/GitRepos/FitComp/.cursor/debug.log") {
                 fileHandle.seekToEndOfFile()
                 if let data = logError.data(using: .utf8) {
                     fileHandle.write(data)
@@ -314,7 +314,7 @@ struct InboxView: View {
         #if canImport(Supabase)
         do {
             let logStart = "{\"location\":\"InboxView.swift:320\",\"message\":\"Marking notification as read\",\"data\":{\"notificationId\":\"\(notification.id)\",\"type\":\"\(notification.type.rawValue)\"},\"timestamp\":\(Int(Date().timeIntervalSince1970 * 1000)),\"sessionId\":\"debug-session\",\"runId\":\"mark-read\",\"hypothesisId\":\"N1\"}\n"
-            if let fileHandle = FileHandle(forWritingAtPath: "/Users/jefferyerhunse/GitRepos/StepComp/.cursor/debug.log") {
+            if let fileHandle = FileHandle(forWritingAtPath: "/Users/jefferyerhunse/GitRepos/FitComp/.cursor/debug.log") {
                 fileHandle.seekToEndOfFile()
                 if let data = logStart.data(using: .utf8) {
                     fileHandle.write(data)
@@ -334,7 +334,7 @@ struct InboxView: View {
                 .execute()
             
             let logSuccess = "{\"location\":\"InboxView.swift:345\",\"message\":\"Notification marked as read\",\"data\":{\"notificationId\":\"\(notification.id)\"},\"timestamp\":\(Int(Date().timeIntervalSince1970 * 1000)),\"sessionId\":\"debug-session\",\"runId\":\"mark-read\",\"hypothesisId\":\"N1\"}\n"
-            if let fileHandle = FileHandle(forWritingAtPath: "/Users/jefferyerhunse/GitRepos/StepComp/.cursor/debug.log") {
+            if let fileHandle = FileHandle(forWritingAtPath: "/Users/jefferyerhunse/GitRepos/FitComp/.cursor/debug.log") {
                 fileHandle.seekToEndOfFile()
                 if let data = logSuccess.data(using: .utf8) {
                     fileHandle.write(data)
@@ -352,7 +352,7 @@ struct InboxView: View {
             
         } catch {
             let logError = "{\"location\":\"InboxView.swift:360\",\"message\":\"Error marking notification as read\",\"data\":{\"notificationId\":\"\(notification.id)\",\"error\":\"\(error.localizedDescription)\"},\"timestamp\":\(Int(Date().timeIntervalSince1970 * 1000)),\"sessionId\":\"debug-session\",\"runId\":\"mark-read\",\"hypothesisId\":\"N2\"}\n"
-            if let fileHandle = FileHandle(forWritingAtPath: "/Users/jefferyerhunse/GitRepos/StepComp/.cursor/debug.log") {
+            if let fileHandle = FileHandle(forWritingAtPath: "/Users/jefferyerhunse/GitRepos/FitComp/.cursor/debug.log") {
                 fileHandle.seekToEndOfFile()
                 if let data = logError.data(using: .utf8) {
                     fileHandle.write(data)
@@ -375,7 +375,7 @@ struct EmptyInboxView: View {
         VStack(spacing: 20) {
             Image(systemName: "tray")
                 .font(.system(size: 64))
-                .foregroundColor(StepCompColors.primary)
+                .foregroundColor(FitCompColors.primary)
             
             Text("No Notifications")
                 .font(.system(size: 22, weight: .bold))
@@ -433,7 +433,7 @@ struct InboxNotificationRow: View {
                 // Unread indicator
                 if !notification.isRead {
                     Circle()
-                        .fill(StepCompColors.primary)
+                        .fill(FitCompColors.primary)
                         .frame(width: 10, height: 10)
                 }
             }
@@ -443,7 +443,7 @@ struct InboxNotificationRow: View {
                 HStack(spacing: 12) {
                     if isProcessing {
                         ProgressView()
-                            .progressViewStyle(CircularProgressViewStyle(tint: StepCompColors.primary))
+                            .progressViewStyle(CircularProgressViewStyle(tint: FitCompColors.primary))
                             .frame(maxWidth: .infinity)
                     } else {
                         Button(action: {
@@ -470,7 +470,7 @@ struct InboxNotificationRow: View {
                                 .foregroundColor(.black)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 10)
-                                .background(StepCompColors.primary)
+                                .background(FitCompColors.primary)
                                 .cornerRadius(8)
                         }
                     }
@@ -504,7 +504,7 @@ struct InboxNotificationRow: View {
         case .friendRequestAccepted:
             return .green
         case .challengeInvite:
-            return StepCompColors.primary
+            return FitCompColors.primary
         case .challengeUpdate:
             return .purple
         case .challengeJoined:

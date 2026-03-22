@@ -1,6 +1,6 @@
 //
 //  ChallengeNotificationService.swift
-//  StepComp
+//  FitComp
 //
 //  Service to send notifications for challenge-related events
 //

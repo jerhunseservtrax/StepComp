@@ -1,6 +1,6 @@
 //
 //  SupportViews.swift
-//  StepComp
+//  FitComp
 //
 //  Support & Legal content views
 //
@@ -23,7 +23,7 @@ struct SimpleFeedbackBoardView: View {
                 VStack(alignment: .leading, spacing: 24) {
                     // Header
                     VStack(alignment: .leading, spacing: 8) {
-                        Text("We're building StepComp together.")
+                        Text("We're building FitComp together.")
                             .font(.system(size: 18, weight: .medium))
                         
                         Text("Share ideas, suggest improvements, and vote on features you'd love to see next.")
@@ -111,13 +111,13 @@ struct SimpleFeedbackBoardView: View {
                                 Spacer()
                             }
                             .padding()
-                            .background(feedbackText.isEmpty ? Color.gray : StepCompColors.primary)
+                            .background(feedbackText.isEmpty ? Color.gray : FitCompColors.primary)
                             .foregroundColor(.black)
                             .cornerRadius(12)
                         }
                         .disabled(feedbackText.isEmpty)
                         
-                        Text("Your feedback helps us improve StepComp!")
+                        Text("Your feedback helps us improve FitComp!")
                             .font(.system(size: 12))
                             .foregroundColor(.secondary)
                     }
@@ -203,8 +203,8 @@ struct FAQView: View {
                     // Steps & Tracking
                     FAQSection(title: "🏃‍♂️ Steps & Tracking", items: [
                         FAQItem(
-                            question: "How does StepComp track my steps?",
-                            answer: "StepComp securely reads step data from Apple Health. We never guess or estimate steps."
+                            question: "How does FitComp track my steps?",
+                            answer: "FitComp securely reads step data from Apple Health. We never guess or estimate steps."
                         ),
                         FAQItem(
                             question: "Can I manually add steps?",
@@ -295,7 +295,7 @@ struct PrivacyPolicyView: View {
                         .font(.system(size: 12))
                         .foregroundColor(.secondary)
                     
-                    Text("StepComp respects your privacy and is committed to protecting your data.")
+                    Text("FitComp respects your privacy and is committed to protecting your data.")
                         .font(.system(size: 16))
                         .padding(.vertical, 8)
                     
@@ -318,7 +318,7 @@ struct PrivacyPolicyView: View {
                             Text("Health Data")
                                 .font(.system(size: 18, weight: .bold))
                             
-                            Text("StepComp reads step data from Apple Health only with your permission. We do not modify, sell, or share your health data.")
+                            Text("FitComp reads step data from Apple Health only with your permission. We do not modify, sell, or share your health data.")
                                 .font(.system(size: 14))
                         }
                         
@@ -351,13 +351,13 @@ struct PrivacyPolicyView: View {
                                 .font(.system(size: 14))
                             
                             Button(action: {
-                                if let url = URL(string: "mailto:privacy@stepcomp.app") {
+                                if let url = URL(string: "mailto:privacy@fitcomp.app") {
                                     UIApplication.shared.open(url)
                                 }
                             }) {
                                 HStack {
                                     Image(systemName: "envelope.fill")
-                                    Text("privacy@stepcomp.app")
+                                    Text("privacy@fitcomp.app")
                                 }
                                 .foregroundColor(.blue)
                             }
@@ -391,17 +391,17 @@ struct AboutUsView: View {
                     // App Icon
                     ZStack {
                         Circle()
-                            .fill(StepCompColors.primary.opacity(0.2))
+                            .fill(FitCompColors.primary.opacity(0.2))
                             .frame(width: 160, height: 160)
                         
                         Image(systemName: "figure.walk")
                             .font(.system(size: 80))
-                            .foregroundColor(StepCompColors.primary)
+                            .foregroundColor(FitCompColors.primary)
                     }
                     .padding(.top, 32)
                     
                     VStack(spacing: 8) {
-                        Text("StepComp")
+                        Text("FitComp")
                             .font(.system(size: 32, weight: .bold))
                         
                         Text("Version 2.4.0 (Build 390)")
@@ -410,10 +410,10 @@ struct AboutUsView: View {
                     }
                     
                     VStack(alignment: .leading, spacing: 20) {
-                        Text("About StepComp")
+                        Text("About FitComp")
                             .font(.system(size: 24, weight: .bold))
                         
-                        Text("StepComp was built to turn everyday movement into something fun, social, and motivating.")
+                        Text("FitComp was built to turn everyday movement into something fun, social, and motivating.")
                             .font(.system(size: 16))
                         
                         VStack(alignment: .leading, spacing: 12) {
@@ -425,7 +425,7 @@ struct AboutUsView: View {
                             BulletPoint(text: "Progress should be personal")
                         }
                         
-                        Text("Whether you're walking to stay healthy or competing with friends, StepComp helps you stay consistent — one step at a time.")
+                        Text("Whether you're walking to stay healthy or competing with friends, FitComp helps you stay consistent — one step at a time.")
                             .font(.system(size: 16))
                     }
                     .padding()
@@ -449,7 +449,7 @@ struct AboutUsView: View {
                             .font(.system(size: 14))
                             .foregroundColor(.secondary)
                         
-                        Text("© 2026 StepComp. All rights reserved.")
+                        Text("© 2026 FitComp. All rights reserved.")
                             .font(.system(size: 12))
                             .foregroundColor(.secondary)
                     }

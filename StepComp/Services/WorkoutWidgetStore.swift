@@ -1,6 +1,6 @@
 //
 //  WorkoutWidgetStore.swift
-//  StepComp
+//  FitComp
 //
 //  Shared state for the lock screen workout widget. Writes to App Group UserDefaults
 //  so the widget extension can read timer and current exercise.

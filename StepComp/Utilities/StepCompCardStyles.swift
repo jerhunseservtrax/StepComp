@@ -1,6 +1,6 @@
 //
-//  StepCompCardStyles.swift
-//  StepComp
+//  FitCompCardStyles.swift
+//  FitComp
 //
 //  Modern card styling matching reference UI
 //
@@ -32,14 +32,14 @@ struct DarkCard<Content: View>: View {
             .padding(padding)
             .background(
                 RoundedRectangle(cornerRadius: cornerRadius)
-                    .fill(StepCompColors.surface)
+                    .fill(FitCompColors.surface)
                     .overlay(
                         RoundedRectangle(cornerRadius: cornerRadius)
-                            .stroke(StepCompColors.cardBorder, lineWidth: 1)
+                            .stroke(FitCompColors.cardBorder, lineWidth: 1)
                     )
             )
             .shadow(
-                color: showShadow ? StepCompColors.shadowPrimary : .clear,
+                color: showShadow ? FitCompColors.shadowPrimary : .clear,
                 radius: 20,
                 y: 10
             )
@@ -68,13 +68,13 @@ struct ElevatedCard<Content: View>: View {
             .padding(padding)
             .background(
                 RoundedRectangle(cornerRadius: cornerRadius)
-                    .fill(StepCompColors.surfaceElevated)
+                    .fill(FitCompColors.surfaceElevated)
                     .overlay(
                         RoundedRectangle(cornerRadius: cornerRadius)
                             .stroke(Color.white.opacity(0.1), lineWidth: 1)
                     )
             )
-            .shadow(color: StepCompColors.shadowSecondary, radius: 15, y: 8)
+            .shadow(color: FitCompColors.shadowSecondary, radius: 15, y: 8)
     }
 }
 
@@ -87,7 +87,7 @@ struct GradientCard<Content: View>: View {
     var cornerRadius: CGFloat = 20
     
     init(
-        gradient: LinearGradient = StepCompColors.coralGradient,
+        gradient: LinearGradient = FitCompColors.coralGradient,
         padding: CGFloat = 20,
         cornerRadius: CGFloat = 20,
         @ViewBuilder content: () -> Content
@@ -105,7 +105,7 @@ struct GradientCard<Content: View>: View {
                 RoundedRectangle(cornerRadius: cornerRadius)
                     .fill(gradient)
             )
-            .shadow(color: StepCompColors.primary.opacity(0.4), radius: 20, y: 10)
+            .shadow(color: FitCompColors.primary.opacity(0.4), radius: 20, y: 10)
     }
 }
 
@@ -163,14 +163,14 @@ struct DarkCardModifier: ViewModifier {
             .padding(padding)
             .background(
                 RoundedRectangle(cornerRadius: cornerRadius)
-                    .fill(StepCompColors.surface)
+                    .fill(FitCompColors.surface)
                     .overlay(
                         RoundedRectangle(cornerRadius: cornerRadius)
-                            .stroke(StepCompColors.cardBorder, lineWidth: 1)
+                            .stroke(FitCompColors.cardBorder, lineWidth: 1)
                     )
             )
             .shadow(
-                color: showShadow ? StepCompColors.shadowPrimary : .clear,
+                color: showShadow ? FitCompColors.shadowPrimary : .clear,
                 radius: 20,
                 y: 10
             )

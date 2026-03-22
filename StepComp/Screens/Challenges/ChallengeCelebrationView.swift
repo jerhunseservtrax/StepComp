@@ -1,6 +1,6 @@
 //
 //  ChallengeCelebrationView.swift
-//  StepComp
+//  FitComp
 //
 //  Full-screen celebration when challenge completes
 //
@@ -62,7 +62,7 @@ struct ChallengeCelebrationView: View {
                     RoundedRectangle(cornerRadius: 32)
                         .fill(
                             LinearGradient(
-                                colors: [StepCompColors.primary, gradientEnd],
+                                colors: [FitCompColors.primary, gradientEnd],
                                 startPoint: .topLeading,
                                 endPoint: .bottomTrailing
                             )
@@ -117,7 +117,7 @@ struct ChallengeCelebrationView: View {
                         RoundedRectangle(cornerRadius: 32)
                             .fill(
                                 LinearGradient(
-                                    colors: [StepCompColors.primary, gradientEnd],
+                                    colors: [FitCompColors.primary, gradientEnd],
                                     startPoint: .topLeading,
                                     endPoint: .bottomTrailing
                                 )
@@ -144,7 +144,7 @@ struct ChallengeCelebrationView: View {
                             .foregroundColor(.black)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 16)
-                            .background(StepCompColors.primary)
+                            .background(FitCompColors.primary)
                             .cornerRadius(16)
                         }
                         
@@ -191,7 +191,7 @@ struct ChallengeConfettiView: View {
     @State private var confettiPieces: [ChallengeConfettiPiece] = []
     
     private let colors: [Color] = [
-        StepCompColors.primary, // Yellow
+        FitCompColors.primary, // Yellow
         Color.orange,
         Color.red,
         Color.blue,

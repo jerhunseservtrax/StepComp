@@ -1,6 +1,6 @@
 //
 //  DateSelectorView.swift
-//  StepComp
+//  FitComp
 //
 //  Horizontal scrolling date selector
 //
@@ -12,10 +12,10 @@ struct DateSelectorView: View {
     
     private let calendar = Calendar.current
     
-    // Generate dates for the week (6 days before today and today - no future dates)
+    // Generate dates for the past 30 days (scrollable history)
     private var dates: [Date] {
         let today = calendar.startOfDay(for: Date())
-        return (-6...0).compactMap { offset in
+        return (-29...0).compactMap { offset in
             calendar.date(byAdding: .day, value: offset, to: today)
         }
     }
@@ -99,18 +99,18 @@ struct DateButton: View {
                 Group {
                     if isSelected && !isFuture {
                         RoundedRectangle(cornerRadius: 18)
-                            .fill(StepCompColors.primaryGradient(for: colorScheme))
+                            .fill(FitCompColors.primaryGradient(for: colorScheme))
                             .shadow(
-                                color: StepCompColors.primary.opacity(0.4),
+                                color: FitCompColors.primary.opacity(0.4),
                                 radius: 12,
                                 x: 0,
                                 y: 4
                             )
                     } else {
                         RoundedRectangle(cornerRadius: 18)
-                            .fill(StepCompColors.surface)
+                            .fill(FitCompColors.surface)
                             .shadow(
-                                color: StepCompColors.shadowSecondary,
+                                color: FitCompColors.shadowSecondary,
                                 radius: 4,
                                 x: 0,
                                 y: 2
@@ -127,21 +127,21 @@ struct DateButton: View {
     
     private var textColor: Color {
         if isFuture {
-            return StepCompColors.textTertiary
+            return FitCompColors.textTertiary
         } else if isSelected {
             return .white
         } else {
-            return StepCompColors.textSecondary
+            return FitCompColors.textSecondary
         }
     }
     
     private var numberColor: Color {
         if isFuture {
-            return StepCompColors.textTertiary
+            return FitCompColors.textTertiary
         } else if isSelected {
             return .white
         } else {
-            return StepCompColors.textPrimary
+            return FitCompColors.textPrimary
         }
     }
 }

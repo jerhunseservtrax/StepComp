@@ -1,6 +1,6 @@
 //
 //  GoalSettingView.swift
-//  StepComp
+//  FitComp
 //
 //  Industry-standard goal setting during onboarding
 //
@@ -33,12 +33,12 @@ struct GoalSettingOnboardingView: View {
                 // Goal Icon
                 ZStack {
                     Circle()
-                        .fill(StepCompColors.primary.opacity(0.2))
+                        .fill(FitCompColors.primary.opacity(0.2))
                         .frame(width: 160, height: 160)
                     
                     Image(systemName: "target")
                         .font(.system(size: 80, weight: .medium))
-                        .foregroundColor(StepCompColors.primary)
+                        .foregroundColor(FitCompColors.primary)
                         .symbolEffect(.pulse)
                 }
                 .padding(.bottom, 32)
@@ -62,7 +62,7 @@ struct GoalSettingOnboardingView: View {
                             label: goal.label,
                             description: goal.description,
                             isSelected: selectedGoal == goal.value && !showingCustomInput,
-                            primaryColor: StepCompColors.primary
+                            primaryColor: FitCompColors.primary
                         ) {
                             withAnimation(.spring(response: 0.3)) {
                                 selectedGoal = goal.value
@@ -108,11 +108,11 @@ struct GoalSettingOnboardingView: View {
                         .padding(.vertical, 16)
                         .background(
                             RoundedRectangle(cornerRadius: 16)
-                                .fill(showingCustomInput ? StepCompColors.primary : Color(.systemGray6))
+                                .fill(showingCustomInput ? FitCompColors.primary : Color(.systemGray6))
                         )
                         .overlay(
                             RoundedRectangle(cornerRadius: 16)
-                                .stroke(showingCustomInput ? StepCompColors.primary : Color.clear, lineWidth: 2)
+                                .stroke(showingCustomInput ? FitCompColors.primary : Color.clear, lineWidth: 2)
                         )
                     }
                 }
@@ -133,12 +133,12 @@ struct GoalSettingOnboardingView: View {
                 }) {
                     Text("Continue")
                         .font(.system(size: 18, weight: .bold))
-                        .foregroundColor(StepCompColors.buttonTextOnPrimary)
+                        .foregroundColor(FitCompColors.buttonTextOnPrimary)
                         .frame(maxWidth: .infinity)
                         .frame(height: 56)
-                        .background(StepCompColors.primary)
+                        .background(FitCompColors.primary)
                         .cornerRadius(999)
-                        .shadow(color: StepCompColors.primary.opacity(0.3), radius: 16, x: 0, y: 8)
+                        .shadow(color: FitCompColors.primary.opacity(0.3), radius: 16, x: 0, y: 8)
                 }
                 .padding(.horizontal, 24)
                 .padding(.bottom, 40)

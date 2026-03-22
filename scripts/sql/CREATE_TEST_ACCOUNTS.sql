@@ -13,11 +13,11 @@
 -- Go to: Authentication > Users > Add User
 -- Create these 5 users with the following credentials:
 --
--- 1. Email: sarah.test@stepcomp.app | Password: TestPassword123!
--- 2. Email: mike.test@stepcomp.app | Password: TestPassword123!
--- 3. Email: emma.test@stepcomp.app | Password: TestPassword123!
--- 4. Email: alex.test@stepcomp.app | Password: TestPassword123!
--- 5. Email: jordan.test@stepcomp.app | Password: TestPassword123!
+-- 1. Email: sarah.test@fitcomp.app
+-- 2. Email: mike.test@fitcomp.app
+-- 3. Email: emma.test@fitcomp.app
+-- 4. Email: alex.test@fitcomp.app
+-- 5. Email: jordan.test@fitcomp.app
 --
 -- ============================================
 -- STEP 2: GET THE USER IDs
@@ -25,11 +25,11 @@
 -- After creating the users, run this query to get their IDs:
 -- 
 -- SELECT id, email FROM auth.users WHERE email IN (
---   'sarah.test@stepcomp.app',
---   'mike.test@stepcomp.app',
---   'emma.test@stepcomp.app',
---   'alex.test@stepcomp.app',
---   'jordan.test@stepcomp.app'
+--   'sarah.test@fitcomp.app',
+--   'mike.test@fitcomp.app',
+--   'emma.test@fitcomp.app',
+--   'alex.test@fitcomp.app',
+--   'jordan.test@fitcomp.app'
 -- ) ORDER BY email;
 --
 -- Copy the IDs and replace the placeholder UUIDs below.
@@ -45,7 +45,7 @@
 -- ALTER TABLE profiles ADD COLUMN IF NOT EXISTS email TEXT;
 
 -- Test Account 1: Sarah Chen
--- Email: sarah.test@stepcomp.app
+-- Email: sarah.test@fitcomp.app
 -- Password: TestPassword123!
 -- NOTE: Replace the UUID with actual id from auth.users after creating the auth user
 INSERT INTO profiles (id, username, first_name, last_name, avatar, is_premium, height, weight)
@@ -68,7 +68,7 @@ ON CONFLICT (id) DO UPDATE SET
   weight = EXCLUDED.weight;
 
 -- Test Account 2: Mike Johnson
--- Email: mike.test@stepcomp.app
+-- Email: mike.test@fitcomp.app
 -- Password: TestPassword123!
 INSERT INTO profiles (id, username, first_name, last_name, avatar, is_premium, height, weight)
 VALUES (
@@ -90,7 +90,7 @@ ON CONFLICT (id) DO UPDATE SET
   weight = EXCLUDED.weight;
 
 -- Test Account 3: Emma Wilson
--- Email: emma.test@stepcomp.app
+-- Email: emma.test@fitcomp.app
 -- Password: TestPassword123!
 INSERT INTO profiles (id, username, first_name, last_name, avatar, is_premium, height, weight)
 VALUES (
@@ -112,7 +112,7 @@ ON CONFLICT (id) DO UPDATE SET
   weight = EXCLUDED.weight;
 
 -- Test Account 4: Alex Rivera
--- Email: alex.test@stepcomp.app
+-- Email: alex.test@fitcomp.app
 -- Password: TestPassword123!
 INSERT INTO profiles (id, username, first_name, last_name, avatar, is_premium, height, weight)
 VALUES (
@@ -134,7 +134,7 @@ ON CONFLICT (id) DO UPDATE SET
   weight = EXCLUDED.weight;
 
 -- Test Account 5: Jordan Taylor
--- Email: jordan.test@stepcomp.app
+-- Email: jordan.test@fitcomp.app
 -- Password: TestPassword123!
 INSERT INTO profiles (id, username, first_name, last_name, avatar, is_premium, height, weight)
 VALUES (

@@ -1,6 +1,6 @@
 //
 //  GroupPreviewCard.swift
-//  StepComp
+//  FitComp
 //
 //  Created by Jeffery Erhunse on 12/24/25.
 //

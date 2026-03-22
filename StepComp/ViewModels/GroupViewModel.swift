@@ -1,6 +1,6 @@
 //
 //  GroupViewModel.swift
-//  StepComp
+//  FitComp
 //
 //  Created by Jeffery Erhunse on 12/24/25.
 //
@@ -253,12 +253,20 @@ final class GroupViewModel: ObservableObject {
     
     func pauseAutoRefresh() {
         stopAutoRefresh()
+        #if canImport(Supabase)
+        unsubscribeFromRealtime()
+        #endif
     }
     
     func resumeAutoRefresh() {
         if refreshTimer == nil {
             startAutoRefresh()
         }
+        #if canImport(Supabase)
+        if realtimeChannel == nil {
+            subscribeToRealtime()
+        }
+        #endif
     }
     
     private func refreshLeaderboard() async {

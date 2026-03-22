@@ -1,6 +1,6 @@
 //
 //  Exercise.swift
-//  StepComp
+//  FitComp
 //
 //  Created by Jeffery Erhunse on 2/16/26.
 //
@@ -19,6 +19,111 @@ struct Exercise: Identifiable, Codable, Hashable {
         self.targetMuscles = targetMuscles
         self.imageURL = imageURL
     }
+
+    var exerciseDBId: String? {
+        Exercise.exerciseDBIds[name]
+    }
+}
+
+extension Exercise {
+    static let exerciseDBIds: [String: String] = [
+        "Arnold Press": "0287",
+        "Assisted Pull-Up": "0017",
+        "Ab Wheel Rollout": "0857",
+        "Back Extension": "0573",
+        "Back Squat": "0043",
+        "Barbell Bench Press": "0025",
+        "Barbell Curl": "0031",
+        "Barbell Row": "0027",
+        "Bench Press": "0025",
+        "Bent Over Row": "0027",
+        "Bicep Curl": "0294",
+        "Box Jump": "1374",
+        "Bulgarian Split Squat": "0410",
+        "Cable Crunch": "0175",
+        "Cable Fly": "0227",
+        "Cable Lateral Raise": "0178",
+        "Cable Row": "0861",
+        "Calf Raise": "1372",
+        "Chest Dip": "0251",
+        "Chest Fly": "0308",
+        "Chin-Up": "0253",
+        "Close Grip Bench Press": "0030",
+        "Concentration Curl": "0297",
+        "Crunch": "0274",
+        "Deadlift": "0032",
+        "Decline Bench Press": "0033",
+        "Decline Crunch": "0277",
+        "Diamond Push-Up": "0283",
+        "Dips": "0251",
+        "Donkey Kick": "0284",
+        "Elliptical": "2141",
+        "EZ Bar Curl": "0447",
+        "Face Pull": "0075",
+        "Farmer's Carry": "2133",
+        "Flat Bench Press": "0025",
+        "Flutter Kicks": "0459",
+        "Front Raise": "0309",
+        "Front Squat": "0042",
+        "Glute Bridge": "1409",
+        "Glute Ham Raise": "3193",
+        "Goblet Squat": "0534",
+        "Good Morning": "0044",
+        "Hack Squat": "0046",
+        "Hammer Curl": "0312",
+        "Hanging Leg Raise": "0472",
+        "Hip Abduction": "0597",
+        "Hip Adduction": "0168",
+        "Hip Thrust": "3236",
+        "Incline Bench Press": "0047",
+        "Incline Dumbbell Press": "0314",
+        "Inverted Row": "0497",
+        "Jump Squat": "0053",
+        "Jump Rope": "2612",
+        "Kettlebell Swing": "0549",
+        "Kettlebell Clean": "0518",
+        "Kettlebell Snatch": "0517",
+        "Lat Pulldown": "0673",
+        "Lateral Raise": "0334",
+        "Leg Curl": "0586",
+        "Leg Extension": "0585",
+        "Leg Press": "0739",
+        "Leg Raise": "0012",
+        "Lunge": "0054",
+        "Lying Leg Curl": "0586",
+        "Mountain Climbers": "0630",
+        "Military Press": "0086",
+        "Overhead Press": "0426",
+        "Pendlay Row": "3017",
+        "Plank": "3327",
+        "Preacher Curl": "0059",
+        "Pull-Up": "0651",
+        "Push Press": "0528",
+        "Push-Up": "0662",
+        "Rear Delt Fly": "2292",
+        "Romanian Deadlift": "0085",
+        "Row (Machine)": "0180",
+        "Russian Twist": "0014",
+        "Seated Calf Raise": "0088",
+        "Seated Row": "0861",
+        "Shoulder Press": "0405",
+        "Shrugs": "0406",
+        "Side Plank": "0664",
+        "Sit-Up": "0456",
+        "Skull Crushers": "0060",
+        "Smith Machine Squat": "0770",
+        "Sprint": "3666",
+        "Step-Up": "0431",
+        "Straight Arm Pulldown": "0237",
+        "Sumo Deadlift": "0117",
+        "Thrusters": "0042",
+        "Tricep Dip": "1755",
+        "Tricep Extension": "0194",
+        "Treadmill Run": "3666",
+        "Walking Lunge": "1460",
+        "Wall Sit": "1372",
+        "Wide Grip Pull-Up": "1429",
+    ]
 }
 
 struct WorkoutSet: Identifiable, Codable {
@@ -64,15 +169,20 @@ struct Workout: Identifiable, Codable {
     var assignedDays: [DayOfWeek]
     var createdAt: Date
     var lastCompletedAt: Date?
-    
-    init(id: UUID = UUID(), name: String, exercises: [WorkoutExercise], assignedDays: [DayOfWeek], createdAt: Date = Date(), lastCompletedAt: Date? = nil) {
+    /// When set, this workout appears only on this specific date (non-recurring).
+    var oneTimeDate: Date?
+
+    init(id: UUID = UUID(), name: String, exercises: [WorkoutExercise], assignedDays: [DayOfWeek], createdAt: Date = Date(), lastCompletedAt: Date? = nil, oneTimeDate: Date? = nil) {
         self.id = id
         self.name = name
         self.exercises = exercises
         self.assignedDays = assignedDays
         self.createdAt = createdAt
         self.lastCompletedAt = lastCompletedAt
+        self.oneTimeDate = oneTimeDate
     }
+
+    var isOneTime: Bool { oneTimeDate != nil }
 }
 
 struct WorkoutSession: Identifiable, Codable {

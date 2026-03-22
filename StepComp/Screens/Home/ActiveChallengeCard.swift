@@ -1,6 +1,6 @@
 //
 //  ActiveChallengeCard.swift
-//  StepComp
+//  FitComp
 //
 //  Created by Jeffery Erhunse on 12/24/25.
 //
@@ -199,7 +199,7 @@ struct ActiveChallengeHeroCard: View {
         ZStack {
             // Background decoration
             Circle()
-                .fill(StepCompColors.primary.opacity(0.1))
+                .fill(FitCompColors.primary.opacity(0.1))
                 .frame(width: 200, height: 200)
                 .blur(radius: 60)
                 .offset(x: 100, y: -100)
@@ -210,11 +210,11 @@ struct ActiveChallengeHeroCard: View {
                     HStack(spacing: 12) {
                         ZStack {
                             RoundedRectangle(cornerRadius: 16)
-                                .fill(StepCompColors.primary.opacity(0.2))
+                                .fill(FitCompColors.primary.opacity(0.2))
                                 .frame(width: 44, height: 44)
                             
                             Image(systemName: "trophy.fill")
-                                .foregroundColor(StepCompColors.primary)
+                                .foregroundColor(FitCompColors.primary)
                                 .font(.system(size: 20))
                         }
                         
@@ -241,7 +241,7 @@ struct ActiveChallengeHeroCard: View {
                     .foregroundColor(.black)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 6)
-                    .background(StepCompColors.primary)
+                    .background(FitCompColors.primary)
                     .cornerRadius(20)
                 }
                 
@@ -264,9 +264,9 @@ struct ActiveChallengeHeroCard: View {
                                 .frame(height: 16)
                             
                             RoundedRectangle(cornerRadius: 8)
-                                .fill(StepCompColors.primary)
+                                .fill(FitCompColors.primary)
                                 .frame(width: geometry.size.width * progress, height: 16)
-                                .shadow(color: StepCompColors.primary.opacity(0.5), radius: 8, x: 0, y: 0)
+                                .shadow(color: FitCompColors.primary.opacity(0.5), radius: 8, x: 0, y: 0)
                         }
                     }
                     .frame(height: 16)
@@ -288,9 +288,9 @@ struct ActiveChallengeHeroCard: View {
                     .foregroundColor(.black)
                     .padding()
                     .frame(maxWidth: .infinity)
-                    .background(StepCompColors.primary)
+                    .background(FitCompColors.primary)
                     .cornerRadius(12)
-                    .shadow(color: StepCompColors.primary.opacity(0.3), radius: 8, x: 0, y: 4)
+                    .shadow(color: FitCompColors.primary.opacity(0.3), radius: 8, x: 0, y: 4)
                 }
             }
             .padding(24)

@@ -1,6 +1,6 @@
 //
 //  DeleteAccountConfirmationView.swift
-//  StepComp
+//  FitComp
 //
 //  Created by AI Assistant on 1/2/26.
 //

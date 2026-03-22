@@ -1,6 +1,6 @@
 //
 //  GroupDetailsView.swift
-//  StepComp
+//  FitComp
 //
 //  Created by Jeffery Erhunse on 12/24/25.
 //
@@ -30,7 +30,7 @@ struct GroupDetailsView: View {
         let userId = sessionViewModel.currentUser?.id ?? ""
         _viewModel = StateObject(
             wrappedValue: GroupViewModel(
-                challengeService: ChallengeService(),
+                challengeService: ChallengeService.shared,
                 challengeId: challengeId,
                 currentUserId: userId
             )
@@ -45,7 +45,7 @@ struct GroupDetailsView: View {
         return ZStack {
             // Show loading state if challenge is nil (prevents black screen)
             if viewModel.challenge == nil && viewModel.isLoading {
-                StepCompColors.background.ignoresSafeArea()
+                FitCompColors.background.ignoresSafeArea()
                 VStack(spacing: 20) {
                     ProgressView()
                         .scaleEffect(1.5)
@@ -129,7 +129,7 @@ struct GroupDetailsView: View {
     
     private var fullMemberView: some View {
         ZStack {
-            StepCompColors.background.ignoresSafeArea()
+            FitCompColors.background.ignoresSafeArea()
             
             // Challenge image background header (if available)
             if let challenge = viewModel.challenge, isValidImageURL(challenge.imageUrl) {
@@ -279,9 +279,9 @@ struct GroupDetailsHeader: View {
             Button(action: onBack) {
                 Image(systemName: "arrow.left")
                     .font(.system(size: 18))
-                    .foregroundColor(StepCompColors.textPrimary)
+                    .foregroundColor(FitCompColors.textPrimary)
                     .frame(width: 40, height: 40)
-                    .background(StepCompColors.surface)
+                    .background(FitCompColors.surface)
                     .clipShape(Circle())
                     .shadow(color: Color.black.opacity(0.05), radius: 4, x: 0, y: 2)
             }
@@ -316,19 +316,19 @@ struct GroupDetailsHeader: View {
                         Text("Invite")
                             .font(.system(size: 14, weight: .bold))
                     }
-                    .foregroundColor(StepCompColors.buttonTextOnPrimary)
+                    .foregroundColor(FitCompColors.buttonTextOnPrimary)
                     .padding(.horizontal, 16)
                     .padding(.vertical, 8)
-                    .background(StepCompColors.primary)
+                    .background(FitCompColors.primary)
                     .cornerRadius(999)
-                    .shadow(color: StepCompColors.primary.opacity(0.4), radius: 8, x: 0, y: 2)
+                    .shadow(color: FitCompColors.primary.opacity(0.4), radius: 8, x: 0, y: 2)
                 }
             }
         }
         .padding(.horizontal)
         .padding(.vertical, 16)
         .background(
-            StepCompColors.surface
+            FitCompColors.surface
                 .opacity(0.9)
                 .background(.ultraThinMaterial)
         )
@@ -388,13 +388,13 @@ struct HeroStatusSection: View {
                         RoundedRectangle(cornerRadius: 8)
                             .fill(
                                 LinearGradient(
-                                    colors: [StepCompColors.primary, StepCompColors.primary.opacity(0.7)],
+                                    colors: [FitCompColors.primary, FitCompColors.primary.opacity(0.7)],
                                     startPoint: .leading,
                                     endPoint: .trailing
                                 )
                             )
                             .frame(width: geometry.size.width * challengeProgress, height: 8)
-                            .shadow(color: StepCompColors.primary.opacity(0.5), radius: 4, x: 0, y: 0)
+                            .shadow(color: FitCompColors.primary.opacity(0.5), radius: 4, x: 0, y: 0)
                             .animation(.spring(response: 0.6, dampingFraction: 0.7), value: challengeProgress)
                     }
                 }
@@ -438,7 +438,7 @@ struct ChallengeCountdownTimer: View {
                     HStack(spacing: 6) {
                         Image(systemName: "timer")
                             .font(.system(size: 14, weight: .bold))
-                            .foregroundColor(StepCompColors.primary)
+                            .foregroundColor(FitCompColors.primary)
                         
                         Text("Challenge ends in")
                             .font(.system(size: 11, weight: .bold))
@@ -458,7 +458,7 @@ struct ChallengeCountdownTimer: View {
                         // Separator
                         Text(":")
                             .font(.system(size: 20, weight: .bold))
-                            .foregroundColor(StepCompColors.primary)
+                            .foregroundColor(FitCompColors.primary)
                             .padding(.top, 8)
                         
                         // Hours
@@ -470,7 +470,7 @@ struct ChallengeCountdownTimer: View {
                         // Separator
                         Text(":")
                             .font(.system(size: 20, weight: .bold))
-                            .foregroundColor(StepCompColors.primary)
+                            .foregroundColor(FitCompColors.primary)
                             .padding(.top, 8)
                         
                         // Minutes
@@ -482,7 +482,7 @@ struct ChallengeCountdownTimer: View {
                         // Separator
                         Text(":")
                             .font(.system(size: 20, weight: .bold))
-                            .foregroundColor(StepCompColors.primary)
+                            .foregroundColor(FitCompColors.primary)
                             .padding(.top, 8)
                         
                         // Seconds
@@ -499,7 +499,7 @@ struct ChallengeCountdownTimer: View {
                 .shadow(color: Color.black.opacity(0.05), radius: 8, x: 0, y: 2)
                 .overlay(
                     RoundedRectangle(cornerRadius: 16)
-                        .stroke(StepCompColors.primary.opacity(0.2), lineWidth: 1)
+                        .stroke(FitCompColors.primary.opacity(0.2), lineWidth: 1)
                 )
             }
             .onAppear {
@@ -571,10 +571,10 @@ struct CountdownUnit: View {
                 .padding(.horizontal, 12)
                 .padding(.vertical, 8)
                 .background(
-                    StepCompColors.primary.opacity(0.1)
+                    FitCompColors.primary.opacity(0.1)
                         .overlay(
                             RoundedRectangle(cornerRadius: 12)
-                                .stroke(StepCompColors.primary.opacity(0.2), lineWidth: 1)
+                                .stroke(FitCompColors.primary.opacity(0.2), lineWidth: 1)
                         )
                 )
                 .cornerRadius(12)
@@ -607,7 +607,7 @@ struct SegmentedTabControl: View {
                         .foregroundColor(selectedTab == tab ? .black : .secondary)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 10)
-                        .background(selectedTab == tab ? StepCompColors.primary : Color.clear)
+                        .background(selectedTab == tab ? FitCompColors.primary : Color.clear)
                         .cornerRadius(999)
                 }
             }
@@ -661,7 +661,7 @@ struct LeaderboardTabView: View {
                 HStack(spacing: 12) {
                     Image(systemName: "info.circle.fill")
                         .font(.system(size: 14))
-                        .foregroundColor(StepCompColors.primary)
+                        .foregroundColor(FitCompColors.primary)
                     
                     Text("Showing total steps accumulated since challenge started")
                         .font(.system(size: 12, weight: .medium))
@@ -674,7 +674,7 @@ struct LeaderboardTabView: View {
                 .padding(.vertical, 12)
                 .background(
                     RoundedRectangle(cornerRadius: 12)
-                        .fill(StepCompColors.primary.opacity(0.1))
+                        .fill(FitCompColors.primary.opacity(0.1))
                 )
                 
                 // Top 3 Podium Display (Modern Design)
@@ -782,7 +782,7 @@ struct FloatingRankDisplay: View {
                 VStack(alignment: .trailing, spacing: 2) {
                     Text("\(todaySteps.formatted())")
                         .font(.system(size: 18, weight: .bold, design: .monospaced))
-                        .foregroundColor(StepCompColors.primary)
+                        .foregroundColor(FitCompColors.primary)
                     
                     Text("Steps Today")
                         .font(.system(size: 10, weight: .bold))
@@ -923,7 +923,7 @@ struct ModernPodiumCard: View {
                 if isWinner {
                     // Glow effect
                     RoundedRectangle(cornerRadius: 20)
-                        .fill(StepCompColors.primary.opacity(0.3))
+                        .fill(FitCompColors.primary.opacity(0.3))
                         .blur(radius: 20)
                         .scaleEffect(glowScale)
                         .animation(
@@ -935,12 +935,12 @@ struct ModernPodiumCard: View {
                     RoundedRectangle(cornerRadius: 20)
                         .fill(
                             LinearGradient(
-                                colors: [StepCompColors.primary, gradientEnd],
+                                colors: [FitCompColors.primary, gradientEnd],
                                 startPoint: .topLeading,
                                 endPoint: .bottomTrailing
                             )
                         )
-                        .shadow(color: StepCompColors.primary.opacity(0.4), radius: 15, x: 0, y: 8)
+                        .shadow(color: FitCompColors.primary.opacity(0.4), radius: 15, x: 0, y: 8)
                 } else {
                     RoundedRectangle(cornerRadius: 20)
                         .fill(Color(.systemBackground))
@@ -953,7 +953,7 @@ struct ModernPodiumCard: View {
                         // Glow for winner
                         if isWinner {
                             Circle()
-                                .fill(StepCompColors.primary.opacity(0.4))
+                                .fill(FitCompColors.primary.opacity(0.4))
                                 .frame(width: 76, height: 76)
                                 .blur(radius: 10)
                         }
@@ -974,7 +974,7 @@ struct ModernPodiumCard: View {
                         // Rank badge at bottom
                         ZStack {
                             Circle()
-                                .fill(isWinner ? Color.white : StepCompColors.primary)
+                                .fill(isWinner ? Color.white : FitCompColors.primary)
                                 .frame(width: 24, height: 24)
                                 .shadow(color: Color.black.opacity(0.1), radius: 4, x: 0, y: 2)
                             
@@ -997,7 +997,7 @@ struct ModernPodiumCard: View {
                     // Steps
                     Text(entry.steps.formatted())
                         .font(.system(size: isWinner ? 16 : 13, weight: .bold, design: .monospaced))
-                        .foregroundColor(isWinner ? .black.opacity(0.7) : StepCompColors.primary)
+                        .foregroundColor(isWinner ? .black.opacity(0.7) : FitCompColors.primary)
                 }
                 .padding(.vertical, 16)
                 .padding(.horizontal, 8)
@@ -1043,7 +1043,7 @@ struct ModernLeaderboardRow: View {
             )
             .overlay(
                 Circle()
-                    .stroke(isCurrentUser ? StepCompColors.primary : Color(.systemGray5), lineWidth: isCurrentUser ? 2 : 1)
+                    .stroke(isCurrentUser ? FitCompColors.primary : Color(.systemGray5), lineWidth: isCurrentUser ? 2 : 1)
             )
             
             // Name and rank change
@@ -1077,7 +1077,7 @@ struct ModernLeaderboardRow: View {
             VStack(alignment: .trailing, spacing: 2) {
                 Text(entry.steps.formatted())
                     .font(.system(size: 16, weight: .bold, design: .monospaced))
-                    .foregroundColor(isCurrentUser ? StepCompColors.primary : .primary)
+                    .foregroundColor(isCurrentUser ? FitCompColors.primary : .primary)
                 
                 Text("STEPS")
                     .font(.system(size: 9, weight: .bold))
@@ -1093,7 +1093,7 @@ struct ModernLeaderboardRow: View {
         )
         .overlay(
             RoundedRectangle(cornerRadius: 16)
-                .stroke(isCurrentUser ? StepCompColors.primary.opacity(0.5) : Color(.systemGray6), lineWidth: isCurrentUser ? 2 : 1)
+                .stroke(isCurrentUser ? FitCompColors.primary.opacity(0.5) : Color(.systemGray6), lineWidth: isCurrentUser ? 2 : 1)
         )
     }
 }
@@ -1138,7 +1138,7 @@ struct MembersTabView: View {
                 HStack(spacing: 12) {
                     Image(systemName: "info.circle.fill")
                         .font(.system(size: 16))
-                        .foregroundColor(StepCompColors.primary)
+                        .foregroundColor(FitCompColors.primary)
                     
                     Text("Step counts update daily and represent the total steps accumulated in this challenge.")
                         .font(.system(size: 13, weight: .medium))
@@ -1148,7 +1148,7 @@ struct MembersTabView: View {
                 .padding(12)
                 .background(
                     RoundedRectangle(cornerRadius: 12)
-                        .fill(StepCompColors.primary.opacity(0.1))
+                        .fill(FitCompColors.primary.opacity(0.1))
                 )
                 .padding(.bottom, 8)
                 
@@ -1158,7 +1158,7 @@ struct MembersTabView: View {
                         // Rank number
                         Text("\(item.rank)")
                             .font(.system(size: 14, weight: .bold))
-                            .foregroundColor(item.rank <= 3 ? StepCompColors.primary : Color(.systemGray))
+                            .foregroundColor(item.rank <= 3 ? FitCompColors.primary : Color(.systemGray))
                             .frame(width: 24, alignment: .center)
                         
                         // Avatar
@@ -1169,7 +1169,7 @@ struct MembersTabView: View {
                         )
                         .overlay(
                             Circle()
-                                .stroke(item.rank == 1 ? StepCompColors.primary : Color(.systemGray5), lineWidth: item.rank == 1 ? 2 : 1)
+                                .stroke(item.rank == 1 ? FitCompColors.primary : Color(.systemGray5), lineWidth: item.rank == 1 ? 2 : 1)
                         )
                         
                         // Name and username
@@ -1192,7 +1192,7 @@ struct MembersTabView: View {
                         VStack(alignment: .trailing, spacing: 4) {
                             Text(formatSteps(item.steps))
                                 .font(.system(size: 18, weight: .bold, design: .monospaced))
-                                .foregroundColor(item.rank == 1 ? StepCompColors.primary : .primary)
+                                .foregroundColor(item.rank == 1 ? FitCompColors.primary : .primary)
                             
                             Text("TOTAL STEPS")
                                 .font(.system(size: 9, weight: .bold))
@@ -1208,7 +1208,7 @@ struct MembersTabView: View {
                     )
                     .overlay(
                         RoundedRectangle(cornerRadius: 16)
-                            .stroke(item.rank == 1 ? StepCompColors.primary.opacity(0.3) : Color(.systemGray6), lineWidth: 1)
+                            .stroke(item.rank == 1 ? FitCompColors.primary.opacity(0.3) : Color(.systemGray6), lineWidth: 1)
                     )
                     .onTapGesture {
                         selectedUserId = item.user.id
@@ -1348,7 +1348,7 @@ struct ChallengePreviewView: View {
     private func challengePreviewContent(challenge: Challenge) -> some View {
         ZStack {
             // Background
-            StepCompColors.background
+            FitCompColors.background
                 .ignoresSafeArea()
             
             ScrollView {
@@ -1358,7 +1358,7 @@ struct ChallengePreviewView: View {
                         Button(action: onBack) {
                             Image(systemName: "arrow.left")
                                 .font(.system(size: 20, weight: .semibold))
-                                .foregroundColor(StepCompColors.textPrimary)
+                                .foregroundColor(FitCompColors.textPrimary)
                                 .frame(width: 48, height: 48)
                                 .background(Color.clear)
                         }
@@ -1367,7 +1367,7 @@ struct ChallengePreviewView: View {
                         
                         Text("Join Challenge")
                             .font(.system(size: 18, weight: .bold))
-                            .foregroundColor(StepCompColors.textPrimary)
+                            .foregroundColor(FitCompColors.textPrimary)
                         
                         Spacer()
                         
@@ -1384,33 +1384,33 @@ struct ChallengePreviewView: View {
                 ZStack {
                             // Glow effect
                             Circle()
-                                .fill(StepCompColors.primary.opacity(0.4))
+                                .fill(FitCompColors.primary.opacity(0.4))
                                 .frame(width: 80, height: 80)
                                 .blur(radius: 20)
                             
                             // Trophy icon
                             Circle()
-                                .fill(StepCompColors.primary)
+                                .fill(FitCompColors.primary)
                                 .frame(width: 80, height: 80)
                                 .overlay(
                                     Image(systemName: "trophy.fill")
                                         .font(.system(size: 36))
                                         .foregroundColor(.black)
                                 )
-                                .shadow(color: StepCompColors.primary.opacity(0.5), radius: 20, x: 0, y: 10)
+                                .shadow(color: FitCompColors.primary.opacity(0.5), radius: 20, x: 0, y: 10)
                         }
                         .padding(.top, 24)
                         
                         // Heading
                         Text("Ready to Step Up?")
                             .font(.system(size: 32, weight: .bold))
-                            .foregroundColor(StepCompColors.textPrimary)
+                            .foregroundColor(FitCompColors.textPrimary)
                             .multilineTextAlignment(.center)
                         
                         // Subtitle
                         Text("Enter your invite code below or review the shared challenge details.")
                             .font(.system(size: 16, weight: .medium))
-                            .foregroundColor(StepCompColors.textSecondary)
+                            .foregroundColor(FitCompColors.textSecondary)
                             .multilineTextAlignment(.center)
                             .padding(.horizontal, 32)
                             .padding(.bottom, 8)
@@ -1487,7 +1487,7 @@ struct ChallengePreviewView: View {
                                         .foregroundColor(.black)
                                         .padding(.horizontal, 8)
                                         .padding(.vertical, 4)
-                                        .background(StepCompColors.primary)
+                                        .background(FitCompColors.primary)
                                         .cornerRadius(4)
                             
                             Spacer()
@@ -1512,7 +1512,7 @@ struct ChallengePreviewView: View {
                                 HStack(spacing: 12) {
                         ZStack {
                                         RoundedRectangle(cornerRadius: 8)
-                                            .fill(StepCompColors.primary.opacity(0.2))
+                                            .fill(FitCompColors.primary.opacity(0.2))
                                             .frame(width: 40, height: 40)
                                         
                                         Image(systemName: "trophy.fill")
@@ -1523,12 +1523,12 @@ struct ChallengePreviewView: View {
                                     VStack(alignment: .leading, spacing: 4) {
                                         Text("HIGHEST STEP")
                                             .font(.system(size: 10, weight: .bold))
-                                            .foregroundColor(StepCompColors.textSecondary)
+                                            .foregroundColor(FitCompColors.textSecondary)
                                             .tracking(1)
                                         
                                         Text("\(highestSteps.formatted()) steps")
                                             .font(.system(size: 18, weight: .bold))
-                                            .foregroundColor(StepCompColors.textPrimary)
+                                            .foregroundColor(FitCompColors.textPrimary)
                                     }
                                 }
                                 
@@ -1549,12 +1549,12 @@ struct ChallengePreviewView: View {
                                     VStack(alignment: .leading, spacing: 4) {
                                         Text("DURATION")
                                 .font(.system(size: 10, weight: .bold))
-                                .foregroundColor(StepCompColors.textSecondary)
+                                .foregroundColor(FitCompColors.textSecondary)
                                 .tracking(1)
                                         
                                         Text("\(challengeDuration(in: challenge)) Days")
                                             .font(.system(size: 18, weight: .bold))
-                                            .foregroundColor(StepCompColors.textPrimary)
+                                            .foregroundColor(FitCompColors.textPrimary)
                                     }
                                 }
                             }
@@ -1584,13 +1584,13 @@ struct ChallengePreviewView: View {
                                             .frame(width: 40, height: 40)
                                         .overlay(
                                             Circle()
-                                                .stroke(StepCompColors.surface, lineWidth: 2)
+                                                .stroke(FitCompColors.surface, lineWidth: 2)
                                         )
                                 }
                                 
                                     if participantCount > 3 {
                                     Circle()
-                                        .fill(StepCompColors.primary)
+                                        .fill(FitCompColors.primary)
                                             .frame(width: 40, height: 40)
                                         .overlay(
                                                 Text("+\(participantCount - 3)")
@@ -1599,7 +1599,7 @@ struct ChallengePreviewView: View {
                                         )
                                         .overlay(
                                             Circle()
-                                                .stroke(StepCompColors.surface, lineWidth: 2)
+                                                .stroke(FitCompColors.surface, lineWidth: 2)
                                         )
                                     } else if participantCount == 0 {
                                         // Show placeholder when no participants
@@ -1614,18 +1614,18 @@ struct ChallengePreviewView: View {
                                 VStack(alignment: .trailing, spacing: 4) {
                                     Text("Friends Joined")
                                         .font(.system(size: 14, weight: .bold))
-                                        .foregroundColor(StepCompColors.textPrimary)
+                                        .foregroundColor(FitCompColors.textPrimary)
                                     
                                     Text("Waiting for you!")
                                         .font(.system(size: 12))
-                                    .foregroundColor(StepCompColors.textSecondary)
+                                    .foregroundColor(FitCompColors.textSecondary)
                                 }
                             }
                             .padding(.horizontal, 20)
                             .padding(.bottom, 20)
                         }
                     }
-                    .background(StepCompColors.surface)
+                    .background(FitCompColors.surface)
                     .cornerRadius(12)
                     .shadow(color: Color.black.opacity(0.1), radius: 8, x: 0, y: 4)
                     .padding(.horizontal, 16)
@@ -1663,9 +1663,9 @@ struct ChallengePreviewView: View {
                         .foregroundColor(.black)
                         .frame(maxWidth: .infinity)
                         .frame(height: 56)
-                        .background(StepCompColors.primary)
+                        .background(FitCompColors.primary)
                         .cornerRadius(28)
-                        .shadow(color: StepCompColors.primary.opacity(0.5), radius: 14, x: 0, y: 4)
+                        .shadow(color: FitCompColors.primary.opacity(0.5), radius: 14, x: 0, y: 4)
                 }
                 .disabled(isLoading)
                 .padding(.horizontal, 16)
@@ -1673,9 +1673,9 @@ struct ChallengePreviewView: View {
                 .background(
                     LinearGradient(
                         colors: [
-                            StepCompColors.background.opacity(0),
-                            StepCompColors.background,
-                            StepCompColors.background
+                            FitCompColors.background.opacity(0),
+                            FitCompColors.background,
+                            FitCompColors.background
                         ],
                         startPoint: .top,
                         endPoint: .bottom
@@ -1697,7 +1697,7 @@ struct ChallengePreviewView: View {
     
     private var loadingPlaceholder: some View {
         ZStack {
-            StepCompColors.background.ignoresSafeArea()
+            FitCompColors.background.ignoresSafeArea()
             
             VStack(spacing: 20) {
                 ProgressView()
@@ -1731,7 +1731,7 @@ struct ChallengePreviewView: View {
         case .marathon: return .blue
         case .friends: return .purple
         case .shortTerm: return .green
-        case .fun: return StepCompColors.primary
+        case .fun: return FitCompColors.primary
         }
     }
     
@@ -1812,7 +1812,7 @@ struct ChallengeTimerBadge: View {
             HStack(spacing: 6) {
                 Image(systemName: "timer")
                     .font(.system(size: 14, weight: .bold))
-                    .foregroundColor(StepCompColors.primary)
+                    .foregroundColor(FitCompColors.primary)
                 
                 Text(hasStarted ? "ENDS IN" : "STARTS IN")
                     .font(.system(size: 10, weight: .bold))
@@ -1876,13 +1876,13 @@ struct ExpandableAboutRulesSection: View {
                 HStack {
                     Text("About Challenge & Rules")
                         .font(.system(size: 16, weight: .bold))
-                        .foregroundColor(StepCompColors.textPrimary)
+                        .foregroundColor(FitCompColors.textPrimary)
                     
                     Spacer()
                     
                     Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
                         .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(StepCompColors.textSecondary)
+                        .foregroundColor(FitCompColors.textSecondary)
                 }
                 .padding(20)
             }
@@ -1894,23 +1894,23 @@ struct ExpandableAboutRulesSection: View {
                         HStack(spacing: 8) {
                             Image(systemName: "info.circle.fill")
                                 .font(.system(size: 18))
-                                .foregroundColor(colorScheme == .dark ? StepCompColors.primary : Color(red: 0.9, green: 0.8, blue: 0))
+                                .foregroundColor(colorScheme == .dark ? FitCompColors.primary : Color(red: 0.9, green: 0.8, blue: 0))
                             
                             Text("About Challenge")
                                 .font(.system(size: 18, weight: .bold))
-                                .foregroundColor(StepCompColors.textPrimary)
+                                .foregroundColor(FitCompColors.textPrimary)
                         }
                         
                         Text(challenge.description.isEmpty ? defaultChallengeDescription(challenge) : challenge.description)
                             .font(.system(size: 14, weight: .regular))
-                            .foregroundColor(StepCompColors.textSecondary)
+                            .foregroundColor(FitCompColors.textSecondary)
                             .lineSpacing(6)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                     
                     // Divider
                     Rectangle()
-                        .fill(StepCompColors.textSecondary.opacity(colorScheme == .dark ? 0.1 : 0.15))
+                        .fill(FitCompColors.textSecondary.opacity(colorScheme == .dark ? 0.1 : 0.15))
                         .frame(height: 1)
                     
                     // Challenge Rules Section
@@ -1918,7 +1918,7 @@ struct ExpandableAboutRulesSection: View {
                         Text("CHALLENGE RULES")
                             .font(.system(size: 11, weight: .bold))
                             .tracking(1.2)
-                            .foregroundColor(StepCompColors.textSecondary)
+                            .foregroundColor(FitCompColors.textSecondary)
                         
                         VStack(spacing: 16) {
                             ModernRuleRow(
@@ -1944,7 +1944,7 @@ struct ExpandableAboutRulesSection: View {
                 .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
-        .background(StepCompColors.surface)
+        .background(FitCompColors.surface)
         .cornerRadius(16)
         .shadow(color: Color.black.opacity(0.05), radius: 8, x: 0, y: 2)
     }
@@ -1976,12 +1976,12 @@ struct ModernStatCard: View {
                 HStack(spacing: 6) {
                     Image(systemName: icon)
                         .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(StepCompColors.textSecondary)
+                        .foregroundColor(FitCompColors.textSecondary)
                     
                     Text(upperLabel)
                         .font(.system(size: 10, weight: .bold))
                         .tracking(1)
-                        .foregroundColor(StepCompColors.textSecondary)
+                        .foregroundColor(FitCompColors.textSecondary)
                 }
                 
                 Spacer()
@@ -1989,7 +1989,7 @@ struct ModernStatCard: View {
                 // Decorative icon (faded)
                 Image(systemName: showProgress ? "timer" : "flag")
                     .font(.system(size: 32))
-                    .foregroundColor(StepCompColors.textSecondary.opacity(0.1))
+                    .foregroundColor(FitCompColors.textSecondary.opacity(0.1))
             }
             .padding(.bottom, 12)
             
@@ -1998,12 +1998,12 @@ struct ModernStatCard: View {
             // Value
             Text(value)
                 .font(.system(size: 28, weight: .bold))
-                .foregroundColor(StepCompColors.textPrimary)
+                .foregroundColor(FitCompColors.textPrimary)
             
             // Label
             Text(label)
                 .font(.system(size: 13, weight: .medium))
-                .foregroundColor(StepCompColors.textSecondary)
+                .foregroundColor(FitCompColors.textSecondary)
                 .padding(.bottom, 8)
             
             // Progress bar or dots
@@ -2039,7 +2039,7 @@ struct ModernStatCard: View {
         }
         .padding(20)
         .frame(height: 128)
-        .background(StepCompColors.surface)
+        .background(FitCompColors.surface)
         .cornerRadius(24)
         .shadow(color: Color.black.opacity(0.03), radius: 8, x: 0, y: 2)
     }
@@ -2071,11 +2071,11 @@ struct ModernRuleRow: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
                     .font(.system(size: 14, weight: .bold))
-                    .foregroundColor(StepCompColors.textPrimary)
+                    .foregroundColor(FitCompColors.textPrimary)
                 
                 Text(subtitle)
                     .font(.system(size: 12, weight: .regular))
-                    .foregroundColor(StepCompColors.textSecondary)
+                    .foregroundColor(FitCompColors.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
@@ -2112,7 +2112,7 @@ struct PreviewStatCard: View {
                 // Calendar/flag icon (decorative)
                 Image(systemName: showProgress ? "calendar" : "flag.fill")
                     .font(.system(size: 20))
-                    .foregroundColor(StepCompColors.textTertiary)
+                    .foregroundColor(FitCompColors.textTertiary)
             }
             
             Spacer()
@@ -2120,20 +2120,20 @@ struct PreviewStatCard: View {
             // Value
             Text(value)
                 .font(.system(size: 32, weight: .bold, design: .rounded))
-                .foregroundColor(StepCompColors.textPrimary)
+                .foregroundColor(FitCompColors.textPrimary)
             
             // Label
             Text(label)
                 .font(.system(size: 11, weight: .bold))
                 .tracking(0.5)
-                .foregroundColor(StepCompColors.textSecondary)
+                .foregroundColor(FitCompColors.textSecondary)
             
             // Progress indicator
             if showProgress {
                 GeometryReader { geo in
                     ZStack(alignment: .leading) {
                         RoundedRectangle(cornerRadius: 4)
-                            .fill(StepCompColors.surfaceElevated)
+                            .fill(FitCompColors.surfaceElevated)
                             .frame(height: 6)
                         
                         RoundedRectangle(cornerRadius: 4)
@@ -2147,7 +2147,7 @@ struct PreviewStatCard: View {
                 HStack(spacing: 4) {
                     ForEach(0..<3, id: \.self) { index in
                         Circle()
-                            .fill(index == 0 ? iconColor : StepCompColors.textTertiary)
+                            .fill(index == 0 ? iconColor : FitCompColors.textTertiary)
                             .frame(width: 8, height: 8)
                     }
                     
@@ -2156,7 +2156,7 @@ struct PreviewStatCard: View {
                     // Progress line with flag
                     HStack(spacing: 0) {
                         Rectangle()
-                            .fill(StepCompColors.textTertiary)
+                            .fill(FitCompColors.textTertiary)
                             .frame(height: 2)
                         
                         Image(systemName: "flag.fill")
@@ -2169,7 +2169,7 @@ struct PreviewStatCard: View {
         }
         .padding(16)
         .frame(height: 160)
-        .background(StepCompColors.surface)
+        .background(FitCompColors.surface)
         .cornerRadius(20)
         .shadow(color: Color.black.opacity(0.04), radius: 10, x: 0, y: 4)
     }
@@ -2200,11 +2200,11 @@ struct RuleRow: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
                     .font(.system(size: 15, weight: .semibold))
-                    .foregroundColor(StepCompColors.textPrimary)
+                    .foregroundColor(FitCompColors.textPrimary)
                 
                 Text(subtitle)
                     .font(.system(size: 13, weight: .regular))
-                    .foregroundColor(StepCompColors.textSecondary)
+                    .foregroundColor(FitCompColors.textSecondary)
             }
             
             Spacer()
@@ -2226,8 +2226,8 @@ struct OverlappingAvatarsView: View {
                     .fill(
                         LinearGradient(
                             colors: [
-                                StepCompColors.primary.opacity(0.8),
-                                StepCompColors.primary.opacity(0.4)
+                                FitCompColors.primary.opacity(0.8),
+                                FitCompColors.primary.opacity(0.4)
                             ],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
@@ -2333,7 +2333,7 @@ struct BenefitRow: View {
         HStack(spacing: 12) {
             Image(systemName: icon)
                 .font(.system(size: 16))
-                .foregroundColor(StepCompColors.primary)
+                .foregroundColor(FitCompColors.primary)
                 .frame(width: 24)
             
             Text(text)
@@ -2415,9 +2415,9 @@ struct JoinChallengeButton: View {
                 .padding(.horizontal, 32)
                 .padding(.vertical, 16)
                 .frame(maxWidth: .infinity)
-                .background(StepCompColors.primary)
+                .background(FitCompColors.primary)
                 .cornerRadius(999)
-                .shadow(color: StepCompColors.primary.opacity(0.4), radius: 20, x: 0, y: 8)
+                .shadow(color: FitCompColors.primary.opacity(0.4), radius: 20, x: 0, y: 8)
             }
             .disabled(isLoading)
             .padding(.horizontal)

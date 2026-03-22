@@ -1,6 +1,6 @@
 //
 //  HomeDashboardView.swift
-//  StepComp
+//  FitComp
 //
 //  Created by Jeffery Erhunse on 12/24/25.
 //
@@ -24,158 +24,47 @@ struct HomeDashboardView: View {
     @State private var navigationPath = NavigationPath()
     @State private var showingAddFriends = false
     @State private var showingCreateChallenge = false
-    @State private var showingCreateWorkout = false
+    @State private var selectedPage: Int = 0
     @State private var dailyGoal: Int = 10000 // Default goal
     @State private var selectedDate: Date = Date()
     @State private var weeklyStepData: [Int] = Array(repeating: 0, count: 30) // 30 days of historical data
     @State private var selectedDateSteps: Int = 0
     @State private var selectedDateCalories: Int = 0
     @State private var selectedDateDistance: Double = 0.0
+    @State private var hasPerformedInitialLoad = false
     
     init(sessionViewModel: SessionViewModel, tabManager: TabSelectionManager) {
         self.sessionViewModel = sessionViewModel
         self.tabManager = tabManager
-        // Initialize with placeholder - will be updated in onAppear
-        _viewModel = StateObject(
-            wrappedValue: DashboardViewModel(
-                challengeService: ChallengeService(),
-                healthKitService: HealthKitService(),
-                userId: ""
-            )
-        )
+        _viewModel = StateObject(wrappedValue: DashboardViewModel(userId: ""))
     }
     
     var body: some View {
         NavigationStack(path: $navigationPath) {
             ZStack {
-                // Background - use adaptive StepCompColors
-                StepCompColors.background
+                FitCompColors.background
                     .ignoresSafeArea()
-                
-                ScrollView {
-                    VStack(spacing: 20) {
-                        // Header
-                        DashboardHeader(user: sessionViewModel.currentUser)
-                            .padding(.top, 8)
-                        
-                        // Date Selector
-                        DateSelectorView(selectedDate: $selectedDate)
-                        
-                        // Upcoming Workout Card
-                        if let nextWorkout = workoutViewModel.getNextWorkout() {
-                            UpcomingWorkoutCard(
-                                workout: nextWorkout.workout,
-                                date: nextWorkout.date,
-                                onTap: {
-                                    tabManager.selectedTab = 3 // Switch to Workouts tab
-                                },
-                                tabManager: tabManager
-                            )
-                            .padding(.horizontal, 20)
-                        }
-                        
-                        // Daily Goal Card (shows selected date's data)
-                        DailyGoalCard(
-                            currentSteps: selectedDateSteps,
-                            dailyGoal: dailyGoal,
-                            calories: selectedDateCalories,
-                            distanceKm: selectedDateDistance,
-                            activeHours: Double(selectedDateSteps) / 6500.0, // Approximate active hours
-                            weeklyStepData: weeklyStepData,
-                            selectedDate: selectedDate,  // Pass selected date for bar highlighting
-                            onRefresh: {
-                                // Manual refresh: sync steps and update display
-                                await loadStepsForSelectedDate()
-                                await loadWeeklyData()
-                                viewModel.refresh()
-                            },
-                            celebrationManager: celebrationManager
-                        )
-                        
-                        // Activity Chart
-                        ActivityChartView(weeklyData: weeklyStepData)
-                        
-                        // Active Challenges Section (if any)
-                        if !viewModel.activeChallenges.isEmpty {
-                            VStack(alignment: .leading, spacing: 12) {
-                                Text("Active Challenges")
-                                    .font(.system(size: 18, weight: .bold))
-                                    .foregroundColor(.primary)
-                                    .padding(.horizontal, 24)
-                                
-                                StackedChallengesView(
-                                    challenges: viewModel.activeChallenges,
-                                    currentSteps: viewModel.todaySteps,
-                                    onChallengeTap: { challenge in
-                                        navigationPath.append(AppRoute.groupDetails(challengeId: challenge.id))
-                                    }
-                                )
-                            }
-                            .padding(.top, 8)
-                        }
-                        
-                        // Bottom spacing for floating button
-                        Spacer()
-                            .frame(height: 80)
+
+                VStack(spacing: 12) {
+                    DashboardHeader(user: sessionViewModel.currentUser, sessionViewModel: sessionViewModel)
+                        .padding(.top, 8)
+
+                    Picker("Home Page", selection: $selectedPage) {
+                        Text("Steps").tag(0)
+                        Text("Workouts").tag(1)
                     }
-                    .padding(.vertical)
-                }
-                
-                // Floating Action Buttons
-                VStack {
-                    Spacer()
-                    
-                    HStack(spacing: 12) {
-                        // Create Challenge Button
-                        Button(action: {
-                            showingCreateChallenge = true
-                            HapticManager.shared.medium()
-                        }) {
-                            HStack(spacing: 6) {
-                                Image(systemName: "flag.fill")
-                                    .font(.system(size: 14, weight: .semibold))
-                                Text("Create Challenge")
-                                    .font(.system(size: 14, weight: .semibold))
-                                    .lineLimit(1)
-                                    .minimumScaleFactor(0.8)
-                            }
-                            .foregroundColor(StepCompColors.buttonTextOnPrimary)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 16)
-                            .background(
-                                Capsule()
-                                    .fill(StepCompColors.primaryGradient(for: colorScheme))
-                                    .shadow(color: StepCompColors.primary.opacity(0.4), radius: 16, x: 0, y: 8)
-                            )
-                        }
-                        .buttonStyle(PlainButtonStyle())
-                        
-                        // Create Workout Button
-                        Button(action: {
-                            showingCreateWorkout = true
-                            HapticManager.shared.medium()
-                        }) {
-                            HStack(spacing: 6) {
-                                Image(systemName: "dumbbell.fill")
-                                    .font(.system(size: 14, weight: .semibold))
-                                Text("Create Workout")
-                                    .font(.system(size: 14, weight: .semibold))
-                                    .lineLimit(1)
-                                    .minimumScaleFactor(0.8)
-                            }
-                            .foregroundColor(StepCompColors.buttonTextOnPrimary)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 16)
-                            .background(
-                                Capsule()
-                                    .fill(StepCompColors.primaryGradient(for: colorScheme))
-                                    .shadow(color: StepCompColors.primary.opacity(0.4), radius: 16, x: 0, y: 8)
-                            )
-                        }
-                        .buttonStyle(PlainButtonStyle())
-                    }
+                    .pickerStyle(.segmented)
                     .padding(.horizontal, 20)
-                    .padding(.bottom, 16)
+                    .tint(FitCompColors.primary)
+
+                    TabView(selection: $selectedPage) {
+                        stepsDashboardPage
+                            .tag(0)
+
+                        WorkoutsView()
+                            .tag(1)
+                    }
+                    .tabViewStyle(.page(indexDisplayMode: .never))
                 }
             }
             .navigationBarHidden(true)
@@ -183,32 +72,21 @@ struct HomeDashboardView: View {
                 destinationView(for: route)
             }
             .refreshable {
-                #if canImport(Supabase)
-                await challengeService.refreshChallenges()
-                #endif
-                viewModel.refresh()
-                await loadWeeklyData()
+                if selectedPage == 0 {
+                    #if canImport(Supabase)
+                    await challengeService.refreshChallenges()
+                    #endif
+                    viewModel.refresh()
+                    await loadWeeklyData()
+                }
             }
         }
         .onAppear {
-            loadDailyGoal()
-            updateViewModel()
-            // Ensure HealthKit is initialized
-            _ = healthKitService.isHealthKitAvailable
-            healthKitService.checkAuthorizationStatus()
-            
             // Resume auto-refresh when view appears
             viewModel.resumeAutoRefresh()
-            
-            // Refresh challenges from Supabase when view appears
-            Task {
-                #if canImport(Supabase)
-                await challengeService.refreshChallenges()
-                #endif
-                updateViewModel()
-                await loadWeeklyData()
-                await loadStepsForSelectedDate()
-            }
+        }
+        .task {
+            await performInitialLoadIfNeeded()
         }
         .onChange(of: selectedDate) { oldDate, newDate in
             // Load steps when date changes
@@ -230,18 +108,11 @@ struct HomeDashboardView: View {
             updateViewModel()
         }
         #endif
-        .task(id: challengeService.challenges.count) {
-            // Only update when challenges actually change (count changes)
-            updateViewModel()
-        }
         .sheet(isPresented: $showingAddFriends) {
             AddFriendsView(sessionViewModel: sessionViewModel)
         }
         .sheet(isPresented: $showingCreateChallenge) {
             CreateChallengeView(sessionViewModel: sessionViewModel)
-        }
-        .sheet(isPresented: $showingCreateWorkout) {
-            CreateWorkoutView(viewModel: workoutViewModel)
         }
         .onChange(of: showingCreateChallenge) { oldValue, newValue in
             // Refresh challenges when sheet is dismissed
@@ -268,6 +139,135 @@ struct HomeDashboardView: View {
                 }
             )
         }
+        .alert(
+            "Sync Error",
+            isPresented: Binding(
+                get: { challengeService.lastErrorMessage != nil },
+                set: { if !$0 { challengeService.lastErrorMessage = nil } }
+            )
+        ) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(challengeService.lastErrorMessage ?? "Something went wrong.")
+        }
+    }
+
+    private var stepsDashboardPage: some View {
+        ZStack(alignment: .bottom) {
+            ScrollView {
+                LazyVStack(spacing: 20) {
+                    DateSelectorView(selectedDate: $selectedDate)
+
+                    DailyGoalCard(
+                        currentSteps: selectedDateSteps,
+                        dailyGoal: dailyGoal,
+                        calories: selectedDateCalories,
+                        distanceKm: selectedDateDistance,
+                        activeHours: Double(selectedDateSteps) / 6500.0,
+                        weeklyStepData: weeklyStepData,
+                        selectedDate: selectedDate,
+                        onRefresh: {
+                            await loadStepsForSelectedDate()
+                            await loadWeeklyData()
+                            viewModel.refresh()
+                        },
+                        celebrationManager: celebrationManager
+                    )
+
+                    ActivityChartView(weeklyData: weeklyStepData)
+
+                    if !viewModel.activeChallenges.isEmpty {
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text("Active Challenges")
+                                .font(.system(size: 18, weight: .bold))
+                                .foregroundColor(.primary)
+                                .padding(.horizontal, 24)
+
+                            StackedChallengesView(
+                                challenges: viewModel.activeChallenges,
+                                currentSteps: viewModel.todaySteps,
+                                onChallengeTap: { challenge in
+                                    navigationPath.append(AppRoute.groupDetails(challengeId: challenge.id))
+                                }
+                            )
+                        }
+                        .padding(.top, 8)
+                    }
+
+                    Spacer()
+                        .frame(height: 92)
+                }
+                .padding(.vertical)
+            }
+
+            VStack {
+                Spacer()
+
+                Button(action: {
+                    showingCreateChallenge = true
+                    HapticManager.shared.medium()
+                }) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "flag.fill")
+                            .font(.system(size: 14, weight: .semibold))
+                        Text("Create Challenge")
+                            .font(.system(size: 14, weight: .semibold))
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.8)
+                    }
+                    .foregroundColor(FitCompColors.buttonTextOnPrimary)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 16)
+                    .background(
+                        Capsule()
+                            .fill(FitCompColors.primaryGradient(for: colorScheme))
+                            .shadow(color: FitCompColors.primary.opacity(0.4), radius: 16, x: 0, y: 8)
+                    )
+                }
+                .buttonStyle(PlainButtonStyle())
+                .padding(.horizontal, 20)
+                .padding(.bottom, 16)
+            }
+        }
+    }
+
+    private var weeklyScopeCards: some View {
+        return VStack(spacing: 10) {
+            ForEach(Array(viewModel.weeklyScopeMetricPairs.enumerated()), id: \.offset) { _, pair in
+                scopeCardRow(titleA: pair.titleA, valueA: pair.valueA, titleB: pair.titleB, valueB: pair.valueB)
+            }
+        }
+        .padding(.horizontal, 20)
+    }
+
+    private var longTermScopeCards: some View {
+        return VStack(spacing: 10) {
+            ForEach(Array(viewModel.longTermScopeMetricPairs.enumerated()), id: \.offset) { _, pair in
+                scopeCardRow(titleA: pair.titleA, valueA: pair.valueA, titleB: pair.titleB, valueB: pair.valueB)
+            }
+        }
+        .padding(.horizontal, 20)
+    }
+
+    private func scopeCardRow(titleA: String, valueA: String, titleB: String, valueB: String) -> some View {
+        HStack(spacing: 10) {
+            scopeCard(title: titleA, value: valueA)
+            scopeCard(title: titleB, value: valueB)
+        }
+    }
+
+    private func scopeCard(title: String, value: String) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title.uppercased())
+                .font(.system(size: 11, weight: .bold))
+                .foregroundColor(FitCompColors.textSecondary)
+            Text(value)
+                .font(.system(size: 20, weight: .heavy))
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(14)
+        .background(Color(.secondarySystemBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 14))
     }
     
     private func updateViewModel() {
@@ -280,6 +280,22 @@ struct HomeDashboardView: View {
         if dailyGoal == 0 {
             dailyGoal = 10000 // Default if not set
         }
+        viewModel.computeScopeMetrics(weeklyStepData: weeklyStepData, dailyGoal: dailyGoal)
+    }
+
+    private func performInitialLoadIfNeeded() async {
+        guard !hasPerformedInitialLoad else { return }
+        hasPerformedInitialLoad = true
+        
+        loadDailyGoal()
+        
+        // Ensure HealthKit is initialized before dashboard load.
+        _ = healthKitService.isHealthKitAvailable
+        healthKitService.checkAuthorizationStatus()
+        
+        updateViewModel()
+        await loadWeeklyData()
+        await loadStepsForSelectedDate()
     }
     
     private func loadWeeklyData() async {
@@ -314,6 +330,7 @@ struct HomeDashboardView: View {
         
         await MainActor.run {
             weeklyStepData = dailySteps
+            viewModel.computeScopeMetrics(weeklyStepData: dailySteps, dailyGoal: dailyGoal)
         }
     }
     
@@ -391,7 +408,7 @@ struct EmptyChallengesView: View {
         VStack(spacing: 20) {
             ZStack {
                 Circle()
-                    .fill(StepCompColors.primary.opacity(0.1))
+                    .fill(FitCompColors.primary.opacity(0.1))
                     .frame(width: 120, height: 120)
                     .blur(radius: 40)
                 

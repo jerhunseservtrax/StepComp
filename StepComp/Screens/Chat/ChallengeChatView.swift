@@ -1,6 +1,6 @@
 //
 //  ChallengeChatView.swift
-//  StepComp
+//  FitComp
 //
 //  Group chat interface for challenge members
 //
@@ -34,7 +34,7 @@ struct ChallengeChatView: View {
             if viewModel.isLoading {
                 Spacer()
                 ProgressView()
-                    .progressViewStyle(CircularProgressViewStyle(tint: StepCompColors.primary))
+                    .progressViewStyle(CircularProgressViewStyle(tint: FitCompColors.primary))
                 Spacer()
             } else if viewModel.messages.isEmpty {
                 EmptyChatView()
@@ -98,6 +98,7 @@ struct ChallengeChatView: View {
             await viewModel.markAllAsRead()
         }
         .onDisappear {
+            viewModel.unsubscribeFromRealtime()
             // Notify that we've left the chat so ChatListView can refresh
             NotificationCenter.default.post(name: .chatViewDismissed, object: nil)
         }
@@ -201,7 +202,7 @@ struct ChatMessageRow: View {
                         .padding(.horizontal, 16)
                         .padding(.vertical, 10)
                         .background(
-                            isCurrentUser ? StepCompColors.primary : Color(.systemGray6)
+                            isCurrentUser ? FitCompColors.primary : Color(.systemGray6)
                         )
                         .cornerRadius(18)
                         .contextMenu {
@@ -266,7 +267,7 @@ struct ChatInputBar: View {
                     } else {
                         ZStack {
                             Circle()
-                                .fill(text.trimmingCharacters(in: .whitespaces).isEmpty ? Color(.systemGray5) : StepCompColors.primary)
+                                .fill(text.trimmingCharacters(in: .whitespaces).isEmpty ? Color(.systemGray5) : FitCompColors.primary)
                                 .frame(width: 36, height: 36)
                             
                             Image(systemName: "arrow.up")
@@ -292,7 +293,7 @@ struct EmptyChatView: View {
         VStack(spacing: 16) {
             Image(systemName: "bubble.left.and.bubble.right")
                 .font(.system(size: 60))
-                .foregroundColor(StepCompColors.primary)
+                .foregroundColor(FitCompColors.primary)
             
             Text("Start the Conversation")
                 .font(.system(size: 20, weight: .bold))

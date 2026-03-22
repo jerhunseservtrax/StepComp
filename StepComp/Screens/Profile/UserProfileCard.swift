@@ -1,6 +1,6 @@
 //
 //  UserProfileCard.swift
-//  StepComp
+//  FitComp
 //
 //  Modern user profile card with gradient glow effect
 //
@@ -38,7 +38,7 @@ struct UserProfileCard: View {
             VStack(spacing: 0) {
                 if isLoading {
                     ProgressView()
-                        .progressViewStyle(CircularProgressViewStyle(tint: StepCompColors.primary))
+                        .progressViewStyle(CircularProgressViewStyle(tint: FitCompColors.primary))
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else if let profile = profile {
                     profileContent(profile: profile)
@@ -91,7 +91,7 @@ struct UserProfileCard: View {
                     .fill(
                         LinearGradient(
                             colors: [
-                                StepCompColors.primary.opacity(0.8),
+                                FitCompColors.primary.opacity(0.8),
                                 Color.orange.opacity(0.4)
                             ],
                             startPoint: .topLeading,
@@ -176,7 +176,7 @@ struct UserProfileCard: View {
                 VStack(spacing: 8) {
                     ZStack {
                         Circle()
-                            .fill(StepCompColors.primary.opacity(0.2))
+                            .fill(FitCompColors.primary.opacity(0.2))
                             .frame(width: 32, height: 32)
                         
                         Image(systemName: "flag.fill")
@@ -220,7 +220,7 @@ struct UserProfileCard: View {
     private var actionButtons: some View {
         if isProcessing {
             ProgressView()
-                .progressViewStyle(CircularProgressViewStyle(tint: StepCompColors.primary))
+                .progressViewStyle(CircularProgressViewStyle(tint: FitCompColors.primary))
                 .frame(height: 50)
         } else if isFriend {
             Button(action: { 
@@ -257,7 +257,7 @@ struct UserProfileCard: View {
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 14)
-                .background(StepCompColors.primary)
+                .background(FitCompColors.primary)
                 .foregroundColor(.black)
                 .cornerRadius(12)
             }
@@ -289,7 +289,7 @@ struct UserProfileCard: View {
                     .foregroundColor(.white)
                     .padding(.horizontal, 32)
                     .padding(.vertical, 12)
-                    .background(StepCompColors.primary)
+                    .background(FitCompColors.primary)
                     .cornerRadius(12)
             }
         }

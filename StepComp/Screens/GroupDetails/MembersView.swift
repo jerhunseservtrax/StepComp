@@ -1,6 +1,6 @@
 //
 //  MembersView.swift
-//  StepComp
+//  FitComp
 //
 //  Challenge members list view (no podium, just clean list)
 //
@@ -22,7 +22,7 @@ struct MembersView: View {
         let userId = sessionViewModel.currentUser?.id ?? ""
         _viewModel = StateObject(
             wrappedValue: LeaderboardViewModel(
-                challengeService: ChallengeService(),
+                challengeService: ChallengeService.shared,
                 challengeId: challengeId,
                 userId: userId
             )
@@ -79,7 +79,7 @@ struct MembersView: View {
                     VStack(spacing: 12) {
                         if viewModel.isLoading {
                             ProgressView()
-                                .progressViewStyle(CircularProgressViewStyle(tint: StepCompColors.primary))
+                                .progressViewStyle(CircularProgressViewStyle(tint: FitCompColors.primary))
                                 .padding(.vertical, 60)
                         } else if viewModel.entries.isEmpty {
                             EmptyMembersView()

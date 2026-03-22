@@ -1,6 +1,6 @@
 //
 //  MainTabView.swift
-//  StepComp
+//  FitComp
 //
 //  Created by Jeffery Erhunse on 12/24/25.
 //
@@ -15,7 +15,7 @@ class TabSelectionManager: ObservableObject {
     @Published var selectedTab: Int = 0
     
     func switchToCreateTab() {
-        selectedTab = 2
+        selectedTab = 1
     }
 }
 
@@ -36,30 +36,24 @@ struct MainTabView: View {
                     Label("Home", systemImage: "house.fill")
                 }
                 .tag(0)
-            
-            FriendsView(sessionViewModel: sessionViewModel)
-                .tabItem {
-                    Label("Friends", systemImage: "person.2.fill")
-                }
-                .tag(1)
-            
+
             ChallengesView(sessionViewModel: sessionViewModel)
                 .tabItem {
                     Label("Challenges", systemImage: "trophy.fill")
                 }
-                .tag(2)
-            
-            WorkoutsView()
+                .tag(1)
+
+            MetricsView(sessionViewModel: sessionViewModel)
                 .tabItem {
-                    Label("Workouts", systemImage: "dumbbell.fill")
+                    Label("Metrics", systemImage: "chart.bar.fill")
                 }
-                .tag(3)
-            
+                .tag(2)
+
             SettingsView(sessionViewModel: sessionViewModel)
                 .tabItem {
                     Label("Settings", systemImage: "gearshape.fill")
                 }
-                .tag(4)
+                .tag(3)
         }
         .onAppear {
             setupTabBarAppearance(for: colorScheme)
@@ -101,14 +95,14 @@ struct MainTabView: View {
                 .font: UIFont.systemFont(ofSize: 11, weight: .medium)
             ]
         } else {
-            // Light mode: Light background, yellow accent
+            // Light mode: Light background, blue accent
             appearance.backgroundColor = UIColor.systemBackground
             appearance.shadowColor = UIColor.black.withAlphaComponent(0.1)
             
-            // Yellow selected color
-            appearance.stackedLayoutAppearance.selected.iconColor = UIColor(red: 0.976, green: 0.961, blue: 0.024, alpha: 1.0)
+            // Blue selected color
+            appearance.stackedLayoutAppearance.selected.iconColor = UIColor(red: 0.0, green: 0.48, blue: 1.0, alpha: 1.0)
             appearance.stackedLayoutAppearance.selected.titleTextAttributes = [
-                .foregroundColor: UIColor(red: 0.976, green: 0.961, blue: 0.024, alpha: 1.0),
+                .foregroundColor: UIColor(red: 0.0, green: 0.48, blue: 1.0, alpha: 1.0),
                 .font: UIFont.systemFont(ofSize: 11, weight: .semibold)
             ]
             

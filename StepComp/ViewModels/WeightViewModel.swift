@@ -1,6 +1,6 @@
 //
 //  WeightViewModel.swift
-//  StepComp
+//  FitComp
 //
 //  Created by Jeffery Erhunse on 2/23/26.
 //
@@ -22,7 +22,7 @@ class WeightViewModel: ObservableObject {
     private let healthKitService: HealthKitService
     
     private init() {
-        self.healthKitService = HealthKitService()
+        self.healthKitService = HealthKitService.shared
         loadEntries()
         
         // Sync with HealthKit on init

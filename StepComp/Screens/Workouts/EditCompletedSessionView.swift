@@ -1,6 +1,6 @@
 //
 //  EditCompletedSessionView.swift
-//  StepComp
+//  FitComp
 //
 //  Created by AI Assistant on 2/17/26.
 //
@@ -25,7 +25,7 @@ struct EditCompletedSessionView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                StepCompColors.background.ignoresSafeArea()
+                FitCompColors.background.ignoresSafeArea()
                 
                 ScrollView {
                     VStack(spacing: 20) {
@@ -33,11 +33,11 @@ struct EditCompletedSessionView: View {
                         VStack(alignment: .leading, spacing: 8) {
                             Text(session.workoutName)
                                 .font(.system(size: 24, weight: .black))
-                                .foregroundColor(StepCompColors.textPrimary)
+                                .foregroundColor(FitCompColors.textPrimary)
                             
                             Text(formatDate(session.endTime))
                                 .font(.system(size: 14, weight: .semibold))
-                                .foregroundColor(StepCompColors.textSecondary)
+                                .foregroundColor(FitCompColors.textSecondary)
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.horizontal, 20)
@@ -60,7 +60,7 @@ struct EditCompletedSessionView: View {
                     Button("Cancel") {
                         dismiss()
                     }
-                    .foregroundColor(StepCompColors.textPrimary)
+                    .foregroundColor(FitCompColors.textPrimary)
                 }
                 
                 ToolbarItem(placement: .navigationBarTrailing) {
@@ -69,7 +69,7 @@ struct EditCompletedSessionView: View {
                         dismiss()
                     }
                     .fontWeight(.bold)
-                    .foregroundColor(StepCompColors.primary)
+                    .foregroundColor(FitCompColors.primary)
                 }
             }
         }
@@ -115,7 +115,7 @@ struct EditExerciseCard: View {
             // Exercise name
             Text(exercise.exercise.name)
                 .font(.system(size: 18, weight: .bold))
-                .foregroundColor(StepCompColors.textPrimary)
+                .foregroundColor(FitCompColors.textPrimary)
             
             // Sets
             VStack(spacing: 12) {
@@ -171,22 +171,22 @@ struct EditSetRow: View {
             // Set number
             Text("Set \(set.setNumber)")
                 .font(.system(size: 14, weight: .semibold))
-                .foregroundColor(StepCompColors.textSecondary)
+                .foregroundColor(FitCompColors.textSecondary)
                 .frame(width: 50, alignment: .leading)
             
             // Weight input
             VStack(alignment: .leading, spacing: 4) {
                 Text("Weight (\(unitManager.weightUnit))")
                     .font(.system(size: 10, weight: .bold))
-                    .foregroundColor(StepCompColors.textSecondary)
+                    .foregroundColor(FitCompColors.textSecondary)
                     .textCase(.uppercase)
                 
                 TextField("0", text: $displayWeight)
                     .keyboardType(.decimalPad)
                     .font(.system(size: 16, weight: .bold))
-                    .foregroundColor(StepCompColors.textPrimary)
+                    .foregroundColor(FitCompColors.textPrimary)
                     .padding(12)
-                    .background(StepCompColors.textSecondary.opacity(0.1))
+                    .background(FitCompColors.textSecondary.opacity(0.1))
                     .cornerRadius(12)
                     .focused($focusedField, equals: .weight)
                     .onTapGesture {
@@ -208,15 +208,15 @@ struct EditSetRow: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text("Reps")
                     .font(.system(size: 10, weight: .bold))
-                    .foregroundColor(StepCompColors.textSecondary)
+                    .foregroundColor(FitCompColors.textSecondary)
                     .textCase(.uppercase)
                 
                 TextField("0", text: $displayReps)
                     .keyboardType(.numberPad)
                     .font(.system(size: 16, weight: .bold))
-                    .foregroundColor(StepCompColors.textPrimary)
+                    .foregroundColor(FitCompColors.textPrimary)
                     .padding(12)
-                    .background(StepCompColors.textSecondary.opacity(0.1))
+                    .background(FitCompColors.textSecondary.opacity(0.1))
                     .cornerRadius(12)
                     .focused($focusedField, equals: .reps)
                     .onTapGesture {

@@ -1,5 +1,5 @@
 -- ============================================
--- StepComp Database Setup Script (Updated)
+-- FitComp Database Setup Script (Updated)
 -- ============================================
 -- Run this script in Supabase Dashboard → SQL Editor
 -- This updates the schema to include first_name and last_name

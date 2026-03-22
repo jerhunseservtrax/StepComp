@@ -1,6 +1,6 @@
 //
-//  StepCompProgressStyles.swift
-//  StepComp
+//  FitCompProgressStyles.swift
+//  FitComp
 //
 //  Gradient progress indicators and charts
 //
@@ -13,7 +13,7 @@ struct CircularProgressRing: View {
     let progress: Double // 0.0 to 1.0
     var lineWidth: CGFloat = 12
     var size: CGFloat = 120
-    var gradient: LinearGradient = StepCompColors.coralGradient
+    var gradient: LinearGradient = FitCompColors.coralGradient
     var showPercentage: Bool = true
     
     var body: some View {
@@ -21,7 +21,7 @@ struct CircularProgressRing: View {
             // Background ring
             Circle()
                 .stroke(
-                    StepCompColors.surface,
+                    FitCompColors.surface,
                     style: StrokeStyle(lineWidth: lineWidth, lineCap: .round)
                 )
             
@@ -58,7 +58,7 @@ struct GradientProgressBar: View {
     let progress: Double // 0.0 to 1.0
     var height: CGFloat = 8
     var cornerRadius: CGFloat = 4
-    var gradient: LinearGradient = StepCompColors.coralGradient
+    var gradient: LinearGradient = FitCompColors.coralGradient
     var showGlow: Bool = true
     
     var body: some View {
@@ -66,7 +66,7 @@ struct GradientProgressBar: View {
             ZStack(alignment: .leading) {
                 // Background
                 RoundedRectangle(cornerRadius: cornerRadius)
-                    .fill(StepCompColors.surface)
+                    .fill(FitCompColors.surface)
                     .frame(height: height)
                 
                 // Progress fill
@@ -74,7 +74,7 @@ struct GradientProgressBar: View {
                     .fill(gradient)
                     .frame(width: geometry.size.width * progress, height: height)
                     .shadow(
-                        color: showGlow ? StepCompColors.primary.opacity(0.5) : .clear,
+                        color: showGlow ? FitCompColors.primary.opacity(0.5) : .clear,
                         radius: 8,
                         y: 0
                     )
@@ -92,7 +92,7 @@ struct SegmentedProgressBar: View {
     let totalSteps: Int
     var height: CGFloat = 6
     var spacing: CGFloat = 4
-    var gradient: LinearGradient = StepCompColors.coralGradient
+    var gradient: LinearGradient = FitCompColors.coralGradient
     
     var body: some View {
         HStack(spacing: spacing) {
@@ -101,7 +101,7 @@ struct SegmentedProgressBar: View {
                     .fill(
                         index < currentStep
                             ? AnyShapeStyle(gradient)
-                            : AnyShapeStyle(StepCompColors.surface)
+                            : AnyShapeStyle(FitCompColors.surface)
                     )
                     .frame(height: height)
             }
@@ -116,7 +116,7 @@ struct StatProgressCard: View {
     let value: String
     let subtitle: String
     let progress: Double
-    var gradient: LinearGradient = StepCompColors.coralGradient
+    var gradient: LinearGradient = FitCompColors.coralGradient
     var icon: String = "figure.walk"
     
     var body: some View {
@@ -161,13 +161,13 @@ struct StatProgressCard: View {
 
 struct MiniProgressIndicator: View {
     let progress: Double
-    var gradient: LinearGradient = StepCompColors.coralGradient
+    var gradient: LinearGradient = FitCompColors.coralGradient
     
     var body: some View {
         GeometryReader { geometry in
             ZStack(alignment: .leading) {
                 RoundedRectangle(cornerRadius: 2)
-                    .fill(StepCompColors.surface)
+                    .fill(FitCompColors.surface)
                 
                 RoundedRectangle(cornerRadius: 2)
                     .fill(gradient)
@@ -182,7 +182,7 @@ struct MiniProgressIndicator: View {
 
 #Preview("Progress Components") {
     ZStack {
-        StepCompColors.background
+        FitCompColors.background
             .ignoresSafeArea()
         
         ScrollView {

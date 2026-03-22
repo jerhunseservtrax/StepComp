@@ -1,6 +1,6 @@
 //
 //  ActivityChartView.swift
-//  StepComp
+//  FitComp
 //
 //  Weekly activity chart with smooth curve
 //
@@ -149,7 +149,7 @@ struct ActivityChartView: View {
                     PeriodTab(
                         title: period.rawValue,
                         isSelected: selectedPeriod == period && !isUsingCustomRange,
-                        primaryColor: StepCompColors.primary
+                        primaryColor: FitCompColors.primary
                     ) {
                         withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
                             selectedPeriod = period
@@ -176,7 +176,7 @@ struct ActivityChartView: View {
                 ActivityGraph(
                     data: chartData,
                     currentDayIndex: currentDayIndex,
-                    primaryColor: StepCompColors.primary,
+                    primaryColor: FitCompColors.primary,
                     accentAmber: accentAmber
                 )
                 .frame(height: 160)
@@ -523,7 +523,7 @@ struct ActivityGraph: View {
                     }
                     .fill(
                         LinearGradient(
-                            gradient: Gradient(colors: [StepCompColors.primary.opacity(0.5 * animationProgress), StepCompColors.primary.opacity(0)]),
+                            gradient: Gradient(colors: [FitCompColors.primary.opacity(0.5 * animationProgress), FitCompColors.primary.opacity(0)]),
                             startPoint: .top,
                             endPoint: .bottom
                         )
@@ -716,7 +716,7 @@ struct DateRangePickerSheet: View {
                     
                     DatePicker("", selection: $tempStartDate, in: ...Date(), displayedComponents: .date)
                         .datePickerStyle(.graphical)
-                        .tint(StepCompColors.primary)
+                        .tint(FitCompColors.primary)
                 }
                 
                 // End Date Picker
@@ -727,7 +727,7 @@ struct DateRangePickerSheet: View {
                     
                     DatePicker("", selection: $tempEndDate, in: tempStartDate...Date(), displayedComponents: .date)
                         .datePickerStyle(.graphical)
-                        .tint(StepCompColors.primary)
+                        .tint(FitCompColors.primary)
                 }
                 
                 Spacer()
@@ -750,7 +750,7 @@ struct DateRangePickerSheet: View {
                         onApply()
                     }
                     .fontWeight(.semibold)
-                    .foregroundColor(StepCompColors.primary)
+                    .foregroundColor(FitCompColors.primary)
                 }
             }
         }

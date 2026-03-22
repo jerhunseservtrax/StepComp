@@ -7,11 +7,11 @@
 -- Authentication > Users > Add User
 --
 -- Create these 5 users:
--- 1. Email: sarah.test@stepcomp.app | Password: TestPassword123!
--- 2. Email: mike.test@stepcomp.app | Password: TestPassword123!
--- 3. Email: emma.test@stepcomp.app | Password: TestPassword123!
--- 4. Email: alex.test@stepcomp.app | Password: TestPassword123!
--- 5. Email: jordan.test@stepcomp.app | Password: TestPassword123!
+-- 1. Email: sarah.test@fitcomp.app
+-- 2. Email: mike.test@fitcomp.app
+-- 3. Email: emma.test@fitcomp.app
+-- 4. Email: alex.test@fitcomp.app
+-- 5. Email: jordan.test@fitcomp.app
 --
 -- Then run this script - it will automatically find the user IDs by email.
 -- ============================================
@@ -28,7 +28,7 @@ SELECT
   165, -- 165 cm
   60   -- 60 kg
 FROM auth.users u
-WHERE u.email = 'sarah.test@stepcomp.app'
+WHERE u.email = 'sarah.test@fitcomp.app'
 ON CONFLICT (id) DO UPDATE SET
   username = EXCLUDED.username,
   first_name = EXCLUDED.first_name,
@@ -49,7 +49,7 @@ SELECT
   180, -- 180 cm
   75   -- 75 kg
 FROM auth.users u
-WHERE u.email = 'mike.test@stepcomp.app'
+WHERE u.email = 'mike.test@fitcomp.app'
 ON CONFLICT (id) DO UPDATE SET
   username = EXCLUDED.username,
   first_name = EXCLUDED.first_name,
@@ -70,7 +70,7 @@ SELECT
   170, -- 170 cm
   65   -- 65 kg
 FROM auth.users u
-WHERE u.email = 'emma.test@stepcomp.app'
+WHERE u.email = 'emma.test@fitcomp.app'
 ON CONFLICT (id) DO UPDATE SET
   username = EXCLUDED.username,
   first_name = EXCLUDED.first_name,
@@ -91,7 +91,7 @@ SELECT
   175, -- 175 cm
   70   -- 70 kg
 FROM auth.users u
-WHERE u.email = 'alex.test@stepcomp.app'
+WHERE u.email = 'alex.test@fitcomp.app'
 ON CONFLICT (id) DO UPDATE SET
   username = EXCLUDED.username,
   first_name = EXCLUDED.first_name,
@@ -112,7 +112,7 @@ SELECT
   172, -- 172 cm
   68   -- 68 kg
 FROM auth.users u
-WHERE u.email = 'jordan.test@stepcomp.app'
+WHERE u.email = 'jordan.test@fitcomp.app'
 ON CONFLICT (id) DO UPDATE SET
   username = EXCLUDED.username,
   first_name = EXCLUDED.first_name,
@@ -131,11 +131,11 @@ SELECT
 FROM profiles p
 JOIN auth.users u ON p.id = u.id
 WHERE u.email IN (
-  'sarah.test@stepcomp.app',
-  'mike.test@stepcomp.app',
-  'emma.test@stepcomp.app',
-  'alex.test@stepcomp.app',
-  'jordan.test@stepcomp.app'
+  'sarah.test@fitcomp.app',
+  'mike.test@fitcomp.app',
+  'emma.test@fitcomp.app',
+  'alex.test@fitcomp.app',
+  'jordan.test@fitcomp.app'
 )
 ORDER BY u.email;
 

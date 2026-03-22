@@ -1,6 +1,6 @@
 //
 //  ChallengeChatViewModel.swift
-//  StepComp
+//  FitComp
 //
 //  Manages challenge group chat with realtime updates
 //

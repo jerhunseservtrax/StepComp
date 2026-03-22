@@ -1,6 +1,6 @@
 //
 //  HapticManager.swift
-//  StepComp
+//  FitComp
 //
 //  Haptic feedback for premium app feel
 //

@@ -1,6 +1,6 @@
 //
 //  FriendsView.swift
-//  StepComp
+//  FitComp
 //
 //  Created by Jeffery Erhunse on 12/24/25.
 //
@@ -12,6 +12,7 @@ struct FriendsView: View {
     @ObservedObject var sessionViewModel: SessionViewModel
     @EnvironmentObject var friendsService: FriendsService
     @StateObject private var vm: FriendsViewModel
+    @State private var discoverSearchTask: Task<Void, Never>?
 
     init(sessionViewModel: SessionViewModel) {
         self.sessionViewModel = sessionViewModel
@@ -23,7 +24,7 @@ struct FriendsView: View {
     var body: some View {
         ZStack {
             // Background
-            StepCompColors.background
+            FitCompColors.background
                 .ignoresSafeArea()
             
             VStack(spacing: 0) {
@@ -49,7 +50,7 @@ struct FriendsView: View {
             if vm.selectedProfileUserId != nil {
                 let _ = {
                     let logData = "{\"location\":\"FriendsView.swift:51\",\"message\":\"Profile card should be visible\",\"data\":{\"userId\":\"\(vm.selectedProfileUserId ?? "nil")\"},\"timestamp\":\(Int(Date().timeIntervalSince1970 * 1000)),\"sessionId\":\"debug-session\",\"runId\":\"profile-tap\",\"hypothesisId\":\"H3,H4\"}\n"
-                    if let fileHandle = FileHandle(forWritingAtPath: "/Users/jefferyerhunse/GitRepos/StepComp/.cursor/debug.log") { fileHandle.seekToEndOfFile(); fileHandle.write(logData.data(using: .utf8)!); fileHandle.closeFile() }
+                    if let fileHandle = FileHandle(forWritingAtPath: "/Users/jefferyerhunse/GitRepos/FitComp/.cursor/debug.log") { fileHandle.seekToEndOfFile(); fileHandle.write(logData.data(using: .utf8)!); fileHandle.closeFile() }
                 }()
                 
                 UserProfileCard(
@@ -136,7 +137,7 @@ struct FriendsView: View {
                     ForEach(vm.friendItems) { item in
                         FriendRow(item: item, isEditing: vm.isEditing) {
                             let logData = "{\"location\":\"FriendsView.swift:113\",\"message\":\"FriendRow onRemove tapped\",\"data\":{\"friendId\":\"\(item.id)\",\"username\":\"\(item.profile.username)\"},\"timestamp\":\(Int(Date().timeIntervalSince1970 * 1000)),\"sessionId\":\"debug-session\",\"runId\":\"swipe-debug\",\"hypothesisId\":\"C\"}\n"
-                            if let fileHandle = FileHandle(forWritingAtPath: "/Users/jefferyerhunse/GitRepos/StepComp/.cursor/debug.log") { fileHandle.seekToEndOfFile(); fileHandle.write(logData.data(using: .utf8)!); fileHandle.closeFile() }
+                            if let fileHandle = FileHandle(forWritingAtPath: "/Users/jefferyerhunse/GitRepos/FitComp/.cursor/debug.log") { fileHandle.seekToEndOfFile(); fileHandle.write(logData.data(using: .utf8)!); fileHandle.closeFile() }
                             Task { await vm.remove(friendshipId: item.id) }
                         } onAccept: {
                             Task { await vm.accept(friendshipId: item.id) }
@@ -144,20 +145,20 @@ struct FriendsView: View {
                         .contentShape(Rectangle())
                         .onTapGesture {
                             let logData = "{\"location\":\"FriendsView.swift:127\",\"message\":\"FriendRow tapped - showing profile\",\"data\":{\"userId\":\"\(item.profile.id)\",\"username\":\"\(item.profile.username)\",\"hasButtons\":\(item.isIncomingRequest || item.isOutgoingRequest)},\"timestamp\":\(Int(Date().timeIntervalSince1970 * 1000)),\"sessionId\":\"debug-session\",\"runId\":\"profile-tap\",\"hypothesisId\":\"A,B\"}\n"
-                            if let fileHandle = FileHandle(forWritingAtPath: "/Users/jefferyerhunse/GitRepos/StepComp/.cursor/debug.log") { fileHandle.seekToEndOfFile(); fileHandle.write(logData.data(using: .utf8)!); fileHandle.closeFile() }
+                            if let fileHandle = FileHandle(forWritingAtPath: "/Users/jefferyerhunse/GitRepos/FitComp/.cursor/debug.log") { fileHandle.seekToEndOfFile(); fileHandle.write(logData.data(using: .utf8)!); fileHandle.closeFile() }
                             
                             let logDataBeforeSet = "{\"location\":\"FriendsView.swift:135\",\"message\":\"About to set selectedProfileUserId\",\"data\":{\"currentValue\":\"\(vm.selectedProfileUserId ?? "nil")\",\"newValue\":\"\(item.profile.id)\"},\"timestamp\":\(Int(Date().timeIntervalSince1970 * 1000)),\"sessionId\":\"debug-session\",\"runId\":\"profile-tap\",\"hypothesisId\":\"A,H3\"}\n"
-                            if let fileHandle = FileHandle(forWritingAtPath: "/Users/jefferyerhunse/GitRepos/StepComp/.cursor/debug.log") { fileHandle.seekToEndOfFile(); fileHandle.write(logDataBeforeSet.data(using: .utf8)!); fileHandle.closeFile() }
+                            if let fileHandle = FileHandle(forWritingAtPath: "/Users/jefferyerhunse/GitRepos/FitComp/.cursor/debug.log") { fileHandle.seekToEndOfFile(); fileHandle.write(logDataBeforeSet.data(using: .utf8)!); fileHandle.closeFile() }
                             
                             vm.selectedProfileUserId = item.profile.id
                             
                             let logDataAfterSet = "{\"location\":\"FriendsView.swift:143\",\"message\":\"After setting selectedProfileUserId\",\"data\":{\"selectedValue\":\"\(vm.selectedProfileUserId ?? "nil")\"},\"timestamp\":\(Int(Date().timeIntervalSince1970 * 1000)),\"sessionId\":\"debug-session\",\"runId\":\"profile-tap\",\"hypothesisId\":\"A,H3\"}\n"
-                            if let fileHandle = FileHandle(forWritingAtPath: "/Users/jefferyerhunse/GitRepos/StepComp/.cursor/debug.log") { fileHandle.seekToEndOfFile(); fileHandle.write(logDataAfterSet.data(using: .utf8)!); fileHandle.closeFile() }
+                            if let fileHandle = FileHandle(forWritingAtPath: "/Users/jefferyerhunse/GitRepos/FitComp/.cursor/debug.log") { fileHandle.seekToEndOfFile(); fileHandle.write(logDataAfterSet.data(using: .utf8)!); fileHandle.closeFile() }
                         }
                         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                             Button(role: .destructive) {
                                 let logData = "{\"location\":\"FriendsView.swift:120\",\"message\":\"Swipe action Remove button tapped\",\"data\":{\"friendId\":\"\(item.id)\",\"username\":\"\(item.profile.username)\"},\"timestamp\":\(Int(Date().timeIntervalSince1970 * 1000)),\"sessionId\":\"debug-session\",\"runId\":\"swipe-debug\",\"hypothesisId\":\"A,C\"}\n"
-                                if let fileHandle = FileHandle(forWritingAtPath: "/Users/jefferyerhunse/GitRepos/StepComp/.cursor/debug.log") { fileHandle.seekToEndOfFile(); fileHandle.write(logData.data(using: .utf8)!); fileHandle.closeFile() }
+                                if let fileHandle = FileHandle(forWritingAtPath: "/Users/jefferyerhunse/GitRepos/FitComp/.cursor/debug.log") { fileHandle.seekToEndOfFile(); fileHandle.write(logData.data(using: .utf8)!); fileHandle.closeFile() }
                                 Task { await vm.remove(friendshipId: item.id) }
                             } label: {
                                 Label("Remove", systemImage: "person.badge.minus")
@@ -184,7 +185,7 @@ struct FriendsView: View {
         }
         .listStyle(.insetGrouped)
         .scrollContentBackground(.hidden)
-        .background(StepCompColors.background)
+        .background(FitCompColors.background)
         .environment(\.editMode, .constant(.inactive)) // Disable iPad edit mode toggle
     }
 
@@ -207,24 +208,36 @@ struct FriendsView: View {
                     .onTapGesture {
                         vm.selectedProfileUserId = profile.id
                     }
+                    .onAppear {
+                        if profile.id == vm.discoverResults.prefix(10).last?.id {
+                            Task {
+                                await vm.loadMoreDiscover()
+                            }
+                        }
+                    }
                 }
                 
                 if vm.discoverResults.isEmpty && !vm.discoverQuery.isEmpty {
                     Text("No public profiles found.")
-                        .foregroundColor(StepCompColors.textSecondary)
+                        .foregroundColor(FitCompColors.textSecondary)
                         .padding(.top, 40)
                 }
             }
             .padding(.bottom, 100) // Space for bottom navigation
         }
-        .background(StepCompColors.background)
+        .background(FitCompColors.background)
         .onChange(of: vm.discoverQuery) { _, _ in
-            Task { 
+            discoverSearchTask?.cancel()
+            discoverSearchTask = Task {
                 try? await Task.sleep(nanoseconds: 350_000_000)
-                try? await vm.refreshDiscover() 
+                guard !Task.isCancelled else { return }
+                try? await vm.refreshDiscover()
             }
         }
         .dismissKeyboardOnTap()
+        .onDisappear {
+            discoverSearchTask?.cancel()
+        }
     }
 
     // MARK: - Sharing helper
@@ -289,10 +302,10 @@ struct FriendRow: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(fullName)
                     .font(.headline)
-                    .foregroundColor(StepCompColors.textPrimary)
+                    .foregroundColor(FitCompColors.textPrimary)
                 Text("@\(item.profile.username)")
                     .font(.subheadline)
-                    .foregroundColor(StepCompColors.textSecondary)
+                    .foregroundColor(FitCompColors.textSecondary)
             }
 
             Spacer()
@@ -300,7 +313,7 @@ struct FriendRow: View {
             if item.isIncomingRequest {
                 Button("Accept") { 
                     let logData = "{\"location\":\"FriendsView.swift:291\",\"message\":\"Accept button tapped in FriendRow\",\"data\":{\"userId\":\"\(item.profile.id)\"},\"timestamp\":\(Int(Date().timeIntervalSince1970 * 1000)),\"sessionId\":\"debug-session\",\"runId\":\"button-tap\",\"hypothesisId\":\"H2\"}\n"
-                    if let fileHandle = FileHandle(forWritingAtPath: "/Users/jefferyerhunse/GitRepos/StepComp/.cursor/debug.log") { fileHandle.seekToEndOfFile(); fileHandle.write(logData.data(using: .utf8)!); fileHandle.closeFile() }
+                    if let fileHandle = FileHandle(forWritingAtPath: "/Users/jefferyerhunse/GitRepos/FitComp/.cursor/debug.log") { fileHandle.seekToEndOfFile(); fileHandle.write(logData.data(using: .utf8)!); fileHandle.closeFile() }
                     onAccept() 
                 }
                 .buttonStyle(.borderedProminent)
@@ -346,12 +359,12 @@ struct DiscoverProfileRow: View {
     var body: some View {
         cardContent
             .padding(16)
-            .background(StepCompColors.surface)
+            .background(FitCompColors.surface)
             .cornerRadius(16)
             .shadow(color: Color.black.opacity(0.05), radius: 8, x: 0, y: 2)
             .overlay(
                 RoundedRectangle(cornerRadius: 16)
-                    .stroke(StepCompColors.textSecondary.opacity(0.05), lineWidth: 0.5)
+                    .stroke(FitCompColors.textSecondary.opacity(0.05), lineWidth: 0.5)
             )
     }
     
@@ -373,12 +386,12 @@ struct DiscoverProfileRow: View {
         VStack(alignment: .leading, spacing: 4) {
             Text(profile.displayName ?? profile.username)
                 .font(.system(size: 16, weight: .bold))
-                .foregroundColor(StepCompColors.textPrimary)
+                .foregroundColor(FitCompColors.textPrimary)
                 .lineLimit(1)
             
             Text("@\(profile.username)")
                 .font(.system(size: 13, weight: .medium))
-                .foregroundColor(StepCompColors.textSecondary)
+                .foregroundColor(FitCompColors.textSecondary)
                 .lineLimit(1)
         }
     }
@@ -399,11 +412,11 @@ struct DiscoverProfileRow: View {
         Button(action: onAdd) {
             Text("Add")
                 .font(.system(size: 14, weight: .black))
-                .foregroundColor(StepCompColors.buttonTextOnPrimary)
+                .foregroundColor(FitCompColors.buttonTextOnPrimary)
                 .frame(minWidth: 80)
                 .frame(height: 40)
                 .padding(.horizontal, 20)
-                .background(StepCompColors.primary)
+                .background(FitCompColors.primary)
                 .cornerRadius(20)
                 .shadow(color: Color.black.opacity(0.05), radius: 2, x: 0, y: 1)
         }
@@ -418,11 +431,11 @@ struct DiscoverProfileRow: View {
                     .font(.system(size: 12))
             }
             .font(.system(size: 14, weight: .medium))
-            .foregroundColor(StepCompColors.textSecondary)
+            .foregroundColor(FitCompColors.textSecondary)
             .frame(minWidth: 80)
             .frame(height: 40)
             .padding(.horizontal, 20)
-            .background(StepCompColors.surfaceElevated)
+            .background(FitCompColors.surfaceElevated)
             .cornerRadius(20)
             .overlay(
                 RoundedRectangle(cornerRadius: 20)
@@ -435,11 +448,11 @@ struct DiscoverProfileRow: View {
     private var friendButton: some View {
         Text("Friend")
             .font(.system(size: 14, weight: .bold))
-            .foregroundColor(StepCompColors.textSecondary)
+            .foregroundColor(FitCompColors.textSecondary)
             .frame(minWidth: 80)
             .frame(height: 40)
             .padding(.horizontal, 20)
-            .background(StepCompColors.surfaceElevated)
+            .background(FitCompColors.surfaceElevated)
             .cornerRadius(20)
     }
 }
@@ -468,10 +481,10 @@ struct PrivateDiscoveryCard: View {
             }) {
                 Label("Share Friend Invite Link", systemImage: "link")
                     .font(.system(size: 16, weight: .semibold))
-                    .foregroundColor(StepCompColors.textPrimary)
+                    .foregroundColor(FitCompColors.textPrimary)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 12)
-                    .background(StepCompColors.primary)
+                    .background(FitCompColors.primary)
                     .cornerRadius(10)
             }
         }
@@ -499,7 +512,7 @@ struct AvatarCircle: View {
     var body: some View {
         ZStack {
             Circle()
-                .fill(StepCompColors.surfaceElevated)
+                .fill(FitCompColors.surfaceElevated)
                 .frame(width: size, height: size)
 
             if let url = url, !url.isEmpty {
@@ -509,12 +522,12 @@ struct AvatarCircle: View {
                         .font(.system(size: size * 0.5))
                 } else if let validURL = URL(string: url), url.hasPrefix("http") {
                     // Valid URL - load image
-                    AsyncImage(url: validURL) { img in
+                    CachedAsyncImage(url: validURL) { img in
                         img.resizable().scaledToFill()
                     } placeholder: {
                         Text(fallback)
                             .font(.system(size: size * 0.4, weight: .bold))
-                            .foregroundColor(StepCompColors.textSecondary)
+                            .foregroundColor(FitCompColors.textSecondary)
                     }
                     .frame(width: size, height: size)
                     .clipShape(Circle())
@@ -522,13 +535,13 @@ struct AvatarCircle: View {
                     // Invalid URL - show fallback
                     Text(fallback)
                         .font(.system(size: size * 0.4, weight: .bold))
-                        .foregroundColor(StepCompColors.textSecondary)
+                        .foregroundColor(FitCompColors.textSecondary)
                 }
             } else {
                 // No URL - show fallback
                 Text(fallback)
                     .font(.system(size: size * 0.4, weight: .bold))
-                    .foregroundColor(StepCompColors.textSecondary)
+                    .foregroundColor(FitCompColors.textSecondary)
             }
         }
     }
@@ -548,11 +561,11 @@ struct FriendsHeader: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(selectedTab == .friends ? "Friends" : "Discover")
                         .font(.system(size: 30, weight: .bold))
-                        .foregroundColor(StepCompColors.textPrimary)
+                        .foregroundColor(FitCompColors.textPrimary)
                     
                     Text(selectedTab == .friends ? "Your circle" : "Find new friends")
                         .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(StepCompColors.textSecondary)
+                        .foregroundColor(FitCompColors.textSecondary)
                 }
                 
                 Spacer()
@@ -586,20 +599,20 @@ struct FriendsHeader: View {
             // Search bar
             HStack {
                 Image(systemName: "magnifyingglass")
-                    .foregroundColor(StepCompColors.textSecondary)
+                    .foregroundColor(FitCompColors.textSecondary)
                     .font(.system(size: 20))
                 
                 TextField("Search profiles...", text: $searchText)
                     .textFieldStyle(.plain)
-                    .foregroundColor(StepCompColors.textPrimary)
+                    .foregroundColor(FitCompColors.textPrimary)
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 14)
-            .background(StepCompColors.surface)
+            .background(FitCompColors.surface)
             .cornerRadius(20)
             .overlay(
                 RoundedRectangle(cornerRadius: 20)
-                    .stroke(StepCompColors.textSecondary.opacity(0.1), lineWidth: 1)
+                    .stroke(FitCompColors.textSecondary.opacity(0.1), lineWidth: 1)
             )
             .padding(.horizontal, 24)
             .padding(.bottom, 8)
@@ -613,10 +626,10 @@ struct FriendsHeader: View {
                 }) {
                     Text("My Friends")
                         .font(.system(size: 14, weight: selectedTab == .friends ? .bold : .bold))
-                        .foregroundColor(selectedTab == .friends ? StepCompColors.textPrimary : StepCompColors.textSecondary)
+                        .foregroundColor(selectedTab == .friends ? FitCompColors.textPrimary : FitCompColors.textSecondary)
                         .frame(maxWidth: .infinity)
                         .frame(height: 48)
-                        .background(selectedTab == .friends ? StepCompColors.surface : Color.clear)
+                        .background(selectedTab == .friends ? FitCompColors.surface : Color.clear)
                         .cornerRadius(24)
                         .shadow(color: selectedTab == .friends ? Color.black.opacity(0.05) : Color.clear, radius: 1, x: 0, y: 1)
                         .overlay(
@@ -633,10 +646,10 @@ struct FriendsHeader: View {
                 }) {
                     Text("Discover")
                         .font(.system(size: 14, weight: selectedTab == .discover ? .bold : .bold))
-                        .foregroundColor(selectedTab == .discover ? StepCompColors.textPrimary : StepCompColors.textSecondary)
+                        .foregroundColor(selectedTab == .discover ? FitCompColors.textPrimary : FitCompColors.textSecondary)
                         .frame(maxWidth: .infinity)
                         .frame(height: 48)
-                        .background(selectedTab == .discover ? StepCompColors.surface : Color.clear)
+                        .background(selectedTab == .discover ? FitCompColors.surface : Color.clear)
                         .cornerRadius(24)
                         .shadow(color: selectedTab == .discover ? Color.black.opacity(0.05) : Color.clear, radius: 1, x: 0, y: 1)
                         .overlay(
@@ -653,7 +666,7 @@ struct FriendsHeader: View {
             .padding(.bottom, 16)
         }
         .background(
-            StepCompColors.surface.opacity(0.8)
+            FitCompColors.surface.opacity(0.8)
                 .background(.ultraThinMaterial)
         )
     }
@@ -672,7 +685,7 @@ struct FriendsTabButton: View {
                     .foregroundColor(isSelected ? .black : .secondary)
                 
                 Rectangle()
-                    .fill(isSelected ? StepCompColors.primary : Color.clear)
+                    .fill(isSelected ? FitCompColors.primary : Color.clear)
                     .frame(height: 3)
                     .cornerRadius(1.5)
             }

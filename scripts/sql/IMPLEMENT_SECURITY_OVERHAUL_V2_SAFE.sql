@@ -337,11 +337,29 @@ SECURITY DEFINER
 SET search_path = public
 STABLE
 AS $$
+    -- Authorization gate: requester must be a member, creator, or challenge is public.
+    -- This prevents IDOR access to private challenge leaderboards.
+    WITH access_check AS (
+        SELECT 1
+        FROM public.challenges c
+        WHERE c.id = p_challenge_id
+          AND (
+              c.is_public = TRUE
+              OR c.created_by = auth.uid()
+              OR EXISTS (
+                  SELECT 1
+                  FROM public.challenge_members cm_auth
+                  WHERE cm_auth.challenge_id = c.id
+                    AND cm_auth.user_id = auth.uid()
+              )
+          )
+    ),
     -- Step 1: Get all challenge members
-    WITH challenge_members AS (
+    challenge_members AS (
         SELECT cm.user_id
         FROM public.challenge_members cm
         WHERE cm.challenge_id = p_challenge_id
+          AND EXISTS (SELECT 1 FROM access_check)
     ),
     -- Step 2: Get challenge date range
     challenge_info AS (
@@ -396,10 +414,26 @@ SECURITY DEFINER
 SET search_path = public
 STABLE
 AS $$
-    WITH challenge_members AS (
+    WITH access_check AS (
+        SELECT 1
+        FROM public.challenges c
+        WHERE c.id = p_challenge_id
+          AND (
+              c.is_public = TRUE
+              OR c.created_by = auth.uid()
+              OR EXISTS (
+                  SELECT 1
+                  FROM public.challenge_members cm_auth
+                  WHERE cm_auth.challenge_id = c.id
+                    AND cm_auth.user_id = auth.uid()
+              )
+          )
+    ),
+    challenge_members AS (
         SELECT cm.user_id
         FROM public.challenge_members cm
         WHERE cm.challenge_id = p_challenge_id
+          AND EXISTS (SELECT 1 FROM access_check)
     ),
     today_steps AS (
         SELECT 

@@ -1,6 +1,6 @@
 //
 //  ChallengeService.swift
-//  StepComp
+//  FitComp
 //
 //  Created by Jeffery Erhunse on 12/24/25.
 //
@@ -13,8 +13,10 @@ import Supabase
 
 @MainActor
 final class ChallengeService: ObservableObject {
+    static let shared = ChallengeService()
     @Published var challenges: [Challenge] = []
     @Published var leaderboardEntries: [String: [LeaderboardEntry]] = [:] // challengeId: entries
+    @Published var lastErrorMessage: String?
     
     private let challengesKey = "challenges"
     private let leaderboardKey = "leaderboard"
@@ -23,11 +25,7 @@ final class ChallengeService: ObservableObject {
     init(useSupabase: Bool = true) {
         self.useSupabase = useSupabase
         #if canImport(Supabase)
-        if useSupabase {
-            Task {
-                await loadChallengesFromSupabase()
-            }
-        } else {
+        if !useSupabase {
             loadChallenges()
             loadLeaderboards()
         }
@@ -674,21 +672,27 @@ final class ChallengeService: ObservableObject {
             let session = try await supabase.auth.session
             let userId = session.user.id.uuidString
             
+            let pageSize = 200
             // Load challenges where user is creator
-            let createdChallenges: [SupabaseChallenge] = try await supabase
-                .from("challenges")
-                .select()
-                .eq("created_by", value: userId)
-                .execute()
-                .value
+            let createdChallenges: [SupabaseChallenge] = try await RetryUtility.withExponentialBackoff {
+                try await supabase
+                    .from("challenges")
+                    .select()
+                    .eq("created_by", value: userId)
+                    .range(from: 0, to: pageSize - 1)
+                    .execute()
+                    .value
+            }
             
             // Load challenges where user is a member
-            let memberRecords: [ChallengeMember] = try await supabase
-                .from("challenge_members")
-                .select()
-                .eq("user_id", value: userId)
-                .execute()
-                .value
+            let memberRecords: [ChallengeMember] = try await RetryUtility.withExponentialBackoff {
+                try await supabase
+                    .from("challenge_members")
+                    .select()
+                    .eq("user_id", value: userId)
+                    .execute()
+                    .value
+            }
             
             let memberChallengeIds = memberRecords.map { $0.challengeId }
             
@@ -699,6 +703,7 @@ final class ChallengeService: ObservableObject {
                     .from("challenges")
                     .select()
                     .in("id", values: memberChallengeIds)
+                    .range(from: 0, to: pageSize - 1)
                     .execute()
                     .value
             }
@@ -711,17 +716,25 @@ final class ChallengeService: ObservableObject {
                 }
             }
             
+            // Batch-load challenge members to avoid N+1 queries.
+            let challengeIds = allChallenges.map(\.id)
+            var membersByChallengeId: [String: [ChallengeMember]] = [:]
+            if !challengeIds.isEmpty {
+                let allMembers: [ChallengeMember] = try await supabase
+                    .from("challenge_members")
+                    .select()
+                    .in("challenge_id", values: challengeIds)
+                    .execute()
+                    .value
+
+                membersByChallengeId = Dictionary(grouping: allMembers, by: \.challengeId)
+            }
+
             // Convert to app Challenge model
             var loadedChallenges: [Challenge] = []
             
             for supabaseChallenge in allChallenges {
-                // Get challenge members to build participantIds
-                let members: [ChallengeMember] = try await supabase
-                    .from("challenge_members")
-                    .select()
-                    .eq("challenge_id", value: supabaseChallenge.id)
-                    .execute()
-                    .value
+                let members = membersByChallengeId[supabaseChallenge.id] ?? []
                 
                 let participantIds = members.map { $0.userId }
                 
@@ -770,6 +783,7 @@ final class ChallengeService: ObservableObject {
             }
         } catch {
             print("⚠️ Error loading challenges from Supabase: \(error.localizedDescription)")
+            lastErrorMessage = error.localizedDescription
             // Fallback to local storage
             loadChallenges()
         }

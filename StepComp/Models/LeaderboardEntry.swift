@@ -1,6 +1,6 @@
 //
 //  LeaderboardEntry.swift
-//  StepComp
+//  FitComp
 //
 //  Model for leaderboard entries (computed server-side)
 //

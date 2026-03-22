@@ -1,6 +1,6 @@
 //
 //  AvatarView.swift
-//  StepComp
+//  FitComp
 //
 //  Created by Jeffery Erhunse on 12/24/25.
 //
@@ -49,20 +49,12 @@ struct AvatarView: View {
             if let avatarURL = avatarURL, !avatarURL.isEmpty {
                 if isValidURL {
                     // Display image from URL
-                    AsyncImage(url: URL(string: avatarURL)) { phase in
-                        switch phase {
-                        case .success(let image):
-                            image
-                                .resizable()
-                                .aspectRatio(contentMode: .fill)
-                        case .failure:
-                            placeholderView
-                        case .empty:
-                            ProgressView()
-                                .frame(width: size, height: size)
-                        @unknown default:
-                            placeholderView
-                        }
+                    CachedAsyncImage(url: URL(string: avatarURL)) { image in
+                        image
+                            .resizable()
+                            .aspectRatio(contentMode: .fill)
+                    } placeholder: {
+                        placeholderView
                     }
                 } else if isEmoji {
                     // Display emoji avatar

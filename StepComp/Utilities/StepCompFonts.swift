@@ -1,6 +1,6 @@
 //
-//  StepCompFonts.swift
-//  StepComp
+//  FitCompFonts.swift
+//  FitComp
 //
 //  SF Pro Rounded typography system matching reference UI
 //
@@ -86,15 +86,15 @@ extension Font {
 
 extension View {
     func stepTextPrimary() -> some View {
-        self.foregroundColor(StepCompColors.textPrimary)
+        self.foregroundColor(FitCompColors.textPrimary)
     }
     
     func stepTextSecondary() -> some View {
-        self.foregroundColor(StepCompColors.textSecondary)
+        self.foregroundColor(FitCompColors.textSecondary)
     }
     
     func stepTextTertiary() -> some View {
-        self.foregroundColor(StepCompColors.textTertiary)
+        self.foregroundColor(FitCompColors.textTertiary)
     }
 }
 
@@ -105,35 +105,35 @@ extension View {
     func headingStyle() -> some View {
         self
             .font(.stepTitle())
-            .foregroundColor(StepCompColors.textPrimary)
+            .foregroundColor(FitCompColors.textPrimary)
     }
     
     /// Apply subheading style
     func subheadingStyle() -> some View {
         self
             .font(.stepTitleMedium())
-            .foregroundColor(StepCompColors.textPrimary)
+            .foregroundColor(FitCompColors.textPrimary)
     }
     
     /// Apply body text style
     func bodyStyle() -> some View {
         self
             .font(.stepBody())
-            .foregroundColor(StepCompColors.textSecondary)
+            .foregroundColor(FitCompColors.textSecondary)
     }
     
     /// Apply caption/label style (muted, smaller)
     func captionStyle() -> some View {
         self
             .font(.stepCaption())
-            .foregroundColor(StepCompColors.textTertiary)
+            .foregroundColor(FitCompColors.textTertiary)
     }
     
     /// Apply large number/stat style
     func statStyle() -> some View {
         self
             .font(.stepNumber())
-            .foregroundColor(StepCompColors.textPrimary)
+            .foregroundColor(FitCompColors.textPrimary)
     }
 }
 
@@ -144,21 +144,23 @@ import UIKit
 
 struct AppFontConfiguration {
     static func setupGlobalFonts() {
-        // Navigation bar fonts
         let navigationBarTitleFont = UIFont.systemFont(ofSize: 20, weight: .semibold).rounded()
         let navigationBarLargeTitleFont = UIFont.systemFont(ofSize: 34, weight: .bold).rounded()
         
+        let titleColor = UIColor { traitCollection in
+            traitCollection.userInterfaceStyle == .dark ? .white : UIColor(red: 0.15, green: 0.15, blue: 0.15, alpha: 1.0)
+        }
+        
         UINavigationBar.appearance().titleTextAttributes = [
             .font: navigationBarTitleFont,
-            .foregroundColor: UIColor.white
+            .foregroundColor: titleColor
         ]
         
         UINavigationBar.appearance().largeTitleTextAttributes = [
             .font: navigationBarLargeTitleFont,
-            .foregroundColor: UIColor.white
+            .foregroundColor: titleColor
         ]
         
-        // Bar button items
         let barButtonFont = UIFont.systemFont(ofSize: 16, weight: .medium).rounded()
         UIBarButtonItem.appearance().setTitleTextAttributes([
             .font: barButtonFont

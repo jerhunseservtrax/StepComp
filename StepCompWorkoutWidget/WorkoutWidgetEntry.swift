@@ -1,6 +1,6 @@
 //
 //  WorkoutWidgetEntry.swift
-//  StepCompWorkoutWidget
+//  FitCompWorkoutWidget
 //
 //  Lock screen widget: timer + current exercise when a workout is active.
 //

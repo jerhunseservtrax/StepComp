@@ -1,6 +1,6 @@
 //
 //  ProfileView.swift
-//  StepComp
+//  FitComp
 //
 //  Created by Jeffery Erhunse on 12/24/25.
 //
@@ -34,7 +34,7 @@ struct ProfileView: View {
         _viewModel = StateObject(
             wrappedValue: ProfileViewModel(
                 user: user,
-                challengeService: ChallengeService(),
+                challengeService: ChallengeService.shared,
                 authService: AuthService.shared,
                 healthKitService: nil // Will be updated in onAppear
             )
@@ -149,7 +149,7 @@ struct ProfileView: View {
                             showingEditAccount = true
                     }) {
                         Text("Edit")
-                            .foregroundColor(StepCompColors.primary)
+                            .foregroundColor(FitCompColors.primary)
                             .font(.system(size: 16, weight: .bold))
                     }
                 }
@@ -242,7 +242,7 @@ struct ProfileHeaderSection: View {
         VStack(spacing: 16) {
             // Avatar with edit button
             ZStack(alignment: .bottomTrailing) {
-                AsyncImage(url: URL(string: user.avatarURL ?? "")) { image in
+                CachedAsyncImage(url: URL(string: user.avatarURL ?? "")) { image in
                     image
                         .resizable()
                         .aspectRatio(contentMode: .fill)
@@ -268,7 +268,7 @@ struct ProfileHeaderSection: View {
                         .font(.system(size: 18, weight: .bold))
                         .foregroundColor(Color(red: 0.176, green: 0.133, blue: 0.059))
                         .frame(width: 28, height: 28)
-                        .background(StepCompColors.primary)
+                        .background(FitCompColors.primary)
                         .clipShape(Circle())
                         .overlay(
                             Circle()
@@ -286,7 +286,7 @@ struct ProfileHeaderSection: View {
             // Level and Badge
             HStack(spacing: 4) {
                 Image(systemName: "bolt.fill")
-                    .foregroundColor(StepCompColors.primary)
+                    .foregroundColor(FitCompColors.primary)
                     .font(.system(size: 20))
                 Text("Level \(level) • \(badge)")
                     .font(.system(size: 14, weight: .medium))
@@ -316,21 +316,21 @@ struct StatsCardsSection: View {
                 icon: "figure.walk",
                 value: formatSteps(totalSteps),
                 label: "Total Steps",
-                color: StepCompColors.primary
+                color: FitCompColors.primary
             )
             
             StatCard(
                 icon: "flame.fill",
                 value: formatNumber(calories),
                 label: "Calories",
-                color: StepCompColors.primary
+                color: FitCompColors.primary
             )
             
             StatCard(
                 icon: "timer",
                 value: "\(activeTime)h",
                 label: "Active Time",
-                color: StepCompColors.primary
+                color: FitCompColors.primary
             )
         }
     }
@@ -513,10 +513,10 @@ struct WeekBarChart: View {
                             
                             // Data bar
                             RoundedRectangle(cornerRadius: 2)
-                                .fill(isHighlighted ? StepCompColors.primary : StepCompColors.primary.opacity(0.3))
+                                .fill(isHighlighted ? FitCompColors.primary : FitCompColors.primary.opacity(0.3))
                                 .frame(height: geometry.size.height * height)
                                 .shadow(
-                                    color: isHighlighted ? StepCompColors.primary.opacity(0.3) : .clear,
+                                    color: isHighlighted ? FitCompColors.primary.opacity(0.3) : .clear,
                                     radius: isHighlighted ? 8 : 0
                                 )
                         }
@@ -525,7 +525,7 @@ struct WeekBarChart: View {
                     
                     Text(days[index])
                         .font(.system(size: 10, weight: .bold))
-                        .foregroundColor(index == 4 ? StepCompColors.primary : .gray)
+                        .foregroundColor(index == 4 ? FitCompColors.primary : .gray)
                 }
                 .frame(maxWidth: .infinity)
             }
@@ -546,7 +546,7 @@ struct MonthBarChart: View {
                         let height = maxValue > 0 ? CGFloat(data[index]) / CGFloat(maxValue) : 0.0
                         
                         RoundedRectangle(cornerRadius: 1)
-                            .fill(StepCompColors.primary.opacity(0.3))
+                            .fill(FitCompColors.primary.opacity(0.3))
                             .frame(height: geometry.size.height * height)
                     }
                     .frame(width: 8, height: 128)
@@ -570,7 +570,7 @@ struct BadgesSection: View {
                 Button(action: {}) {
                     Text("See All")
                         .font(.system(size: 14, weight: .bold))
-                        .foregroundColor(StepCompColors.primary)
+                        .foregroundColor(FitCompColors.primary)
                 }
             }
             
@@ -578,7 +578,7 @@ struct BadgesSection: View {
                 BadgeItem(
                     icon: "trophy.fill",
                     title: "First 10k",
-                    color: StepCompColors.primary,
+                    color: FitCompColors.primary,
                     isUnlocked: true
                 )
                 
@@ -645,7 +645,7 @@ struct BadgeItem: View {
                 
                 Image(systemName: icon)
                     .font(.system(size: 24))
-                    .foregroundColor(isUnlocked ? (color == StepCompColors.primary ? .black : .white) : .gray)
+                    .foregroundColor(isUnlocked ? (color == FitCompColors.primary ? .black : .white) : .gray)
             }
             
             Text(title)
@@ -672,6 +672,7 @@ struct EditAccountInfoSection: View {
     @State private var editingHeight: Int = 175
     @State private var editingWeight: Int = 68
     @State private var showingPassword = false
+    @ObservedObject private var unitManager = UnitPreferenceManager.shared
     
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -708,35 +709,90 @@ struct EditAccountInfoSection: View {
                 // Height and Weight (Editable)
                 HStack(spacing: 16) {
                     VStack(alignment: .leading, spacing: 8) {
-                        Text("Height (cm)")
+                        Text(unitManager.unitSystem == .metric ? "Height (cm)" : "Height (ft/in)")
                             .font(.system(size: 12, weight: .semibold))
                             .foregroundColor(.secondary)
-                        
-                        TextField("175", value: $editingHeight, format: .number)
-                            .keyboardType(.numberPad)
-                            .textFieldStyle(.plain)
-                            .padding(12)
-                            .background(Color(.systemGray6))
-                            .cornerRadius(8)
+
+                        if unitManager.unitSystem == .metric {
+                            TextField("175", value: $editingHeight, format: .number)
+                                .keyboardType(.numberPad)
+                                .textFieldStyle(.plain)
+                                .padding(12)
+                                .background(Color(.systemGray6))
+                                .cornerRadius(8)
+                                .onAppear {
+                                    editingHeight = height
+                                }
+                        } else {
+                            HStack(spacing: 8) {
+                                let components = unitManager.heightComponents(fromCm: editingHeight)
+                                TextField(
+                                    "5",
+                                    text: Binding(
+                                        get: { "\(components.feet)" },
+                                        set: { newValue in
+                                            guard let feet = Int(newValue) else { return }
+                                            let current = unitManager.heightComponents(fromCm: editingHeight)
+                                            editingHeight = unitManager.heightToStorage(feet: feet, inches: current.inches)
+                                        }
+                                    )
+                                )
+                                .keyboardType(.numberPad)
+                                .textFieldStyle(.plain)
+                                .padding(12)
+                                .background(Color(.systemGray6))
+                                .cornerRadius(8)
+
+                                TextField(
+                                    "8",
+                                    text: Binding(
+                                        get: { "\(components.inches)" },
+                                        set: { newValue in
+                                            guard let inches = Int(newValue) else { return }
+                                            let current = unitManager.heightComponents(fromCm: editingHeight)
+                                            editingHeight = unitManager.heightToStorage(feet: current.feet, inches: inches)
+                                        }
+                                    )
+                                )
+                                .keyboardType(.numberPad)
+                                .textFieldStyle(.plain)
+                                .padding(12)
+                                .background(Color(.systemGray6))
+                                .cornerRadius(8)
+                            }
                             .onAppear {
                                 editingHeight = height
                             }
+                        }
                     }
                     
                     VStack(alignment: .leading, spacing: 8) {
-                        Text("Weight (kg)")
+                        Text(unitManager.unitSystem == .metric ? "Weight (kg)" : "Weight (lbs)")
                             .font(.system(size: 12, weight: .semibold))
                             .foregroundColor(.secondary)
-                        
-                        TextField("70", value: $editingWeight, format: .number)
-                            .keyboardType(.numberPad)
-                            .textFieldStyle(.plain)
-                            .padding(12)
-                            .background(Color(.systemGray6))
-                            .cornerRadius(8)
-                            .onAppear {
-                                editingWeight = weight
-                            }
+
+                        TextField(
+                            unitManager.unitSystem == .metric ? "70" : "150",
+                            text: Binding(
+                                get: {
+                                    "\(unitManager.unitSystem == .metric ? editingWeight : unitManager.weightFromStorage(editingWeight))"
+                                },
+                                set: { newValue in
+                                    guard let parsed = Int(newValue) else { return }
+                                    editingWeight = unitManager.unitSystem == .metric
+                                        ? parsed
+                                        : unitManager.weightToStorage(parsed)
+                                }
+                            )
+                        )
+                        .keyboardType(.numberPad)
+                        .textFieldStyle(.plain)
+                        .padding(12)
+                        .background(Color(.systemGray6))
+                        .cornerRadius(8)
+                        .onAppear {
+                            editingWeight = weight
+                        }
                     }
                 }
                 
@@ -769,9 +825,9 @@ struct EditAccountInfoSection: View {
                         .foregroundColor(.black)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 14)
-                        .background(StepCompColors.primary)
+                        .background(FitCompColors.primary)
                         .cornerRadius(12)
-                        .shadow(color: StepCompColors.primary.opacity(0.5), radius: 10, x: 0, y: 4)
+                        .shadow(color: FitCompColors.primary.opacity(0.5), radius: 10, x: 0, y: 4)
                 }
             }
             .padding(20)
@@ -879,7 +935,7 @@ struct EditAccountInfoSheet: View {
                                 }) {
                                     ZStack {
                                         Circle()
-                                            .fill(StepCompColors.primary)
+                                            .fill(FitCompColors.primary)
                                             .frame(width: 36, height: 36)
                                         
                                         Image(systemName: "camera.fill")
@@ -980,9 +1036,9 @@ struct EditAccountInfoSheet: View {
                                     .tracking(1.2)
                                     .frame(maxWidth: .infinity)
                                     .padding(.vertical, 16)
-                                    .background(StepCompColors.primary)
+                                    .background(FitCompColors.primary)
                                     .cornerRadius(16)
-                                    .shadow(color: StepCompColors.primary.opacity(0.3), radius: 8, x: 0, y: 4)
+                                    .shadow(color: FitCompColors.primary.opacity(0.3), radius: 8, x: 0, y: 4)
                             }
                             .padding(.top, 16)
                         }
@@ -1046,7 +1102,7 @@ struct EditAccountField: View {
             
             Image(systemName: icon)
                 .font(.system(size: 20))
-                .foregroundColor(isFocused ? StepCompColors.primary : .gray.opacity(0.6))
+                .foregroundColor(isFocused ? FitCompColors.primary : .gray.opacity(0.6))
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 16)
@@ -1069,7 +1125,7 @@ struct EditAccountNumberField: View {
             
             TextField("", text: $value)
                 .font(.system(size: 18, weight: .black))
-                .foregroundColor(isFocused ? StepCompColors.primary : .gray)
+                .foregroundColor(isFocused ? FitCompColors.primary : .gray)
                             .multilineTextAlignment(.trailing)
                 .keyboardType(.numberPad)
                 .frame(width: 96)
@@ -1086,34 +1142,13 @@ struct EditAccountHeightWeightField: View {
     let isHeight: Bool
     
     @FocusState private var isFocused: Bool
-    @State private var unitSystem: String = "imperial" // Always use imperial (feet/inches, lbs)
-    
-    // Convert cm to feet/inches for display
-    private func heightInImperial(_ cm: Int) -> (feet: Int, inches: Int) {
-        let totalInches = Double(cm) / 2.54
-        let feet = Int(totalInches / 12)
-        let inches = Int(totalInches.truncatingRemainder(dividingBy: 12))
-        return (feet, inches)
-    }
-    
-    // Convert kg to lbs for display
-    private func weightInImperial(_ kg: Int) -> Int {
-        return Int(Double(kg) * 2.20462)
-    }
-    
-    // Convert feet/inches to cm
-    private func heightToMetric(feet: Int, inches: Int) -> Int {
-        let totalInches = Double(feet * 12 + inches)
-        return Int(totalInches * 2.54)
-    }
-    
-    // Convert lbs to kg
-    private func weightToMetric(_ lbs: Int) -> Int {
-        return Int(Double(lbs) / 2.20462)
-    }
+    @ObservedObject private var unitManager = UnitPreferenceManager.shared
     
     var displayLabel: String {
-        return isHeight ? "Height (ft/in)" : "Weight (lbs)"
+        if isHeight {
+            return unitManager.unitSystem == .metric ? "Height (cm)" : "Height (ft/in)"
+        }
+        return unitManager.unitSystem == .metric ? "Weight (kg)" : "Weight (lbs)"
     }
     
     var body: some View {
@@ -1125,69 +1160,75 @@ struct EditAccountHeightWeightField: View {
                         Spacer()
             
             if isHeight {
-                // Show feet/inches for height
-                HStack(spacing: 4) {
-                    let height = Int(value) ?? 0
-                    let imperial = heightInImperial(height)
-                    
-                    TextField("", text: Binding(
-                        get: { "\(imperial.feet)" },
-                        set: { newValue in
-                            if let feet = Int(newValue) {
-                                let currentImperial = heightInImperial(height)
-                                let newHeight = heightToMetric(feet: feet, inches: currentImperial.inches)
-                                value = "\(newHeight)"
+                if unitManager.unitSystem == .metric {
+                    TextField("", text: $value)
+                        .font(.system(size: 18, weight: .black))
+                        .foregroundColor(isFocused ? FitCompColors.primary : .gray)
+                        .multilineTextAlignment(.trailing)
+                        .keyboardType(.numberPad)
+                        .frame(width: 96)
+                        .focused($isFocused)
+                } else {
+                    HStack(spacing: 4) {
+                        let heightCm = Int(value) ?? 0
+                        let imperial = unitManager.heightComponents(fromCm: heightCm)
+                        
+                        TextField("", text: Binding(
+                            get: { "\(imperial.feet)" },
+                            set: { newValue in
+                                if let feet = Int(newValue) {
+                                    let current = unitManager.heightComponents(fromCm: heightCm)
+                                    value = "\(unitManager.heightToStorage(feet: feet, inches: current.inches))"
+                                }
                             }
-                        }
-                    ))
-                    .font(.system(size: 18, weight: .black))
-                    .foregroundColor(isFocused ? StepCompColors.primary : .gray)
-                    .multilineTextAlignment(.trailing)
-                    .keyboardType(.numberPad)
-                    .frame(width: 40)
-                    .focused($isFocused)
-                    
-                    Text("ft")
-                        .font(.system(size: 14))
-                        .foregroundColor(.gray)
-                    
-                    TextField("", text: Binding(
-                        get: { "\(imperial.inches)" },
-                        set: { newValue in
-                            if let inches = Int(newValue) {
-                                let currentImperial = heightInImperial(height)
-                                let newHeight = heightToMetric(feet: currentImperial.feet, inches: inches)
-                                value = "\(newHeight)"
+                        ))
+                        .font(.system(size: 18, weight: .black))
+                        .foregroundColor(isFocused ? FitCompColors.primary : .gray)
+                        .multilineTextAlignment(.trailing)
+                        .keyboardType(.numberPad)
+                        .frame(width: 40)
+                        .focused($isFocused)
+                        
+                        Text("ft")
+                            .font(.system(size: 14))
+                            .foregroundColor(.gray)
+                        
+                        TextField("", text: Binding(
+                            get: { "\(imperial.inches)" },
+                            set: { newValue in
+                                if let inches = Int(newValue) {
+                                    let current = unitManager.heightComponents(fromCm: heightCm)
+                                    value = "\(unitManager.heightToStorage(feet: current.feet, inches: inches))"
+                                }
                             }
-                        }
-                    ))
-                    .font(.system(size: 18, weight: .black))
-                    .foregroundColor(isFocused ? StepCompColors.primary : .gray)
-                    .multilineTextAlignment(.trailing)
-                    .keyboardType(.numberPad)
-                    .frame(width: 40)
-                    
-                    Text("in")
-                        .font(.system(size: 14))
-                        .foregroundColor(.gray)
+                        ))
+                        .font(.system(size: 18, weight: .black))
+                        .foregroundColor(isFocused ? FitCompColors.primary : .gray)
+                        .multilineTextAlignment(.trailing)
+                        .keyboardType(.numberPad)
+                        .frame(width: 40)
+                        
+                        Text("in")
+                            .font(.system(size: 14))
+                            .foregroundColor(.gray)
+                    }
                 }
             } else {
-                // Show weight in lbs
                 TextField("", text: Binding(
                     get: {
                         let metricValue = Int(value) ?? 0
-                        return metricValue > 0 ? "\(weightInImperial(metricValue))" : ""
+                        return metricValue > 0 ? "\(unitManager.weightFromStorage(metricValue))" : ""
                     },
                     set: { newValue in
                         if let inputValue = Int(newValue) {
-                            value = "\(weightToMetric(inputValue))"
+                            value = "\(unitManager.weightToStorage(inputValue))"
                         } else {
                             value = ""
                         }
                     }
                 ))
                 .font(.system(size: 18, weight: .black))
-                .foregroundColor(isFocused ? StepCompColors.primary : .gray)
+                .foregroundColor(isFocused ? FitCompColors.primary : .gray)
                 .multilineTextAlignment(.trailing)
                 .keyboardType(.numberPad)
                 .frame(width: 96)
@@ -1312,7 +1353,7 @@ struct SettingToggleRow: View {
             Spacer()
             
             Toggle("", isOn: $isOn)
-                .tint(StepCompColors.primary)
+                .tint(FitCompColors.primary)
         }
         .padding(16)
     }

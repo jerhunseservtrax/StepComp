@@ -1,6 +1,6 @@
 //
 //  TransformationPhoto.swift
-//  StepComp
+//  FitComp
 //
 //  Created by Jeffery Erhunse on 2/23/26.
 //

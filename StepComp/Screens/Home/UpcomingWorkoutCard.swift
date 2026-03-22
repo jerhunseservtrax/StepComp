@@ -1,6 +1,6 @@
 //
 //  UpcomingWorkoutCard.swift
-//  StepComp
+//  FitComp
 //
 //  Created by Jeffery Erhunse on 2/16/26.
 //
@@ -39,23 +39,23 @@ struct UpcomingWorkoutCard: View {
                 // Workout Icon
                 ZStack {
                     Circle()
-                        .fill(StepCompColors.primary.opacity(0.2))
+                        .fill(FitCompColors.primary.opacity(0.2))
                         .frame(width: 56, height: 56)
                     
                     Image(systemName: "dumbbell.fill")
                         .font(.system(size: 24))
-                        .foregroundColor(StepCompColors.primary)
+                        .foregroundColor(FitCompColors.primary)
                 }
                 
                 // Workout Info
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Next Workout")
                         .font(.system(size: 12, weight: .semibold))
-                        .foregroundColor(StepCompColors.textSecondary)
+                        .foregroundColor(FitCompColors.textSecondary)
                     
                     Text(workout.name)
                         .font(.system(size: 18, weight: .bold))
-                        .foregroundColor(StepCompColors.textPrimary)
+                        .foregroundColor(FitCompColors.textPrimary)
                     
                     HStack(spacing: 4) {
                         Image(systemName: "calendar")
@@ -66,7 +66,7 @@ struct UpcomingWorkoutCard: View {
                         Text("\(workout.exercises.count) exercises")
                             .font(.system(size: 12, weight: .medium))
                     }
-                    .foregroundColor(StepCompColors.textSecondary)
+                    .foregroundColor(FitCompColors.textSecondary)
                 }
                 
                 Spacer()
@@ -74,14 +74,14 @@ struct UpcomingWorkoutCard: View {
                 // Arrow
                 Image(systemName: "chevron.right")
                     .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(StepCompColors.textSecondary)
+                    .foregroundColor(FitCompColors.textSecondary)
             }
             .padding(16)
             .background(
                 colorScheme == .dark ? Color.black : Color.white
             )
             .cornerRadius(20)
-            .shadow(color: StepCompColors.shadowSecondary, radius: 8, x: 0, y: 2)
+            .shadow(color: FitCompColors.shadowSecondary, radius: 8, x: 0, y: 2)
         }
         .buttonStyle(PlainButtonStyle())
         .sheet(isPresented: $showingWorkoutDetail) {
@@ -107,5 +107,5 @@ struct UpcomingWorkoutCard: View {
         onTap: {}
     )
     .padding()
-    .background(StepCompColors.background)
+    .background(FitCompColors.background)
 }

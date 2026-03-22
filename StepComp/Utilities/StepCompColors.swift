@@ -1,8 +1,8 @@
 //
-//  StepCompColors.swift
-//  StepComp
+//  FitCompColors.swift
+//  FitComp
 //
-//  Adaptive color system for StepComp (supports dark & light mode)
+//  Adaptive color system for FitComp (supports dark & light mode)
 //
 
 import SwiftUI
@@ -25,7 +25,7 @@ extension Color {
     }
 }
 
-enum StepCompColors {
+enum FitCompColors {
     // MARK: - Adaptive Backgrounds
     /// Main background - adapts to light/dark mode
     static let background = Color(
@@ -45,21 +45,21 @@ enum StepCompColors {
         dark: Color(red: 0.18, green: 0.23, blue: 0.31)     // Elevated cards #2E3B4F
     )
     
-    // MARK: - Primary Colors (Adaptive - coral in dark, yellow in light)
+    // MARK: - Primary Colors (Yellow-first brand system)
     static let primary = Color(
-        light: Color(red: 0.976, green: 0.961, blue: 0.024),  // Yellow in light mode
-        dark: Color(red: 1.0, green: 0.42, blue: 0.36)        // Coral in dark mode #FF6B5C
+        light: Color(red: 0.98, green: 0.80, blue: 0.08),      // Brand yellow #FACC15
+        dark: Color(red: 0.92, green: 0.70, blue: 0.03)        // Amber yellow #EAB308
     )
     
     static let accent = Color(
-        light: Color(red: 0.99, green: 0.76, blue: 0.20),     // Warm yellow in light
-        dark: Color(red: 0.99, green: 0.76, blue: 0.20)       // Same warm yellow #FDC233
+        light: Color(red: 0.96, green: 0.64, blue: 0.04),      // Orange accent #F59E0B
+        dark: Color(red: 0.99, green: 0.76, blue: 0.20)        // Warm yellow #FDC233
     )
     
     // Fixed colors (don't change with theme)
     static let coral = Color(red: 1.0, green: 0.42, blue: 0.36)         // Always coral #FF6B5C
-    static let yellow = Color(red: 0.976, green: 0.961, blue: 0.024)    // Always yellow
-    static let primaryYellow = Color(red: 0.976, green: 0.961, blue: 0.024) // Legacy yellow
+    static let yellow = Color(red: 0.98, green: 0.80, blue: 0.08)       // True yellow
+    static let primaryYellow = Color(red: 0.98, green: 0.80, blue: 0.08)
     
     // MARK: - Adaptive Text Colors
     static let textPrimary = Color(
@@ -97,11 +97,11 @@ enum StepCompColors {
     
     // MARK: - Gradients
     
-    /// Yellow gradient (for light mode buttons/elements)
+    /// Yellow gradient (brand primary)
     static let yellowGradient = LinearGradient(
         colors: [
-            Color(red: 0.976, green: 0.961, blue: 0.024),  // Yellow
-            Color(red: 0.99, green: 0.85, blue: 0.10)      // Slightly lighter yellow
+            Color(red: 0.98, green: 0.80, blue: 0.08),  // #FACC15
+            Color(red: 0.96, green: 0.64, blue: 0.04)   // #F59E0B
         ],
         startPoint: .topLeading,
         endPoint: .bottomTrailing
@@ -117,19 +117,19 @@ enum StepCompColors {
         endPoint: .bottomTrailing
     )
     
-    /// Adaptive primary gradient - yellow in light mode, coral in dark mode
+    /// Adaptive primary gradient - yellow-toned in both modes
     /// Usage: In your view, use @Environment(\.colorScheme) and call primaryGradient(for:)
     static func primaryGradient(for colorScheme: ColorScheme) -> LinearGradient {
-        colorScheme == .dark ? coralGradient : yellowGradient
+        colorScheme == .dark ? yellowGradient : yellowGradient
     }
     
-    /// Adaptive progress gradient - yellow in light mode, coral in dark mode
+    /// Adaptive progress gradient - yellow-toned in both modes
     static func progressGradient(for colorScheme: ColorScheme) -> LinearGradient {
-        colorScheme == .dark ? coralGradient : yellowGradient
+        colorScheme == .dark ? yellowGradient : yellowGradient
     }
     
     static let accentGradient = LinearGradient(
-        colors: [accent, Color(red: 1.0, green: 0.85, blue: 0.35)],
+        colors: [accent, Color(red: 0.90, green: 0.70, blue: 0.15)],
         startPoint: .topLeading,
         endPoint: .bottomTrailing
     )
@@ -184,10 +184,10 @@ enum StepCompColors {
     /// Angular gradient for circular progress (better visual)
     static let circularProgressGradient = AngularGradient(
         colors: [
-            Color(red: 1.0, green: 0.42, blue: 0.36),   // Coral
-            Color(red: 1.0, green: 0.52, blue: 0.46),   // Lighter coral
-            Color(red: 0.99, green: 0.76, blue: 0.20),  // Yellow
-            Color(red: 1.0, green: 0.42, blue: 0.36)    // Back to coral
+            Color(red: 0.98, green: 0.80, blue: 0.08),  // Yellow
+            Color(red: 0.96, green: 0.64, blue: 0.04),  // Amber
+            Color(red: 0.99, green: 0.76, blue: 0.20),  // Warm yellow
+            Color(red: 0.98, green: 0.80, blue: 0.08)   // Back to yellow
         ],
         center: .center,
         startAngle: .degrees(0),
@@ -220,11 +220,11 @@ enum StepCompColors {
 // MARK: - Color Extensions
 
 extension Color {
-    static let stepBackground = StepCompColors.background
-    static let stepSurface = StepCompColors.surface
-    static let stepPrimary = StepCompColors.primary
-    static let stepAccent = StepCompColors.accent
-    static let stepTextPrimary = StepCompColors.textPrimary
-    static let stepTextSecondary = StepCompColors.textSecondary
+    static let stepBackground = FitCompColors.background
+    static let stepSurface = FitCompColors.surface
+    static let stepPrimary = FitCompColors.primary
+    static let stepAccent = FitCompColors.accent
+    static let stepTextPrimary = FitCompColors.textPrimary
+    static let stepTextSecondary = FitCompColors.textSecondary
 }
 

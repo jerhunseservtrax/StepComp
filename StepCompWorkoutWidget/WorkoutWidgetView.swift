@@ -1,6 +1,6 @@
 //
 //  WorkoutWidgetView.swift
-//  StepCompWorkoutWidget
+//  FitCompWorkoutWidget
 //
 
 import SwiftUI

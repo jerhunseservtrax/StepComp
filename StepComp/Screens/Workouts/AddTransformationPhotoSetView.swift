@@ -1,6 +1,6 @@
 //
 //  AddTransformationPhotoSetView.swift
-//  StepComp
+//  FitComp
 //
 //  Created by Jeffery Erhunse on 2/27/26.
 //
@@ -40,13 +40,13 @@ struct AddTransformationPhotoSetView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                StepCompColors.background.ignoresSafeArea()
+                FitCompColors.background.ignoresSafeArea()
                 
                 ScrollView {
                     VStack(spacing: 20) {
                         Text("Add all three angles to track your transformation progress")
                             .font(.system(size: 14, weight: .medium))
-                            .foregroundColor(StepCompColors.textSecondary)
+                            .foregroundColor(FitCompColors.textSecondary)
                             .multilineTextAlignment(.center)
                             .padding(.horizontal)
                             .padding(.top, 10)
@@ -78,10 +78,10 @@ struct AddTransformationPhotoSetView: View {
                         Button(action: savePhotoSet) {
                             Text("Save Photo Set")
                                 .font(.system(size: 16, weight: .bold))
-                                .foregroundColor(allPhotosSelected ? .black : StepCompColors.textSecondary)
+                                .foregroundColor(allPhotosSelected ? .black : FitCompColors.textSecondary)
                                 .frame(maxWidth: .infinity)
                                 .frame(height: 56)
-                                .background(allPhotosSelected ? StepCompColors.primary : StepCompColors.textSecondary.opacity(0.2))
+                                .background(allPhotosSelected ? FitCompColors.primary : FitCompColors.textSecondary.opacity(0.2))
                                 .cornerRadius(28)
                         }
                         .disabled(!allPhotosSelected)
@@ -178,7 +178,7 @@ struct PhotoUploadCard: View {
             HStack {
                 Text(title)
                     .font(.system(size: 16, weight: .bold))
-                    .foregroundColor(StepCompColors.textPrimary)
+                    .foregroundColor(FitCompColors.textPrimary)
                 Spacer()
                 
                 if image != nil {
@@ -205,11 +205,11 @@ struct PhotoUploadCard: View {
                     
                     Text("No photo selected")
                         .font(.system(size: 14, weight: .medium))
-                        .foregroundColor(StepCompColors.textSecondary)
+                        .foregroundColor(FitCompColors.textSecondary)
                 }
                 .frame(height: 200)
                 .frame(maxWidth: .infinity)
-                .background(StepCompColors.background)
+                .background(FitCompColors.background)
             }
             
             // Action buttons
@@ -221,14 +221,14 @@ struct PhotoUploadCard: View {
                         Text("Camera")
                             .font(.system(size: 14, weight: .semibold))
                     }
-                    .foregroundColor(StepCompColors.primary)
+                    .foregroundColor(FitCompColors.primary)
                     .frame(maxWidth: .infinity)
                     .frame(height: 48)
                 }
                 .buttonStyle(.plain)
                 
                 Rectangle()
-                    .fill(StepCompColors.background)
+                    .fill(FitCompColors.background)
                     .frame(width: 1)
                 
                 Button(action: onLibraryPress) {
@@ -238,7 +238,7 @@ struct PhotoUploadCard: View {
                         Text("Library")
                             .font(.system(size: 14, weight: .semibold))
                     }
-                    .foregroundColor(StepCompColors.primary)
+                    .foregroundColor(FitCompColors.primary)
                     .frame(maxWidth: .infinity)
                     .frame(height: 48)
                 }
@@ -248,7 +248,7 @@ struct PhotoUploadCard: View {
         }
         .background(cardBackground)
         .cornerRadius(16)
-        .shadow(color: StepCompColors.shadowSecondary, radius: 8, x: 0, y: 2)
+        .shadow(color: FitCompColors.shadowSecondary, radius: 8, x: 0, y: 2)
     }
 }
 

@@ -1,6 +1,6 @@
 //
 //  FeedbackModels.swift
-//  StepComp
+//  FitComp
 //
 //  Created by Jeffery Erhunse
 

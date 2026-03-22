@@ -1,6 +1,6 @@
 //
 //  PendingRequestRow.swift
-//  StepComp
+//  FitComp
 //
 //  Row component for displaying pending friend requests
 //
@@ -53,7 +53,7 @@ struct PendingRequestRow: View {
                         .font(.system(size: 14, weight: .semibold))
                         .foregroundColor(.black)
                         .frame(width: 32, height: 32)
-                        .background(StepCompColors.primary)
+                        .background(FitCompColors.primary)
                         .clipShape(Circle())
                 }
                 .buttonStyle(PlainButtonStyle())

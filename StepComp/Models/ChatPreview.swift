@@ -1,6 +1,6 @@
 //
 //  ChatPreview.swift
-//  StepComp
+//  FitComp
 //
 //  Model for displaying chat previews in the chat list
 //

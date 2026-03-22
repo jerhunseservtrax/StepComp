@@ -1,6 +1,6 @@
 //
 //  JoinChallengeView.swift
-//  StepComp
+//  FitComp
 //
 //  Created by Jeffery Erhunse on 12/24/25.
 //
@@ -26,7 +26,7 @@ struct JoinChallengeView: View {
         let userId = sessionViewModel.currentUser?.id ?? ""
         _viewModel = StateObject(
             wrappedValue: JoinChallengeViewModel(
-                challengeService: ChallengeService(),
+                challengeService: ChallengeService.shared,
                 userId: userId
             )
         )
@@ -158,7 +158,7 @@ struct ChallengeInviteCard: View {
             case .shortTerm:
                 return [Color(red: 0.02, green: 0.59, blue: 0.41), Color(red: 0.02, green: 0.47, blue: 0.34)]
             case .fun:
-                return [StepCompColors.yellow, Color(red: 0.98, green: 0.76, blue: 0.25)]
+                return [FitCompColors.yellow, Color(red: 0.98, green: 0.76, blue: 0.25)]
             }
         }
         return [Color.blue.opacity(0.8), Color.purple.opacity(0.8)]
@@ -260,7 +260,7 @@ struct ChallengeInviteCard: View {
                     
                     Text("Level 3 • \(challenge.targetSteps.formatted()) Steps Goal")
                         .font(.system(size: 13, weight: .bold))
-                        .foregroundColor(StepCompColors.primary)
+                        .foregroundColor(FitCompColors.primary)
                         .textCase(.uppercase)
                         .tracking(0.5)
                 }
@@ -291,7 +291,7 @@ struct ChallengeInviteCard: View {
                         }
                         
                         Circle()
-                            .fill(StepCompColors.primary)
+                            .fill(FitCompColors.primary)
                             .frame(width: 36, height: 36)
                             .overlay(
                                 Text("+8")
@@ -396,7 +396,7 @@ struct TimerDigit: View {
         VStack(spacing: 8) {
             Text(String(format: "%02d", value))
                 .font(.system(size: 24, weight: .bold, design: .rounded))
-                .foregroundColor(isHighlighted ? StepCompColors.primary : .primary)
+                .foregroundColor(isHighlighted ? FitCompColors.primary : .primary)
                 .frame(maxWidth: .infinity)
                 .frame(height: 64)
                 .background(Color(.systemBackground))
@@ -437,7 +437,7 @@ struct InviteCodeInputView: View {
                     .cornerRadius(999)
                     .overlay(
                         RoundedRectangle(cornerRadius: 999)
-                            .stroke(inviteCode.isEmpty ? Color.clear : StepCompColors.primary, lineWidth: 2)
+                            .stroke(inviteCode.isEmpty ? Color.clear : FitCompColors.primary, lineWidth: 2)
                     )
                     .shadow(color: Color.black.opacity(0.02), radius: 4, x: 0, y: 2)
                 
@@ -485,9 +485,9 @@ struct ActionButtonsView: View {
                 .foregroundColor(.black)
                 .frame(maxWidth: .infinity)
                 .frame(height: 64)
-                .background(StepCompColors.primary)
+                .background(FitCompColors.primary)
                 .cornerRadius(999)
-                .shadow(color: StepCompColors.primary.opacity(0.3), radius: 30, x: 0, y: 8)
+                .shadow(color: FitCompColors.primary.opacity(0.3), radius: 30, x: 0, y: 8)
             }
             
             // Divider

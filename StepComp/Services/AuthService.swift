@@ -1,6 +1,6 @@
 //
 //  AuthService.swift
-//  StepComp
+//  FitComp
 //
 //  Created by Jeffery Erhunse on 12/24/25.
 //
@@ -22,23 +22,25 @@ final class AuthService: ObservableObject {
     @Published var isCheckingSession: Bool = true
     
     private let userDefaultsKey = "currentUser"
+    private let keychainUserAccount = "fitcomp.currentUser"
     private let useSupabase = true // Supabase is now configured and database tables are created
     
-    // MARK: - Test Account Credentials
-    // For testing purposes, use these credentials:
-    // Email: test@stepcomp.app
-    // Password: test123
-    // 
-    // Note: Any email/password combination will work in mock mode,
-    // but this test account will have pre-populated data for better testing.
-    
-    private let testAccountEmail = "test@stepcomp.app"
-    private let testAccountPassword = "test123"
+    // MARK: - Test Account Credentials (Debug-only)
+    #if DEBUG
+    private let testAccountEmail = "test@fitcomp.app"
     private let testAccountDisplayName = "Test User"
+    #endif
+    private var refreshSessionTask: Task<Bool, Never>?
+    #if canImport(Supabase)
+    private var authStateListenerTask: Task<Void, Never>?
+    #endif
     
     private init() {
         if useSupabase {
-            // Start session check - isCheckingSession is true until this completes
+            // Use Supabase auth state events to restore local session without requiring
+            // an immediate network refresh on cold start.
+            setupAuthStateListener()
+            // Belt-and-suspenders startup fallback in case initialSession event is delayed.
             checkSupabaseSession()
         } else {
             loadUser()
@@ -63,7 +65,7 @@ final class AuthService: ObservableObject {
     func checkSupabaseSession() {
         #if canImport(Supabase)
         Task {
-            await restoreSession()
+            await refreshAuthStateFromCurrentSession(markCheckingComplete: true)
         }
         #else
         // Supabase not available - use mock mode
@@ -72,43 +74,138 @@ final class AuthService: ObservableObject {
         #endif
     }
     
-    /// Restores the auth session from Supabase's internal storage.
-    /// This is the ONLY place session restoration should happen.
-    @MainActor
-    private func restoreSession() async {
-        #if canImport(Supabase)
-        defer {
+    #if canImport(Supabase)
+    private func setupAuthStateListener() {
+        authStateListenerTask?.cancel()
+        authStateListenerTask = Task { [weak self] in
+            guard let self else { return }
+            print("🔄 Starting auth state listener")
+            
+            for await (event, session) in await supabase.auth.authStateChanges {
+                if Task.isCancelled { break }
+                await self.handleAuthStateChange(event: event, session: session)
+            }
+        }
+    }
+    
+    private func handleAuthStateChange(event: AuthChangeEvent, session: Session?) async {
+        switch event {
+        case .initialSession:
+            if let session {
+                print("🔐 Initial session found for user: \(session.user.id)")
+                await applyAuthenticatedSession(session)
+            } else {
+                if let cachedUser = loadCachedUser() {
+                    print("ℹ️ No initial session from Supabase, restoring cached user while auth recovers")
+                    currentUser = cachedUser
+                    isAuthenticated = true
+                } else {
+                    print("ℹ️ No initial session and no cached user - showing login screen")
+                    applySignedOutState(
+                        deleteCachedUser: false,
+                        reason: "initialSession nil with no cached user",
+                        allowDuringStartupCheck: true
+                    )
+                }
+            }
             isCheckingSession = false
-            print("✅ Session restore complete - isCheckingSession = false")
+            print("✅ Initial auth session check complete")
+        case .signedIn:
+            guard let session else { return }
+            print("✅ Auth signed in for user: \(session.user.id)")
+            await applyAuthenticatedSession(session)
+            if isCheckingSession {
+                isCheckingSession = false
+            }
+        case .signedOut:
+            print("🚪 Auth signed out event received")
+            if isCheckingSession, let cachedUser = loadCachedUser() {
+                // Startup races can emit signedOut before session recovery completes.
+                // Keep local user state and let the manual fallback re-check Supabase.
+                print("ℹ️ Ignoring signed-out event during startup because cached user exists")
+                currentUser = cachedUser
+                isAuthenticated = true
+            } else {
+                applySignedOutState(
+                    deleteCachedUser: true,
+                    reason: "signedOut auth event",
+                    allowDuringStartupCheck: true
+                )
+            }
+            if isCheckingSession {
+                isCheckingSession = false
+            }
+        case .tokenRefreshed:
+            if let userId = session?.user.id {
+                print("✅ Auth token refreshed for user: \(userId)")
+            } else {
+                print("✅ Auth token refreshed")
+            }
+        default:
+            break
+        }
+    }
+    
+    private func applyAuthenticatedSession(_ session: Session) async {
+        let userId = session.user.id.uuidString
+        
+        // Keep profile loading in a standalone task so timeout does not cancel it.
+        // If timeout wins, we use cached data immediately and let profile update when it finishes.
+        let profileLoadTask = Task { @MainActor [weak self] in
+            _ = await self?.loadUserProfile(userId: userId)
+        }
+        let completedBeforeTimeout = await waitForProfileLoad(profileLoadTask, timeoutNanoseconds: 8_000_000_000)
+        if !completedBeforeTimeout {
+            print("⚠️ Profile load timed out — using cached data")
+            if let cachedUser = self.loadCachedUser() {
+                self.currentUser = cachedUser
+                self.isAuthenticated = true
+            }
         }
         
-        do {
-            // Supabase SDK automatically restores session from its internal storage
-            // This includes the access token AND refresh token
-            let session = try await supabase.auth.session
-            
-            print("🔐 Session found for user: \(session.user.id)")
-            
-            // Session exists - load user profile
-            await loadUserProfile(userId: session.user.id.uuidString)
-            
-            // If we have a valid session and profile, user has definitely completed onboarding
-            // This ensures the flag is restored when session is restored
-            if isAuthenticated && currentUser != nil {
-                UserDefaults.standard.set(true, forKey: "hasCompletedOnboarding")
-            }
-            
-        } catch {
-            // No session found - this is expected for:
-            // 1. First-time users
-            // 2. Users who explicitly logged out
-            // 
-            // Do NOT treat this as an error - just show login
-            print("ℹ️ No session found - showing login screen")
-            isAuthenticated = false
-            currentUser = nil
+        if isAuthenticated && currentUser != nil {
+            UserDefaults.standard.set(true, forKey: "hasCompletedOnboarding")
         }
-        #endif
+    }
+    
+    private func refreshAuthStateFromCurrentSession(markCheckingComplete: Bool = false) async {
+        do {
+            let session = try await supabase.auth.session
+            print("🔄 Manual session refresh found user: \(session.user.id)")
+            await applyAuthenticatedSession(session)
+            if markCheckingComplete && isCheckingSession {
+                isCheckingSession = false
+                print("✅ Startup manual auth session check complete")
+            }
+        } catch {
+            // Avoid forcing logout here. INITIAL_SESSION/SIGNED_OUT events are source of truth.
+            print("⚠️ Unable to refresh current session state: \(error.localizedDescription)")
+            if markCheckingComplete && isCheckingSession {
+                isCheckingSession = false
+                print("✅ Startup manual auth session check complete (no valid session)")
+            }
+        }
+    }
+    #endif
+    
+    private func applySignedOutState(
+        deleteCachedUser: Bool,
+        reason: String = "auth state update",
+        allowDuringStartupCheck: Bool = false
+    ) {
+        if isCheckingSession && !allowDuringStartupCheck {
+            print("ℹ️ Skipping signed-out state during startup check (\(reason))")
+            return
+        }
+
+        currentUser = nil
+        isAuthenticated = false
+        if deleteCachedUser {
+            KeychainStore.delete(account: keychainUserAccount)
+        }
+        
+        // Clear active workout state (draft, widget, live activity)
+        WorkoutViewModel.clearAllActiveWorkoutState()
     }
     
     /// Refreshes the session when a 401 is received.
@@ -117,21 +214,34 @@ final class AuthService: ObservableObject {
     @MainActor
     func refreshSessionOn401() async -> Bool {
         #if canImport(Supabase)
-        do {
-            print("🔄 Attempting to refresh session after 401...")
-            let refreshedSession = try await supabase.auth.refreshSession()
-            print("✅ Session refreshed successfully")
-            
-            // Reload profile with new session
-            await loadUserProfile(userId: refreshedSession.user.id.uuidString)
-            return true
-        } catch {
-            // Refresh failed - session is truly invalid
-            // This is the ONLY case where we force logout (besides manual logout)
-            print("❌ Session refresh failed - user must login again: \(error.localizedDescription)")
-            await forceLogout()
-            return false
+        if let existingTask = refreshSessionTask {
+            print("ℹ️ Session refresh already in progress, waiting for existing refresh")
+            return await existingTask.value
         }
+        
+        let task = Task { @MainActor [weak self] () -> Bool in
+            guard let self else { return false }
+            do {
+                print("🔄 Attempting to refresh session after 401...")
+                let refreshedSession = try await supabase.auth.refreshSession()
+                print("✅ Session refreshed successfully")
+                
+                // Reload profile with new session
+                await self.loadUserProfile(userId: refreshedSession.user.id.uuidString)
+                return true
+            } catch {
+                // Refresh failed - session is truly invalid
+                // This is the ONLY case where we force logout (besides manual logout)
+                print("❌ Session refresh failed - user must login again: \(error.localizedDescription)")
+                await self.forceLogout()
+                return false
+            }
+        }
+        
+        refreshSessionTask = task
+        let result = await task.value
+        refreshSessionTask = nil
+        return result
         #else
         return false
         #endif
@@ -141,16 +251,16 @@ final class AuthService: ObservableObject {
     @MainActor
     private func forceLogout() async {
         #if canImport(Supabase)
-        try? await supabase.auth.signOut()
+        do {
+            try await supabase.auth.signOut()
+            print("🚪 Force logout requested - waiting for signed-out event")
+        } catch {
+            print("⚠️ Force logout signOut failed, clearing local auth state: \(error.localizedDescription)")
+            applySignedOutState(deleteCachedUser: true)
+        }
+        #else
+        applySignedOutState(deleteCachedUser: true)
         #endif
-        currentUser = nil
-        isAuthenticated = false
-        UserDefaults.standard.removeObject(forKey: userDefaultsKey)
-        
-        // Clear active workout state (draft, widget, live activity)
-        WorkoutViewModel.clearAllActiveWorkoutState()
-        
-        print("🚪 User logged out")
     }
     
     func signIn(email: String, password: String) async throws {
@@ -466,25 +576,15 @@ final class AuthService: ObservableObject {
         
         #if canImport(Supabase)
         if useSupabase {
-            do {
-                // This clears the session from Supabase's internal storage
-                try await supabase.auth.signOut()
-                print("✅ Supabase sign out successful")
-            } catch {
-                print("⚠️ Error during Supabase sign out: \(error.localizedDescription)")
-                // Continue with local cleanup even if Supabase sign out fails
-            }
+            // This clears the session from Supabase's internal storage.
+            // Local cleanup is handled by the signed-out auth state event.
+            try await supabase.auth.signOut()
+            print("✅ Supabase sign out requested - awaiting signed-out event")
+            return
         }
         #endif
         
-        // Clear local state
-        currentUser = nil
-        isAuthenticated = false
-        UserDefaults.standard.removeObject(forKey: userDefaultsKey)
-        
-        // Clear active workout state (draft, widget, live activity)
-        WorkoutViewModel.clearAllActiveWorkoutState()
-        
+        applySignedOutState(deleteCachedUser: true)
         print("🚪 User logged out - will show login screen")
     }
     
@@ -789,6 +889,10 @@ final class AuthService: ObservableObject {
             
             print("✅ User profile loaded successfully - user is authenticated")
         } catch {
+            if Task.isCancelled {
+                print("ℹ️ Profile load task cancelled")
+                return
+            }
             print("⚠️ Error loading user profile: \(error.localizedDescription)")
             
             // If we can't load from database, try to use locally cached user
@@ -819,10 +923,34 @@ final class AuthService: ObservableObject {
             }
         }
     }
+
+    @MainActor
+    private func waitForProfileLoad(
+        _ profileLoadTask: Task<Void, Never>,
+        timeoutNanoseconds: UInt64
+    ) async -> Bool {
+        await withTaskGroup(of: Bool.self) { group in
+            group.addTask {
+                await profileLoadTask.value
+                return true
+            }
+            group.addTask {
+                try? await Task.sleep(nanoseconds: timeoutNanoseconds)
+                return false
+            }
+            
+            let completedBeforeTimeout = await group.next() ?? false
+            if completedBeforeTimeout {
+                // Cancel timeout task when profile load finishes first.
+                group.cancelAll()
+            }
+            return completedBeforeTimeout
+        }
+    }
     
     /// Load cached user from UserDefaults (for offline access)
     private func loadCachedUser() -> User? {
-        guard let data = UserDefaults.standard.data(forKey: userDefaultsKey) else {
+        guard let data = KeychainStore.load(account: keychainUserAccount) else {
             return nil
         }
         return try? JSONDecoder().decode(User.self, from: data)
@@ -971,15 +1099,25 @@ final class AuthService: ObservableObject {
         // Small delay to simulate network call
         try? await Task.sleep(nanoseconds: 300_000_000) // 0.3 seconds
         
-        // Check if this is the test account
+        #if DEBUG
+        // Check if this is the debug test account
         let isTestAccount = email.lowercased() == testAccountEmail.lowercased()
+        #else
+        let isTestAccount = false
+        #endif
         
         let user: User
         if isTestAccount {
-            // Create test account with some sample data
+            #if DEBUG
+            let mockDisplayName = testAccountDisplayName
+            let mockEmail = testAccountEmail
+            #else
+            let mockDisplayName = email.components(separatedBy: "@").first?.capitalized ?? "User"
+            let mockEmail = email
+            #endif
             user = User(
-                displayName: testAccountDisplayName,
-                email: testAccountEmail,
+                displayName: mockDisplayName,
+                email: mockEmail,
                 totalSteps: 12500,
                 totalChallenges: 3
             )
@@ -1021,12 +1159,12 @@ final class AuthService: ObservableObject {
     private func saveUser() {
         if let user = currentUser,
            let encoded = try? JSONEncoder().encode(user) {
-            UserDefaults.standard.set(encoded, forKey: userDefaultsKey)
+            KeychainStore.save(encoded, account: keychainUserAccount)
         }
     }
     
     private func loadUser() {
-        guard let data = UserDefaults.standard.data(forKey: userDefaultsKey),
+        guard let data = KeychainStore.load(account: keychainUserAccount),
               let user = try? JSONDecoder().decode(User.self, from: data) else {
             return
         }

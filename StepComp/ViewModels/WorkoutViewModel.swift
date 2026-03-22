@@ -1,6 +1,6 @@
 //
 //  WorkoutViewModel.swift
-//  StepComp
+//  FitComp
 //
 //  Created by Jeffery Erhunse on 2/16/26.
 //
@@ -19,6 +19,7 @@ private struct ActiveWorkoutDraft: Codable {
     let workoutTargetDate: Date?
 }
 
+@MainActor
 class WorkoutViewModel: ObservableObject {
     static let shared = WorkoutViewModel()
     
@@ -28,12 +29,14 @@ class WorkoutViewModel: ObservableObject {
     @Published var elapsedTime: TimeInterval = 0
     @Published var isPaused: Bool = false
     @Published var completedSessions: [CompletedWorkoutSession] = []
+    @Published var finishedSession: CompletedWorkoutSession?
     @Published var workoutTargetDate: Date? // The date this workout should be logged for
     
     private var timer: Timer?
     private var pauseStartTime: Date?
     private var totalPausedTime: TimeInterval = 0
     private let autoFinishThreshold: TimeInterval = 6 * 3600
+    private let analytics = WorkoutAnalyticsEngine()
     
     private init() {
         loadWorkouts()
@@ -62,33 +65,36 @@ class WorkoutViewModel: ObservableObject {
     }
     
     func getWorkoutsForDay(_ day: DayOfWeek) -> [Workout] {
-        return workouts.filter { $0.assignedDays.contains(day) }
+        return workouts.filter { !$0.isOneTime && $0.assignedDays.contains(day) }
     }
-    
+
+    func getWorkoutsForDate(_ date: Date) -> [Workout] {
+        let day = DayOfWeek.from(date: date)
+        let calendar = Calendar.current
+        return workouts.filter { workout in
+            if let oneTime = workout.oneTimeDate {
+                return calendar.isDate(oneTime, inSameDayAs: date)
+            }
+            return workout.assignedDays.contains(day)
+        }
+    }
+
     func getWorkoutsForToday() -> [Workout] {
-        let today = DayOfWeek.from(date: Date())
-        return getWorkoutsForDay(today)
+        return getWorkoutsForDate(Date())
     }
     
     func getNextWorkout() -> (workout: Workout, date: Date)? {
         let calendar = Calendar.current
         let today = Date()
-        
-        // Check today first
-        let todayDay = DayOfWeek.from(date: today)
-        if let todayWorkout = getWorkoutsForDay(todayDay).first {
-            return (todayWorkout, today)
-        }
-        
-        // Check next 7 days
-        for daysAhead in 1...7 {
-            guard let futureDate = calendar.date(byAdding: .day, value: daysAhead, to: today) else { continue }
-            let futureDay = DayOfWeek.from(date: futureDate)
-            if let workout = getWorkoutsForDay(futureDay).first {
-                return (workout, futureDate)
+
+        // Check today first, then the next 7 days
+        for daysAhead in 0...7 {
+            guard let date = calendar.date(byAdding: .day, value: daysAhead, to: today) else { continue }
+            if let workout = getWorkoutsForDate(date).first {
+                return (workout, date)
             }
         }
-        
+
         return nil
     }
     
@@ -117,8 +123,10 @@ class WorkoutViewModel: ObservableObject {
                     lastSet = lastExercise?.sets.first { $0.isCompleted && $0.weight != nil && $0.reps != nil }
                 }
                 
-                // Calculate progressive overload suggestions
+                // Calculate progressive overload suggestions using smart engine
                 let (suggestedWeight, suggestedReps) = calculateProgressiveOverload(
+                    exerciseName: workoutExercise.exercise.name,
+                    setNumber: set.setNumber,
                     previousWeight: lastSet?.weight,
                     previousReps: lastSet?.reps
                 )
@@ -218,7 +226,9 @@ class WorkoutViewModel: ObservableObject {
             workouts[workoutIndex].lastCompletedAt = Date()
             saveWorkouts()
         }
-        
+
+        finishedSession = completedSession
+
         stopTimer()
         currentSession = nil
         sessionStartTime = nil
@@ -308,7 +318,10 @@ class WorkoutViewModel: ObservableObject {
             
             // Try to base suggestions on the last set in this exercise
             let lastSet = session.exercises[exerciseIndex].sets.last
+            let exerciseName = session.exercises[exerciseIndex].exercise.name
             let (suggestedWeight, suggestedReps) = calculateProgressiveOverload(
+                exerciseName: exerciseName,
+                setNumber: setNumber,
                 previousWeight: lastSet?.weight ?? lastSet?.previousWeight,
                 previousReps: lastSet?.reps ?? lastSet?.previousReps
             )
@@ -333,11 +346,16 @@ class WorkoutViewModel: ObservableObject {
             // Remove the set
             session.exercises[exerciseIndex].sets.removeAll { $0.id == setId }
             
-            // Renumber remaining sets
-            for (index, _) in session.exercises[exerciseIndex].sets.enumerated() {
-                session.exercises[exerciseIndex].sets[index].setNumber = index + 1
+            // If no sets remain, remove the exercise entirely
+            if session.exercises[exerciseIndex].sets.isEmpty {
+                session.exercises.remove(at: exerciseIndex)
+            } else {
+                // Renumber remaining sets
+                for (index, _) in session.exercises[exerciseIndex].sets.enumerated() {
+                    session.exercises[exerciseIndex].sets[index].setNumber = index + 1
+                }
             }
-            
+
             currentSession = session
             HapticManager.shared.light()
             saveActiveWorkoutDraft()
@@ -348,11 +366,13 @@ class WorkoutViewModel: ObservableObject {
     
     private func startTimer() {
         timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
-            guard let self = self, let startTime = self.sessionStartTime else { return }
-            self.elapsedTime = Date().timeIntervalSince(startTime) - self.totalPausedTime
+            Task { @MainActor [weak self] in
+                guard let self, let startTime = self.sessionStartTime else { return }
+                self.elapsedTime = Date().timeIntervalSince(startTime) - self.totalPausedTime
 
-            if self.elapsedTime >= self.autoFinishThreshold {
-                self.finishWorkout()
+                if self.elapsedTime >= self.autoFinishThreshold {
+                    self.finishWorkout()
+                }
             }
         }
     }
@@ -431,52 +451,93 @@ class WorkoutViewModel: ObservableObject {
             .sorted { $0.endTime > $1.endTime }
             .first
     }
-    
-    /// Calculates progressive overload suggestions based on previous performance.
-    /// Progressive overload strategy:
-    /// - If previous reps >= 12: suggest weight increase (smaller weights get +2.5kg/5lbs, larger get +5kg/10lbs)
-    /// - If previous reps 8-11: suggest +2 reps (maintain weight)
-    /// - If previous reps < 8: suggest +2-3 reps (maintain weight)
-    /// - If no previous data: return nil so user can set their starting weight
-    private func calculateProgressiveOverload(previousWeight: Double?, previousReps: Int?) -> (suggestedWeight: Double?, suggestedReps: Int?) {
-        guard let prevWeight = previousWeight, let prevReps = previousReps else {
-            return (nil, nil)
+
+    /// Gathers up to the last 10 completed sets for a specific exercise and set number
+    /// across all completed sessions, sorted newest first.
+    func getExerciseHistory(exerciseName: String, setNumber: Int = 1, limit: Int = 10) -> [HistoricalSet] {
+        let nameLower = exerciseName.lowercased()
+        var results: [HistoricalSet] = []
+
+        // Walk sessions newest-first
+        let sortedSessions = completedSessions.sorted { $0.endTime > $1.endTime }
+
+        for session in sortedSessions {
+            guard results.count < limit else { break }
+
+            for exercise in session.exercises {
+                guard exercise.exercise.name.lowercased() == nameLower else { continue }
+
+                // Find the matching set number (or first completed set as fallback)
+                let matchingSet = exercise.sets.first {
+                    $0.setNumber == setNumber && $0.isCompleted && $0.weight != nil && $0.reps != nil
+                } ?? exercise.sets.first {
+                    $0.isCompleted && $0.weight != nil && $0.reps != nil
+                }
+
+                if let set = matchingSet, let weight = set.weight, let reps = set.reps {
+                    results.append(HistoricalSet(date: session.endTime, weight: weight, reps: reps))
+                }
+            }
         }
 
-        var suggestedWeight = prevWeight
-        var suggestedReps = prevReps
+        return results
+    }
 
-        // Progressive overload logic (weights stored in kg)
-        if prevReps >= 12 {
-            // High reps - suggest weight increase
-            // For smaller weights (<25kg/55lbs), increase by 2.5kg (5lbs)
-            // For larger weights, increase by 5kg (10lbs)
-            let weightIncrement = prevWeight < 25 ? 2.5 : 5.0  // kg increments
-            suggestedWeight = prevWeight + weightIncrement
-            suggestedReps = max(8, prevReps - 2) // Drop reps slightly when increasing weight
-        } else if prevReps >= 8 {
-            // Mid range (8-11 reps) - suggest rep increase to hit upper range
-            suggestedReps = min(12, prevReps + 2) // Cap at 12 reps
-        } else {
-            // Low reps (<8) - suggest more reps to build volume
-            suggestedReps = min(10, prevReps + 3) // Build up to 8-10 rep range
+    /// Gathers all completed sets for an exercise across recent sessions (for 1RM estimation).
+    func getAllExerciseHistory(exerciseName: String, limit: Int = 10) -> [HistoricalSet] {
+        let nameLower = exerciseName.lowercased()
+        var results: [HistoricalSet] = []
+
+        let sortedSessions = completedSessions.sorted { $0.endTime > $1.endTime }
+
+        for session in sortedSessions.prefix(limit) {
+            for exercise in session.exercises {
+                guard exercise.exercise.name.lowercased() == nameLower else { continue }
+                for set in exercise.sets where set.isCompleted && set.weight != nil && set.reps != nil {
+                    results.append(HistoricalSet(date: session.endTime, weight: set.weight!, reps: set.reps!))
+                }
+            }
         }
 
-        return (suggestedWeight, suggestedReps)
+        return results
+    }
+
+    /// Calculates progressive overload suggestions using the smart engine.
+    /// Analyzes up to 10 prior sessions for trend detection.
+    /// Falls back to simple logic if no history exists.
+    private func calculateProgressiveOverload(
+        exerciseName: String,
+        setNumber: Int,
+        previousWeight: Double?,
+        previousReps: Int?
+    ) -> (suggestedWeight: Double?, suggestedReps: Int?) {
+        let history = getExerciseHistory(exerciseName: exerciseName, setNumber: setNumber)
+
+        if let suggestion = analytics.smartOverloadSuggestion(history: history, exerciseName: exerciseName) {
+            return (suggestion.suggestedWeight, suggestion.suggestedReps)
+        }
+
+        // Fallback to simple logic when no history
+        let simple = analytics.progressiveOverloadSuggestion(
+            previousWeight: previousWeight,
+            previousReps: previousReps
+        )
+        return (simple.0, simple.1)
     }
     
+    /// Returns a smart rest timer duration based on the exertion of the just-completed set.
+    func suggestRestDuration(exerciseName: String, weight: Double, reps: Int) -> RestSuggestion {
+        let history = getAllExerciseHistory(exerciseName: exerciseName)
+        return analytics.suggestRestDuration(
+            completedWeight: weight,
+            completedReps: reps,
+            exerciseName: exerciseName,
+            exerciseHistory: history
+        )
+    }
+
     func calculateEstimated1RM(weight: Double, reps: Int) -> Double {
-        // Only calculate 1RM for rep ranges between 1-10 for best accuracy
-        // Reps above 10 involve more endurance and less strength
-        guard reps >= 1 && reps <= 10 else { return weight }
-        
-        // For 1 rep, the weight IS the 1RM
-        if reps == 1 { return weight }
-        
-        // Epley formula: 1RM = weight × (1 + reps/30)
-        // This is more conservative than Brzycki for higher reps
-        let oneRM = weight * (1.0 + Double(reps) / 30.0)
-        return oneRM
+        analytics.estimatedOneRepMax(weight: weight, reps: reps)
     }
     
     func getMaxEstimated1RM() -> Double {

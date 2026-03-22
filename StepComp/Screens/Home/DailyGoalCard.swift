@@ -1,6 +1,6 @@
 //
 //  DailyGoalCard.swift
-//  StepComp
+//  FitComp
 //
 //  Main daily goal card with circular progress ring
 //
@@ -24,7 +24,6 @@ struct DailyGoalCard: View {
     @State private var animatedProgress: Double = 0
     @State private var rotation3D: Double = 0
     @State private var scale: CGFloat = 1.0
-    @State private var rainbowPhase: Double = 0
     @State private var showFireworks = false
     @State private var fireworksTimer: Timer?
     @State private var isRefreshing = false
@@ -38,34 +37,17 @@ struct DailyGoalCard: View {
         case barChart
     }
     
-    private var progress: Double {
+    private var rawProgress: Double {
         guard dailyGoal > 0 else { return 0 }
-        return min(Double(currentSteps) / Double(dailyGoal), 1.0)
+        return Double(currentSteps) / Double(dailyGoal)
     }
     
     private var isGoalExceeded: Bool {
-        currentSteps >= dailyGoal
+        rawProgress >= 1.0
     }
     
     private var percentage: Int {
-        Int(progress * 100)
-    }
-    
-    // Rainbow gradient colors
-    private var rainbowGradient: LinearGradient {
-        let hue1 = (rainbowPhase).truncatingRemainder(dividingBy: 1.0)
-        let hue2 = (rainbowPhase + 0.3).truncatingRemainder(dividingBy: 1.0)
-        let hue3 = (rainbowPhase + 0.6).truncatingRemainder(dividingBy: 1.0)
-        
-        return LinearGradient(
-            colors: [
-                Color(hue: hue1, saturation: 0.8, brightness: 0.9),
-                Color(hue: hue2, saturation: 0.8, brightness: 0.9),
-                Color(hue: hue3, saturation: 0.8, brightness: 0.9)
-            ],
-            startPoint: .topLeading,
-            endPoint: .bottomTrailing
-        )
+        Int(rawProgress * 100)
     }
     
     var body: some View {
@@ -76,17 +58,17 @@ struct DailyGoalCard: View {
                 // Percentage badge - MOVED TO LEFT
                 Text("\(percentage)%")
                     .font(.stepCaptionBold())
-                    .foregroundColor(StepCompColors.accent)
+                    .foregroundColor(FitCompColors.accent)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 6)
                     .background(
                         Capsule()
-                            .fill(StepCompColors.accent.opacity(0.2))
+                            .fill(FitCompColors.accent.opacity(0.2))
                     )
                 
                 Text("Daily Goal")
                     .font(.stepTitleMedium())
-                    .foregroundColor(StepCompColors.textPrimary)
+                    .foregroundColor(FitCompColors.textPrimary)
                     .padding(.leading, 8)
                 
                 Spacer()
@@ -102,11 +84,11 @@ struct DailyGoalCard: View {
                     }) {
                         Text("Ring")
                             .font(.system(size: 12, weight: .semibold))
-                            .foregroundColor(viewMode == .circular ? StepCompColors.buttonTextOnPrimary : StepCompColors.textSecondary)
+                            .foregroundColor(viewMode == .circular ? FitCompColors.buttonTextOnPrimary : FitCompColors.textSecondary)
                             .frame(width: 50, height: 28)
                             .background(
                                 Capsule()
-                                    .fill(viewMode == .circular ? StepCompColors.primary : Color.clear)
+                                    .fill(viewMode == .circular ? FitCompColors.primary : Color.clear)
                             )
                     }
                     .buttonStyle(PlainButtonStyle())
@@ -127,11 +109,11 @@ struct DailyGoalCard: View {
                     }) {
                         Text("Chart")
                             .font(.system(size: 12, weight: .semibold))
-                            .foregroundColor(viewMode == .barChart ? StepCompColors.buttonTextOnPrimary : StepCompColors.textSecondary)
+                            .foregroundColor(viewMode == .barChart ? FitCompColors.buttonTextOnPrimary : FitCompColors.textSecondary)
                             .frame(width: 50, height: 28)
                             .background(
                                 Capsule()
-                                    .fill(viewMode == .barChart ? StepCompColors.primary : Color.clear)
+                                    .fill(viewMode == .barChart ? FitCompColors.primary : Color.clear)
                             )
                     }
                     .buttonStyle(PlainButtonStyle())
@@ -139,7 +121,7 @@ struct DailyGoalCard: View {
                 .padding(2)
                 .background(
                     Capsule()
-                        .fill(StepCompColors.surfaceElevated)
+                        .fill(FitCompColors.surfaceElevated)
                 )
             }
             .padding(.horizontal, 24)
@@ -168,8 +150,8 @@ struct DailyGoalCard: View {
         }
         .background(
             RoundedRectangle(cornerRadius: 32)
-                .fill(StepCompColors.surface)
-                .shadow(color: StepCompColors.shadowSecondary, radius: 20, x: 0, y: 8)
+                .fill(FitCompColors.surface)
+                .shadow(color: FitCompColors.shadowSecondary, radius: 20, x: 0, y: 8)
         )
         .scaleEffect(isRefreshing ? 0.95 : 1.0)
         .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isRefreshing)
@@ -224,69 +206,60 @@ struct DailyGoalCard: View {
     
     // MARK: - Circular Progress View
     
+    private let ringDiameter: CGFloat = 184
+    private let ringLineWidth: CGFloat = 14
+    private let glowDiameter: CGFloat = 236
+    
     private var circularProgressView: some View {
         ZStack {
-            // Glow effect - rainbow when goal exceeded
-            if isGoalExceeded {
-                Circle()
-                    .fill(
-                        RadialGradient(
-                            colors: [
-                                Color(hue: rainbowPhase, saturation: 0.8, brightness: 0.9).opacity(0.3),
-                                Color.clear
-                            ],
-                            center: .center,
-                            startRadius: 80,
-                            endRadius: 140
-                        )
+            // Glow effect - uses current revolution color
+            Circle()
+                .fill(
+                    RadialGradient(
+                        colors: [
+                            currentRevColor.primary.opacity(isGoalExceeded ? 0.35 : 0.15),
+                            Color.clear
+                        ],
+                        center: .center,
+                        startRadius: 68,
+                        endRadius: 120
                     )
-                    .frame(width: 260, height: 260)
-                    .blur(radius: 40)
-            } else {
-                Circle()
-                    .fill(StepCompColors.primary.opacity(0.15))
-                    .frame(width: 260, height: 260)
-                    .blur(radius: 40)
-            }
+                )
+                .frame(width: glowDiameter, height: glowDiameter)
+                .blur(radius: 34)
             
             // Progress ring background (gray track)
             Circle()
-                .stroke(StepCompColors.textTertiary.opacity(0.2), lineWidth: 16)
-                .frame(width: 200, height: 200)
+                .stroke(FitCompColors.textTertiary.opacity(0.2), lineWidth: ringLineWidth)
+                .frame(width: ringDiameter, height: ringDiameter)
             
-            // Progress ring (adaptive gradient - yellow in light, coral in dark, rainbow when goal exceeded)
-            Circle()
-                .trim(from: 0, to: animatedProgress)
-                .stroke(
-                    isGoalExceeded ? rainbowGradient : StepCompColors.progressGradient(for: colorScheme),
-                    style: StrokeStyle(lineWidth: 16, lineCap: .round)
-                )
-                .frame(width: 200, height: 200)
-                .rotationEffect(.degrees(-90))
-                .shadow(
-                    color: isGoalExceeded ? Color.white.opacity(0.5) : StepCompColors.primary.opacity(0.4),
-                    radius: isGoalExceeded ? 12 : 8,
-                    x: 0,
-                    y: 4
-                )
+            // Stacked revolution layers — each layer uses ContinuousRingArc
+            // which reads the single animatedProgress and computes its own fill,
+            // so the animation is fully continuous across revolution boundaries.
+            revolutionLayer(rev: 0)
+            revolutionLayer(rev: 1)
+            revolutionLayer(rev: 2)
+            revolutionLayer(rev: 3)
+            revolutionLayer(rev: 4)
             
             // Center content
             VStack(spacing: 4) {
                 Image(systemName: "figure.run")
                     .font(.system(size: 28))
-                    .foregroundColor(StepCompColors.primary)
+                    .symbolRenderingMode(.monochrome)
+                    .foregroundColor(FitCompColors.primary)
                 
                 Text(formatNumber(currentSteps))
                     .font(.stepNumber())
-                    .foregroundColor(StepCompColors.textPrimary)
+                    .foregroundColor(FitCompColors.textPrimary)
                 
                 Text("/ \(formatNumber(dailyGoal)) steps")
                     .font(.stepCaption())
-                    .foregroundColor(StepCompColors.textSecondary)
+                    .foregroundColor(FitCompColors.textSecondary)
             }
         }
-        .frame(height: 240)
-        .padding(.vertical, 8)
+        .frame(height: 220)
+        .padding(.vertical, 4)
         .scaleEffect(scale)
         .rotation3DEffect(
             .degrees(rotation3D),
@@ -298,27 +271,51 @@ struct DailyGoalCard: View {
             triggerRefillAnimation()
         }
         .onAppear {
-            // Initial fill animation
-            withAnimation(.easeInOut(duration: 1.2)) {
-                animatedProgress = progress
-            }
-            
-            // Start rainbow animation if goal exceeded
-            if isGoalExceeded {
-                startRainbowAnimation()
+            withAnimation(.interpolatingSpring(stiffness: 120, damping: 18)) {
+                animatedProgress = rawProgress
             }
         }
-        .onChange(of: progress) { _, newValue in
-            // Update when progress changes
-            withAnimation(.easeInOut(duration: 0.8)) {
+        .onChange(of: rawProgress) { _, newValue in
+            withAnimation(.interpolatingSpring(stiffness: 130, damping: 20)) {
                 animatedProgress = newValue
             }
         }
-        .onChange(of: isGoalExceeded) { _, exceeded in
-            // Start/stop rainbow animation based on goal status
-            if exceeded {
-                startRainbowAnimation()
-            }
+    }
+    
+    @ViewBuilder
+    private func revolutionLayer(rev: Int) -> some View {
+        ContinuousRingArc(totalProgress: animatedProgress, revolution: rev)
+            .stroke(
+                ringGradient(for: rev),
+                style: StrokeStyle(lineWidth: ringLineWidth, lineCap: .round)
+            )
+            .frame(width: ringDiameter, height: ringDiameter)
+            .shadow(
+                color: rev > 0 ? Color.black.opacity(0.4) : colorSet(for: 0).primary.opacity(0.3),
+                radius: rev > 0 ? 6 : 8,
+                x: 0, y: rev > 0 ? 3 : 4
+            )
+            .shadow(
+                color: rev > 0 ? colorSet(for: rev).primary.opacity(0.4) : Color.clear,
+                radius: rev > 0 ? 10 : 0
+            )
+    }
+    
+    @ViewBuilder
+    private var leadingCapView: some View {
+        if animatedProgress > 0 {
+            Circle()
+                .fill(moveRingCapGradient)
+                .frame(width: ringLineWidth + 2, height: ringLineWidth + 2)
+                .position(ringEndPoint(in: CGSize(width: ringDiameter, height: ringDiameter)))
+                .shadow(
+                    color: currentRevColor.primary.opacity(isGoalExceeded ? 0.85 : 0.6),
+                    radius: isGoalExceeded ? 12 : 8
+                )
+                .overlay(
+                    Circle()
+                        .stroke(Color.white.opacity(colorScheme == .dark ? 0.25 : 0.45), lineWidth: 1)
+                )
         }
     }
     
@@ -330,21 +327,21 @@ struct DailyGoalCard: View {
             VStack(spacing: 4) {
                 Text(formatNumber(currentSteps))
                     .font(.system(size: 40, weight: .bold, design: .rounded))
-                    .foregroundColor(StepCompColors.textPrimary)
+                    .foregroundColor(FitCompColors.textPrimary)
                 
                 HStack(spacing: 4) {
                     Text(distanceText)
                         .font(.system(size: 14, weight: .medium))
-                        .foregroundColor(StepCompColors.textSecondary)
+                        .foregroundColor(FitCompColors.textSecondary)
                     
                     if currentStreak > 0 {
                         Image(systemName: "arrow.up.forward")
                             .font(.system(size: 12, weight: .bold))
-                            .foregroundColor(colorScheme == .dark ? StepCompColors.green : Color.green.opacity(0.8))
+                            .foregroundColor(colorScheme == .dark ? FitCompColors.green : Color.green.opacity(0.8))
                         
                         Text("\(currentStreak)")
                             .font(.system(size: 14, weight: .bold))
-                            .foregroundColor(colorScheme == .dark ? StepCompColors.green : Color.green.opacity(0.8))
+                            .foregroundColor(colorScheme == .dark ? FitCompColors.green : Color.green.opacity(0.8))
                     }
                 }
             }
@@ -354,7 +351,7 @@ struct DailyGoalCard: View {
             HStack {
                 Text("Last 7 days")
                     .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(StepCompColors.textPrimary)
+                    .foregroundColor(FitCompColors.textPrimary)
                 Spacer()
             }
             .padding(.horizontal, 20)
@@ -580,12 +577,6 @@ struct DailyGoalCard: View {
         }
     }
     
-    private func startRainbowAnimation() {
-        withAnimation(.linear(duration: 3.0).repeatForever(autoreverses: false)) {
-            rainbowPhase = 1.0
-        }
-    }
-    
     private func triggerRefillAnimation() {
         // Haptic feedback
         let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
@@ -613,9 +604,94 @@ struct DailyGoalCard: View {
         // Delay for the flip, then refill
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
             withAnimation(.easeInOut(duration: 1.2).delay(0.1)) {
-                animatedProgress = progress
+                animatedProgress = rawProgress
             }
         }
+    }
+    
+    // MARK: - Revolution Color Palette
+    
+    private struct RingColorSet {
+        let primary: Color
+        let highlight: Color
+        let shadow: Color
+    }
+    
+    private let ringColors: [RingColorSet] = [
+        RingColorSet(
+            primary: Color(red: 1.0, green: 0.16, blue: 0.52),
+            highlight: Color(red: 1.0, green: 0.42, blue: 0.66),
+            shadow: Color(red: 0.82, green: 0.02, blue: 0.34)
+        ),
+        RingColorSet(
+            primary: Color(red: 0.20, green: 0.90, blue: 0.40),
+            highlight: Color(red: 0.45, green: 1.0, blue: 0.55),
+            shadow: Color(red: 0.05, green: 0.72, blue: 0.25)
+        ),
+        RingColorSet(
+            primary: Color(red: 0.10, green: 0.78, blue: 1.0),
+            highlight: Color(red: 0.40, green: 0.88, blue: 1.0),
+            shadow: Color(red: 0.02, green: 0.55, blue: 0.82)
+        ),
+        RingColorSet(
+            primary: Color(red: 1.0, green: 0.78, blue: 0.0),
+            highlight: Color(red: 1.0, green: 0.88, blue: 0.35),
+            shadow: Color(red: 0.85, green: 0.62, blue: 0.0)
+        ),
+        RingColorSet(
+            primary: Color(red: 0.68, green: 0.32, blue: 1.0),
+            highlight: Color(red: 0.80, green: 0.55, blue: 1.0),
+            shadow: Color(red: 0.48, green: 0.15, blue: 0.82)
+        ),
+    ]
+    
+    private func colorSet(for rev: Int) -> RingColorSet {
+        ringColors[rev % ringColors.count]
+    }
+    
+    private var currentRevColor: RingColorSet {
+        let topRev = max(0, Int(max(0, animatedProgress)))
+        return colorSet(for: topRev)
+    }
+    
+    private func ringGradient(for rev: Int) -> AngularGradient {
+        let c = colorSet(for: rev)
+        return AngularGradient(
+            gradient: Gradient(stops: [
+                .init(color: c.primary.opacity(0.98), location: 0.0),
+                .init(color: c.highlight, location: 0.2),
+                .init(color: c.primary, location: 0.45),
+                .init(color: c.shadow, location: 0.78),
+                .init(color: c.primary.opacity(0.98), location: 1.0)
+            ]),
+            center: .center
+        )
+    }
+    
+    private var moveRingCapGradient: LinearGradient {
+        let c = currentRevColor
+        return LinearGradient(
+            colors: [c.highlight, c.primary, c.shadow],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+    }
+    
+    private var ringEndAngleDegrees: Double {
+        let p = max(0, animatedProgress)
+        guard p > 0 else { return -90 }
+        let fractional = p.truncatingRemainder(dividingBy: 1.0)
+        let frac = (p >= 1.0 && fractional < 0.0001) ? 1.0 : fractional
+        return -90 + (frac * 360)
+    }
+    
+    private func ringEndPoint(in size: CGSize) -> CGPoint {
+        let angleInRadians = ringEndAngleDegrees * .pi / 180
+        let radius = min(size.width, size.height) / 2
+        return CGPoint(
+            x: size.width / 2 + CGFloat(cos(angleInRadians)) * radius,
+            y: size.height / 2 + CGFloat(sin(angleInRadians)) * radius
+        )
     }
     
     private func formatNumber(_ number: Int) -> String {
@@ -623,6 +699,34 @@ struct DailyGoalCard: View {
         formatter.numberStyle = .decimal
         formatter.groupingSeparator = ","
         return formatter.string(from: NSNumber(value: number)) ?? "\(number)"
+    }
+}
+
+struct ContinuousRingArc: Shape {
+    var totalProgress: Double
+    let revolution: Int
+    
+    var animatableData: Double {
+        get { totalProgress }
+        set { totalProgress = newValue }
+    }
+    
+    func path(in rect: CGRect) -> Path {
+        let p = max(0, totalProgress)
+        let revStart = Double(revolution)
+        guard p > revStart else { return Path() }
+        
+        let revFill = min(p - revStart, 1.0)
+        
+        var path = Path()
+        let center = CGPoint(x: rect.midX, y: rect.midY)
+        let radius = min(rect.width, rect.height) / 2
+        let start = Angle.degrees(-90)
+        let end = Angle.degrees(-90 + (360 * revFill))
+        
+        path.addArc(center: center, radius: radius,
+                     startAngle: start, endAngle: end, clockwise: false)
+        return path
     }
 }
 
@@ -704,18 +808,18 @@ struct StatBox: View {
         VStack(spacing: 4) {
             Text(label)
                 .font(.stepLabelSmall())
-                .foregroundColor(StepCompColors.textSecondary)
+                .foregroundColor(FitCompColors.textSecondary)
             
             Text(value)
                 .font(.stepBodySmall())
                 .fontWeight(.bold)
-                .foregroundColor(StepCompColors.textPrimary)
+                .foregroundColor(FitCompColors.textPrimary)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 14)
         .background(
             RoundedRectangle(cornerRadius: 16)
-                .fill(StepCompColors.surfaceElevated)
+                .fill(FitCompColors.surfaceElevated)
         )
     }
 }
@@ -763,8 +867,8 @@ struct BarView: View {
                         .overlay(
                             // Selected date highlight border
                             isSelected ? RoundedRectangle(cornerRadius: 8)
-                                .strokeBorder(StepCompColors.primary, lineWidth: 3)
-                                .shadow(color: StepCompColors.primary.opacity(0.5), radius: 8, x: 0, y: 0)
+                                .strokeBorder(FitCompColors.primary, lineWidth: 3)
+                                .shadow(color: FitCompColors.primary.opacity(0.5), radius: 8, x: 0, y: 0)
                             : nil
                         )
                 }
@@ -773,7 +877,7 @@ struct BarView: View {
                 if steps > 0 {
                     Text(formatNumberShort(steps))
                         .font(.system(size: 11, weight: .bold))
-                        .foregroundColor(steps >= dailyGoal ? .white : StepCompColors.textSecondary)
+                        .foregroundColor(steps >= dailyGoal ? .white : FitCompColors.textSecondary)
                         .padding(.bottom, 4)
                 }
             }
@@ -813,12 +917,12 @@ struct BarView: View {
             // Day label
             Text(dayLabel)
                 .font(.system(size: 11, weight: isSelected ? .bold : .medium))
-                .foregroundColor(isSelected ? StepCompColors.primary : (isToday ? StepCompColors.textPrimary : StepCompColors.textSecondary))
+                .foregroundColor(isSelected ? FitCompColors.primary : (isToday ? FitCompColors.textPrimary : FitCompColors.textSecondary))
             
             // Distance label
             Text(distanceLabel)
                 .font(.system(size: 10))
-                .foregroundColor(StepCompColors.textTertiary)
+                .foregroundColor(FitCompColors.textTertiary)
         }
     }
     

@@ -1,6 +1,6 @@
 //
 //  WelcomeView.swift
-//  StepComp
+//  FitComp
 //
 //  Created by Jeffery Erhunse on 12/24/25.
 //
@@ -39,7 +39,7 @@ struct WelcomeOnboardingView: View {
                 // Page Indicator
                 HStack(spacing: 8) {
                     Capsule()
-                        .fill(StepCompColors.primary)
+                        .fill(FitCompColors.primary)
                         .frame(width: 40, height: 6)
                     
                     ForEach(1..<4) { _ in
@@ -64,7 +64,7 @@ struct WelcomeOnboardingView: View {
                         
                         Text("COMP")
                             .font(.system(size: 72, weight: .bold))
-                            .foregroundColor(StepCompColors.primary)
+                            .foregroundColor(FitCompColors.primary)
                             .tracking(-2)
                             .offset(y: -10)
                     }
@@ -101,12 +101,12 @@ struct WelcomeOnboardingView: View {
                             Image(systemName: "arrow.right")
                                 .font(.system(size: 18, weight: .bold))
                         }
-                        .foregroundColor(StepCompColors.buttonTextOnPrimary)
+                        .foregroundColor(FitCompColors.buttonTextOnPrimary)
                         .frame(maxWidth: .infinity)
                         .frame(height: 56)
-                        .background(StepCompColors.primary)
+                        .background(FitCompColors.primary)
                         .cornerRadius(16)
-                        .shadow(color: StepCompColors.primary.opacity(0.4), radius: 16, x: 0, y: 8)
+                        .shadow(color: FitCompColors.primary.opacity(0.4), radius: 16, x: 0, y: 8)
                     }
                     
                     // Log In Button
@@ -122,7 +122,7 @@ struct WelcomeOnboardingView: View {
                             
                             Text("Log in")
                                 .font(.system(size: 16, weight: .bold))
-                                .foregroundColor(StepCompColors.primary)
+                                .foregroundColor(FitCompColors.primary)
                         }
                     }
                 }

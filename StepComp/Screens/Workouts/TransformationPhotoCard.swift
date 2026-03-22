@@ -1,6 +1,6 @@
 //
 //  TransformationPhotoCard.swift
-//  StepComp
+//  FitComp
 //
 //  Created by Jeffery Erhunse on 2/23/26.
 //
@@ -17,7 +17,7 @@ struct TransformationPhotoCard: View {
     }
     
     private var textColor: Color {
-        colorScheme == .dark ? StepCompColors.primary : .white
+        colorScheme == .dark ? FitCompColors.primary : .white
     }
     
     private var dateString: String? {

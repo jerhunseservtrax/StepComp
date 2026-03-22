@@ -1,6 +1,6 @@
 //
 //  StepSpeedometerView.swift
-//  StepComp
+//  FitComp
 //
 //  Horizontal line step progress indicator
 //
@@ -35,7 +35,7 @@ struct StepSpeedometerView: View {
                     HStack {
                         HStack(spacing: 8) {
                             Circle()
-                                .fill(StepCompColors.primary)
+                                .fill(FitCompColors.primary)
                                 .frame(width: 40, height: 40)
                                 .overlay(
                                     Image(systemName: "figure.walk")
@@ -67,7 +67,7 @@ struct StepSpeedometerView: View {
                             
                             // Yellow progress
                             RoundedRectangle(cornerRadius: 8)
-                                .fill(StepCompColors.primary)
+                                .fill(FitCompColors.primary)
                                 .frame(width: geometry.size.width * progress, height: 16)
                                 .animation(.spring(response: 0.6, dampingFraction: 0.8), value: progress)
                             

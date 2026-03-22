@@ -1,6 +1,6 @@
 //
 //  ProfileSettingsView.swift
-//  StepComp
+//  FitComp
 //
 //  Edit profile information (name, username, avatar, photo, height/weight)
 //
@@ -17,6 +17,7 @@ struct ProfileSettingsView: View {
     @Environment(\.dismiss) var dismiss
     @EnvironmentObject var authService: AuthService
     @EnvironmentObject var healthKitService: HealthKitService
+    @ObservedObject private var unitManager = UnitPreferenceManager.shared
     
     @State private var firstName: String
     @State private var lastName: String
@@ -64,17 +65,27 @@ struct ProfileSettingsView: View {
         _publicProfile = State(initialValue: user.publicProfile)
         
         // Load height/weight from UserDefaults
+        let unitManager = UnitPreferenceManager.shared
         let height = UserDefaults.standard.integer(forKey: "userHeight")
         let weight = UserDefaults.standard.integer(forKey: "userWeight")
         
         if height > 0 {
-            let imperial = Self.cmToImperial(height)
-            _heightFeetText = State(initialValue: "\(imperial.feet)")
-            _heightInchesText = State(initialValue: "\(imperial.inches)")
+            if unitManager.unitSystem == .metric {
+                _heightFeetText = State(initialValue: "\(height)")
+                _heightInchesText = State(initialValue: "")
+            } else {
+                let imperial = unitManager.heightComponents(fromCm: height)
+                _heightFeetText = State(initialValue: "\(imperial.feet)")
+                _heightInchesText = State(initialValue: "\(imperial.inches)")
+            }
         }
         
         if weight > 0 {
-            _weightText = State(initialValue: "\(Self.kgToLbs(weight))")
+            if unitManager.unitSystem == .metric {
+                _weightText = State(initialValue: "\(weight)")
+            } else {
+                _weightText = State(initialValue: "\(unitManager.weightFromStorage(weight))")
+            }
         }
     }
     
@@ -119,16 +130,16 @@ struct ProfileSettingsView: View {
                             PhotosPicker(selection: $selectedPhotoItem, matching: .images) {
                                 ZStack {
                                     Circle()
-                                        .fill(StepCompColors.primary)
+                                        .fill(FitCompColors.primary)
                                         .frame(width: 36, height: 36)
                                     
                                     Image(systemName: "camera.fill")
                                         .font(.system(size: 14, weight: .bold))
-                                        .foregroundColor(StepCompColors.buttonTextOnPrimary)
+                                        .foregroundColor(FitCompColors.buttonTextOnPrimary)
                                 }
                                 .overlay(
                                     Circle()
-                                        .stroke(StepCompColors.background, lineWidth: 4)
+                                        .stroke(FitCompColors.background, lineWidth: 4)
                                 )
                                 .shadow(color: .black.opacity(0.15), radius: 8, x: 0, y: 2)
                             }
@@ -137,11 +148,11 @@ struct ProfileSettingsView: View {
                         
                         Text("\(firstName) \(lastName)")
                             .font(.system(size: 18, weight: .bold))
-                            .foregroundColor(StepCompColors.textPrimary)
+                            .foregroundColor(FitCompColors.textPrimary)
                         
                         Text("@\(username)")
                             .font(.system(size: 14, weight: .medium))
-                            .foregroundColor(StepCompColors.textSecondary)
+                            .foregroundColor(FitCompColors.textSecondary)
                     }
                     .padding(.top, 32)
                     .padding(.bottom, 24)
@@ -157,28 +168,28 @@ struct ProfileSettingsView: View {
                                 } label: {
                                     Text(tab.rawValue)
                                         .font(.system(size: 12, weight: .bold))
-                                        .foregroundColor(selectedTab == tab ? StepCompColors.buttonTextOnPrimary : StepCompColors.textSecondary)
+                                        .foregroundColor(selectedTab == tab ? FitCompColors.buttonTextOnPrimary : FitCompColors.textSecondary)
                                         .frame(maxWidth: .infinity)
                                         .padding(.vertical, 10)
                                         .background(
-                                            selectedTab == tab ? StepCompColors.primary : Color.clear
+                                            selectedTab == tab ? FitCompColors.primary : Color.clear
                                         )
                                         .cornerRadius(12)
                                 }
                             }
                         }
                         .padding(6)
-                        .background(StepCompColors.surface)
+                        .background(FitCompColors.surface)
                         .cornerRadius(16)
                         .shadow(color: .black.opacity(0.04), radius: 4, x: 0, y: 1)
                         .overlay(
                             RoundedRectangle(cornerRadius: 16)
-                                .stroke(StepCompColors.cardBorder, lineWidth: 1)
+                                .stroke(FitCompColors.cardBorder, lineWidth: 1)
                         )
                     }
                     .padding(.horizontal)
                     .padding(.bottom, 16)
-                    .background(StepCompColors.background)
+                    .background(FitCompColors.background)
                     
                     // Content
                     VStack(spacing: 24) {
@@ -195,7 +206,7 @@ struct ProfileSettingsView: View {
                     .padding(.top, 8)
                 }
             }
-            .background(StepCompColors.background.ignoresSafeArea())
+            .background(FitCompColors.background.ignoresSafeArea())
             .navigationTitle("Profile")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -204,7 +215,7 @@ struct ProfileSettingsView: View {
                         dismiss()
                     }
                     .font(.system(size: 14, weight: .bold))
-                    .foregroundColor(StepCompColors.textSecondary)
+                    .foregroundColor(FitCompColors.textSecondary)
                 }
                 
                 ToolbarItem(placement: .confirmationAction) {
@@ -215,10 +226,10 @@ struct ProfileSettingsView: View {
                     } label: {
                         Text("Save")
                             .font(.system(size: 14, weight: .bold))
-                            .foregroundColor(StepCompColors.buttonTextOnPrimary)
+                            .foregroundColor(FitCompColors.buttonTextOnPrimary)
                             .padding(.horizontal, 20)
                             .padding(.vertical, 8)
-                            .background(StepCompColors.primary)
+                            .background(FitCompColors.primary)
                             .cornerRadius(20)
                     }
                     .disabled(isSaving || firstName.isEmpty || username.isEmpty || usernameError != nil)
@@ -249,17 +260,17 @@ struct ProfileSettingsView: View {
                         
                         VStack(spacing: 16) {
                             ProgressView()
-                                .progressViewStyle(CircularProgressViewStyle(tint: StepCompColors.primary))
+                                .progressViewStyle(CircularProgressViewStyle(tint: FitCompColors.primary))
                                 .scaleEffect(1.5)
                             
                             Text("Saving...")
                                 .font(.system(size: 16, weight: .medium))
-                                .foregroundColor(StepCompColors.textPrimary)
+                                .foregroundColor(FitCompColors.textPrimary)
                         }
                         .padding(32)
                         .background(
                             RoundedRectangle(cornerRadius: 16)
-                                .fill(StepCompColors.surface)
+                                .fill(FitCompColors.surface)
                         )
                     }
                 }
@@ -279,21 +290,21 @@ struct ProfileSettingsView: View {
                 HStack(spacing: 12) {
                     ZStack {
                         Circle()
-                            .fill(StepCompColors.primary.opacity(0.15))
+                            .fill(FitCompColors.primary.opacity(0.15))
                             .frame(width: 40, height: 40)
                         Image(systemName: "person.text.rectangle.fill")
                             .font(.system(size: 18))
-                            .foregroundColor(StepCompColors.primary)
+                            .foregroundColor(FitCompColors.primary)
                     }
                     
                     Text("Personal Info")
                         .font(.system(size: 18, weight: .bold))
-                        .foregroundColor(StepCompColors.textPrimary)
+                        .foregroundColor(FitCompColors.textPrimary)
                     
                     Spacer()
                 }
                 .padding()
-                .background(StepCompColors.surface)
+                .background(FitCompColors.surface)
                 .cornerRadius(24, corners: [.topLeft, .topRight])
                 
                 // Fields
@@ -303,30 +314,30 @@ struct ProfileSettingsView: View {
                         VStack(alignment: .leading, spacing: 8) {
                             Text("FIRST NAME")
                                 .font(.system(size: 10, weight: .bold))
-                                .foregroundColor(StepCompColors.textSecondary)
+                                .foregroundColor(FitCompColors.textSecondary)
                                 .tracking(0.5)
                             
                             TextField("First", text: $firstName)
                                 .font(.system(size: 16, weight: .semibold))
-                                .foregroundColor(StepCompColors.textPrimary)
+                                .foregroundColor(FitCompColors.textPrimary)
                                 .textInputAutocapitalization(.words)
                                 .padding()
-                                .background(StepCompColors.surfaceElevated)
+                                .background(FitCompColors.surfaceElevated)
                                 .cornerRadius(16)
                         }
                         
                         VStack(alignment: .leading, spacing: 8) {
                             Text("LAST NAME")
                                 .font(.system(size: 10, weight: .bold))
-                                .foregroundColor(StepCompColors.textSecondary)
+                                .foregroundColor(FitCompColors.textSecondary)
                                 .tracking(0.5)
                             
                             TextField("Last", text: $lastName)
                                 .font(.system(size: 16, weight: .semibold))
-                                .foregroundColor(StepCompColors.textPrimary)
+                                .foregroundColor(FitCompColors.textPrimary)
                                 .textInputAutocapitalization(.words)
                                 .padding()
-                                .background(StepCompColors.surfaceElevated)
+                                .background(FitCompColors.surfaceElevated)
                                 .cornerRadius(16)
                         }
                     }
@@ -335,16 +346,16 @@ struct ProfileSettingsView: View {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("USERNAME")
                             .font(.system(size: 10, weight: .bold))
-                            .foregroundColor(StepCompColors.textSecondary)
+                            .foregroundColor(FitCompColors.textSecondary)
                             .tracking(0.5)
                         
                         HStack {
                             Text("@")
-                                .foregroundColor(StepCompColors.textSecondary)
+                                .foregroundColor(FitCompColors.textSecondary)
                                 .font(.system(size: 16, weight: .bold))
                             TextField("username", text: $username)
                                 .font(.system(size: 16, weight: .semibold))
-                                .foregroundColor(StepCompColors.textPrimary)
+                                .foregroundColor(FitCompColors.textPrimary)
                                 .textInputAutocapitalization(.never)
                                 .autocorrectionDisabled()
                                 .onChange(of: username) { oldValue, newValue in
@@ -371,7 +382,7 @@ struct ProfileSettingsView: View {
                             }
                         }
                         .padding()
-                        .background(StepCompColors.surfaceElevated)
+                        .background(FitCompColors.surfaceElevated)
                         .cornerRadius(16)
                     }
                     
@@ -379,32 +390,32 @@ struct ProfileSettingsView: View {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("EMAIL ADDRESS")
                             .font(.system(size: 10, weight: .bold))
-                            .foregroundColor(StepCompColors.textSecondary)
+                            .foregroundColor(FitCompColors.textSecondary)
                             .tracking(0.5)
                         
                         Text(email.isEmpty ? "No email set" : email)
                             .font(.system(size: 16, weight: .semibold))
-                            .foregroundColor(email.isEmpty ? StepCompColors.textSecondary : StepCompColors.textPrimary)
+                            .foregroundColor(email.isEmpty ? FitCompColors.textSecondary : FitCompColors.textPrimary)
                             .lineLimit(1)
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .padding()
-                            .background(StepCompColors.surfaceElevated)
+                            .background(FitCompColors.surfaceElevated)
                             .cornerRadius(16)
                         
                         Text("Used for notifications and login.")
                             .font(.system(size: 10))
-                            .foregroundColor(StepCompColors.textSecondary.opacity(0.8))
+                            .foregroundColor(FitCompColors.textSecondary.opacity(0.8))
                             .padding(.horizontal, 4)
                     }
                 }
                 .padding()
-                .background(StepCompColors.surface)
+                .background(FitCompColors.surface)
                 .cornerRadius(24, corners: [.bottomLeft, .bottomRight])
             }
             .shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2)
             .overlay(
                 RoundedRectangle(cornerRadius: 24)
-                    .stroke(StepCompColors.cardBorder, lineWidth: 1)
+                    .stroke(FitCompColors.cardBorder, lineWidth: 1)
             )
         }
     }
@@ -427,12 +438,12 @@ struct ProfileSettingsView: View {
                     
                     Text("Measurements")
                         .font(.system(size: 18, weight: .bold))
-                        .foregroundColor(StepCompColors.textPrimary)
+                        .foregroundColor(FitCompColors.textPrimary)
                     
                     Spacer()
                 }
                 .padding()
-                .background(StepCompColors.surface)
+                .background(FitCompColors.surface)
                 .cornerRadius(24, corners: [.topLeft, .topRight])
                 
                 // Fields
@@ -441,41 +452,59 @@ struct ProfileSettingsView: View {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("HEIGHT")
                             .font(.system(size: 10, weight: .bold))
-                            .foregroundColor(StepCompColors.textSecondary)
+                            .foregroundColor(FitCompColors.textSecondary)
                             .tracking(0.5)
                         
-                        HStack(spacing: 16) {
+                        if unitManager.unitSystem == .metric {
                             HStack(spacing: 4) {
                                 TextField("0", text: $heightFeetText)
                                     .keyboardType(.numberPad)
                                     .font(.system(size: 20, weight: .heavy))
-                                    .foregroundColor(StepCompColors.textPrimary)
+                                    .foregroundColor(FitCompColors.textPrimary)
                                     .multilineTextAlignment(.trailing)
                                     .frame(maxWidth: .infinity)
                                 
-                                Text("FT")
+                                Text("CM")
                                     .font(.system(size: 12, weight: .bold))
-                                    .foregroundColor(StepCompColors.textSecondary)
+                                    .foregroundColor(FitCompColors.textSecondary)
                             }
                             .padding()
-                            .background(StepCompColors.surfaceElevated)
+                            .background(FitCompColors.surfaceElevated)
                             .cornerRadius(16)
-                            
-                            HStack(spacing: 4) {
-                                TextField("0", text: $heightInchesText)
-                                    .keyboardType(.numberPad)
-                                    .font(.system(size: 20, weight: .heavy))
-                                    .foregroundColor(StepCompColors.textPrimary)
-                                    .multilineTextAlignment(.trailing)
-                                    .frame(maxWidth: .infinity)
+                        } else {
+                            HStack(spacing: 16) {
+                                HStack(spacing: 4) {
+                                    TextField("0", text: $heightFeetText)
+                                        .keyboardType(.numberPad)
+                                        .font(.system(size: 20, weight: .heavy))
+                                        .foregroundColor(FitCompColors.textPrimary)
+                                        .multilineTextAlignment(.trailing)
+                                        .frame(maxWidth: .infinity)
+                                    
+                                    Text("FT")
+                                        .font(.system(size: 12, weight: .bold))
+                                        .foregroundColor(FitCompColors.textSecondary)
+                                }
+                                .padding()
+                                .background(FitCompColors.surfaceElevated)
+                                .cornerRadius(16)
                                 
-                                Text("IN")
-                                    .font(.system(size: 12, weight: .bold))
-                                    .foregroundColor(StepCompColors.textSecondary)
+                                HStack(spacing: 4) {
+                                    TextField("0", text: $heightInchesText)
+                                        .keyboardType(.numberPad)
+                                        .font(.system(size: 20, weight: .heavy))
+                                        .foregroundColor(FitCompColors.textPrimary)
+                                        .multilineTextAlignment(.trailing)
+                                        .frame(maxWidth: .infinity)
+                                    
+                                    Text("IN")
+                                        .font(.system(size: 12, weight: .bold))
+                                        .foregroundColor(FitCompColors.textSecondary)
+                                }
+                                .padding()
+                                .background(FitCompColors.surfaceElevated)
+                                .cornerRadius(16)
                             }
-                            .padding()
-                            .background(StepCompColors.surfaceElevated)
-                            .cornerRadius(16)
                         }
                     }
                     
@@ -483,24 +512,24 @@ struct ProfileSettingsView: View {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("WEIGHT")
                             .font(.system(size: 10, weight: .bold))
-                            .foregroundColor(StepCompColors.textSecondary)
+                            .foregroundColor(FitCompColors.textSecondary)
                             .tracking(0.5)
                         
                         HStack(spacing: 4) {
                             TextField("0", text: $weightText)
                                 .keyboardType(.numberPad)
                                 .font(.system(size: 20, weight: .heavy))
-                                .foregroundColor(StepCompColors.textPrimary)
+                                .foregroundColor(FitCompColors.textPrimary)
                                 .multilineTextAlignment(.trailing)
                                 .frame(maxWidth: .infinity)
                             
-                            Text("LBS")
+                            Text(unitManager.unitSystem == .metric ? "KG" : "LBS")
                                 .font(.system(size: 12, weight: .bold))
-                                .foregroundColor(StepCompColors.textSecondary)
+                                .foregroundColor(FitCompColors.textSecondary)
                                 .padding(.trailing, 4)
                         }
                         .padding()
-                        .background(StepCompColors.surfaceElevated)
+                        .background(FitCompColors.surfaceElevated)
                         .cornerRadius(16)
                     }
                     
@@ -530,13 +559,13 @@ struct ProfileSettingsView: View {
                     .disabled(isSyncingHealth)
                 }
                 .padding()
-                .background(StepCompColors.surface)
+                .background(FitCompColors.surface)
                 .cornerRadius(24, corners: [.bottomLeft, .bottomRight])
             }
             .shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2)
             .overlay(
                 RoundedRectangle(cornerRadius: 24)
-                    .stroke(StepCompColors.cardBorder, lineWidth: 1)
+                    .stroke(FitCompColors.cardBorder, lineWidth: 1)
             )
         }
     }
@@ -559,12 +588,12 @@ struct ProfileSettingsView: View {
                     
                     Text("Account Security")
                         .font(.system(size: 18, weight: .bold))
-                        .foregroundColor(StepCompColors.textPrimary)
+                        .foregroundColor(FitCompColors.textPrimary)
                     
                     Spacer()
                 }
                 .padding()
-                .background(StepCompColors.surface)
+                .background(FitCompColors.surface)
                 .cornerRadius(24, corners: [.topLeft, .topRight])
                 
                 // Fields
@@ -573,24 +602,24 @@ struct ProfileSettingsView: View {
                     VStack(alignment: .leading, spacing: 12) {
                         Text("PROFILE VISIBILITY")
                             .font(.system(size: 10, weight: .bold))
-                            .foregroundColor(StepCompColors.textSecondary)
+                            .foregroundColor(FitCompColors.textSecondary)
                             .tracking(0.5)
                         
                         HStack {
                             VStack(alignment: .leading, spacing: 4) {
                                 Text("Public Profile")
                                     .font(.system(size: 16, weight: .semibold))
-                                    .foregroundColor(StepCompColors.textPrimary)
+                                    .foregroundColor(FitCompColors.textPrimary)
                                 
                                 Text(publicProfile ? "Anyone can find you in Discover" : "Only friends can see your profile")
                                     .font(.system(size: 13))
-                                    .foregroundColor(StepCompColors.textSecondary)
+                                    .foregroundColor(FitCompColors.textSecondary)
                             }
                             
                             Spacer()
                             
                             Toggle("", isOn: $publicProfile)
-                                .tint(StepCompColors.primary)
+                                .tint(FitCompColors.primary)
                                 .labelsHidden()
                                 .disabled(isUpdatingPrivacy)
                                 .onChange(of: publicProfile) { oldValue, newValue in
@@ -600,7 +629,7 @@ struct ProfileSettingsView: View {
                                 }
                         }
                         .padding()
-                        .background(StepCompColors.surfaceElevated)
+                        .background(FitCompColors.surfaceElevated)
                         .cornerRadius(16)
                         
                         if publicProfile {
@@ -610,7 +639,7 @@ struct ProfileSettingsView: View {
                                     .foregroundColor(Color.green)
                                 Text("Your profile is discoverable by all users")
                                     .font(.system(size: 12))
-                                    .foregroundColor(StepCompColors.textSecondary)
+                                    .foregroundColor(FitCompColors.textSecondary)
                             }
                             .padding(.horizontal, 4)
                         } else {
@@ -620,7 +649,7 @@ struct ProfileSettingsView: View {
                                     .foregroundColor(Color.orange)
                                 Text("Only friends can see your profile")
                                     .font(.system(size: 12))
-                                    .foregroundColor(StepCompColors.textSecondary)
+                                    .foregroundColor(FitCompColors.textSecondary)
                             }
                             .padding(.horizontal, 4)
                         }
@@ -630,7 +659,7 @@ struct ProfileSettingsView: View {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("CURRENT PASSWORD")
                             .font(.system(size: 10, weight: .bold))
-                            .foregroundColor(StepCompColors.textSecondary)
+                            .foregroundColor(FitCompColors.textSecondary)
                             .tracking(0.5)
                         
                         HStack {
@@ -646,10 +675,10 @@ struct ProfileSettingsView: View {
                             
                             Text("Updated 3mo ago")
                                 .font(.system(size: 12, weight: .medium))
-                                .foregroundColor(StepCompColors.textSecondary.opacity(0.7))
+                                .foregroundColor(FitCompColors.textSecondary.opacity(0.7))
                         }
                         .padding()
-                        .background(StepCompColors.surfaceElevated)
+                        .background(FitCompColors.surfaceElevated)
                         .cornerRadius(16)
                     }
                     
@@ -663,50 +692,30 @@ struct ProfileSettingsView: View {
                             Text("Change Password")
                                 .font(.system(size: 14, weight: .bold))
                         }
-                        .foregroundColor(StepCompColors.textPrimary.opacity(0.8))
+                        .foregroundColor(FitCompColors.textPrimary.opacity(0.8))
                         .frame(maxWidth: .infinity)
                         .padding()
-                        .background(StepCompColors.surface)
+                        .background(FitCompColors.surface)
                         .overlay(
                             RoundedRectangle(cornerRadius: 16)
-                                .stroke(StepCompColors.cardBorder.opacity(0.4), lineWidth: 2)
+                                .stroke(FitCompColors.cardBorder.opacity(0.4), lineWidth: 2)
                         )
                         .cornerRadius(16)
                     }
                 }
                 .padding()
-                .background(StepCompColors.surface)
+                .background(FitCompColors.surface)
                 .cornerRadius(24, corners: [.bottomLeft, .bottomRight])
             }
             .shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2)
             .overlay(
                 RoundedRectangle(cornerRadius: 24)
-                    .stroke(StepCompColors.cardBorder, lineWidth: 1)
+                    .stroke(FitCompColors.cardBorder, lineWidth: 1)
             )
         }
     }
     
     // MARK: - Helper Functions
-    
-    private static func cmToImperial(_ cm: Int) -> (feet: Int, inches: Int) {
-        let totalInches = Double(cm) / 2.54
-        let feet = Int(totalInches / 12)
-        let inches = Int(totalInches.truncatingRemainder(dividingBy: 12).rounded())
-        return (feet, inches)
-    }
-    
-    private static func imperialToCm(feet: Int, inches: Int) -> Int {
-        let totalInches = Double(feet * 12 + inches)
-        return Int((totalInches * 2.54).rounded())
-    }
-    
-    private static func kgToLbs(_ kg: Int) -> Int {
-        return Int((Double(kg) * 2.20462).rounded())
-    }
-    
-    private static func lbsToKg(_ lbs: Int) -> Int {
-        return Int((Double(lbs) / 2.20462).rounded())
-    }
     
     private func syncFromAppleHealth() async {
         isSyncingHealth = true
@@ -714,14 +723,23 @@ struct ProfileSettingsView: View {
         do {
             // Get height from HealthKit
             if let heightCm = try await healthKitService.getHeight() {
-                let imperial = Self.cmToImperial(Int(heightCm))
-                heightFeetText = "\(imperial.feet)"
-                heightInchesText = "\(imperial.inches)"
+                if unitManager.unitSystem == .metric {
+                    heightFeetText = "\(Int(heightCm))"
+                    heightInchesText = ""
+                } else {
+                    let imperial = unitManager.heightComponents(fromCm: Int(heightCm))
+                    heightFeetText = "\(imperial.feet)"
+                    heightInchesText = "\(imperial.inches)"
+                }
             }
             
             // Get weight from HealthKit
             if let weightKg = try await healthKitService.getWeight() {
-                weightText = "\(Self.kgToLbs(Int(weightKg)))"
+                if unitManager.unitSystem == .metric {
+                    weightText = "\(Int(weightKg))"
+                } else {
+                    weightText = "\(unitManager.weightFromStorage(Int(weightKg)))"
+                }
             }
         } catch {
             errorMessage = "Failed to sync from Apple Health: \(error.localizedDescription)"
@@ -785,14 +803,21 @@ struct ProfileSettingsView: View {
         errorMessage = nil
         
         // Parse height and weight from text fields
-        let feet = Int(heightFeetText) ?? 5
-        let inches = Int(heightInchesText) ?? 9
+        let primaryHeight = Int(heightFeetText) ?? 0
+        let inches = Int(heightInchesText) ?? 0
         let weight = Int(weightText) ?? 150
         
         do {
             // Convert height and weight to metric
-            let heightCm = Self.imperialToCm(feet: feet, inches: inches)
-            let weightKg = Self.lbsToKg(weight)
+            let heightCm: Int
+            let weightKg: Int
+            if unitManager.unitSystem == .metric {
+                heightCm = max(primaryHeight, 0)
+                weightKg = max(weight, 0)
+            } else {
+                heightCm = unitManager.heightToStorage(feet: primaryHeight, inches: inches)
+                weightKg = unitManager.weightToStorage(weight)
+            }
             
             // Save to UserDefaults
             UserDefaults.standard.set(heightCm, forKey: "userHeight")
@@ -868,7 +893,7 @@ struct ProfileSettingsView: View {
             let displayName = "\(firstName) \(lastName)".trimmingCharacters(in: .whitespaces)
             
             let logUpdate = "{\"location\":\"ProfileSettingsView.swift:775\",\"message\":\"Updating profile with display_name\",\"data\":{\"firstName\":\"\(firstName)\",\"lastName\":\"\(lastName)\",\"displayName\":\"\(displayName)\",\"username\":\"\(username)\"},\"timestamp\":\(Int(Date().timeIntervalSince1970 * 1000)),\"sessionId\":\"debug-session\",\"runId\":\"profile-update\",\"hypothesisId\":\"H1,H2\"}\n"
-            if let fileHandle = FileHandle(forWritingAtPath: "/Users/jefferyerhunse/GitRepos/StepComp/.cursor/debug.log") {
+            if let fileHandle = FileHandle(forWritingAtPath: "/Users/jefferyerhunse/GitRepos/FitComp/.cursor/debug.log") {
                 fileHandle.seekToEndOfFile()
                 if let data = logUpdate.data(using: .utf8) {
                     fileHandle.write(data)
@@ -940,18 +965,18 @@ struct ChangePasswordView: View {
                     // Icon
                     ZStack {
                         Circle()
-                            .fill(StepCompColors.primary.opacity(0.15))
+                            .fill(FitCompColors.primary.opacity(0.15))
                             .frame(width: 80, height: 80)
                         
                         Image(systemName: "lock.shield.fill")
                             .font(.system(size: 36))
-                            .foregroundColor(StepCompColors.primary)
+                            .foregroundColor(FitCompColors.primary)
                     }
                     .padding(.top, 20)
                     
                     Text("Create a strong password with at least 8 characters")
                         .font(.system(size: 14))
-                        .foregroundColor(StepCompColors.textSecondary)
+                        .foregroundColor(FitCompColors.textSecondary)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal)
                     
@@ -960,12 +985,12 @@ struct ChangePasswordView: View {
                         VStack(alignment: .leading, spacing: 8) {
                             Text("Current Password")
                                 .font(.system(size: 14, weight: .semibold))
-                                .foregroundColor(StepCompColors.textSecondary)
+                                .foregroundColor(FitCompColors.textSecondary)
                             
                             HStack {
                                 if isCurrentPasswordVisible {
                                     TextField("Enter current password", text: $currentPassword)
-                                        .foregroundColor(StepCompColors.textPrimary)
+                                        .foregroundColor(FitCompColors.textPrimary)
                                         .textInputAutocapitalization(.never)
                                         .autocorrectionDisabled()
                                 } else {
@@ -977,11 +1002,11 @@ struct ChangePasswordView: View {
                                     isCurrentPasswordVisible.toggle()
                                 } label: {
                                     Image(systemName: isCurrentPasswordVisible ? "eye.fill" : "eye.slash.fill")
-                                        .foregroundColor(StepCompColors.textSecondary)
+                                        .foregroundColor(FitCompColors.textSecondary)
                                 }
                             }
                             .padding()
-                            .background(StepCompColors.surfaceElevated)
+                            .background(FitCompColors.surfaceElevated)
                             .cornerRadius(16)
                         }
                         
@@ -989,12 +1014,12 @@ struct ChangePasswordView: View {
                         VStack(alignment: .leading, spacing: 8) {
                             Text("New Password")
                                 .font(.system(size: 14, weight: .semibold))
-                                .foregroundColor(StepCompColors.textSecondary)
+                                .foregroundColor(FitCompColors.textSecondary)
                             
                             HStack {
                                 if isNewPasswordVisible {
                                     TextField("Enter new password", text: $newPassword)
-                                        .foregroundColor(StepCompColors.textPrimary)
+                                        .foregroundColor(FitCompColors.textPrimary)
                                         .textInputAutocapitalization(.never)
                                         .autocorrectionDisabled()
                                 } else {
@@ -1006,11 +1031,11 @@ struct ChangePasswordView: View {
                                     isNewPasswordVisible.toggle()
                                 } label: {
                                     Image(systemName: isNewPasswordVisible ? "eye.fill" : "eye.slash.fill")
-                                        .foregroundColor(StepCompColors.textSecondary)
+                                        .foregroundColor(FitCompColors.textSecondary)
                                 }
                             }
                             .padding()
-                            .background(StepCompColors.surfaceElevated)
+                            .background(FitCompColors.surfaceElevated)
                             .cornerRadius(16)
                             
                             if !newPassword.isEmpty && newPassword.count < 8 {
@@ -1024,12 +1049,12 @@ struct ChangePasswordView: View {
                         VStack(alignment: .leading, spacing: 8) {
                             Text("Confirm New Password")
                                 .font(.system(size: 14, weight: .semibold))
-                                .foregroundColor(StepCompColors.textSecondary)
+                                .foregroundColor(FitCompColors.textSecondary)
                             
                             HStack {
                                 if isConfirmPasswordVisible {
                                     TextField("Confirm new password", text: $confirmPassword)
-                                        .foregroundColor(StepCompColors.textPrimary)
+                                        .foregroundColor(FitCompColors.textPrimary)
                                         .textInputAutocapitalization(.never)
                                         .autocorrectionDisabled()
                                 } else {
@@ -1041,11 +1066,11 @@ struct ChangePasswordView: View {
                                     isConfirmPasswordVisible.toggle()
                                 } label: {
                                     Image(systemName: isConfirmPasswordVisible ? "eye.fill" : "eye.slash.fill")
-                                        .foregroundColor(StepCompColors.textSecondary)
+                                        .foregroundColor(FitCompColors.textSecondary)
                                 }
                             }
                             .padding()
-                            .background(StepCompColors.surfaceElevated)
+                            .background(FitCompColors.surfaceElevated)
                             .cornerRadius(16)
                             
                             if !confirmPassword.isEmpty && newPassword != confirmPassword {
@@ -1073,16 +1098,16 @@ struct ChangePasswordView: View {
                         HStack {
                             if isLoading {
                                 ProgressView()
-                                    .progressViewStyle(CircularProgressViewStyle(tint: StepCompColors.buttonTextOnPrimary))
+                                    .progressViewStyle(CircularProgressViewStyle(tint: FitCompColors.buttonTextOnPrimary))
                             } else {
                                 Text("Update Password")
                                     .font(.system(size: 16, weight: .bold))
                             }
                         }
-                        .foregroundColor(StepCompColors.buttonTextOnPrimary)
+                        .foregroundColor(FitCompColors.buttonTextOnPrimary)
                         .frame(maxWidth: .infinity)
                         .padding()
-                        .background(isFormValid ? StepCompColors.primary : StepCompColors.primary.opacity(0.4))
+                        .background(isFormValid ? FitCompColors.primary : FitCompColors.primary.opacity(0.4))
                         .cornerRadius(16)
                     }
                     .disabled(!isFormValid || isLoading)
@@ -1097,7 +1122,7 @@ struct ChangePasswordView: View {
                     Button("Cancel") {
                         dismiss()
                     }
-                    .foregroundColor(StepCompColors.textSecondary)
+                    .foregroundColor(FitCompColors.textSecondary)
                 }
             }
             .alert("Password Updated", isPresented: $showSuccess) {
@@ -1142,7 +1167,7 @@ struct ChangePasswordView: View {
         )
     )
     .environmentObject(AuthService.shared)
-    .environmentObject(HealthKitService())
+    .environmentObject(HealthKitService.shared)
 }
 
 #Preview("Change Password") {

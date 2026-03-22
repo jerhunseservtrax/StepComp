@@ -8,26 +8,32 @@
 			<key>CFBundleTypeRole</key>
 			<string>Editor</string>
 			<key>CFBundleURLName</key>
-			<string>com.yourcompany.StepComp.auth</string>
+			<string>com.yourcompany.FitComp.auth</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
-				<string>stepcomp</string>
+				<string>fitcomp</string>
 			</array>
 		</dict>
 	</array>
 	<key>NSHealthShareUsageDescription</key>
-	<string>StepComp needs access to your step count to track your progress in challenges and display your activity on leaderboards.</string>
+	<string>FitComp needs access to your step count to track your progress in challenges and display your activity on leaderboards.</string>
 	<key>NSHealthUpdateUsageDescription</key>
-	<string>StepComp needs permission to save your step data for challenge tracking and progress updates.</string>
+	<string>FitComp needs permission to save your step data for challenge tracking and progress updates.</string>
 	<key>NSCameraUsageDescription</key>
-	<string>StepComp needs access to your camera to take transformation photos and document your fitness journey.</string>
+	<string>FitComp needs access to your camera to take transformation photos and document your fitness journey.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>StepComp needs access to your photo library to select transformation photos.</string>
+	<string>FitComp needs access to your photo library to select transformation photos.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
-	<string>StepComp needs permission to save transformation photos to your photo library.</string>
+	<string>FitComp needs permission to save transformation photos to your photo library.</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>audio</string>
+	</array>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 	<key>NSSupportsLiveActivities</key>
 	<true/>
+	<key>UNSPLASH_ACCESS_KEY</key>
+	<string></string>
 </dict>
 </plist>

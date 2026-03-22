@@ -1,6 +1,6 @@
 //
 //  StepSyncService.swift
-//  StepComp
+//  FitComp
 //
 //  Service to sync HealthKit steps to Supabase via secure Edge Function
 //  This ensures backend is source of truth with validation and rate limiting
@@ -20,6 +20,7 @@ import UIKit
 @MainActor
 final class StepSyncService: ObservableObject {
     private let healthKitService: HealthKitService
+    private var isSyncing = false
     
     init(healthKitService: HealthKitService) {
         self.healthKitService = healthKitService
@@ -29,6 +30,13 @@ final class StepSyncService: ObservableObject {
     /// Edge Function handles: JWT validation, rate limiting, server-side validation
     func syncTodayStepsToProfile() async {
         #if canImport(Supabase)
+        guard !isSyncing else {
+            print("ℹ️ Step sync already in progress, skipping duplicate request")
+            return
+        }
+        isSyncing = true
+        defer { isSyncing = false }
+        
         guard healthKitService.isAuthorized else {
             print("⚠️ HealthKit not authorized, skipping step sync")
             return

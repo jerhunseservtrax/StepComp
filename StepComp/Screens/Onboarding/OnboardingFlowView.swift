@@ -1,6 +1,6 @@
 //
 //  OnboardingFlowView.swift
-//  StepComp
+//  FitComp
 //
 //  Created by Jeffery Erhunse on 12/24/25.
 //
@@ -27,7 +27,7 @@ struct OnboardingFlowView: View {
     
     var body: some View {
         ZStack {
-            StepCompColors.background
+            FitCompColors.background
                 .ignoresSafeArea()
             
             Group {
@@ -76,7 +76,7 @@ struct OnboardingFlowView: View {
                         .foregroundColor(.primary)
                         .padding(.horizontal, 16)
                         .padding(.vertical, 10)
-                        .background(StepCompColors.surfaceElevated)
+                        .background(FitCompColors.surfaceElevated)
                         .cornerRadius(20)
                     }
                     .padding(.leading, 24)
@@ -108,16 +108,16 @@ struct StepIndicator: View {
             ForEach(0..<totalSteps, id: \.self) { index in
                 if index == currentStep {
                     RoundedRectangle(cornerRadius: 3)
-                        .fill(StepCompColors.primary)
+                        .fill(FitCompColors.primary)
                         .frame(width: 32, height: 6)
                         .animation(.spring(response: 0.3, dampingFraction: 0.7), value: currentStep)
                 } else if index < currentStep {
                     Circle()
-                        .fill(StepCompColors.primary.opacity(0.3))
+                        .fill(FitCompColors.primary.opacity(0.3))
                         .frame(width: 6, height: 6)
                 } else {
                     Circle()
-                        .fill(StepCompColors.textTertiary.opacity(0.3))
+                        .fill(FitCompColors.textTertiary.opacity(0.3))
                         .frame(width: 6, height: 6)
                 }
             }
@@ -142,6 +142,6 @@ struct OnboardingScreenBase<Content: View>: View {
             content()
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(StepCompColors.background)
+        .background(FitCompColors.background)
     }
 }

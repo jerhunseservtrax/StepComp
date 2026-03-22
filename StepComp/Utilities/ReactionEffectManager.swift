@@ -1,6 +1,6 @@
 //
 //  ReactionEffectManager.swift
-//  StepComp
+//  FitComp
 //
 //  Triggers full-screen celebration effects similar to iMessage/FaceTime reactions
 //  Uses UIKit particle effects and animations

@@ -1,6 +1,6 @@
 //
 //  RootView.swift
-//  StepComp
+//  FitComp
 //
 //  Created by Jeffery Erhunse on 12/24/25.
 //
@@ -40,8 +40,8 @@ private struct SessionLoadingView: View {
 
 struct RootView: View {
     @ObservedObject private var authService = AuthService.shared
-    @StateObject private var healthKitService = HealthKitService()
-    @StateObject private var challengeService = ChallengeService()
+    @StateObject private var healthKitService = HealthKitService.shared
+    @StateObject private var challengeService = ChallengeService.shared
     @StateObject private var friendsService = FriendsService()
     @StateObject private var themeManager = ThemeManager()
     @ObservedObject private var router = DeepLinkRouter.shared
@@ -50,13 +50,15 @@ struct RootView: View {
     @StateObject private var sessionViewModel: SessionViewModel
     @State private var showingPasswordReset = false
     @State private var passwordResetURL: URL?
+    @State private var hasTriggeredMetricsStartupSync = false
+    @State private var lastAuthRecoveryCheckAt: Date = .distantPast
     
     init() {
         // Use the shared AuthService instance
         _sessionViewModel = StateObject(
             wrappedValue: SessionViewModel(
                 authService: AuthService.shared,
-                healthKitService: HealthKitService()
+                healthKitService: HealthKitService.shared
             )
         )
     }
@@ -96,6 +98,8 @@ struct RootView: View {
             
             // Reconcile active workout state on app launch
             workoutViewModel.reconcileActiveWorkoutState()
+            triggerMetricsSyncIfReady()
+            triggerAuthRecoveryCheckIfNeeded()
         }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
             // Clear delivered notifications and badge when app becomes active
@@ -103,6 +107,7 @@ struct RootView: View {
             
             // Reconcile active workout state when app enters foreground
             workoutViewModel.reconcileActiveWorkoutState()
+            triggerAuthRecoveryCheckIfNeeded()
         }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.didEnterBackgroundNotification)) { _ in
             // Save active workout draft when app enters background
@@ -115,6 +120,16 @@ struct RootView: View {
                 // Clear the pending URL after handling
                 router.pendingPasswordResetURL = nil
             }
+        }
+        .onChange(of: sessionViewModel.isCheckingSession) { _, _ in
+            triggerMetricsSyncIfReady()
+        }
+        .onChange(of: sessionViewModel.isAuthenticated) { _, isAuthenticated in
+            if !isAuthenticated {
+                hasTriggeredMetricsStartupSync = false
+                return
+            }
+            triggerMetricsSyncIfReady()
         }
         .sheet(item: Binding(
             get: { router.pendingInviteToken.map { InviteTokenItem(token: $0) } },
@@ -153,6 +168,31 @@ struct RootView: View {
                 }
             }
             print("✅ Badge cleared")
+        }
+    }
+    
+    private func triggerMetricsSyncIfReady() {
+        guard !hasTriggeredMetricsStartupSync else { return }
+        guard !sessionViewModel.isCheckingSession else { return }
+        guard sessionViewModel.isAuthenticated else { return }
+        
+        hasTriggeredMetricsStartupSync = true
+        Task(priority: .utility) {
+            await MetricsService.shared.syncAllLocalData()
+        }
+    }
+
+    private func triggerAuthRecoveryCheckIfNeeded() {
+        guard !sessionViewModel.isCheckingSession else { return }
+        guard !sessionViewModel.isAuthenticated else { return }
+
+        let now = Date()
+        // Keep this idempotent around lifecycle churn.
+        guard now.timeIntervalSince(lastAuthRecoveryCheckAt) > 10 else { return }
+        lastAuthRecoveryCheckAt = now
+
+        Task {
+            await sessionViewModel.checkSession()
         }
     }
 }

@@ -1,6 +1,6 @@
 //
 //  ChatListView.swift
-//  StepComp
+//  FitComp
 //
 //  Displays all chats the user is in with quick access
 //
@@ -26,7 +26,7 @@ struct ChatListView: View {
         Group {
             if viewModel.isLoading {
                 ProgressView()
-                    .progressViewStyle(CircularProgressViewStyle(tint: StepCompColors.primary))
+                    .progressViewStyle(CircularProgressViewStyle(tint: FitCompColors.primary))
             } else if viewModel.chatPreviews.isEmpty {
                 EmptyChatsView()
             } else {
@@ -101,12 +101,12 @@ struct ChatPreviewRow: View {
             // Challenge Avatar/Icon
             ZStack {
                 Circle()
-                    .fill(StepCompColors.primary.opacity(0.2))
+                    .fill(FitCompColors.primary.opacity(0.2))
                     .frame(width: 50, height: 50)
                 
                 Image(systemName: "bubble.left.and.bubble.right.fill")
                     .font(.system(size: 20))
-                    .foregroundColor(StepCompColors.primary)
+                    .foregroundColor(FitCompColors.primary)
             }
             
             VStack(alignment: .leading, spacing: 4) {
@@ -163,7 +163,7 @@ struct EmptyChatsView: View {
         VStack(spacing: 16) {
             Image(systemName: "bubble.left.and.bubble.right")
                 .font(.system(size: 60))
-                .foregroundColor(StepCompColors.primary)
+                .foregroundColor(FitCompColors.primary)
             
             Text("No Chats Yet")
                 .font(.system(size: 20, weight: .bold))

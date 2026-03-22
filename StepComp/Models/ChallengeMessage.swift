@@ -1,6 +1,6 @@
 //
 //  ChallengeMessage.swift
-//  StepComp
+//  FitComp
 //
 //  Model for challenge group chat messages
 //

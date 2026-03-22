@@ -1,6 +1,6 @@
 //
 //  ChatListViewModel.swift
-//  StepComp
+//  FitComp
 //
 //  Manages the list of all chats the user is in
 //

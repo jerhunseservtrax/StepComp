@@ -1,6 +1,6 @@
 //
 //  NotificationManager.swift
-//  StepComp
+//  FitComp
 //
 //  Manages push notifications for the app
 //
@@ -218,7 +218,7 @@ final class NotificationManager: NSObject, ObservableObject {
         
         let content = UNMutableNotificationContent()
         content.title = "Test Notification 🧪"
-        content.body = "StepComp notifications are working!"
+        content.body = "FitComp notifications are working!"
         content.sound = .default
         content.badge = 1
         
@@ -237,7 +237,7 @@ final class NotificationManager: NSObject, ObservableObject {
             } else {
                 print("✅ Test notification scheduled - should appear in 1 second")
                 print("📱 If you don't see it, check:")
-                print("   1. System Settings > StepComp > Notifications")
+                print("   1. System Settings > FitComp > Notifications")
                 print("   2. Do Not Disturb is OFF")
                 print("   3. Focus mode is not blocking")
             }

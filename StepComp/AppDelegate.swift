@@ -1,6 +1,6 @@
 //
 //  AppDelegate.swift
-//  StepComp
+//  FitComp
 //
 //  Handles APNs registration for showing app icon in notifications
 //

@@ -1,6 +1,6 @@
 //
 //  ChallengeImageBackground.swift
-//  StepComp
+//  FitComp
 //
 //  Created for challenge image display functionality
 //

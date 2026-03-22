@@ -1,6 +1,6 @@
 //
 //  ArchivedChallengesTab.swift
-//  StepComp
+//  FitComp
 //
 //  Created by Jeffery Erhunse
 //
@@ -37,9 +37,10 @@ struct ArchivedChallengesTab: View {
             }
             .padding(.vertical, 16)
         }
-        .background(StepCompColors.background.ignoresSafeArea())
+        .background(FitCompColors.background.ignoresSafeArea())
         .refreshable {
             await viewModel.loadChallenges()
+            await viewModel.loadArchivedChallengesIfNeeded(force: true)
         }
         .sheet(isPresented: $showingChallengeSummary) {
             if let challengeId = selectedChallengeId,
@@ -80,10 +81,10 @@ struct ArchivedChallengeListItem: View {
             case .marathon: return Color.blue
             case .friends: return Color.purple
             case .shortTerm: return Color.green
-            case .fun: return StepCompColors.primary
+            case .fun: return FitCompColors.primary
             }
         }
-        let colors: [Color] = [Color.orange, Color.blue, StepCompColors.primary, Color.purple, Color.green]
+        let colors: [Color] = [Color.orange, Color.blue, FitCompColors.primary, Color.purple, Color.green]
         return colors[abs(challenge.name.hashValue) % colors.count]
     }
     
@@ -137,25 +138,25 @@ struct ArchivedChallengeListItem: View {
                         if let category = challenge.category {
                             Text(category.displayName)
                                 .font(.system(size: 10, weight: .semibold))
-                                .foregroundColor(StepCompColors.textTertiary)
+                                .foregroundColor(FitCompColors.textTertiary)
                         }
                     }
                     
                     // Challenge name
                     Text(challenge.name)
                         .font(.system(size: 18, weight: .bold, design: .rounded))
-                        .foregroundColor(StepCompColors.textPrimary)
+                        .foregroundColor(FitCompColors.textPrimary)
                         .lineLimit(1)
                     
                     // Participants count
                     HStack(spacing: 4) {
                         Image(systemName: "person.2.fill")
                             .font(.system(size: 12))
-                            .foregroundColor(StepCompColors.textSecondary)
+                            .foregroundColor(FitCompColors.textSecondary)
                         
                         Text("\(challenge.participantIds.count) participated")
                             .font(.system(size: 12, weight: .medium))
-                            .foregroundColor(StepCompColors.textSecondary)
+                            .foregroundColor(FitCompColors.textSecondary)
                     }
                 }
                 
@@ -170,24 +171,24 @@ struct ArchivedChallengeListItem: View {
                         
                         Text("Ended")
                             .font(.system(size: 12, weight: .bold))
-                            .foregroundColor(StepCompColors.textSecondary)
+                            .foregroundColor(FitCompColors.textSecondary)
                     }
                     
                     Text(endDateText)
                         .font(.system(size: 10, weight: .medium))
-                        .foregroundColor(StepCompColors.textTertiary)
+                        .foregroundColor(FitCompColors.textTertiary)
                         .lineLimit(1)
                 }
                 .padding(.horizontal, 10)
                 .padding(.vertical, 6)
-                .background(StepCompColors.surfaceElevated)
+                .background(FitCompColors.surfaceElevated)
                 .cornerRadius(12)
             }
             .padding(16)
             .background(
                 ZStack {
                     // Subtle dot pattern background
-                    StepCompColors.surface
+                    FitCompColors.surface
                     
                     // Pattern overlay
                     GeometryReader { geometry in
@@ -204,16 +205,16 @@ struct ArchivedChallengeListItem: View {
                                 }
                             }
                         }
-                        .fill(StepCompColors.textPrimary.opacity(0.03))
+                        .fill(FitCompColors.textPrimary.opacity(0.03))
                     }
                 }
             )
             .cornerRadius(24)
             .overlay(
                 RoundedRectangle(cornerRadius: 24)
-                    .stroke(StepCompColors.cardBorder, lineWidth: 1)
+                    .stroke(FitCompColors.cardBorder, lineWidth: 1)
             )
-            .shadow(color: StepCompColors.shadowPrimary, radius: 4, x: 0, y: 2)
+            .shadow(color: FitCompColors.shadowPrimary, radius: 4, x: 0, y: 2)
         }
         .buttonStyle(PlainButtonStyle())
     }

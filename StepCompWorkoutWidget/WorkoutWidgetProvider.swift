@@ -1,6 +1,6 @@
 //
 //  WorkoutWidgetProvider.swift
-//  StepCompWorkoutWidget
+//  FitCompWorkoutWidget
 //
 
 import WidgetKit

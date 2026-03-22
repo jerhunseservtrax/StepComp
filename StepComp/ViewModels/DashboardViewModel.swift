@@ -1,6 +1,6 @@
 //
 //  DashboardViewModel.swift
-//  StepComp
+//  FitComp
 //
 //  Created by Jeffery Erhunse on 12/24/25.
 //
@@ -8,6 +8,13 @@
 import Foundation
 import SwiftUI
 import Combine
+
+struct DashboardMetricPair {
+    let titleA: String
+    let valueA: String
+    let titleB: String
+    let valueB: String
+}
 
 @MainActor
 final class DashboardViewModel: ObservableObject {
@@ -17,6 +24,8 @@ final class DashboardViewModel: ObservableObject {
     @Published var caloriesBurned: Int = 0
     @Published var distanceKm: Double = 0.0
     @Published var currentStreak: Int = 0
+    @Published var weeklyScopeMetricPairs: [DashboardMetricPair] = []
+    @Published var longTermScopeMetricPairs: [DashboardMetricPair] = []
     
     var distanceMiles: Double {
         // Convert km to miles (1 km = 0.621371 miles)
@@ -25,8 +34,8 @@ final class DashboardViewModel: ObservableObject {
     @Published var isLoading: Bool = false
     @Published var errorMessage: String?
     
-    private var challengeService: ChallengeService
-    private var healthKitService: HealthKitService
+    private var challengeService: ChallengeService?
+    private var healthKitService: HealthKitService?
     private var stepSyncService: StepSyncService?
     private var notificationService = StepGoalNotificationService.shared
     private var celebrationManager = GoalCelebrationManager.shared
@@ -35,19 +44,12 @@ final class DashboardViewModel: ObservableObject {
     private var cancellables = Set<AnyCancellable>()
     private var lastCheckedSteps: Int = 0
     private var lastCheckedDate: Date?
+    private var isLoadingData = false
     
-    init(
-        challengeService: ChallengeService,
-        healthKitService: HealthKitService,
-        userId: String
-    ) {
-        self.challengeService = challengeService
-        self.healthKitService = healthKitService
-        self.stepSyncService = StepSyncService(healthKitService: healthKitService)
+    init(userId: String = "") {
         self.userId = userId
         
         if !userId.isEmpty {
-            loadData()
             startAutoRefresh()
         }
     }
@@ -69,6 +71,7 @@ final class DashboardViewModel: ObservableObject {
     }
     
     func refreshChallenges() async {
+        guard let challengeService else { return }
         // Force refresh challenges from Supabase
         #if canImport(Supabase)
         await challengeService.refreshChallenges()
@@ -77,6 +80,15 @@ final class DashboardViewModel: ObservableObject {
     }
     
     func loadData() {
+        guard !isLoadingData else { return }
+        guard !userId.isEmpty,
+              challengeService != nil,
+              healthKitService != nil else {
+            isLoading = false
+            return
+        }
+        
+        isLoadingData = true
         isLoading = true
         errorMessage = nil
         
@@ -84,10 +96,12 @@ final class DashboardViewModel: ObservableObject {
             await loadChallenges()
             await loadStepData()
             isLoading = false
+            isLoadingData = false
         }
     }
     
     private func loadChallenges() async {
+        guard let challengeService else { return }
         // Ensure challenges are loaded from Supabase first
         #if canImport(Supabase)
         await challengeService.refreshChallenges()
@@ -110,6 +124,7 @@ final class DashboardViewModel: ObservableObject {
     }
     
     private func loadStepData() async {
+        guard let healthKitService else { return }
         // Ensure HealthKit is initialized and check authorization
         _ = healthKitService.isHealthKitAvailable
         healthKitService.checkAuthorizationStatus()
@@ -188,7 +203,9 @@ final class DashboardViewModel: ObservableObject {
             
             // Sync steps to Supabase profile and challenges
             // Note: Edge Function derives userId from JWT (secure!)
-            if !userId.isEmpty, let stepSyncService = stepSyncService {
+            if !userId.isEmpty,
+               let stepSyncService = stepSyncService,
+               let challengeService = challengeService {
                 await stepSyncService.syncAll(challengeService: challengeService)
             }
         } catch {
@@ -258,6 +275,55 @@ final class DashboardViewModel: ObservableObject {
     
     func refresh() {
         loadData()
+    }
+
+    func computeScopeMetrics(weeklyStepData: [Int], dailyGoal: Int) {
+        let workoutVm = WorkoutViewModel.shared
+        let thisWeekWorkouts = workoutVm.completedSessions.filter {
+            Calendar.current.dateComponents([.day], from: $0.endTime, to: Date()).day ?? 999 <= 7
+        }.count
+        let avgSteps = weeklyStepData.isEmpty ? 0 : weeklyStepData.reduce(0, +) / weeklyStepData.count
+        let consistency = weeklyStepData.isEmpty
+            ? 0
+            : Int((Double(weeklyStepData.filter { $0 >= dailyGoal }.count) / Double(weeklyStepData.count) * 100).rounded())
+        let weightTrend = WeightViewModel.shared.getEntriesForGraph(days: 7)
+        let weightChange: Double = {
+            guard let first = weightTrend.first?.weightKg, let last = weightTrend.last?.weightKg else { return 0 }
+            return last - first
+        }()
+
+        weeklyScopeMetricPairs = [
+            DashboardMetricPair(titleA: "Workouts", valueA: "\(thisWeekWorkouts)", titleB: "Avg Steps", valueB: "\(avgSteps)"),
+            DashboardMetricPair(titleA: "Consistency", valueA: "\(consistency)%", titleB: "Weight Trend", valueB: String(format: "%+.1fkg", weightChange))
+        ]
+
+        let store = ComprehensiveMetricsStore.shared
+        let strength = store.computeStrengthSnapshot(sessions: workoutVm.completedSessions)
+        let scores = store.computeEngagementScores(
+            sessions: workoutVm.completedSessions,
+            stepHistory: [],
+            strength: strength,
+            cardio: CardioMetricSnapshot(averagePaceMinPerKm: nil, speedImprovementPercent: 0, totalZoneMinutes: 0, vo2Max: nil)
+        )
+        let body = store.computeBodySnapshot(
+            weightEntries: WeightViewModel.shared.entries,
+            heightCm: nil
+        )
+
+        longTermScopeMetricPairs = [
+            DashboardMetricPair(
+                titleA: "Strength 1RM",
+                valueA: "\(Int(strength.estimatedOneRM.rounded()))kg",
+                titleB: "Performance",
+                valueB: "\(scores.performanceScore)"
+            ),
+            DashboardMetricPair(
+                titleA: "Overload",
+                valueA: "\(strength.overloadSuccessRate)%",
+                titleB: "Lean Mass",
+                valueB: body.leanMassKg.map { String(format: "%.1fkg", $0) } ?? "-"
+            )
+        ]
     }
     
     // MARK: - Auto Refresh
