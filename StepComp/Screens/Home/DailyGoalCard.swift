@@ -16,7 +16,6 @@ struct DailyGoalCard: View {
     let weeklyStepData: [Int]  // Weekly step data for bar chart (last 7 days)
     var selectedDate: Date = Date()  // NEW: Date selected in calendar
     var onRefresh: (() async -> Void)? = nil
-    var celebrationManager: GoalCelebrationManager? = nil
     
     @ObservedObject private var unitPreference = UnitPreferenceManager.shared
     @Environment(\.colorScheme) private var colorScheme
@@ -24,8 +23,6 @@ struct DailyGoalCard: View {
     @State private var animatedProgress: Double = 0
     @State private var rotation3D: Double = 0
     @State private var scale: CGFloat = 1.0
-    @State private var showFireworks = false
-    @State private var fireworksTimer: Timer?
     @State private var isRefreshing = false
     
     // Toggle view mode
@@ -175,31 +172,6 @@ struct DailyGoalCard: View {
                 isRefreshing = false
             }
         }
-            
-            // Fireworks overlay in top-right corner when goal is met
-            if showFireworks && isGoalExceeded {
-                FireworksView()
-                    .frame(width: 80, height: 80)
-                    .offset(x: -10, y: 10)
-                    .transition(.scale.combined(with: .opacity))
-            }
-        }
-        .onAppear {
-            if isGoalExceeded {
-                startFireworksTimer()
-            }
-        }
-        .onChange(of: isGoalExceeded) { _, exceeded in
-            if exceeded {
-                startFireworksTimer()
-                // Trigger immediate fireworks
-                triggerFireworks()
-            } else {
-                stopFireworksTimer()
-            }
-        }
-        .onDisappear {
-            stopFireworksTimer()
         }
     }
     
@@ -322,129 +294,108 @@ struct DailyGoalCard: View {
     // MARK: - Bar Chart View
     
     private var barChartView: some View {
-        VStack(spacing: 12) {
-            // Today's stats header
-            VStack(spacing: 4) {
-                Text(formatNumber(currentSteps))
-                    .font(.system(size: 40, weight: .bold, design: .rounded))
-                    .foregroundColor(FitCompColors.textPrimary)
-                
-                HStack(spacing: 4) {
-                    Text(distanceText)
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundColor(FitCompColors.textSecondary)
-                    
-                    if currentStreak > 0 {
-                        Image(systemName: "arrow.up.forward")
-                            .font(.system(size: 12, weight: .bold))
-                            .foregroundColor(colorScheme == .dark ? FitCompColors.green : Color.green.opacity(0.8))
-                        
-                        Text("\(currentStreak)")
-                            .font(.system(size: 14, weight: .bold))
-                            .foregroundColor(colorScheme == .dark ? FitCompColors.green : Color.green.opacity(0.8))
-                    }
-                }
-            }
-            .padding(.top, 8)
-            
-            // Week label
+        VStack(alignment: .leading, spacing: 10) {
             HStack {
-                Text("Last 7 days")
-                    .font(.system(size: 14, weight: .semibold))
+                Text("This Week")
+                    .font(.system(size: 16, weight: .bold))
                     .foregroundColor(FitCompColors.textPrimary)
                 Spacer()
+                Text("\(formatNumber(currentSteps)) steps")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(FitCompColors.textSecondary)
             }
             .padding(.horizontal, 20)
-            
-            // Scrollable bar chart with goal line
+
             ScrollViewReader { scrollProxy in
                 ScrollView(.horizontal, showsIndicators: false) {
-                    ZStack(alignment: .bottom) {
-                        // Goal line indicator - solid blue line
+                    let chartMaxSteps = max(displayedBars.map { $0.steps }.max() ?? 1, dailyGoal)
+                    ZStack(alignment: .topLeading) {
+                        RoundedRectangle(cornerRadius: 22)
+                            .fill(FitCompColors.surfaceElevated)
+
                         GeometryReader { geometry in
-                            let maxSteps = max(weeklyStepData.max() ?? 1, dailyGoal)
-                            let goalHeight = CGFloat(dailyGoal) / CGFloat(maxSteps) * 140
-                            
-                            // Solid blue goal line
+                            let goalY = goalLineOffsetY(maxSteps: chartMaxSteps)
+
                             Rectangle()
-                                .fill(Color.blue)
+                                .fill(FitCompColors.primary.opacity(0.85))
                                 .frame(height: 2)
-                                .position(x: geometry.size.width / 2, y: 140 - goalHeight + 90)
-                        }
-                        
-                        // Bars
-                        HStack(alignment: .bottom, spacing: 8) {
-                            ForEach(Array(weeklyStepData.enumerated()), id: \.offset) { index, steps in
-                                BarView(
-                                    steps: steps,
-                                    dailyGoal: dailyGoal,
-                                    maxSteps: max(weeklyStepData.max() ?? 1, dailyGoal),
-                                    animationProgress: barAnimationProgress,
-                                    dayLabel: dayLabel(for: index),
-                                    distanceLabel: distanceLabel(for: steps),
-                                    isToday: isToday(index),
-                                    isSelected: isSelectedDate(index),
-                                    colorScheme: colorScheme
+                                .padding(.horizontal, 12)
+                                .offset(y: goalY)
+                                .shadow(color: FitCompColors.primary.opacity(0.35), radius: 4, x: 0, y: 0)
+
+                            Text("Goal \(formatNumberShort(dailyGoal))")
+                                .font(.system(size: 10, weight: .bold))
+                                .foregroundColor(FitCompColors.buttonTextOnPrimary)
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 4)
+                                .background(
+                                    Capsule()
+                                        .fill(FitCompColors.primary)
                                 )
-                                .frame(width: 44)
-                                .id(index)
+                                .offset(
+                                    x: max(16, min(geometry.size.width - 110, geometry.size.width * 0.60)),
+                                    y: goalY - 12
+                                )
+                        }
+
+                        HStack(alignment: .bottom, spacing: 9) {
+                            ForEach(displayedBars, id: \.index) { entry in
+                                BarView(
+                                    steps: entry.steps,
+                                    dailyGoal: dailyGoal,
+                                    maxSteps: chartMaxSteps,
+                                    animationProgress: barAnimationProgress,
+                                    dayLabel: dayLabel(for: entry.index),
+                                    isToday: isToday(entry.index),
+                                    isSelected: isSelectedDate(entry.index),
+                                    colorScheme: colorScheme,
+                                    trackHeight: barTrackHeight,
+                                    showValue: isToday(entry.index) || isSelectedDate(entry.index)
+                                )
+                                .frame(width: 40)
+                                .id(entry.index)
                             }
                         }
-                        .padding(.horizontal, 16)
+                        .padding(.horizontal, 14)
+                        .padding(.top, barGroupTopPadding)
+                        .padding(.bottom, 10)
                     }
-                    .frame(height: 230)
-                    // Width based on number of bars: 44pt per bar + 8pt spacing + padding
-                    .frame(minWidth: CGFloat(weeklyStepData.count) * 52 + 32)
+                    .frame(height: 228)
+                    .frame(minWidth: CGFloat(displayedBars.count) * 49 + 30)
                 }
                 .onAppear {
-                    // Scroll to show the most recent data (rightmost) on appear
-                    if !weeklyStepData.isEmpty {
+                    if let latestIndex = displayedBars.last?.index {
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                             withAnimation(.easeOut(duration: 0.3)) {
-                                scrollProxy.scrollTo(weeklyStepData.count - 1, anchor: .trailing)
+                                scrollProxy.scrollTo(latestIndex, anchor: .trailing)
                             }
                         }
                     }
                 }
             }
-            
-            // Stats row (Cal, Mi, Hrs) - moved inside bar chart view
-            HStack(spacing: 12) {
-                StatBox(label: "Cal", value: "\(calories)")
-                StatBox(
-                    label: unitPreference.distanceUnit,
-                    value: unitPreference.formatDistance(distanceKm)
-                )
-                StatBox(label: "Hrs", value: String(format: "%.1f", activeHours))
-            }
-            .padding(.horizontal, 20)
-            .padding(.bottom, 12)
         }
+        .padding(.top, 12)
+        .padding(.bottom, 18)
     }
     
     // MARK: - Bar Chart Helper Functions
     
-    private var distanceText: String {
-        let distance = unitPreference.formatDistance(distanceKm)
-        return "\(distance) \(unitPreference.distanceUnit)"
+    private let barTrackHeight: CGFloat = 140
+    private let barGroupTopPadding: CGFloat = 14
+
+    private var displayedBars: [(index: Int, steps: Int)] {
+        guard !weeklyStepData.isEmpty else { return [] }
+        let startIndex = max(0, weeklyStepData.count - 7)
+        return Array(weeklyStepData.enumerated().dropFirst(startIndex)).map { (index: $0.offset, steps: $0.element) }
     }
-    
-    private var currentStreak: Int {
-        var streak = 0
-        for steps in weeklyStepData.reversed() {
-            if steps >= dailyGoal {
-                streak += 1
-            } else {
-                break
-            }
-        }
-        return streak
+
+    private func goalLineOffsetY(maxSteps: Int) -> CGFloat {
+        guard maxSteps > 0 else { return barGroupTopPadding + barTrackHeight }
+        let cappedGoal = min(max(dailyGoal, 0), maxSteps)
+        let goalHeight = CGFloat(cappedGoal) / CGFloat(maxSteps) * barTrackHeight
+        return barGroupTopPadding + (barTrackHeight - goalHeight)
     }
-    
-    private var weeklyDistance: String {
-        let totalKm = weeklyStepData.reduce(0) { $0 + (Double($1) * 0.0008) }
-        return "\(unitPreference.formatDistance(totalKm)) \(unitPreference.distanceUnit)"
-    }
+
     
     private var goalPercentage: Int {
         let totalSteps = weeklyStepData.reduce(0, +)
@@ -545,37 +496,6 @@ struct DailyGoalCard: View {
     }
     
     // MARK: - Animation Functions
-    
-    private func startFireworksTimer() {
-        // Clear any existing timer
-        fireworksTimer?.invalidate()
-        
-        // Create a timer that fires every 30 seconds
-        fireworksTimer = Timer.scheduledTimer(withTimeInterval: 30.0, repeats: true) { _ in
-            triggerFireworks()
-        }
-    }
-    
-    private func stopFireworksTimer() {
-        fireworksTimer?.invalidate()
-        fireworksTimer = nil
-        showFireworks = false
-    }
-    
-    private func triggerFireworks() {
-        guard isGoalExceeded else { return }
-        
-        withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
-            showFireworks = true
-        }
-        
-        // Hide fireworks after 2 seconds
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
-            withAnimation(.easeOut(duration: 0.3)) {
-                showFireworks = false
-            }
-        }
-    }
     
     private func triggerRefillAnimation() {
         // Haptic feedback
@@ -730,76 +650,6 @@ struct ContinuousRingArc: Shape {
     }
 }
 
-// MARK: - Fireworks View
-
-struct FireworksView: View {
-    @State private var particles: [FireworkParticle] = []
-    
-    var body: some View {
-        ZStack {
-            ForEach(particles) { particle in
-                Circle()
-                    .fill(particle.color)
-                    .frame(width: particle.size, height: particle.size)
-                    .offset(x: particle.offsetX, y: particle.offsetY)
-                    .opacity(particle.opacity)
-            }
-        }
-        .onAppear {
-            generateFireworks()
-        }
-    }
-    
-    private func generateFireworks() {
-        let colors: [Color] = [.red, .orange, .yellow, .green, .blue, .purple, .pink]
-        
-        // Create 20 particles exploding outward
-        for i in 0..<20 {
-            let angle = Double(i) * (2 * .pi / 20) // Evenly distribute around circle
-            let distance: CGFloat = CGFloat.random(in: 20...40)
-            
-            let particle = FireworkParticle(
-                id: UUID(),
-                color: colors.randomElement() ?? .yellow,
-                size: CGFloat.random(in: 4...8),
-                offsetX: 0,
-                offsetY: 0,
-                finalOffsetX: cos(angle) * distance,
-                finalOffsetY: sin(angle) * distance,
-                opacity: 1.0
-            )
-            
-            particles.append(particle)
-            
-            // Animate particle
-            withAnimation(.easeOut(duration: 0.8).delay(Double(i) * 0.02)) {
-                if let index = particles.firstIndex(where: { $0.id == particle.id }) {
-                    particles[index].offsetX = particle.finalOffsetX
-                    particles[index].offsetY = particle.finalOffsetY
-                }
-            }
-            
-            // Fade out
-            withAnimation(.easeOut(duration: 0.5).delay(0.5 + Double(i) * 0.02)) {
-                if let index = particles.firstIndex(where: { $0.id == particle.id }) {
-                    particles[index].opacity = 0
-                }
-            }
-        }
-    }
-}
-
-struct FireworkParticle: Identifiable {
-    let id: UUID
-    let color: Color
-    let size: CGFloat
-    var offsetX: CGFloat
-    var offsetY: CGFloat
-    let finalOffsetX: CGFloat
-    let finalOffsetY: CGFloat
-    var opacity: Double
-}
-
 struct StatBox: View {
     let label: String
     let value: String
@@ -832,72 +682,67 @@ struct BarView: View {
     let maxSteps: Int
     let animationProgress: CGFloat
     let dayLabel: String
-    let distanceLabel: String
     let isToday: Bool
     let isSelected: Bool  // NEW: Highlight if selected in calendar
     let colorScheme: ColorScheme
+    let trackHeight: CGFloat
+    let showValue: Bool
     
     @State private var barScale: CGFloat = 1.0
     @State private var barAnimationProgress: CGFloat = 0
     
     var body: some View {
-        VStack(spacing: 4) {
-            // Bar
+        VStack(spacing: 8) {
             ZStack(alignment: .bottom) {
-                // Background track
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(colorScheme == .dark 
-                        ? Color.white.opacity(0.05) 
+                Capsule()
+                    .fill(colorScheme == .dark
+                        ? Color.white.opacity(0.06)
                         : Color.black.opacity(0.05))
-                    .frame(height: 140)
+                    .frame(height: trackHeight)
+                    .overlay(
+                        Capsule()
+                            .strokeBorder(
+                                isSelected ? FitCompColors.primary.opacity(0.65) : Color.clear,
+                                style: StrokeStyle(lineWidth: 1.5, dash: isSelected ? [4, 3] : [])
+                            )
+                    )
                 
-                // Animated bar with color based on progress
                 if steps > 0 {
-                    let barHeight = CGFloat(steps) / CGFloat(maxSteps) * 140
-                    
-                    RoundedRectangle(cornerRadius: 8)
+                    let barHeight = CGFloat(steps) / CGFloat(maxSteps) * trackHeight
+
+                    Capsule()
                         .fill(barColor(for: steps))
-                        .frame(height: barHeight * barAnimationProgress)
+                        .frame(height: max(8, barHeight * barAnimationProgress))
                         .shadow(
-                            color: isToday ? glowColor(for: steps) : .clear,
-                            radius: isToday ? 12 : 0,
+                            color: (isToday || isSelected) ? glowColor(for: steps) : .clear,
+                            radius: (isToday || isSelected) ? 7 : 0,
                             x: 0,
                             y: 0
                         )
-                        .overlay(
-                            // Selected date highlight border
-                            isSelected ? RoundedRectangle(cornerRadius: 8)
-                                .strokeBorder(FitCompColors.primary, lineWidth: 3)
-                                .shadow(color: FitCompColors.primary.opacity(0.5), radius: 8, x: 0, y: 0)
-                            : nil
-                        )
-                }
-                
-                // Value label
-                if steps > 0 {
-                    Text(formatNumberShort(steps))
-                        .font(.system(size: 11, weight: .bold))
-                        .foregroundColor(steps >= dailyGoal ? .white : FitCompColors.textSecondary)
-                        .padding(.bottom, 4)
                 }
             }
-            .scaleEffect(isSelected ? 1.08 : barScale)  // Scale up if selected
-            .onTapGesture {
-                // Tap animation
-                HapticManager.shared.light()
-                
-                // Scale bounce
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.5)) {
-                    barScale = 1.1
+            .overlay(alignment: .top) {
+                if showValue && steps > 0 {
+                    Text(formatNumberShort(steps))
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundColor(FitCompColors.textPrimary)
+                        .offset(y: -16)
                 }
-                
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+            }
+            .scaleEffect(isSelected ? 1.03 : barScale)
+            .onTapGesture {
+                HapticManager.shared.light()
+
+                withAnimation(.spring(response: 0.25, dampingFraction: 0.7)) {
+                    barScale = 1.05
+                }
+
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
+                    withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
                         barScale = 1.0
                     }
                 }
-                
-                // Refill animation
+
                 barAnimationProgress = 0
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
                     withAnimation(.spring(response: 0.8, dampingFraction: 0.7)) {
@@ -914,15 +759,9 @@ struct BarView: View {
                 }
             }
             
-            // Day label
-            Text(dayLabel)
-                .font(.system(size: 11, weight: isSelected ? .bold : .medium))
+            Text(dayLabel.uppercased())
+                .font(.system(size: 12, weight: isSelected ? .bold : .semibold))
                 .foregroundColor(isSelected ? FitCompColors.primary : (isToday ? FitCompColors.textPrimary : FitCompColors.textSecondary))
-            
-            // Distance label
-            Text(distanceLabel)
-                .font(.system(size: 10))
-                .foregroundColor(FitCompColors.textTertiary)
         }
     }
     
@@ -930,51 +769,28 @@ struct BarView: View {
         let percentage = Double(steps) / Double(dailyGoal)
         
         if percentage >= 1.0 {
-            // 100%+ - Vibrant lime/green (goal met/exceeded)
             return LinearGradient(
                 colors: [
-                    Color(red: 0.2, green: 1.0, blue: 0.4),  // Bright lime
-                    Color(red: 0.0, green: 0.9, blue: 0.3)   // Vivid green
+                    FitCompColors.green.opacity(0.95),
+                    FitCompColors.green.opacity(0.80)
                 ],
                 startPoint: .top,
                 endPoint: .bottom
             )
-        } else if percentage >= 0.75 {
-            // 75-99% - Vibrant yellow-green - almost there!
+        } else if percentage >= 0.6 {
             return LinearGradient(
                 colors: [
-                    Color(red: 0.7, green: 1.0, blue: 0.0),  // Lime yellow
-                    Color(red: 0.4, green: 0.9, blue: 0.2)   // Yellow-green
-                ],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-        } else if percentage >= 0.5 {
-            // 50-74% - Vibrant yellow/orange - halfway there
-            return LinearGradient(
-                colors: [
-                    Color(red: 1.0, green: 0.85, blue: 0.0),  // Bright yellow
-                    Color(red: 1.0, green: 0.6, blue: 0.0)    // Vibrant orange
-                ],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-        } else if percentage >= 0.25 {
-            // 25-49% - Vibrant orange - need more steps
-            return LinearGradient(
-                colors: [
-                    Color(red: 1.0, green: 0.5, blue: 0.0),   // Bright orange
-                    Color(red: 1.0, green: 0.3, blue: 0.1)    // Orange-red
+                    FitCompColors.primary.opacity(0.95),
+                    FitCompColors.primary.opacity(0.78)
                 ],
                 startPoint: .top,
                 endPoint: .bottom
             )
         } else {
-            // 0-24% - Vibrant red - just getting started
             return LinearGradient(
                 colors: [
-                    Color(red: 1.0, green: 0.3, blue: 0.2),   // Bright red-orange
-                    Color(red: 1.0, green: 0.15, blue: 0.15)  // Vivid red
+                    FitCompColors.textSecondary.opacity(0.55),
+                    FitCompColors.textSecondary.opacity(0.38)
                 ],
                 startPoint: .top,
                 endPoint: .bottom
@@ -986,15 +802,11 @@ struct BarView: View {
         let percentage = Double(steps) / Double(dailyGoal)
         
         if percentage >= 1.0 {
-            return Color(red: 0.0, green: 1.0, blue: 0.4).opacity(0.8)  // Bright lime glow
-        } else if percentage >= 0.75 {
-            return Color(red: 0.5, green: 1.0, blue: 0.2).opacity(0.7)  // Yellow-green glow
-        } else if percentage >= 0.5 {
-            return Color(red: 1.0, green: 0.7, blue: 0.0).opacity(0.7)  // Yellow glow
-        } else if percentage >= 0.25 {
-            return Color(red: 1.0, green: 0.4, blue: 0.0).opacity(0.6)  // Orange glow
+            return FitCompColors.green.opacity(0.35)
+        } else if percentage >= 0.6 {
+            return FitCompColors.primary.opacity(0.30)
         } else {
-            return Color(red: 1.0, green: 0.2, blue: 0.2).opacity(0.5)  // Red glow
+            return FitCompColors.textSecondary.opacity(0.18)
         }
     }
     

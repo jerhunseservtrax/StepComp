@@ -47,9 +47,16 @@ struct DateSelectorView: View {
             .onAppear {
                 // Scroll to selected date (today) on appear
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    let normalizedSelectedDate = calendar.startOfDay(for: selectedDate)
                     withAnimation {
-                        proxy.scrollTo(selectedDate, anchor: .trailing)
+                        proxy.scrollTo(normalizedSelectedDate, anchor: .trailing)
                     }
+                }
+            }
+            .onChange(of: selectedDate) { _, newDate in
+                let normalizedDate = calendar.startOfDay(for: newDate)
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    proxy.scrollTo(normalizedDate, anchor: .trailing)
                 }
             }
         }

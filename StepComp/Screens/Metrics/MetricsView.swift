@@ -26,21 +26,7 @@ struct MetricsView: View {
                             .frame(maxWidth: .infinity, alignment: .center)
                             .padding(.vertical, 30)
                     } else {
-                        if let killerScores = viewModel.killerScores {
-                            VStack(alignment: .leading, spacing: 10) {
-                                Text("Killer Scores")
-                                    .font(.stepTitleSmall())
-                                    .foregroundStyle(FitCompColors.textPrimary)
-                                KillerScoresBarView(scores: killerScores)
-                            }
-                        }
-
-                        TodayPillarSection(viewModel: viewModel)
                         PerformancePillarSection(viewModel: viewModel)
-                        RecoveryPillarSection(viewModel: viewModel)
-                        BodyPillarSection(viewModel: viewModel)
-                        NutritionPillarSection(viewModel: viewModel)
-                        ConsistencyPillarSection(viewModel: viewModel)
                         InsightsPillarSection(viewModel: viewModel)
                     }
                 }

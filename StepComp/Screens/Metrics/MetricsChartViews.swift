@@ -45,14 +45,16 @@ struct RadarChartShape: Shape {
 struct RadarChartView: View {
     let data: [RadarChartDataPoint]
     var levels: Int = 4
+    var maxReferenceValue: Double? = nil
     var fillColor: Color = FitCompColors.accent.opacity(0.30)
     var strokeColor: Color = FitCompColors.accent
     var axisColor: Color = FitCompColors.textSecondary.opacity(0.30)
     var labelColor: Color = FitCompColors.textSecondary
 
     private var normalizedValues: [Double] {
-        let maxValue = data.map(\.value).max() ?? 1
-        let safeMax = max(maxValue, 1)
+        let dynamicMax = data.map(\.value).max() ?? 1
+        let referenceMax = maxReferenceValue ?? dynamicMax
+        let safeMax = max(referenceMax, 1)
         return data.map { $0.value / safeMax }
     }
 

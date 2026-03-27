@@ -15,7 +15,7 @@ class TabSelectionManager: ObservableObject {
     @Published var selectedTab: Int = 0
     
     func switchToCreateTab() {
-        selectedTab = 1
+        selectedTab = 2
     }
 }
 
@@ -37,23 +37,29 @@ struct MainTabView: View {
                 }
                 .tag(0)
 
+            WorkoutsView()
+                .tabItem {
+                    Label("Workouts", systemImage: "dumbbell.fill")
+                }
+                .tag(1)
+
             ChallengesView(sessionViewModel: sessionViewModel)
                 .tabItem {
                     Label("Challenges", systemImage: "trophy.fill")
                 }
-                .tag(1)
+                .tag(2)
 
             MetricsView(sessionViewModel: sessionViewModel)
                 .tabItem {
                     Label("Metrics", systemImage: "chart.bar.fill")
                 }
-                .tag(2)
+                .tag(3)
 
             SettingsView(sessionViewModel: sessionViewModel)
                 .tabItem {
                     Label("Settings", systemImage: "gearshape.fill")
                 }
-                .tag(3)
+                .tag(4)
         }
         .onAppear {
             setupTabBarAppearance(for: colorScheme)

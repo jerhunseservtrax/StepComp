@@ -19,14 +19,13 @@ struct HomeDashboardView: View {
     @Environment(\.colorScheme) private var colorScheme
     
     @StateObject private var viewModel: DashboardViewModel
-    @ObservedObject private var celebrationManager = GoalCelebrationManager.shared
     @ObservedObject private var workoutViewModel = WorkoutViewModel.shared
     @State private var navigationPath = NavigationPath()
     @State private var showingAddFriends = false
     @State private var showingCreateChallenge = false
     @State private var selectedPage: Int = 0
     @State private var dailyGoal: Int = 10000 // Default goal
-    @State private var selectedDate: Date = Date()
+    @State private var selectedDate: Date = Calendar.current.startOfDay(for: Date())
     @State private var weeklyStepData: [Int] = Array(repeating: 0, count: 30) // 30 days of historical data
     @State private var selectedDateSteps: Int = 0
     @State private var selectedDateCalories: Int = 0
@@ -129,16 +128,6 @@ struct HomeDashboardView: View {
                 }
             }
         }
-        // Goal Celebration Full-Screen Cover
-        .fullScreenCover(isPresented: $celebrationManager.shouldShowCelebration) {
-            GoalCelebrationView(
-                steps: celebrationManager.celebrationSteps,
-                goal: celebrationManager.celebrationGoal,
-                onDismiss: {
-                    celebrationManager.dismissCelebration()
-                }
-            )
-        }
         .alert(
             "Sync Error",
             isPresented: Binding(
@@ -170,8 +159,7 @@ struct HomeDashboardView: View {
                             await loadStepsForSelectedDate()
                             await loadWeeklyData()
                             viewModel.refresh()
-                        },
-                        celebrationManager: celebrationManager
+                        }
                     )
 
                     ActivityChartView(weeklyData: weeklyStepData)

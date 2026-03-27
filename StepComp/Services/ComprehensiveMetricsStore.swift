@@ -405,34 +405,29 @@ final class ComprehensiveMetricsStore: ObservableObject {
     }
 
     func computePerformancePillar(sessions: [CompletedWorkoutSession], days: Int = 30) -> PerformancePillarData {
-        let recentWindow = max(7, days / 2)
-        let recent = sessionsInLast(days: recentWindow, sessions: sessions)
-        let prior = sessions.filter { session in
-            guard let d = Calendar.current.dateComponents([.day], from: session.endTime, to: Date()).day else { return false }
-            return d > recentWindow && d <= days
-        }
+        let windowDays = max(7, days)
+        let recent = sessionsBetween(daysAgoStart: 0, daysAgoEnd: windowDays, sessions: sessions)
+        let prior = sessionsBetween(daysAgoStart: windowDays, daysAgoEnd: windowDays * 2, sessions: sessions)
 
         let strengthTrend = perExerciseBest1RMTrend(recent: recent, prior: prior)
-        let strengthScore = max(0, min(100, Int((50.0 + strengthTrend * 3.0).rounded())))
+        let strengthTrendValue = strengthTrend.percent ?? 0
+        let strengthScore = max(0, min(100, Int((50.0 + strengthTrendValue * 3.0).rounded())))
 
         let overloadScore = computeProgressiveOverloadScore(sessions: sessions)
         let loadBalance = computeTrainingLoadBalance(sessions: sessions)
         let plateau = detectPlateau(sessions: sessions)
         let prVelocity = computePRVelocity(sessions: sessions)
         let muscleBalance = computeStrengthSnapshot(sessions: sessions).muscleGroupVolume
-        let volumeTrend = recent
-            .sorted { $0.endTime < $1.endTime }
-            .map(\.totalVolume)
 
         return PerformancePillarData(
-            strengthTrendPercent: strengthTrend,
+            strengthTrendPercent: strengthTrend.percent,
+            comparedLiftCount: strengthTrend.comparedExerciseCount,
             strengthScore: strengthScore,
             overloadScore: overloadScore,
             trainingLoadBalance: loadBalance,
             plateauDetection: plateau,
             muscleBalance: muscleBalance,
-            prVelocity: prVelocity,
-            volumeTrend: volumeTrend
+            prVelocity: prVelocity
         )
     }
 
@@ -621,21 +616,21 @@ final class ComprehensiveMetricsStore: ObservableObject {
 
     func computeInsightsPillar(
         sessions: [CompletedWorkoutSession],
-        recovery: RecoveryPillarData,
-        stepHistory: [StepHistoryPoint],
-        body: BodyPillarData
+        recovery _: RecoveryPillarData,
+        stepHistory _: [StepHistoryPoint],
+        body _: BodyPillarData
     ) -> InsightsPillarData {
         var daily: [InsightItem] = []
         var weekly: [InsightItem] = []
         var monthly: [InsightItem] = []
 
-        if recovery.sleepQualityScore >= 80 {
+        if sessions.count >= 3 {
             daily.append(
                 InsightItem(
                     id: UUID(),
-                    title: "Sleep Boost",
-                    message: "Your recovery is strongest after nights with 7+ hours of sleep.",
-                    confidence: 83
+                    title: "Training Rhythm",
+                    message: "You logged \(sessions.count) workouts in this period. Keep the same cadence to compound progress.",
+                    confidence: 78
                 )
             )
         }
@@ -649,30 +644,6 @@ final class ComprehensiveMetricsStore: ObservableObject {
                     title: "Peak Day",
                     message: "You are strongest on Mondays. Schedule your hardest lift then.",
                     confidence: 79
-                )
-            )
-        }
-
-        let fridaySteps = averageSteps(forWeekday: 6, history: stepHistory)
-        let overallSteps = averageSteps(forWeekday: nil, history: stepHistory)
-        if overallSteps > 0, fridaySteps < overallSteps * 0.9 {
-            weekly.append(
-                InsightItem(
-                    id: UUID(),
-                    title: "Friday Drop-off",
-                    message: "You skip movement most on Fridays. Add a fixed walk block in your calendar.",
-                    confidence: 75
-                )
-            )
-        }
-
-        if let fatLoss = body.fatLossVelocityPerWeek, fatLoss > 0.3 {
-            monthly.append(
-                InsightItem(
-                    id: UUID(),
-                    title: "Body Trend",
-                    message: "Fat loss is on track at \(String(format: "%.1f", fatLoss)) lbs/week.",
-                    confidence: 80
                 )
             )
         }
@@ -717,28 +688,12 @@ final class ComprehensiveMetricsStore: ObservableObject {
 
     func computeWeeklyReport(
         performance: PerformancePillarData,
-        consistency: ConsistencyPillarData,
-        recovery: RecoveryPillarData,
-        body: BodyPillarData
+        sessions: [CompletedWorkoutSession]
     ) -> WeeklyReport {
-        let fatLossStatus: String
-        if let fatLoss = body.fatLossVelocityPerWeek {
-            if fatLoss > 0.4 {
-                fatLossStatus = "On track"
-            } else if fatLoss > 0 {
-                fatLossStatus = "Slow progress"
-            } else {
-                fatLossStatus = "Recomposition focus"
-            }
-        } else {
-            fatLossStatus = "Need more check-ins"
-        }
-
         return WeeklyReport(
             strengthChangePercent: performance.strengthTrendPercent,
-            consistencyPercent: consistency.consistencyScore,
-            recoveryTrend: recovery.compositeRecoveryDirection,
-            fatLossStatus: fatLossStatus
+            comparedLiftCount: performance.comparedLiftCount ?? 0,
+            workoutsCompleted: sessions.count
         )
     }
 
@@ -863,6 +818,19 @@ final class ComprehensiveMetricsStore: ObservableObject {
         return sessions.filter { $0.endTime >= cutoff }
     }
 
+    private func sessionsBetween(
+        daysAgoStart: Int,
+        daysAgoEnd: Int,
+        sessions: [CompletedWorkoutSession]
+    ) -> [CompletedWorkoutSession] {
+        sessions.filter { session in
+            guard let dayDelta = Calendar.current.dateComponents([.day], from: session.endTime, to: Date()).day else {
+                return false
+            }
+            return dayDelta >= daysAgoStart && dayDelta < daysAgoEnd
+        }
+    }
+
     private func averageEstimatedOneRM(from sessions: [CompletedWorkoutSession]) -> Double {
         let oneRMs = sessions.flatMap { session in
             session.exercises.flatMap { exercise in
@@ -879,7 +847,7 @@ final class ComprehensiveMetricsStore: ObservableObject {
     private func perExerciseBest1RMTrend(
         recent: [CompletedWorkoutSession],
         prior: [CompletedWorkoutSession]
-    ) -> Double {
+    ) -> (percent: Double?, comparedExerciseCount: Int) {
         func bestOneRMByExercise(_ sessions: [CompletedWorkoutSession]) -> [String: Double] {
             var best: [String: Double] = [:]
             for session in sessions {
@@ -900,24 +868,25 @@ final class ComprehensiveMetricsStore: ObservableObject {
 
         // Only compare exercises present in both windows
         let commonExercises = Set(recentBest.keys).intersection(priorBest.keys)
-        guard !commonExercises.isEmpty else { return 0 }
+        guard !commonExercises.isEmpty else { return (nil, 0) }
 
         let trends = commonExercises.compactMap { name -> Double? in
             guard let r = recentBest[name], let p = priorBest[name], p > 0 else { return nil }
             return ((r - p) / p) * 100.0
         }.sorted()
 
-        guard !trends.isEmpty else { return 0 }
+        guard !trends.isEmpty else { return (nil, 0) }
         // Return median for robustness against outlier exercises
         let mid = trends.count / 2
-        return trends.count % 2 == 0
+        let median = trends.count % 2 == 0
             ? (trends[mid - 1] + trends[mid]) / 2.0
             : trends[mid]
+        return (median, trends.count)
     }
 
-    private func computeProgressiveOverloadScore(sessions: [CompletedWorkoutSession]) -> Int {
+    private func computeProgressiveOverloadScore(sessions: [CompletedWorkoutSession]) -> Int? {
         let sorted = sessions.sorted { $0.endTime < $1.endTime }
-        guard sorted.count >= 2 else { return 0 }
+        guard sorted.count >= 2 else { return nil }
 
         var latestByExercise: [String: (weight: Double, reps: Int, volume: Double)] = [:]
         var previousByExercise: [String: (weight: Double, reps: Int, volume: Double)] = [:]
@@ -940,7 +909,7 @@ final class ComprehensiveMetricsStore: ObservableObject {
         }
 
         let tracked = latestByExercise.keys.filter { previousByExercise[$0] != nil }
-        guard !tracked.isEmpty else { return 0 }
+        guard !tracked.isEmpty else { return nil }
 
         let improved = tracked.filter { key in
             guard let prev = previousByExercise[key], let current = latestByExercise[key] else { return false }
@@ -976,7 +945,7 @@ final class ComprehensiveMetricsStore: ObservableObject {
     private func computePRVelocity(sessions: [CompletedWorkoutSession]) -> PRVelocity {
         let prs = computeStrengthSnapshot(sessions: sessions).personalRecords
         guard !prs.isEmpty else {
-            return PRVelocity(workoutsPerPR: Double(sessions.count), status: .low)
+            return PRVelocity(workoutsPerPR: Double(max(1, sessions.count)), status: .low, hasRecordedPRs: false)
         }
         let velocity = Double(max(1, sessions.count)) / Double(max(1, prs.count))
         let status: MetricStatus
@@ -986,7 +955,7 @@ final class ComprehensiveMetricsStore: ObservableObject {
         case ..<14: status = .moderate
         default: status = .low
         }
-        return PRVelocity(workoutsPerPR: velocity, status: status)
+        return PRVelocity(workoutsPerPR: velocity, status: status, hasRecordedPRs: true)
     }
 
     private func computeTrainingLoadBalance(sessions: [CompletedWorkoutSession], days: Int = 28) -> TrainingLoadBalance {
@@ -1009,7 +978,12 @@ final class ComprehensiveMetricsStore: ObservableObject {
             status = .atRisk
         }
 
-        return TrainingLoadBalance(ratio: ratio, status: status, isOptimalRange: ratio >= 0.8 && ratio <= 1.3)
+        return TrainingLoadBalance(
+            ratio: ratio,
+            status: status,
+            isOptimalRange: ratio >= 0.8 && ratio <= 1.3,
+            hasData: chronicLoad > 0
+        )
     }
 
     private func metricStatus(for score: Int) -> MetricStatus {

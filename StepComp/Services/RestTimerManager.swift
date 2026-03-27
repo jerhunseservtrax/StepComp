@@ -74,19 +74,22 @@ class RestTimerManager: ObservableObject {
     @Published var restReasoning: String?
 
     @Published var alertMode: RestTimerAlertMode = .visual
+    @Published var alertsEnabled: Bool = true
 
     private var timer: Timer?
     private var sessionSelectedDuration: TimeInterval = 90
     private var targetEndDate: Date?
     private var lifecycleCancellables = Set<AnyCancellable>()
     private let completionNotificationID = "rest_timer_completed"
+    private let alertModeDefaultsKey = "restTimerAlertMode"
+    private let alertsEnabledDefaultsKey = "restTimerAlertsEnabled"
+    private let alarmAutoStopSeconds: TimeInterval = 5
 
-    // Audio players for background-capable alarm
-    private var silencePlayer: AVAudioPlayer?  // keeps app alive in background
+    // Audio player for completion alarm only
     private var alarmPlayer: AVAudioPlayer?    // loud alarm when timer finishes
     private var alarmToneURL: URL?
-    private var silenceToneURL: URL?
     private var audioSessionActive = false
+    private var alarmAutoStopTask: Task<Void, Never>?
 
     var progress: Double {
         guard totalDuration > 0 else { return 0 }
@@ -101,6 +104,7 @@ class RestTimerManager: ObservableObject {
 
     init() {
         loadAlertPreference()
+        loadAlertsEnabledPreference()
         setupLifecycleObservers()
         prepareToneFiles()
     }
@@ -112,6 +116,7 @@ class RestTimerManager: ObservableObject {
     func startTimer(duration: TimeInterval? = nil, reasoning: String? = nil) {
         stopTimer()
         loadAlertPreference()
+        loadAlertsEnabledPreference()
 
         restReasoning = reasoning
         let restDuration = duration ?? sessionSelectedDuration
@@ -123,14 +128,9 @@ class RestTimerManager: ObservableObject {
         isFinished = false
         showOverlay = true
 
-        // Start silent background audio to keep the app process alive
-        // so the ticker can fire even when backgrounded/locked
-        if wantsSound {
-            activateAudioSession()
-            startSilencePlayback()
+        if alertsEnabled {
+            scheduleCompletionNotification(after: restDuration)
         }
-
-        scheduleCompletionNotification(after: restDuration)
         startTicker()
     }
 
@@ -138,8 +138,6 @@ class RestTimerManager: ObservableObject {
         invalidateTicker()
         cancelCompletionNotification()
         stopAlarm()
-        stopSilencePlayback()
-        deactivateAudioSession()
         isRunning = false
         timeRemaining = 0
         isFinished = false
@@ -197,7 +195,6 @@ class RestTimerManager: ObservableObject {
     private func timerDidFinish() {
         invalidateTicker()
         cancelCompletionNotification()
-        stopSilencePlayback()
         isRunning = false
         timeRemaining = 0
         targetEndDate = nil
@@ -234,15 +231,17 @@ class RestTimerManager: ObservableObject {
     }
 
     private func triggerAlert() {
+        guard alertsEnabled else { return }
+
         switch alertMode {
         case .visual:
             break
         case .haptic:
-            HapticManager.shared.goalComplete()
+            HapticManager.shared.restTimerComplete()
         case .sound:
             startAlarm()
         case .hapticAndSound:
-            HapticManager.shared.goalComplete()
+            HapticManager.shared.restTimerComplete()
             startAlarm()
         }
     }
@@ -272,7 +271,6 @@ class RestTimerManager: ObservableObject {
     /// Pre-generates the alarm tone and near-silent tone WAV files.
     private func prepareToneFiles() {
         prepareAlarmTone()
-        prepareSilenceTone()
     }
 
     /// Generates a repeating beep alarm tone (~2s cycle, loops infinitely).
@@ -320,27 +318,6 @@ class RestTimerManager: ObservableObject {
         writeWAV(samples: samples, sampleRate: 44100, to: url)
     }
 
-    /// Generates a near-silent tone that keeps the audio session alive in background.
-    private func prepareSilenceTone() {
-        let url = FileManager.default.temporaryDirectory.appendingPathComponent("rest_silence.wav")
-        silenceToneURL = url
-        if FileManager.default.fileExists(atPath: url.path) { return }
-
-        // 1 second of near-silence (amplitude ~0.001 so the OS doesn't kill it)
-        let sampleRate: Double = 44100
-        let totalSamples = Int(sampleRate * 1.0)
-        var samples = [Int16](repeating: 0, count: totalSamples)
-
-        for i in 0..<totalSamples {
-            let t = Double(i) / sampleRate
-            // Extremely quiet 1Hz hum — inaudible but keeps the audio session active
-            let amplitude = sin(2.0 * .pi * 1.0 * t) * 0.001
-            samples[i] = Int16(clamping: Int(amplitude * Double(Int16.max)))
-        }
-
-        writeWAV(samples: samples, sampleRate: 44100, to: url)
-    }
-
     private func writeWAV(samples: [Int16], sampleRate: Int, to url: URL) {
         let dataSize = UInt32(samples.count * 2)
         var header = Data()
@@ -369,33 +346,12 @@ class RestTimerManager: ObservableObject {
         try? audioData.write(to: url)
     }
 
-    // MARK: - Silence Playback (background keep-alive)
-
-    private func startSilencePlayback() {
-        guard let url = silenceToneURL else { return }
-        do {
-            let player = try AVAudioPlayer(contentsOf: url)
-            player.numberOfLoops = -1
-            player.volume = 0.01
-            player.prepareToPlay()
-            player.play()
-            silencePlayer = player
-        } catch {
-            print("⚠️ Failed to start silence playback: \(error)")
-        }
-    }
-
-    private func stopSilencePlayback() {
-        silencePlayer?.stop()
-        silencePlayer = nil
-    }
-
     // MARK: - Alarm Playback
 
     private func startAlarm() {
-        guard let url = alarmToneURL else { return }
+        guard alertsEnabled, wantsSound, let url = alarmToneURL else { return }
 
-        // Ensure audio session is active (may not be if mode was visual/haptic)
+        // Only duck external audio while the ringtone is actively playing.
         activateAudioSession()
 
         do {
@@ -405,37 +361,72 @@ class RestTimerManager: ObservableObject {
             player.prepareToPlay()
             player.play()
             alarmPlayer = player
+            scheduleAlarmAutoStop()
         } catch {
             AudioServicesPlaySystemSound(1007)
+            scheduleAlarmAutoStop()
         }
     }
 
     private func stopAlarm() {
+        alarmAutoStopTask?.cancel()
+        alarmAutoStopTask = nil
         alarmPlayer?.stop()
         alarmPlayer = nil
+        deactivateAudioSession()
+    }
+
+    private func scheduleAlarmAutoStop() {
+        alarmAutoStopTask?.cancel()
+        alarmAutoStopTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: UInt64(alarmAutoStopSeconds * 1_000_000_000))
+            guard !Task.isCancelled else { return }
+            await self?.autoStopAlarmIfNeeded()
+        }
+    }
+
+    @MainActor
+    private func autoStopAlarmIfNeeded() {
+        guard isFinished else { return }
+        stopAlarm()
     }
 
     // MARK: - Preferences
 
     private func loadAlertPreference() {
-        if let saved = UserDefaults.standard.string(forKey: "restTimerAlertMode"),
+        if let saved = UserDefaults.standard.string(forKey: alertModeDefaultsKey),
            let mode = RestTimerAlertMode(rawValue: saved) {
             alertMode = mode
         }
     }
 
     private func saveAlertPreference() {
-        UserDefaults.standard.set(alertMode.rawValue, forKey: "restTimerAlertMode")
+        UserDefaults.standard.set(alertMode.rawValue, forKey: alertModeDefaultsKey)
+    }
+
+    private func loadAlertsEnabledPreference() {
+        if UserDefaults.standard.object(forKey: alertsEnabledDefaultsKey) == nil {
+            alertsEnabled = true
+            UserDefaults.standard.set(true, forKey: alertsEnabledDefaultsKey)
+            return
+        }
+        alertsEnabled = UserDefaults.standard.bool(forKey: alertsEnabledDefaultsKey)
+    }
+
+    func setAlertsEnabled(_ enabled: Bool) {
+        alertsEnabled = enabled
+        UserDefaults.standard.set(enabled, forKey: alertsEnabledDefaultsKey)
+        if !enabled {
+            cancelCompletionNotification()
+            stopAlarm()
+        }
     }
 
     // MARK: - Lifecycle
 
     private func setupLifecycleObservers() {
         #if canImport(UIKit)
-        // When entering background the ticker keeps running because the audio
-        // session holds the app alive. No need to invalidate it.
-        // On foreground return we just make sure everything is in sync.
-
+        // On foreground return we make sure wall-clock reconciliation is applied.
         NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)
             .sink { [weak self] _ in
                 Task { @MainActor [weak self] in
@@ -456,6 +447,7 @@ class RestTimerManager: ObservableObject {
 
     private func scheduleCompletionNotification(after seconds: TimeInterval) {
         #if canImport(UserNotifications)
+        guard alertsEnabled else { return }
         let center = UNUserNotificationCenter.current()
         center.getNotificationSettings { [weak self] settings in
             guard let self else { return }
@@ -466,7 +458,7 @@ class RestTimerManager: ObservableObject {
             let content = UNMutableNotificationContent()
             content.title = "Rest Timer Complete"
             content.body = "Time for your next set."
-            content.sound = .default
+            content.sound = self.wantsSound ? .default : nil
             content.categoryIdentifier = "REST_TIMER"
             content.interruptionLevel = .timeSensitive
 

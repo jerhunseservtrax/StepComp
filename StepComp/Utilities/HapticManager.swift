@@ -121,6 +121,21 @@ final class HapticManager {
             self.success()
         }
     }
+
+    /// Rest timer completion - short, clear completion cue.
+    func restTimerComplete() {
+        #if canImport(UIKit)
+        let impact = UIImpactFeedbackGenerator(style: .rigid)
+        impact.prepare()
+        impact.impactOccurred()
+
+        let notification = UINotificationFeedbackGenerator()
+        notification.prepare()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.06) {
+            notification.notificationOccurred(.success)
+        }
+        #endif
+    }
     
     /// Sync success - quick confirmation
     func syncSuccess() {

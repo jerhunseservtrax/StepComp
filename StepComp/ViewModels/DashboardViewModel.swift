@@ -38,7 +38,6 @@ final class DashboardViewModel: ObservableObject {
     private var healthKitService: HealthKitService?
     private var stepSyncService: StepSyncService?
     private var notificationService = StepGoalNotificationService.shared
-    private var celebrationManager = GoalCelebrationManager.shared
     private var userId: String
     private var refreshTimer: Timer?
     private var cancellables = Set<AnyCancellable>()
@@ -169,13 +168,6 @@ final class DashboardViewModel: ObservableObject {
                 
                 // Check for milestone notifications
                 notificationService.checkMilestones(currentSteps: todaySteps, dailyGoal: dailyGoal)
-                
-                // Check for goal celebration (full-screen takeover)
-                celebrationManager.checkForCelebration(
-                    previousSteps: previousSteps,
-                    currentSteps: todaySteps,
-                    dailyGoal: dailyGoal
-                )
             } else {
                 todaySteps = newSteps
                 if lastCheckedDate == nil {

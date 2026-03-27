@@ -1,7 +1,7 @@
 # FitComp Fix Tracker
 
 > Log of all bugs encountered and fixes implemented to prevent recurrence.
-> Last updated: 2026-03-22 (v2)
+> Last updated: 2026-03-26 (v4)
 
 ---
 
@@ -21,6 +21,7 @@
 - [Live Activities & Lifecycle](#live-activities--lifecycle)
 - [Auth & Session Recovery](#auth--session-recovery)
 - [Deep Linking](#deep-linking)
+- [Metrics & Analytics](#metrics--analytics)
 
 ---
 
@@ -517,6 +518,56 @@
 - **Fix:** Changed to `HealthKitService.shared` and `ChallengeService.shared` in `RootView`. Simplified `DashboardViewModel` init to use lazy service injection.
 - **Files:** `RootView.swift`, `DashboardViewModel.swift`, `HealthKitService.swift`
 - **Prevention:** State-holding services must always use singleton pattern. Never create ad-hoc instances in view init.
+
+---
+
+## Notifications (continued)
+
+### 57. Excessive Step Goal Milestone Notifications
+- **Status:** Fixed (uncommitted)
+- **Symptom:** Users received too many step-goal push notifications in one day (25%, 50%, 75%, 100%, plus above-goal tiers).
+- **Root Cause:** `StepGoalNotificationService` tracked and sent multiple milestone tiers, including extra "above and beyond" thresholds.
+- **Fix:** Reduced step milestone notifications to only two triggers: 50% and 100%. Removed 25%, 75%, and all above-goal notification thresholds.
+- **Files:** `StepGoalNotificationService.swift`
+- **Prevention:** Keep motivational notifications intentionally minimal to reduce fatigue; only add new milestone tiers with explicit product approval.
+
+---
+
+## Metrics & Analytics
+
+### 58. Strength Trend Displayed `+0%` Despite Progress
+- **Status:** Fixed (uncommitted)
+- **Symptom:** Performance card showed `Strength Trend +0%` even when users increased reps/weight across recent lifts.
+- **Root Cause:** Trend compared split windows inside one lookback period and returned numeric zero when no overlapping lift names existed across windows; UI rounded small changes and lacked an insufficient-data state.
+- **Fix:** Switched to equal-length recent vs prior window comparison, added explicit insufficient-data fallback (`N/A`) when comparable lifts are missing, surfaced compared-lift count, and updated metric copy to match the implemented algorithm.
+- **Files:** `ComprehensiveMetricsStore.swift`, `MetricsViewModel.swift`, `PerformancePillarSection.swift`, `ComprehensiveMetrics.swift`
+- **Prevention:** Trend metrics must expose data sufficiency explicitly and ensure UI descriptions match the actual aggregation method/windowing logic.
+
+---
+
+### 59. Metrics Silently Coerced Missing Data to `0`
+- **Status:** Fixed (uncommitted)
+- **Symptom:** Some workout metrics appeared as confident numeric zeros (`0`, `+0%`, `1 PR / 0 workouts`) when data was insufficient, making progress interpretation misleading.
+- **Root Cause:** Multiple compute and rendering paths used zero fallbacks for unavailable data and non-optional report fields.
+- **Fix:** Added explicit availability handling in performance/report models and rendering (`N/A` for insufficient data), including weekly strength report, overload score edge cases, PR velocity no-PR periods, and load-balance no-history periods.
+- **Files:** `ComprehensiveMetrics.swift`, `ComprehensiveMetricsStore.swift`, `PerformancePillarSection.swift`, `InsightsPillarSection.swift`, `MetricsViewModel.swift`
+- **Prevention:** Use optional fields or availability flags for metrics with data sufficiency requirements; reserve numeric zero for true measured zero outcomes.
+
+### 60. Home Date Strip Opened at Oldest Day
+- **Status:** Fixed (uncommitted)
+- **Symptom:** Home calendar/date strip opened at the far left (oldest date), forcing users to scroll right to current day on every load.
+- **Root Cause:** `ScrollViewReader.scrollTo` targeted `selectedDate` with time component while date-cell IDs were normalized to start-of-day, causing initial scroll target mismatch.
+- **Fix:** Normalized selected-date scroll target to start-of-day, added on-change re-centering to trailing/current date, and initialized selected date as start-of-day in home view state.
+- **Files:** `DateSelectorView.swift`, `HomeDashboardView.swift`
+- **Prevention:** Ensure `scrollTo` IDs and bound state values share identical normalization when using date-based IDs.
+
+### 61. Workouts Tab Missing from Bottom Navigation
+- **Status:** Fixed (uncommitted)
+- **Symptom:** Workouts was no longer directly accessible from the bottom nav, increasing navigation friction.
+- **Root Cause:** Bottom tab configuration was reduced to 4 tabs and workout routing assumptions retained stale tab indices.
+- **Fix:** Restored a dedicated Workouts tab in a 5-tab layout and updated tab-index routing in workout start flow and tab manager helper.
+- **Files:** `MainTabView.swift`, `WorkoutDetailView.swift`
+- **Prevention:** Keep central tab index mapping documented and update all programmatic tab switches whenever tab order changes.
 
 ---
 

@@ -715,46 +715,6 @@ struct SettingsMainContent: View {
                         // Support & Legal Card
                         SupportLegalCard()
                         
-                        // Test Goal Celebration Button (for testing)
-                        #if DEBUG
-                        Button(action: {
-                            // Get daily goal from UserDefaults
-                            var goal = UserDefaults.standard.integer(forKey: "dailyStepGoal")
-                            if goal <= 0 {
-                                goal = 10000 // Default
-                            }
-                            
-                            // Trigger goal celebration
-                            let goalManager = GoalCelebrationManager.shared
-                            goalManager.forceTriggerCelebration(
-                                steps: goal + 500,
-                                goal: goal
-                            )
-                            HapticManager.shared.success()
-                        }) {
-                            HStack {
-                                Spacer()
-                                Image(systemName: "trophy.fill")
-                                    .font(.system(size: 16, weight: .semibold))
-                                Text("Test Goal Celebration")
-                                    .font(.system(size: 16, weight: .semibold))
-                                Spacer()
-                            }
-                            .foregroundColor(.white)
-                            .padding()
-                            .background(
-                                LinearGradient(
-                                    colors: [Color.yellow, Color.orange],
-                                    startPoint: .leading,
-                                    endPoint: .trailing
-                                )
-                            )
-                            .cornerRadius(12)
-                            .shadow(color: Color.yellow.opacity(0.4), radius: 8, x: 0, y: 4)
-                        }
-                        .buttonStyle(PlainButtonStyle())
-                        #endif
-                        
                         // Logout Button
                         Button(action: onSignOut) {
                             HStack {
@@ -1027,6 +987,13 @@ struct PreferencesCard: View {
         }
         return .visual
     }()
+    @State private var restTimerAlertsEnabled: Bool = {
+        if UserDefaults.standard.object(forKey: "restTimerAlertsEnabled") == nil {
+            UserDefaults.standard.set(true, forKey: "restTimerAlertsEnabled")
+            return true
+        }
+        return UserDefaults.standard.bool(forKey: "restTimerAlertsEnabled")
+    }()
     @EnvironmentObject var themeManager: ThemeManager
     
     var body: some View {
@@ -1058,60 +1025,43 @@ struct PreferencesCard: View {
                     title: "Unit System",
                     subtitle: "Metric (kg, km, cm) or Imperial (lbs, miles, inches)",
                     trailing: {
-                        HStack(spacing: 4) {
-                            Button(action: { 
-                                withAnimation(.easeInOut(duration: 0.2)) {
-                                    unitPreferenceManager.unitSystem = .metric
+                        Picker(
+                            "Unit System",
+                            selection: Binding(
+                                get: { unitPreferenceManager.unitSystem },
+                                set: { newValue in
+                                    withAnimation(.easeInOut(duration: 0.2)) {
+                                        unitPreferenceManager.unitSystem = newValue
+                                    }
                                 }
-                            }) {
-                                Text("Metric")
-                                    .font(.system(size: 11, weight: .bold))
-                                    .foregroundColor(unitPreferenceManager.unitSystem == .metric ? .black : .secondary)
-                                    .padding(.horizontal, 16)
-                                    .padding(.vertical, 8)
-                                    .background(
-                                        unitPreferenceManager.unitSystem == .metric 
-                                            ? FitCompColors.primary  // Yellow when selected
-                                            : Color.clear
-                                    )
-                                    .cornerRadius(999)
-                                    .contentShape(Rectangle())  // Ensure full tap area
-                            }
-                            .buttonStyle(.plain)
-                            .allowsHitTesting(true)
-                            
-                            Button(action: { 
-                                withAnimation(.easeInOut(duration: 0.2)) {
-                                    unitPreferenceManager.unitSystem = .imperial
-                                }
-                            }) {
-                                Text("Imperial")
-                                    .font(.system(size: 11, weight: .bold))
-                                    .foregroundColor(unitPreferenceManager.unitSystem == .imperial ? .black : .secondary)
-                                    .padding(.horizontal, 16)
-                                    .padding(.vertical, 8)
-                                    .background(
-                                        unitPreferenceManager.unitSystem == .imperial 
-                                            ? FitCompColors.primary  // Yellow when selected
-                                            : Color.clear
-                                    )
-                                    .cornerRadius(999)
-                                    .contentShape(Rectangle())  // Ensure full tap area
-                            }
-                            .buttonStyle(.plain)
-                            .allowsHitTesting(true)
+                            )
+                        ) {
+                            Text("Metric").tag(UnitSystem.metric)
+                            Text("Imperial").tag(UnitSystem.imperial)
                         }
-                        .padding(4)
-                        .background(FitCompColors.surfaceElevated)
-                        .cornerRadius(999)
+                        .pickerStyle(.segmented)
+                        .labelsHidden()
+                        .frame(width: 180)
+                        .tint(FitCompColors.primary)
                     }
                 )
                 
                 SettingItemRow(
                     icon: "timer",
                     iconBackground: .orange,
+                    title: "Rest Timer Alerts",
+                    subtitle: "Enable sound/haptics/notifications when rest completes",
+                    trailing: {
+                        Toggle("", isOn: $restTimerAlertsEnabled)
+                            .toggleStyle(SwitchToggleStyle(tint: FitCompColors.primary))
+                    }
+                )
+
+                SettingItemRow(
+                    icon: "bell.badge",
+                    iconBackground: .orange,
                     title: "Rest Timer Alert",
-                    subtitle: selectedAlertMode.label,
+                    subtitle: restTimerAlertsEnabled ? selectedAlertMode.label : "Disabled",
                     trailing: {
                         Menu {
                             ForEach(RestTimerAlertMode.allCases, id: \.self) { mode in
@@ -1137,6 +1087,8 @@ struct PreferencesCard: View {
                         }
                     }
                 )
+                .disabled(!restTimerAlertsEnabled)
+                .opacity(restTimerAlertsEnabled ? 1.0 : 0.5)
                 
                 // Daily Step Goal
                 if let sessionViewModel = sessionViewModel {
@@ -1188,6 +1140,9 @@ struct PreferencesCard: View {
             }
         }
         .id(refreshTrigger) // Add id modifier to force refresh when trigger changes
+        .onChange(of: restTimerAlertsEnabled) { _, enabled in
+            UserDefaults.standard.set(enabled, forKey: "restTimerAlertsEnabled")
+        }
     }
 }
 

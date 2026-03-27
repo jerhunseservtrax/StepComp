@@ -3,7 +3,7 @@
 //  FitComp
 //
 //  Service to send notifications when users hit step goal milestones
-//  Notifies at: 25%, 50%, 75%, 100%, and Above & Beyond (exceeding goal)
+//  Notifies at: 50% and 100% only
 //
 
 import Foundation
@@ -15,11 +15,9 @@ final class StepGoalNotificationService {
     
     private let notificationCenter = UNUserNotificationCenter.current()
     
-    // Milestone configurations
+    // Milestone configurations (kept intentionally minimal to avoid notification fatigue)
     private let milestoneConfig: [(percentage: Int, threshold: Double, title: String, message: String, emoji: String)] = [
-        (25, 0.25, "Quarter Way There! 🚶", "You've hit 25% of your daily goal!", "💪"),
         (50, 0.50, "Halfway Hero! 🔥", "50% complete! You're crushing it!", "⚡️"),
-        (75, 0.75, "Almost There! 🏃", "75% done! The finish line is in sight!", "🎯"),
         (100, 1.0, "Goal Achieved! 🏆", "You smashed your daily step goal!", "🎉")
     ]
     
@@ -102,28 +100,6 @@ final class StepGoalNotificationService {
             }
         }
         
-        // Check for "above and beyond" (exceeds 100%)
-        // Notify at different thresholds: 110%, 125%, 150%, 200%
-        let aboveAndBeyondThresholds = [
-            (110, 1.10, "Above & Beyond! 🌟", "110% - You're on fire!", "🔥"),
-            (125, 1.25, "Overachiever! 💫", "125% - Incredible dedication!", "⭐️"),
-            (150, 1.50, "Superstar! 🚀", "150% - You're unstoppable!", "💪"),
-            (200, 2.0, "Legend! 👑", "200% - Absolutely legendary!", "🏅")
-        ]
-        
-        for threshold in aboveAndBeyondThresholds {
-            if progress >= threshold.1 && !hitMilestones.contains(threshold.0) {
-                sendAboveAndBeyondNotification(
-                    level: threshold.0,
-                    title: threshold.2,
-                    message: threshold.3,
-                    emoji: threshold.4,
-                    steps: currentSteps,
-                    goal: dailyGoal
-                )
-                markMilestoneHit(threshold.0, for: today)
-            }
-        }
     }
     
     // MARK: - Notification Content
@@ -162,42 +138,6 @@ final class StepGoalNotificationService {
         }
     }
     
-    private func sendAboveAndBeyondNotification(level: Int, title: String, message: String, emoji: String, steps: Int, goal: Int) {
-        let content = UNMutableNotificationContent()
-        content.title = title
-        
-        let extraSteps = steps - goal
-        content.body = "\(message) \(emoji)\n+\(formatNumber(extraSteps)) extra steps today!"
-        content.sound = .defaultCritical // More prominent sound for exceeding
-        content.badge = NSNumber(value: 1)
-        
-        // Category for actions
-        content.categoryIdentifier = "STEP_ABOVE_BEYOND"
-        
-        // Custom data
-        content.userInfo = [
-            "type": "stepAboveAndBeyond",
-            "level": level,
-            "steps": steps,
-            "goal": goal,
-            "extraSteps": extraSteps
-        ]
-        
-        let request = UNNotificationRequest(
-            identifier: "stepAboveAndBeyond_\(level)_\(Date().timeIntervalSince1970)",
-            content: content,
-            trigger: nil // nil trigger = immediate
-        )
-        
-        notificationCenter.add(request) { error in
-            if let error = error {
-                print("⚠️ Error sending above and beyond (\(level)%) notification: \(error.localizedDescription)")
-            } else {
-                print("✅ Sent above and beyond (\(level)%) notification: \(steps)/\(goal) steps (+\(extraSteps))")
-            }
-        }
-    }
-    
     // MARK: - Helpers
     
     private func formatNumber(_ number: Int) -> String {
@@ -227,26 +167,17 @@ final class StepGoalNotificationService {
         let testGoal = 10000
         let testSteps = Int(Double(testGoal) * Double(percentage) / 100.0)
         
-        if percentage <= 100 {
-            if let config = milestoneConfig.first(where: { $0.percentage == percentage }) {
-                sendMilestoneNotification(
-                    percentage: config.percentage,
-                    title: config.title,
-                    message: config.message,
-                    emoji: config.emoji,
-                    steps: testSteps,
-                    goal: testGoal
-                )
-            }
-        } else {
-            sendAboveAndBeyondNotification(
-                level: percentage,
-                title: "Test Above & Beyond",
-                message: "\(percentage)% test notification",
-                emoji: "🧪",
+        if let config = milestoneConfig.first(where: { $0.percentage == percentage }) {
+            sendMilestoneNotification(
+                percentage: config.percentage,
+                title: config.title,
+                message: config.message,
+                emoji: config.emoji,
                 steps: testSteps,
                 goal: testGoal
             )
+        } else {
+            print("ℹ️ Unsupported test milestone: \(percentage). Supported values: \(milestoneConfig.map(\.percentage))")
         }
     }
     

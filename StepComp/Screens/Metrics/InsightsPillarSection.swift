@@ -45,54 +45,24 @@ struct InsightsPillarSection: View {
                                 title: "Weekly Strength Change",
                                 trackedValues: [
                                     "Weekly strength change: \(signedPercent(report.strengthChangePercent))",
-                                    "Recovery trend: \(report.recoveryTrend.rawValue.capitalized)"
+                                    "Compared lifts: \(report.comparedLiftCount)"
                                 ],
                                 formula: "Compares recent strength indicators to the prior period and expresses the delta as a percent.",
                                 interpretation: "Positive changes suggest your current programming and recovery are translating to better output."
                             )
                         )
                         metric(
-                            key: "insights-weekly-consistency",
-                            title: "Consistency",
-                            value: "\(report.consistencyPercent)%",
+                            key: "insights-weekly-workouts",
+                            title: "Workouts",
+                            value: "\(report.workoutsCompleted)",
                             detail: MetricBreakdownDetail(
-                                title: "Weekly Consistency",
+                                title: "Workouts Completed",
                                 trackedValues: [
-                                    "Consistency percent: \(report.consistencyPercent)%",
-                                    "Fat loss status: \(report.fatLossStatus)"
+                                    "Completed workouts: \(report.workoutsCompleted)",
+                                    "Compared lifts: \(report.comparedLiftCount)"
                                 ],
-                                formula: "Rolls up completion and adherence behavior into a weekly consistency percentage.",
-                                interpretation: "Higher consistency usually predicts steadier long-term progress."
-                            )
-                        )
-                    }
-                    HStack(spacing: 10) {
-                        metric(
-                            key: "insights-weekly-recovery",
-                            title: "Recovery",
-                            value: report.recoveryTrend.rawValue.capitalized,
-                            detail: MetricBreakdownDetail(
-                                title: "Weekly Recovery Trend",
-                                trackedValues: [
-                                    "Recovery trend: \(report.recoveryTrend.rawValue.capitalized)",
-                                    "Strength change: \(signedPercent(report.strengthChangePercent))"
-                                ],
-                                formula: "Recovery trend is inferred from sleep/stress/autonomic signals and trend direction logic across the week.",
-                                interpretation: "Improving recovery trend supports safer progression in workload."
-                            )
-                        )
-                        metric(
-                            key: "insights-weekly-fatloss",
-                            title: "Fat Loss",
-                            value: report.fatLossStatus,
-                            detail: MetricBreakdownDetail(
-                                title: "Weekly Fat Loss Status",
-                                trackedValues: [
-                                    "Fat loss status: \(report.fatLossStatus)",
-                                    "Consistency percent: \(report.consistencyPercent)%"
-                                ],
-                                formula: "Status is derived from body-composition trend signals and current consistency context.",
-                                interpretation: "Use this as a weekly directional check rather than a day-to-day scale signal."
+                                formula: "Counts the total logged workout sessions included in the active metrics period.",
+                                interpretation: "Higher counts generally improve confidence in trend metrics and progress signals."
                             )
                         )
                     }
@@ -145,7 +115,8 @@ struct InsightsPillarSection: View {
         }
     }
 
-    private func signedPercent(_ value: Double) -> String {
+    private func signedPercent(_ value: Double?) -> String {
+        guard let value else { return "N/A" }
         let sign = value >= 0 ? "+" : ""
         return "\(sign)\(Int(value.rounded()))%"
     }

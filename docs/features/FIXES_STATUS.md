@@ -1,5 +1,87 @@
 # 🔧 FIXES APPLIED - Status Report
 
+## ✅ UPDATE: Metrics, Nav, and Calendar Cleanup (March 26, 2026)
+
+**Status:** ✅ Complete  
+**Area:** Metrics Dashboard / Navigation / Home Date Selector  
+**Owner:** App UI + metrics pipeline
+
+### What was implemented
+- Removed `Volume Trend` from Performance and cleaned its model/store wiring.
+- Replaced misleading silent-zero displays with explicit availability behavior (`N/A`) for insufficient workout data in key performance/report cards.
+- Narrowed displayed Metrics content to workout-derived sections (Performance + workout-centric Insights).
+- Restored a dedicated `Workouts` bottom tab (5-tab layout: Home, Workouts, Challenges, Metrics, Settings).
+- Fixed home date strip default position to open on current/rightmost date while preserving leftward historical scrolling.
+
+### Verification completed
+- Simulator build succeeds after all code changes.
+- Lint check passes for touched metrics/nav/home files.
+
+### User impact now
+- Metrics interpretation is less misleading when data is sparse.
+- Workout access is one tap from the bottom bar again.
+- Home date selector opens where users expect (today/right side).
+
+---
+
+## ✅ UPDATE: Strength Trend Accuracy (March 26, 2026)
+
+**Status:** ✅ Complete  
+**Area:** Metrics Dashboard / Performance Pillar  
+**Owner:** App metrics pipeline (`ComprehensiveMetricsStore`)
+
+### What was implemented
+- Reworked Strength Trend to compare equal recent and prior windows (instead of half-window split behavior).
+- Added explicit insufficient-data state when lifts do not overlap across both windows.
+- Updated card rendering to show `N/A` instead of misleading `+0%` on insufficient comparison data.
+- Added compared-lift count to the metric breakdown for transparency.
+- Updated explanatory formula text to match the actual algorithm used.
+
+### Validation completed
+- Strength trend regression script passes (`scripts/strength_trend_regression.swift`).
+- Xcode simulator build succeeds after metric pipeline changes.
+- Lint check passes for touched metrics files.
+
+### User impact now
+- Users with clear progression no longer get a false flat trend due to windowing/fallback behavior.
+- When data is insufficient, the UI explains that state instead of showing a numeric zero.
+
+---
+
+## ✅ UPDATE: FatSecret Food Logging Migration (March 26, 2026)
+
+**Status:** ⚠️ In Progress (code complete, provider-side unblock pending)  
+**Area:** Food Logging / Nutrition Search / Barcode Lookup  
+**Owner:** App + Supabase Edge Function (`fatsecret-proxy`)
+
+### What was implemented
+- Added FatSecret-first lookup flow for food logging in the app.
+- Created and deployed `fatsecret-proxy` Supabase Edge Function.
+- Added server-side OAuth token handling (no FatSecret secrets in mobile app source).
+- Switched app search order to:
+  1. FatSecret proxy
+  2. USDA
+  3. CalorieNinjas/OpenFoodFacts fallback
+- Added method-based FatSecret REST integration using `POST /rest/server.api` with `format=json`.
+
+### Verification completed
+- iOS app build succeeds after migration.
+- Edge function deploy succeeds and is active.
+- JWT auth path to edge function succeeds.
+- FatSecret token issuance succeeds with expected scopes.
+
+### Current blocker
+- FatSecret API currently returns `error code 21` (`Invalid IP address detected`) from both:
+  - local direct requests, and
+  - Supabase edge requests.
+- This indicates an external provider-side IP restriction/config state that still blocks API calls for the current key.
+
+### User impact right now
+- Food logging remains functional via fallback providers while FatSecret is blocked.
+- No regression to core logging UX; provider handoff is handled in app logic.
+
+---
+
 ## ✅ ALL TASKS COMPLETED! 🎉
 
 **Date:** January 1, 2026  

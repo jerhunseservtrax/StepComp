@@ -1,7 +1,7 @@
 # FitComp Feature Tracker
 
 > Comprehensive catalog of all features in the FitComp fitness competition app (formerly StepComp).
-> Last updated: 2026-03-22 (v2)
+> Last updated: 2026-03-26 (v4)
 
 ---
 
@@ -38,7 +38,7 @@
 
 | Feature | File(s) | Description |
 |---------|---------|-------------|
-| 4-Tab Navigation | `MainTabView.swift` | Home, Challenges, Metrics, Settings (Friends and Workouts consolidated into other tabs) |
+| 5-Tab Navigation | `MainTabView.swift` | Home, Workouts, Challenges, Metrics, Settings |
 | Deep Link Routing | `DeepLinkRouter.swift`, `AppRoute.swift` | Route handling for leaderboard, profile, create/join challenge, OAuth callbacks |
 | Invite Token Validation | `DeepLinkRouter.swift` | Validates invite tokens (8-128 chars, alphanumeric) before processing |
 | Haptic Tab Switching | `HapticManager.swift` | Tactile feedback on tab changes |
@@ -55,6 +55,7 @@
 | Goal Celebration | `GoalCelebrationView.swift` | Auto-triggered celebration when daily goal is reached |
 | Activity Chart | `ActivityChartView.swift` | Step history visualization over 30 days |
 | Date Selector | `DateSelectorView.swift` | View historical data by date |
+| Date Selector Default Position | `DateSelectorView.swift`, `HomeDashboardView.swift` | Date strip now opens on current (rightmost) date and allows scrolling left for older dates |
 | Daily Pulse Stats | `DailyPulseStatsView.swift` | Today's key fitness metrics at a glance |
 | Dashboard Header | `DashboardHeader.swift` | Personalized greeting with user info |
 | Active Challenge Card | `ActiveChallengeCard.swift` | Current challenge summary on home screen |
@@ -223,15 +224,13 @@
 | Killer Scores | `Screens/Metrics/` | Multi-pillar analytics dashboard |
 | Today Pillar | Metrics views | Steps, workout duration, calories |
 | Performance Pillar | Metrics views | Estimated 1RM, PRs, volume, progression |
-| Recovery Pillar | Metrics views | Rest times, sleep, resting HR |
-| Body Pillar | Metrics views | Weight, body composition, photos |
-| Nutrition Pillar | Metrics views | Calories, macros, food log summary |
-| Consistency Pillar | Metrics views | Workout frequency, streaks, adherence |
-| Insights Pillar | Metrics views | AI-generated insights, trends, recommendations |
+| Workout-Only Metrics View | `MetricsView.swift`, `InsightsPillarSection.swift` | Metrics page now focuses on workout-derived sections (Performance + workout-centric Insights) |
+| Insights Weekly Workout Report | `InsightsPillarSection.swift`, `ComprehensiveMetricsStore.swift` | Weekly report surfaces strength change availability, compared lifts, and workouts completed |
 | Time Period Selection | Metrics views | Today, Week, Month, All-time views |
 | Workout Analytics | `WorkoutAnalyticsEngine.swift` | Advanced workout performance analysis |
 | Profile Metrics | `ProfileMetricsBuilder.swift` | Metrics builder for profile display |
 | Comprehensive Store | `ComprehensiveMetricsStore.swift` | Local metrics caching |
+| Strength Trend Accuracy | `ComprehensiveMetricsStore.swift`, `MetricsViewModel.swift`, `PerformancePillarSection.swift`, `ComprehensiveMetrics.swift` | Strength trend compares equal recent/prior windows, supports insufficient-data fallback (N/A), and shows comparable lift count |
 
 ---
 
@@ -332,7 +331,7 @@
 | Cardio Workout Metrics | `HealthKitService.swift` | Enhanced cardio tracking with workout type detection |
 | Notification Manager | `NotificationManager.swift` | Push notification auth, scheduling, APNs |
 | Challenge Notifications | `ChallengeNotificationService.swift` | Challenge-specific alerts |
-| Step Goal Notifications | `StepGoalNotificationService.swift` | Goal achievement alerts |
+| Step Goal Notifications | `StepGoalNotificationService.swift` | Local milestone alerts at 50% and 100% of daily step goal |
 | Edge Functions | `EdgeFunctionService.swift` | Secure backend operations via Supabase Edge Functions |
 | Unsplash Service | `UnsplashService.swift` | Challenge background images |
 

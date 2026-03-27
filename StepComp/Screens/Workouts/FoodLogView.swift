@@ -479,6 +479,7 @@ struct AddMealView: View {
                         mealTypePicker
                         photoSection
                         searchSection
+                        recentMealsSection
                         recentFoodsSection
                         resultsSection
                         selectedItemsSection
@@ -822,6 +823,59 @@ struct AddMealView: View {
     }
 
     @ViewBuilder
+    private var recentMealsSection: some View {
+        if !viewModel.recentMealEntries.isEmpty {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Text("RECENT MEALS")
+                        .font(.system(size: 11, weight: .black))
+                        .tracking(1)
+                        .foregroundColor(FitCompColors.textSecondary)
+                    Spacer()
+                    Text("Tap to reuse full meal")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundColor(FitCompColors.textTertiary)
+                }
+
+                ForEach(viewModel.recentMealEntries) { entry in
+                    let isSelected = isMealSelected(entry)
+                    Button(action: { addRecentMeal(entry) }) {
+                        HStack(spacing: 10) {
+                            Image(systemName: entry.mealType.icon)
+                                .font(.system(size: 14, weight: .bold))
+                                .foregroundColor(FitCompColors.primary)
+                                .frame(width: 28, height: 28)
+                                .background(FitCompColors.primary.opacity(0.12))
+                                .clipShape(Circle())
+
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text(entry.description)
+                                    .font(.system(size: 13, weight: .bold))
+                                    .foregroundColor(FitCompColors.textPrimary)
+                                    .lineLimit(1)
+                                Text("\(entry.mealType.title) • \(entry.items.count) item(s)")
+                                    .font(.system(size: 10, weight: .semibold))
+                                    .foregroundColor(FitCompColors.textSecondary)
+                            }
+                            Spacer()
+                            Text("\(Int(entry.totalCalories)) cal")
+                                .font(.system(size: 12, weight: .black))
+                                .foregroundColor(FitCompColors.textPrimary)
+                            Image(systemName: isSelected ? "checkmark.circle.fill" : "plus.circle")
+                                .font(.system(size: 18, weight: .semibold))
+                                .foregroundColor(isSelected ? FitCompColors.primary : FitCompColors.textSecondary.opacity(0.55))
+                        }
+                        .padding(12)
+                        .background(isSelected ? FitCompColors.primary.opacity(0.08) : FitCompColors.textSecondary.opacity(0.04))
+                        .cornerRadius(12)
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
     private var recentFoodsSection: some View {
         if !viewModel.cachedFoods.isEmpty {
             VStack(alignment: .leading, spacing: 8) {
@@ -836,7 +890,7 @@ struct AddMealView: View {
                         .foregroundColor(FitCompColors.textTertiary)
                 }
 
-                ForEach(viewModel.cachedFoods.prefix(8)) { item in
+                ForEach(viewModel.cachedFoods.prefix(15)) { item in
                     let key = selectionKey(for: item)
                     let isSelected = selectedResultKeys.contains(key)
                     Button(action: { toggleCachedItem(item) }) {
@@ -1015,6 +1069,33 @@ struct AddMealView: View {
         )
         selectedResultKeys.insert(key)
         selectedItems.append(cloned)
+    }
+
+    private func isMealSelected(_ entry: FoodLogEntry) -> Bool {
+        !entry.items.isEmpty && entry.items.allSatisfy { selectedResultKeys.contains(selectionKey(for: $0)) }
+    }
+
+    private func addRecentMeal(_ entry: FoodLogEntry) {
+        selectedMealType = entry.mealType
+        for item in entry.items {
+            let key = selectionKey(for: item)
+            guard !selectedResultKeys.contains(key) else { continue }
+            let cloned = FoodItem(
+                id: UUID(),
+                name: item.name,
+                sourceKey: item.sourceKey,
+                calories: item.calories,
+                proteinG: item.proteinG,
+                carbsG: item.carbsG,
+                fatG: item.fatG,
+                servingSizeG: item.servingSizeG,
+                consumedWeightG: item.consumedWeightG ?? item.servingSizeG,
+                fiberG: item.fiberG,
+                sugarG: item.sugarG
+            )
+            selectedResultKeys.insert(key)
+            selectedItems.append(cloned)
+        }
     }
 
     private func saveMeal() {

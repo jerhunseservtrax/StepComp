@@ -395,6 +395,8 @@ final class MetricsViewModel: ObservableObject {
 
         let allSessions = WorkoutViewModel.shared.completedSessions
         let sessions = allSessions.filter { $0.endTime >= cutoff }
+        let performanceCutoff = calendar.date(byAdding: .day, value: -(lookbackDays * 2), to: Date()) ?? cutoff
+        let performanceSessions = allSessions.filter { $0.endTime >= performanceCutoff }
         let allWeightEntries = WeightViewModel.shared.entries
         let weightEntries = allWeightEntries.filter { $0.date >= cutoff }
 
@@ -434,7 +436,7 @@ final class MetricsViewModel: ObservableObject {
         readiness = readinessValue
         readinessHistory = Array((readinessHistory + [readinessValue.score]).suffix(21))
 
-        let performanceValue = comprehensiveStore.computePerformancePillar(sessions: sessions, days: lookbackDays)
+        let performanceValue = comprehensiveStore.computePerformancePillar(sessions: performanceSessions, days: lookbackDays)
         let recoveryValue = comprehensiveStore.computeRecoveryPillar(
             sleepHours: sleepHours,
             hrvHistory: hrvHistory,
@@ -482,9 +484,7 @@ final class MetricsViewModel: ObservableObject {
         )
         weeklyReport = comprehensiveStore.computeWeeklyReport(
             performance: performanceValue,
-            consistency: consistencyValue,
-            recovery: recoveryValue,
-            body: bodyValue
+            sessions: sessions
         )
     }
 

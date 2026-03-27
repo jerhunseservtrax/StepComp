@@ -71,6 +71,14 @@ final class FoodLogViewModel: ObservableObject {
         Dictionary(grouping: todayEntries, by: \.mealType)
     }
 
+    var recentMealEntries: [FoodLogEntry] {
+        entries
+            .sorted { $0.loggedAt > $1.loggedAt }
+            .filter { !$0.items.isEmpty }
+            .prefix(15)
+            .map { $0 }
+    }
+
     // MARK: - API Lookup
 
     func searchFood(query: String) async {

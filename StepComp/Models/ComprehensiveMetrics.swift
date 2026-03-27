@@ -233,22 +233,24 @@ struct TrainingLoadBalance: Codable, Hashable {
     let ratio: Double
     let status: MetricStatus
     let isOptimalRange: Bool
+    let hasData: Bool
 }
 
 struct PRVelocity: Codable, Hashable {
     let workoutsPerPR: Double
     let status: MetricStatus
+    let hasRecordedPRs: Bool
 }
 
 struct PerformancePillarData: Codable, Hashable {
-    let strengthTrendPercent: Double
+    let strengthTrendPercent: Double?
+    let comparedLiftCount: Int?
     let strengthScore: Int
-    let overloadScore: Int
+    let overloadScore: Int?
     let trainingLoadBalance: TrainingLoadBalance
     let plateauDetection: PlateauDetection
     let muscleBalance: [MuscleGroupVolume]
     let prVelocity: PRVelocity
-    let volumeTrend: [Double]
 }
 
 struct RecoveryPillarData: Codable, Hashable {
@@ -333,10 +335,9 @@ struct InsightsPillarData: Codable, Hashable {
 }
 
 struct WeeklyReport: Codable, Hashable {
-    let strengthChangePercent: Double
-    let consistencyPercent: Int
-    let recoveryTrend: TrendDirection
-    let fatLossStatus: String
+    let strengthChangePercent: Double?
+    let comparedLiftCount: Int
+    let workoutsCompleted: Int
 }
 
 struct KillerScores: Codable, Hashable {

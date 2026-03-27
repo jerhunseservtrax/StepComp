@@ -187,6 +187,8 @@ class WorkoutViewModel: ObservableObject {
         
         // Use the target date if set, otherwise use current date/time
         let calendar = Calendar.current
+        let now = Date()
+        let effectiveDuration = max(0, computeActiveWorkoutDuration(at: now))
         
         // Set endTime to a time on the target date (use current time of day but on target date)
         let endTime: Date
@@ -197,7 +199,7 @@ class WorkoutViewModel: ObservableObject {
             endTime = calendar.date(bySettingHour: 23, minute: 59, second: 59, of: calendar.date(from: components) ?? workoutTargetDate) ?? Date()
         } else {
             // If target date is today or not set, use current time
-            endTime = Date()
+            endTime = now
         }
         
         session.endTime = endTime
@@ -208,7 +210,7 @@ class WorkoutViewModel: ObservableObject {
             id: session.id,
             workoutId: session.workoutId,
             workoutName: session.workoutName,
-            startTime: session.startTime,
+            startTime: endTime.addingTimeInterval(-effectiveDuration),
             endTime: endTime,
             exercises: session.exercises
         )
@@ -380,6 +382,21 @@ class WorkoutViewModel: ObservableObject {
     private func stopTimer() {
         timer?.invalidate()
         timer = nil
+    }
+
+    /// Computes active workout duration using tracked pause state.
+    /// This keeps completed session duration accurate even when endTime is adjusted to a selected calendar date.
+    private func computeActiveWorkoutDuration(at referenceTime: Date) -> TimeInterval {
+        guard let startTime = sessionStartTime else { return 0 }
+
+        let pausedDuration: TimeInterval
+        if isPaused, let pauseStart = pauseStartTime {
+            pausedDuration = totalPausedTime + referenceTime.timeIntervalSince(pauseStart)
+        } else {
+            pausedDuration = totalPausedTime
+        }
+
+        return max(0, referenceTime.timeIntervalSince(startTime) - pausedDuration)
     }
 
     /// Current exercise for the widget: first with incomplete sets, or last exercise.

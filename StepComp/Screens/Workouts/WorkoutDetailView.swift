@@ -128,7 +128,7 @@ struct WorkoutDetailView: View {
                             // Switch to Workouts tab to show active workout
                             if let tabManager = tabManager {
                                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                                    tabManager.selectedTab = 2
+                                    tabManager.selectedTab = 1
                                 }
                             }
                         }) {
