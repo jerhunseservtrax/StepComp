@@ -130,6 +130,11 @@ struct DiscoverChallengesTab: View {
                                         }
                                     )
                                     .frame(maxWidth: .infinity)
+                                    .onAppear {
+                                        if challenge.id == filteredChallenges.last?.id {
+                                            Task { await viewModel.loadMorePublicChallenges() }
+                                        }
+                                    }
                                 }
                             }
                         } else {
@@ -142,6 +147,11 @@ struct DiscoverChallengesTab: View {
                                             navigationPath.append(AppRoute.groupDetails(challengeId: challenge.id))
                                         }
                                     )
+                                    .onAppear {
+                                        if challenge.id == filteredChallenges.last?.id {
+                                            Task { await viewModel.loadMorePublicChallenges() }
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -207,6 +217,10 @@ struct DiscoverSearchBarView: View {
             RoundedRectangle(cornerRadius: 16)
                 .stroke(searchText.isEmpty ? Color.clear : FitCompColors.primary, lineWidth: 2)
         )
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Search challenges")
+        .accessibilityValue(searchText.isEmpty ? "Empty" : searchText)
+        .accessibilityHint("Filters challenges by name or description")
     }
 }
 
@@ -257,6 +271,10 @@ struct CategoryFilterButton: View {
                 )
                 .shadow(color: isSelected ? FitCompColors.primary.opacity(0.3) : Color.clear, radius: 2, x: 0, y: 1)
         }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(title)
+        .accessibilityValue(isSelected ? "Selected" : "Not selected")
+        .accessibilityHint("Filters public challenges by category")
     }
 }
 
@@ -341,6 +359,12 @@ struct DiscoverChallengeCard: View {
     
     // Fixed card height for consistent grid layout
     private let cardHeight: CGFloat = 220
+    
+    private var discoverGridCardAccessibilityValue: String {
+        let categoryName = challenge.category?.displayName ?? "Challenge"
+        let joined = challenge.participantIds.count
+        return "\(categoryName), \(joined) participants, \(daysRemaining) days remaining"
+    }
     
     var body: some View {
         Button(action: onTap) {
@@ -561,6 +585,10 @@ struct DiscoverChallengeCard: View {
             .shadow(color: Color.black.opacity(0.15), radius: 8, x: 0, y: 4)
         }
         .buttonStyle(ScaleButtonStyle())
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(challenge.name)
+        .accessibilityValue(discoverGridCardAccessibilityValue)
+        .accessibilityHint("Opens challenge details to preview or join")
     }
 }
 
@@ -594,6 +622,9 @@ struct ViewModeToggle: View {
                     .background(viewMode == .grid ? FitCompColors.primary : FitCompColors.surfaceElevated)
                     .cornerRadius(8)
             }
+            .accessibilityLabel("Grid layout")
+            .accessibilityValue(viewMode == .grid ? "Selected" : "Not selected")
+            .accessibilityHint("Shows discover challenges as a grid of cards")
             
             // List View Button
             Button(action: {
@@ -608,6 +639,9 @@ struct ViewModeToggle: View {
                     .background(viewMode == .list ? FitCompColors.primary : FitCompColors.surfaceElevated)
                     .cornerRadius(8)
             }
+            .accessibilityLabel("List layout")
+            .accessibilityValue(viewMode == .list ? "Selected" : "Not selected")
+            .accessibilityHint("Shows discover challenges as a vertical list")
         }
         .background(FitCompColors.surfaceElevated)
         .cornerRadius(10)
@@ -642,6 +676,13 @@ struct DiscoverChallengeListCard: View {
     var iconName: String {
         let icons = ["figure.hiking", "drop.fill", "trophy.fill", "moon.fill", "tree.fill"]
         return icons[abs(challenge.name.hashValue) % icons.count]
+    }
+    
+    private var listCardAccessibilityValue: String {
+        let categoryName = challenge.category?.displayName ?? "Challenge"
+        let joined = challenge.participantIds.count
+        let daysLeft = challengeDuration(in: challenge)
+        return "\(categoryName), \(joined) participants, \(daysLeft) days left"
     }
     
     var body: some View {
@@ -755,6 +796,10 @@ struct DiscoverChallengeListCard: View {
             .shadow(color: FitCompColors.shadowPrimary, radius: 4, x: 0, y: 2)
         }
         .buttonStyle(PlainButtonStyle())
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(challenge.name)
+        .accessibilityValue(listCardAccessibilityValue)
+        .accessibilityHint("Opens challenge details to preview or join")
     }
     
     private func formatDate(_ date: Date) -> String {

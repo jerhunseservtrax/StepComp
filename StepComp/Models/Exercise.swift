@@ -26,18 +26,29 @@ struct Exercise: Identifiable, Codable, Hashable {
 }
 
 extension Exercise {
+    private static let searchAliases: [String: [String]] = [
+        "v bar push downs": ["v-bar pushdown", "v bar pushdown", "vbar pushdown", "tricep pushdown", "triceps pushdown"]
+    ]
+
     static let exerciseDBIds: [String: String] = [
         "Arnold Press": "0287",
+        "Assisted Dip (Machine)": "0251",
         "Assisted Pull-Up": "0017",
         "Ab Wheel Rollout": "0857",
         "Back Extension": "0573",
         "Back Squat": "0043",
         "Barbell Bench Press": "0025",
+        "Barbell Bent Over Row": "0027",
+        "Barbell Squat": "0043",
+        "Bench Press (Barbell)": "0025",
         "Barbell Curl": "0031",
         "Barbell Row": "0027",
+        "Bent Over Row (Barbell)": "0027",
         "Bench Press": "0025",
         "Bent Over Row": "0027",
         "Bicep Curl": "0294",
+        "Bicep Curl (Dumbbell)": "0294",
+        "Dumbbell Bicep Curl": "0294",
         "Box Jump": "1374",
         "Bulgarian Split Squat": "0410",
         "Cable Crunch": "0175",
@@ -47,6 +58,7 @@ extension Exercise {
         "Calf Raise": "1372",
         "Chest Dip": "0251",
         "Chest Fly": "0308",
+        "Chest fly": "0308",
         "Chin-Up": "0253",
         "Close Grip Bench Press": "0030",
         "Concentration Curl": "0297",
@@ -59,6 +71,7 @@ extension Exercise {
         "Donkey Kick": "0284",
         "Elliptical": "2141",
         "EZ Bar Curl": "0447",
+        "EZ Bar Biceps Curl": "0447",
         "Face Pull": "0075",
         "Farmer's Carry": "2133",
         "Flat Bench Press": "0025",
@@ -67,15 +80,20 @@ extension Exercise {
         "Front Squat": "0042",
         "Glute Bridge": "1409",
         "Glute Ham Raise": "3193",
+        "Glute Kickback Machine": "0284",
         "Goblet Squat": "0534",
         "Good Morning": "0044",
         "Hack Squat": "0046",
         "Hammer Curl": "0312",
+        "Horizontal Leg Press": "0739",
         "Hanging Leg Raise": "0472",
         "Hip Abduction": "0597",
         "Hip Adduction": "0168",
         "Hip Thrust": "3236",
+        "Hip Thrust (Machine)": "3236",
         "Incline Bench Press": "0047",
+        "Incline Bench Press (Dumbbell)": "0314",
+        "Incline DB Bench Press": "0314",
         "Incline Dumbbell Press": "0314",
         "Inverted Row": "0497",
         "Jump Squat": "0053",
@@ -84,42 +102,81 @@ extension Exercise {
         "Kettlebell Clean": "0518",
         "Kettlebell Snatch": "0517",
         "Lat Pulldown": "0673",
+        "Lat Pulldown (Cable)": "0673",
         "Lateral Raise": "0334",
         "Leg Curl": "0586",
+        "Seated Leg Curl": "0586",
         "Leg Extension": "0585",
+        "Leg Extension (Machine)": "0585",
         "Leg Press": "0739",
+        "Leg Press (Machine)": "0739",
         "Leg Raise": "0012",
         "Lunge": "0054",
+        "Lunge (Dumbbell)": "0054",
+        "Dumbbell Lunges (Per Leg)": "0054",
         "Lying Leg Curl": "0586",
+        "Machine Bicep Curl": "0294",
+        "Machine Chest Press": "0025",
+        "Machine Fly (Chest)": "0308",
+        "Machine Incline Chest Press": "0314",
+        "Machine Lateral Raise": "0334",
+        "Machine Pec Deck": "0308",
+        "Machine Preacher Curl": "0059",
+        "Machine Shrug": "0406",
+        "Machine Triceps Extension": "0194",
         "Mountain Climbers": "0630",
         "Military Press": "0086",
         "Overhead Press": "0426",
+        "Pec Deck Fly": "0308",
         "Pendlay Row": "3017",
         "Plank": "3327",
         "Preacher Curl": "0059",
         "Pull-Up": "0651",
+        "Pull-Ups": "0651",
+        "Pull Up": "0651",
         "Push Press": "0528",
         "Push-Up": "0662",
+        "Push-Ups": "0662",
+        "Push Up": "0662",
         "Rear Delt Fly": "2292",
         "Romanian Deadlift": "0085",
+        "Romanian Deadlift (Barbell)": "0085",
         "Row (Machine)": "0180",
         "Russian Twist": "0014",
         "Seated Calf Raise": "0088",
+        "Seated Calf Raise (Machine)": "0088",
+        "Seated Hip Abduction (Machine)": "0597",
+        "Seated Hip Adduction (Machine)": "0168",
         "Seated Row": "0861",
+        "Seated Shoulder Press (Machine)": "0405",
+        "Seated Shoulder Press (Dumbbell)": "0405",
+        "Shoulder Press (Dumbbell)": "0405",
+        "Shoulder Press (Plate Machine)": "0405",
         "Shoulder Press": "0405",
         "Shrugs": "0406",
         "Side Plank": "0664",
         "Sit-Up": "0456",
         "Skull Crushers": "0060",
         "Smith Machine Squat": "0770",
+        "Squat (Barbell)": "0043",
+        "Standing Calf Raise": "1372",
+        "Standing Calf Raise (Machine)": "1372",
+        "Standing Leg Curl (Machine)": "0586",
+        "Standing Calf Raise (Smith)": "1372",
         "Sprint": "3666",
         "Step-Up": "0431",
         "Straight Arm Pulldown": "0237",
+        "Straight Arm Lat Pulldown (Cable)": "0237",
         "Sumo Deadlift": "0117",
         "Thrusters": "0042",
         "Tricep Dip": "1755",
         "Tricep Extension": "0194",
+        "Triceps Extension (Dumbbell)": "0194",
+        "Dumbbell Triceps Extension": "0194",
+        "Triceps Kickback (Dumbbell)": "0202",
+        "DB Triceps Kickback": "0202",
         "Treadmill Run": "3666",
+        "Vertical Leg Press": "0739",
         "Walking Lunge": "1460",
         "Wall Sit": "1372",
         "Wide Grip Pull-Up": "1429",
@@ -127,6 +184,11 @@ extension Exercise {
 }
 
 struct WorkoutSet: Identifiable, Codable {
+    enum WeightInputMode: String, Codable, CaseIterable {
+        case total
+        case perSide
+    }
+
     let id: UUID
     var setNumber: Int
     var previousWeight: Double?
@@ -136,8 +198,20 @@ struct WorkoutSet: Identifiable, Codable {
     var isCompleted: Bool
     var suggestedWeight: Double?
     var suggestedReps: Int?
+    var weightInputMode: WeightInputMode
     
-    init(id: UUID = UUID(), setNumber: Int, previousWeight: Double? = nil, previousReps: Int? = nil, weight: Double? = nil, reps: Int? = nil, isCompleted: Bool = false, suggestedWeight: Double? = nil, suggestedReps: Int? = nil) {
+    init(
+        id: UUID = UUID(),
+        setNumber: Int,
+        previousWeight: Double? = nil,
+        previousReps: Int? = nil,
+        weight: Double? = nil,
+        reps: Int? = nil,
+        isCompleted: Bool = false,
+        suggestedWeight: Double? = nil,
+        suggestedReps: Int? = nil,
+        weightInputMode: WeightInputMode = .total
+    ) {
         self.id = id
         self.setNumber = setNumber
         self.previousWeight = previousWeight
@@ -147,6 +221,44 @@ struct WorkoutSet: Identifiable, Codable {
         self.isCompleted = isCompleted
         self.suggestedWeight = suggestedWeight
         self.suggestedReps = suggestedReps
+        self.weightInputMode = weightInputMode
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id
+        case setNumber
+        case previousWeight
+        case previousReps
+        case weight
+        case reps
+        case isCompleted
+        case suggestedWeight
+        case suggestedReps
+        case weightInputMode
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        setNumber = try container.decode(Int.self, forKey: .setNumber)
+        previousWeight = try container.decodeIfPresent(Double.self, forKey: .previousWeight)
+        previousReps = try container.decodeIfPresent(Int.self, forKey: .previousReps)
+        weight = try container.decodeIfPresent(Double.self, forKey: .weight)
+        reps = try container.decodeIfPresent(Int.self, forKey: .reps)
+        isCompleted = try container.decode(Bool.self, forKey: .isCompleted)
+        suggestedWeight = try container.decodeIfPresent(Double.self, forKey: .suggestedWeight)
+        suggestedReps = try container.decodeIfPresent(Int.self, forKey: .suggestedReps)
+        weightInputMode = try container.decodeIfPresent(WeightInputMode.self, forKey: .weightInputMode) ?? .total
+    }
+}
+
+extension WorkoutSet {
+    static let perSideCombinedMultiplier: Double = 2.0
+
+    var effectiveWeightForVolume: Double? {
+        guard let weight else { return nil }
+        let multiplier = weightInputMode == .perSide ? Self.perSideCombinedMultiplier : 1.0
+        return weight * multiplier
     }
 }
 
@@ -242,15 +354,15 @@ struct CompletedWorkoutSession: Identifiable, Codable {
     var totalVolume: Double {
         return exercises.reduce(0) { total, exercise in
             total + exercise.sets.reduce(0) { setTotal, set in
-                guard let weight = set.weight, let reps = set.reps else { return setTotal }
-                return setTotal + (weight * Double(reps))
+                guard let effectiveWeight = set.effectiveWeightForVolume, let reps = set.reps else { return setTotal }
+                return setTotal + (effectiveWeight * Double(reps))
             }
         }
     }
     
     var maxWeight: Double {
         return exercises.reduce(0) { max, exercise in
-            let exerciseMax = exercise.sets.compactMap { $0.weight }.max() ?? 0
+            let exerciseMax = exercise.sets.compactMap(\.effectiveWeightForVolume).max() ?? 0
             return Swift.max(max, exerciseMax)
         }
     }
@@ -300,19 +412,19 @@ extension Exercise {
     static let allExercises: [Exercise] = [
         // A
         Exercise(name: "Arnold Press", targetMuscles: "Shoulders, Triceps"),
+        Exercise(name: "Assisted Dip (Machine)", targetMuscles: "Chest, Triceps"),
         Exercise(name: "Assisted Pull-Up", targetMuscles: "Back, Biceps"),
         Exercise(name: "Ab Wheel Rollout", targetMuscles: "Core, Abs"),
         
         // B
         Exercise(name: "Back Extension", targetMuscles: "Lower Back"),
         Exercise(name: "Back Squat", targetMuscles: "Quads, Glutes"),
-        Exercise(name: "Barbell Bench Press", targetMuscles: "Chest, Triceps"),
         Exercise(name: "Barbell Curl", targetMuscles: "Biceps"),
         Exercise(name: "Barbell Row", targetMuscles: "Back, Lats"),
         Exercise(name: "Battle Ropes", targetMuscles: "Full Body, Cardio"),
         Exercise(name: "Bench Press", targetMuscles: "Chest, Triceps"),
-        Exercise(name: "Bent Over Row", targetMuscles: "Back, Lats"),
         Exercise(name: "Bicep Curl", targetMuscles: "Biceps"),
+        Exercise(name: "Bicep Curl (Dumbbell)", targetMuscles: "Biceps"),
         Exercise(name: "Box Jump", targetMuscles: "Legs, Plyometric"),
         Exercise(name: "Bulgarian Split Squat", targetMuscles: "Quads, Glutes"),
         
@@ -322,7 +434,6 @@ extension Exercise {
         Exercise(name: "Cable Lateral Raise", targetMuscles: "Shoulders"),
         Exercise(name: "Cable Row", targetMuscles: "Back"),
         Exercise(name: "Calf Raise", targetMuscles: "Calves"),
-        Exercise(name: "Chest Dip", targetMuscles: "Chest, Triceps"),
         Exercise(name: "Chest Fly", targetMuscles: "Chest"),
         Exercise(name: "Chin-Up", targetMuscles: "Back, Biceps"),
         Exercise(name: "Close Grip Bench Press", targetMuscles: "Triceps, Chest"),
@@ -344,7 +455,6 @@ extension Exercise {
         // F
         Exercise(name: "Face Pull", targetMuscles: "Rear Delts, Upper Back"),
         Exercise(name: "Farmer's Carry", targetMuscles: "Grip, Core"),
-        Exercise(name: "Flat Bench Press", targetMuscles: "Chest, Triceps"),
         Exercise(name: "Flutter Kicks", targetMuscles: "Core, Abs"),
         Exercise(name: "Front Raise", targetMuscles: "Shoulders"),
         Exercise(name: "Front Squat", targetMuscles: "Quads, Core"),
@@ -352,20 +462,23 @@ extension Exercise {
         // G
         Exercise(name: "Glute Bridge", targetMuscles: "Glutes, Hamstrings"),
         Exercise(name: "Glute Ham Raise", targetMuscles: "Hamstrings, Glutes"),
+        Exercise(name: "Glute Kickback Machine", targetMuscles: "Glutes"),
         Exercise(name: "Goblet Squat", targetMuscles: "Quads, Glutes"),
         Exercise(name: "Good Morning", targetMuscles: "Hamstrings, Lower Back"),
         
         // H
         Exercise(name: "Hack Squat", targetMuscles: "Quads"),
         Exercise(name: "Hammer Curl", targetMuscles: "Biceps, Forearms"),
+        Exercise(name: "Horizontal Leg Press", targetMuscles: "Quads, Glutes"),
         Exercise(name: "Hanging Leg Raise", targetMuscles: "Core, Abs"),
         Exercise(name: "Hip Abduction", targetMuscles: "Glutes, Hip"),
         Exercise(name: "Hip Adduction", targetMuscles: "Inner Thighs"),
         Exercise(name: "Hip Thrust", targetMuscles: "Glutes"),
+        Exercise(name: "Hip Thrust (Machine)", targetMuscles: "Glutes"),
         
         // I
         Exercise(name: "Incline Bench Press", targetMuscles: "Upper Chest"),
-        Exercise(name: "Incline Dumbbell Press", targetMuscles: "Upper Chest"),
+        Exercise(name: "Incline Bench Press (Dumbbell)", targetMuscles: "Upper Chest"),
         Exercise(name: "Inverted Row", targetMuscles: "Back, Biceps"),
         
         // J
@@ -381,20 +494,37 @@ extension Exercise {
         Exercise(name: "Lat Pulldown", targetMuscles: "Back, Lats"),
         Exercise(name: "Lateral Raise", targetMuscles: "Shoulders"),
         Exercise(name: "Leg Curl", targetMuscles: "Hamstrings"),
+        Exercise(name: "Seated Leg Curl", targetMuscles: "Hamstrings"),
         Exercise(name: "Leg Extension", targetMuscles: "Quads"),
         Exercise(name: "Leg Press", targetMuscles: "Quads, Glutes"),
         Exercise(name: "Leg Raise", targetMuscles: "Core, Abs"),
         Exercise(name: "Lunge", targetMuscles: "Quads, Glutes"),
+        Exercise(name: "Lunge (Dumbbell)", targetMuscles: "Quads, Glutes"),
         Exercise(name: "Lying Leg Curl", targetMuscles: "Hamstrings"),
         
         // M
+        Exercise(name: "Machine Bicep Curl", targetMuscles: "Biceps"),
+        Exercise(name: "Machine Chest Press", targetMuscles: "Chest, Triceps"),
+        Exercise(name: "Machine Fly (Chest)", targetMuscles: "Chest"),
+        Exercise(name: "Machine Incline Chest Press", targetMuscles: "Upper Chest"),
+        Exercise(name: "Machine Lateral Raise", targetMuscles: "Shoulders"),
+        Exercise(name: "Machine Preacher Curl", targetMuscles: "Biceps"),
+        Exercise(name: "Machine Shrug", targetMuscles: "Traps"),
+        Exercise(name: "Machine Triceps Extension", targetMuscles: "Triceps"),
         Exercise(name: "Mountain Climbers", targetMuscles: "Core, Cardio"),
         Exercise(name: "Military Press", targetMuscles: "Shoulders, Triceps"),
+        
+        // N
+        Exercise(name: "Neck Flexion", targetMuscles: "Neck"),
+        Exercise(name: "Neck Extension", targetMuscles: "Neck"),
+        Exercise(name: "Neck Lateral Flexion", targetMuscles: "Neck"),
+        Exercise(name: "Neck Rotation", targetMuscles: "Neck"),
         
         // O
         Exercise(name: "Overhead Press", targetMuscles: "Shoulders, Triceps"),
         
         // P
+        Exercise(name: "Pec Deck Fly", targetMuscles: "Chest"),
         Exercise(name: "Pendlay Row", targetMuscles: "Back"),
         Exercise(name: "Plank", targetMuscles: "Core, Abs"),
         Exercise(name: "Preacher Curl", targetMuscles: "Biceps"),
@@ -410,13 +540,21 @@ extension Exercise {
         
         // S
         Exercise(name: "Seated Calf Raise", targetMuscles: "Calves"),
+        Exercise(name: "Seated Hip Abduction (Machine)", targetMuscles: "Glutes, Hip"),
+        Exercise(name: "Seated Hip Adduction (Machine)", targetMuscles: "Inner Thighs"),
+        Exercise(name: "Seated Shoulder Press (Dumbbell)", targetMuscles: "Shoulders, Triceps"),
+        Exercise(name: "Seated Shoulder Press (Machine)", targetMuscles: "Shoulders, Triceps"),
         Exercise(name: "Seated Row", targetMuscles: "Back"),
+        Exercise(name: "Shoulder Press (Plate Machine)", targetMuscles: "Shoulders, Triceps"),
         Exercise(name: "Shoulder Press", targetMuscles: "Shoulders, Triceps"),
         Exercise(name: "Shrugs", targetMuscles: "Traps"),
         Exercise(name: "Side Plank", targetMuscles: "Core, Obliques"),
         Exercise(name: "Sit-Up", targetMuscles: "Core, Abs"),
         Exercise(name: "Skull Crushers", targetMuscles: "Triceps"),
         Exercise(name: "Smith Machine Squat", targetMuscles: "Quads, Glutes"),
+        Exercise(name: "Standing Calf Raise", targetMuscles: "Calves"),
+        Exercise(name: "Standing Calf Raise (Smith)", targetMuscles: "Calves"),
+        Exercise(name: "Standing Leg Curl (Machine)", targetMuscles: "Hamstrings"),
         Exercise(name: "Sprint", targetMuscles: "Cardio, Legs"),
         Exercise(name: "Step-Up", targetMuscles: "Quads, Glutes"),
         Exercise(name: "Straight Arm Pulldown", targetMuscles: "Lats"),
@@ -424,21 +562,42 @@ extension Exercise {
         
         // T
         Exercise(name: "Thrusters", targetMuscles: "Full Body"),
+        Exercise(name: "Triceps Kickback (Dumbbell)", targetMuscles: "Triceps"),
         Exercise(name: "Tricep Dip", targetMuscles: "Triceps"),
         Exercise(name: "Tricep Extension", targetMuscles: "Triceps"),
+        Exercise(name: "Triceps Extension (Dumbbell)", targetMuscles: "Triceps"),
         Exercise(name: "Treadmill Run", targetMuscles: "Cardio"),
+        
+        // V
+        Exercise(name: "Vertical Leg Press", targetMuscles: "Quads, Glutes"),
+        Exercise(name: "V Bar Push Downs", targetMuscles: "Triceps"),
         
         // W
         Exercise(name: "Walking Lunge", targetMuscles: "Quads, Glutes"),
         Exercise(name: "Wall Sit", targetMuscles: "Quads"),
         Exercise(name: "Wide Grip Pull-Up", targetMuscles: "Back, Lats"),
+        Exercise(name: "Wrist Curl", targetMuscles: "Forearms"),
+        Exercise(name: "Reverse Wrist Curl", targetMuscles: "Forearms"),
+        Exercise(name: "Wrist Roller", targetMuscles: "Forearms, Grip"),
     ].sorted { $0.name < $1.name }
     
     static func search(_ query: String) -> [Exercise] {
         guard !query.isEmpty else { return allExercises }
+        let normalizedQuery = query.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
+
         return allExercises.filter { exercise in
-            exercise.name.lowercased().contains(query.lowercased()) ||
-            exercise.targetMuscles.lowercased().contains(query.lowercased())
+            let normalizedName = exercise.name.lowercased()
+
+            if normalizedName.contains(normalizedQuery) ||
+                exercise.targetMuscles.lowercased().contains(normalizedQuery) {
+                return true
+            }
+
+            if let aliases = searchAliases[normalizedName] {
+                return aliases.contains { $0.contains(normalizedQuery) || normalizedQuery.contains($0) }
+            }
+
+            return false
         }
     }
 }

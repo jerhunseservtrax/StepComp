@@ -15,11 +15,13 @@ final class LeaderboardViewModel: ObservableObject {
     @Published var selectedScope: LeaderboardScope = .allTime
     @Published var isLoading: Bool = false
     @Published var errorMessage: String?
+    @Published var visibleEntryCount: Int = 30
     
     private var challengeService: ChallengeService
     private let challengeId: String
     private let userId: String
     private var previousUserRank: Int?
+    private let pageSize = 30
     
     init(
         challengeService: ChallengeService,
@@ -46,6 +48,7 @@ final class LeaderboardViewModel: ObservableObject {
             let loadedEntries = await challengeService.getLeaderboard(for: challengeId, scope: selectedScope)
             // Ensure entries are sorted by rank
             entries = loadedEntries.sorted { $0.rank < $1.rank }
+            visibleEntryCount = min(pageSize, entries.count)
             isLoading = false
             
             // Check for rank changes and send notifications
@@ -64,6 +67,19 @@ final class LeaderboardViewModel: ObservableObject {
     
     func refresh() {
         loadLeaderboard()
+    }
+
+    var visibleEntries: [LeaderboardEntry] {
+        Array(entries.prefix(visibleEntryCount))
+    }
+
+    var canLoadMore: Bool {
+        visibleEntryCount < entries.count
+    }
+
+    func loadMore() {
+        guard canLoadMore else { return }
+        visibleEntryCount = min(visibleEntryCount + pageSize, entries.count)
     }
     
     // MARK: - Leaderboard Notifications

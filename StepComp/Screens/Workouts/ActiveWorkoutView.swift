@@ -206,6 +206,19 @@ struct ActiveWorkoutView: View {
             if restTimerManager.showOverlay {
                 RestTimerOverlayView(timerManager: restTimerManager)
             }
+
+            // Auto-finish overlay
+            if viewModel.isAutoFinishing {
+                autoFinishOverlay
+                    .transition(.opacity)
+                    .zIndex(10)
+            }
+        }
+        .onChange(of: viewModel.isAutoFinishing) { _, isAutoFinishing in
+            if isAutoFinishing {
+                commitAndDismiss()
+                restTimerManager.resetForNewSession()
+            }
         }
         .confirmationDialog("End Workout", isPresented: $showingFinishConfirmation, titleVisibility: .visible) {
             Button("Finish Workout") {
@@ -220,6 +233,50 @@ struct ActiveWorkoutView: View {
         } message: {
             Text("Would you like to finish and save this workout, or cancel without saving?")
         }
+    }
+
+    // MARK: - Auto-Finish Overlay
+
+    private var autoFinishOverlay: some View {
+        VStack(spacing: 20) {
+            Spacer()
+
+            VStack(spacing: 16) {
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.system(size: 64))
+                    .foregroundColor(.green)
+                    .scaleEffect(viewModel.isAutoFinishing ? 1.0 : 0.5)
+                    .animation(.spring(response: 0.4, dampingFraction: 0.6), value: viewModel.isAutoFinishing)
+
+                Text("Workout Complete!")
+                    .font(.system(size: 24, weight: .black))
+                    .foregroundColor(FitCompColors.textPrimary)
+
+                Text("Saving your session...")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(FitCompColors.textSecondary)
+            }
+
+            Spacer()
+
+            Button(action: {
+                withAnimation(.easeOut(duration: 0.2)) {
+                    viewModel.cancelAutoFinish()
+                }
+            }) {
+                Text("Keep Training")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundColor(FitCompColors.primary)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 48)
+                    .background(FitCompColors.primary.opacity(0.12))
+                    .cornerRadius(24)
+            }
+            .padding(.horizontal, 32)
+            .padding(.bottom, 48)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(FitCompColors.background.opacity(0.95))
     }
 
     private func commitAndDismiss() {
@@ -393,6 +450,27 @@ struct ExerciseCard: View {
         workoutExercise.sets.allSatisfy { $0.isCompleted }
     }
 
+    private var exerciseWeightInputMode: WorkoutSet.WeightInputMode {
+        workoutExercise.sets.first?.weightInputMode ?? .total
+    }
+
+    private var completedSetCount: Int {
+        workoutExercise.sets.filter(\.isCompleted).count
+    }
+
+    private var plannedReps: Int {
+        workoutExercise.sets.reduce(0) { total, set in
+            total + (set.reps ?? set.suggestedReps ?? 0)
+        }
+    }
+
+    private var completedReps: Int {
+        workoutExercise.sets.reduce(0) { total, set in
+            guard set.isCompleted else { return total }
+            return total + (set.reps ?? set.suggestedReps ?? 0)
+        }
+    }
+
     private var hasProgressiveOverloadSuggestions: Bool {
         workoutExercise.sets.contains { $0.suggestedWeight != nil && $0.suggestedReps != nil }
     }
@@ -424,7 +502,7 @@ struct ExerciseCard: View {
 
     private var expandedView: some View {
         VStack(spacing: 0) {
-            HStack(spacing: 12) {
+            HStack(alignment: .top, spacing: 12) {
                 ExerciseDemoButton(exercise: workoutExercise.exercise)
 
                 VStack(alignment: .leading, spacing: 4) {
@@ -455,31 +533,50 @@ struct ExerciseCard: View {
 
                 Spacer()
 
-                if hasProgressiveOverloadSuggestions && !allSetsCompleted {
-                    HStack(spacing: 8) {
-                        Text("Progressive Overload")
-                            .font(.system(size: 12, weight: .medium))
-                            .foregroundColor(FitCompColors.textSecondary)
+                VStack(alignment: .trailing, spacing: 8) {
+                    exerciseWeightModeSelector
 
-                        Button(action: toggleProgressiveOverload) {
-                            ZStack {
-                                RoundedRectangle(cornerRadius: 16)
-                                    .fill(overloadApplied ? Self.overloadBlue : FitCompColors.cardBackground)
-                                    .frame(width: 44, height: 26)
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 16)
-                                            .stroke(overloadApplied ? Self.overloadBlue : FitCompColors.textSecondary.opacity(0.3), lineWidth: 2)
-                                    )
-
-                                Circle()
-                                    .fill(.white)
-                                    .frame(width: 20, height: 20)
-                                    .shadow(color: .black.opacity(0.2), radius: 2, x: 0, y: 1)
-                                    .offset(x: overloadApplied ? 9 : -9)
-                                    .animation(.spring(response: 0.3, dampingFraction: 0.7), value: overloadApplied)
-                            }
+                    Button(action: {
+                        withAnimation(.spring(response: 0.3)) {
+                            collapsedExerciseIds.insert(workoutExercise.id)
                         }
-                        .buttonStyle(.plain)
+                        HapticManager.shared.light()
+                    }) {
+                        Image(systemName: "chevron.up")
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundColor(FitCompColors.textSecondary)
+                            .frame(width: 28, height: 28)
+                            .background(FitCompColors.textSecondary.opacity(0.12))
+                            .cornerRadius(14)
+                    }
+                    .buttonStyle(.plain)
+
+                    if hasProgressiveOverloadSuggestions && !allSetsCompleted {
+                        HStack(spacing: 8) {
+                            Text("Progressive Overload")
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundColor(FitCompColors.textSecondary)
+
+                            Button(action: toggleProgressiveOverload) {
+                                ZStack {
+                                    RoundedRectangle(cornerRadius: 16)
+                                        .fill(overloadApplied ? Self.overloadBlue : FitCompColors.cardBackground)
+                                        .frame(width: 44, height: 26)
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 16)
+                                                .stroke(overloadApplied ? Self.overloadBlue : FitCompColors.textSecondary.opacity(0.3), lineWidth: 2)
+                                        )
+
+                                    Circle()
+                                        .fill(.white)
+                                        .frame(width: 20, height: 20)
+                                        .shadow(color: .black.opacity(0.2), radius: 2, x: 0, y: 1)
+                                        .offset(x: overloadApplied ? 9 : -9)
+                                        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: overloadApplied)
+                                }
+                            }
+                            .buttonStyle(.plain)
+                        }
                     }
                 }
             }
@@ -518,6 +615,10 @@ struct ExerciseCard: View {
                     .frame(height: 48)
                     .background(FitCompColors.textSecondary.opacity(0.05))
             }
+
+            exerciseFooterVolumeTracker
+                .padding(.horizontal, 12)
+                .padding(.bottom, 12)
         }
     }
 
@@ -563,8 +664,8 @@ struct ExerciseCard: View {
         let totalSets = workoutExercise.sets.count
 
         let volume = workoutExercise.sets.reduce(0) { total, set in
-            guard let weight = set.weight, let reps = set.reps else { return total }
-            let displayWeight = unitManager.convertWeightFromStorage(weight)
+            guard let effectiveWeight = set.effectiveWeightForVolume, let reps = set.reps else { return total }
+            let displayWeight = unitManager.convertWeightFromStorage(effectiveWeight)
             return total + Int((displayWeight * Double(reps)).rounded())
         }
 
@@ -671,6 +772,59 @@ struct ExerciseCard: View {
         }
 
         return (lastBest, suggested)
+    }
+
+    private var exerciseWeightModeSelector: some View {
+        HStack(spacing: 6) {
+            exerciseModeButton(title: "Total", mode: .total)
+            exerciseModeButton(title: "Per Side", mode: .perSide)
+        }
+    }
+
+    @ViewBuilder
+    private func exerciseModeButton(title: String, mode: WorkoutSet.WeightInputMode) -> some View {
+        let selected = exerciseWeightInputMode == mode
+        Button(action: {
+            guard exerciseWeightInputMode != mode else { return }
+            viewModel.updateExerciseWeightInputMode(exerciseId: workoutExercise.id, mode: mode)
+            HapticManager.shared.light()
+        }) {
+            Text(title)
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundColor(selected ? .white : FitCompColors.textSecondary)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 5)
+                .background(selected ? FitCompColors.primary : FitCompColors.textSecondary.opacity(0.12))
+                .cornerRadius(10)
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var exerciseFooterVolumeTracker: some View {
+        let totalSets = max(1, workoutExercise.sets.count)
+        let progress = Double(completedSetCount) / Double(totalSets)
+        return VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text("Exercise Volume")
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundColor(FitCompColors.textSecondary)
+                Spacer()
+                Text("\(completedReps) / \(plannedReps) reps")
+                    .font(.system(size: 14, weight: .black))
+                    .foregroundColor(FitCompColors.textPrimary)
+            }
+
+            ProgressView(value: progress)
+                .tint(FitCompColors.primary)
+                .scaleEffect(x: 1, y: 1.4, anchor: .center)
+
+            Text("\(completedSetCount)/\(workoutExercise.sets.count) sets complete")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundColor(FitCompColors.textSecondary)
+        }
+        .padding(12)
+        .background(FitCompColors.textSecondary.opacity(0.08))
+        .cornerRadius(14)
     }
 }
 

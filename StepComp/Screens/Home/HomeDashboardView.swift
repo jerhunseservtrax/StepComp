@@ -213,6 +213,8 @@ struct HomeDashboardView: View {
                     )
                 }
                 .buttonStyle(PlainButtonStyle())
+                .accessibilityLabel("Create challenge")
+                .accessibilityHint("Set up a new step challenge.")
                 .padding(.horizontal, 20)
                 .padding(.bottom, 16)
             }

@@ -36,6 +36,8 @@ struct InsightsPillarSection: View {
                     Text("Weekly Performance Report")
                         .font(.stepCaptionBold())
                         .foregroundStyle(FitCompColors.textSecondary)
+                        .accessibilityAddTraits(.isHeader)
+                        .accessibilityLabel("Weekly performance report")
                     HStack(spacing: 10) {
                         metric(
                             key: "insights-weekly-strength",
@@ -95,6 +97,9 @@ struct InsightsPillarSection: View {
         .background(FitCompColors.surface)
         .clipShape(RoundedRectangle(cornerRadius: 14))
         .overlay(RoundedRectangle(cornerRadius: 14).stroke(FitCompColors.cardBorder, lineWidth: 1))
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(title). \(insight.title) \(insight.message) Confidence \(insight.confidence) percent.")
+        .accessibilityHint("Automated insight based on your recent training data.")
     }
 
     private func metric(key: String, title: String, value: String, detail: MetricBreakdownDetail) -> some View {
@@ -113,6 +118,7 @@ struct InsightsPillarSection: View {
             .clipShape(RoundedRectangle(cornerRadius: 14))
             .overlay(RoundedRectangle(cornerRadius: 14).stroke(FitCompColors.cardBorder, lineWidth: 1))
         }
+        .accessibilityValue(value)
     }
 
     private func signedPercent(_ value: Double?) -> String {

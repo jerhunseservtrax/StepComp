@@ -253,11 +253,11 @@ struct CompletedSessionDetailView: View {
         for item in sessions {
             for exercise in item.exercises where namesMatch(exercise.exercise.name, exerciseName) {
                 for set in exercise.sets where set.isCompleted {
-                    guard let weight = set.weight, let reps = set.reps else { continue }
-                    projected1RM = max(projected1RM, viewModel.calculateEstimated1RM(weight: weight, reps: reps))
-                    maxWeight = max(maxWeight, weight)
+                    guard let effectiveWeight = set.effectiveWeightForVolume, let reps = set.reps else { continue }
+                    projected1RM = max(projected1RM, viewModel.calculateEstimated1RM(weight: effectiveWeight, reps: reps))
+                    maxWeight = max(maxWeight, effectiveWeight)
                     maxReps = max(maxReps, reps)
-                    maxVolume = max(maxVolume, weight * Double(reps))
+                    maxVolume = max(maxVolume, effectiveWeight * Double(reps))
                 }
             }
         }
@@ -265,8 +265,8 @@ struct CompletedSessionDetailView: View {
     }
 
     private func isPRSet(_ set: WorkoutSet, exerciseName: String) -> Bool {
-        guard set.isCompleted, let weight = set.weight, let reps = set.reps else { return false }
-        let current1RM = viewModel.calculateEstimated1RM(weight: weight, reps: reps)
+        guard set.isCompleted, let effectiveWeight = set.effectiveWeightForVolume, let reps = set.reps else { return false }
+        let current1RM = viewModel.calculateEstimated1RM(weight: effectiveWeight, reps: reps)
 
         for oldSession in viewModel.completedSessions {
             if oldSession.id == session.id || oldSession.endTime >= session.endTime {
@@ -274,8 +274,8 @@ struct CompletedSessionDetailView: View {
             }
             for oldExercise in oldSession.exercises where namesMatch(oldExercise.exercise.name, exerciseName) {
                 for oldSet in oldExercise.sets where oldSet.isCompleted {
-                    guard let oldWeight = oldSet.weight, let oldReps = oldSet.reps else { continue }
-                    let old1RM = viewModel.calculateEstimated1RM(weight: oldWeight, reps: oldReps)
+                    guard let oldEffectiveWeight = oldSet.effectiveWeightForVolume, let oldReps = oldSet.reps else { continue }
+                    let old1RM = viewModel.calculateEstimated1RM(weight: oldEffectiveWeight, reps: oldReps)
                     if old1RM >= current1RM {
                         return false
                     }

@@ -74,8 +74,13 @@ final class NotificationManager: NSObject, ObservableObject {
         let leaderboardAlertsEnabled = UserDefaults.standard.bool(forKey: "notif_leaderboardAlerts")
         let motivationalNudgesEnabled = UserDefaults.standard.bool(forKey: "notif_motivationalNudges")
         
-        // Cancel existing notifications first
-        notificationCenter.removeAllPendingNotificationRequests()
+        // Cancel only notifications owned by NotificationManager.
+        notificationCenter.removePendingNotificationRequests(withIdentifiers: [
+            NotificationID.dailyRecap,
+            "nudge_morning",
+            "nudge_afternoon",
+            "nudge_evening"
+        ])
         
         // Schedule based on user preferences
         if dailyRecapEnabled {

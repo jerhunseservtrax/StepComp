@@ -66,6 +66,9 @@ struct DashboardHeader: View {
                         }
                     }
                 }
+                .accessibilityLabel("Open chats")
+                .accessibilityHint("Shows your challenge conversations.")
+                .accessibilityValue(unreadChatCount > 0 ? "\(unreadChatCount) unread messages" : "No unread messages")
                 .sheet(isPresented: $showingChats) {
                     NavigationStack(path: $navigationPath) {
                         ChatListView(currentUserId: user?.id ?? "") { challengeId, challengeName in
@@ -113,6 +116,9 @@ struct DashboardHeader: View {
                         }
                     }
                 }
+                .accessibilityLabel("Open friends")
+                .accessibilityHint("View friends, invites, and notification activity.")
+                .accessibilityValue(unreadNotificationCount > 0 ? "\(unreadNotificationCount) unread notifications" : "No unread notifications")
                 .sheet(isPresented: $showingFriends) {
                     FriendsView(sessionViewModel: sessionViewModel)
                 }

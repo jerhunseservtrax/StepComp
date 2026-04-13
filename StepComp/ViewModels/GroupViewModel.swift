@@ -25,6 +25,7 @@ final class GroupViewModel: ObservableObject {
     private let challengeId: String
     private let currentUserId: String
     private var refreshTimer: Timer?
+    private var refreshTick = 0
     #if canImport(Supabase)
     private var realtimeChannel: RealtimeChannelV2?
     #endif
@@ -233,8 +234,8 @@ final class GroupViewModel: ObservableObject {
     // MARK: - Auto Refresh
     
     private func startAutoRefresh() {
-        // Refresh leaderboard every 15 seconds to show real-time step updates
-        refreshTimer = Timer.scheduledTimer(withTimeInterval: 15.0, repeats: true) { [weak self] _ in
+        // Refresh less aggressively to avoid backend load spikes at scale.
+        refreshTimer = Timer.scheduledTimer(withTimeInterval: 60.0, repeats: true) { [weak self] _ in
             Task { @MainActor [weak self] in
                 guard let self = self else { return }
                 await self.refreshLeaderboard()
@@ -270,8 +271,11 @@ final class GroupViewModel: ObservableObject {
     }
     
     private func refreshLeaderboard() async {
-        // Refresh both all-time and daily leaderboards
-        leaderboardEntries = await challengeService.getLeaderboard(for: challengeId, scope: .allTime)
+        // Refresh daily frequently, all-time every 3 ticks to reduce RPC load.
+        refreshTick += 1
+        if refreshTick % 3 == 0 {
+            leaderboardEntries = await challengeService.getLeaderboard(for: challengeId, scope: .allTime)
+        }
         dailyLeaderboardEntries = await challengeService.getLeaderboard(for: challengeId, scope: .daily)
     }
     

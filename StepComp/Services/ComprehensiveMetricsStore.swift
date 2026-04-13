@@ -73,15 +73,15 @@ final class ComprehensiveMetricsStore: ObservableObject {
             totalVolume += session.totalVolume
             for exercise in session.exercises {
                 for set in exercise.sets where set.isCompleted {
-                    guard let weight = set.weight, let reps = set.reps else { continue }
-                    let setVolume = weight * Double(reps)
-                    let oneRM = weight * (1 + Double(reps) / 30.0)
+                    guard let effectiveWeight = set.effectiveWeightForVolume, let reps = set.reps else { continue }
+                    let setVolume = effectiveWeight * Double(reps)
+                    let oneRM = effectiveWeight * (1 + Double(reps) / 30.0)
                     estimated1RM = max(estimated1RM, oneRM)
 
                     let exerciseName = exercise.exercise.name
                     let date = session.endTime
 
-                    let maxWeight = PersonalRecord(id: UUID(), exerciseName: exerciseName, type: .maxWeight, value: weight, achievedAt: date)
+                    let maxWeight = PersonalRecord(id: UUID(), exerciseName: exerciseName, type: .maxWeight, value: effectiveWeight, achievedAt: date)
                     let maxReps = PersonalRecord(id: UUID(), exerciseName: exerciseName, type: .maxReps, value: Double(reps), achievedAt: date)
                     let maxVolume = PersonalRecord(id: UUID(), exerciseName: exerciseName, type: .maxVolume, value: setVolume, achievedAt: date)
 
@@ -89,13 +89,15 @@ final class ComprehensiveMetricsStore: ObservableObject {
                     updateRecord(map: &recordMap, candidate: maxReps)
                     updateRecord(map: &recordMap, candidate: maxVolume)
 
-                    for muscle in splitMuscles(exercise.exercise.targetMuscles) {
-                        muscleVolume[muscle, default: 0] += setVolume
-                    }
+                    addWeightedMuscleVolume(
+                        targetMuscles: exercise.exercise.targetMuscles,
+                        setVolume: setVolume,
+                        into: &muscleVolume
+                    )
 
                     if let suggestedWeight = set.suggestedWeight, let suggestedReps = set.suggestedReps {
                         suggestedSets += 1
-                        if weight >= suggestedWeight || reps >= suggestedReps {
+                        if effectiveWeight >= suggestedWeight || reps >= suggestedReps {
                             successfulOverloadSets += 1
                         }
                     }
@@ -417,7 +419,14 @@ final class ComprehensiveMetricsStore: ObservableObject {
         let loadBalance = computeTrainingLoadBalance(sessions: sessions)
         let plateau = detectPlateau(sessions: sessions)
         let prVelocity = computePRVelocity(sessions: sessions)
-        let muscleBalance = computeStrengthSnapshot(sessions: sessions).muscleGroupVolume
+        let weightedVolumes = weightedMuscleGroupVolumes(from: sessions)
+        let muscleBalance = Array(
+            weightedVolumes
+                .map { MuscleGroupVolume(muscleGroup: $0.key, volume: $0.value) }
+                .sorted { $0.volume > $1.volume }
+                .prefix(8)
+        )
+        let movementPatternBalance = computeMovementPatternBalance(volumes: weightedVolumes)
 
         return PerformancePillarData(
             strengthTrendPercent: strengthTrend.percent,
@@ -427,6 +436,7 @@ final class ComprehensiveMetricsStore: ObservableObject {
             trainingLoadBalance: loadBalance,
             plateauDetection: plateau,
             muscleBalance: muscleBalance,
+            movementPatternBalance: movementPatternBalance,
             prVelocity: prVelocity
         )
     }
@@ -736,6 +746,78 @@ final class ComprehensiveMetricsStore: ObservableObject {
             .filter { !$0.isEmpty }
     }
 
+    /// Per completed set: credits volume by comma-separated muscle tags — first tag 1×, additional tags 0.5× each (split when multiple groups match one tag).
+    func weightedMuscleGroupVolumes(from sessions: [CompletedWorkoutSession]) -> [String: Double] {
+        var muscleVolume: [String: Double] = [:]
+        for session in sessions {
+            for exercise in session.exercises {
+                for set in exercise.sets where set.isCompleted {
+                    guard let effectiveWeight = set.effectiveWeightForVolume, let reps = set.reps else { continue }
+                    let setVolume = effectiveWeight * Double(reps)
+                    addWeightedMuscleVolume(
+                        targetMuscles: exercise.exercise.targetMuscles,
+                        setVolume: setVolume,
+                        into: &muscleVolume
+                    )
+                }
+            }
+        }
+        return muscleVolume
+    }
+
+    private func muscleGroupsMatchingSegment(_ segment: String) -> [MuscleGroup] {
+        let lower = segment.lowercased()
+        return MuscleGroup.allCases.filter { group in
+            group.matchKeywords.contains { lower.contains($0.lowercased()) }
+        }
+    }
+
+    private func addWeightedMuscleVolume(
+        targetMuscles: String,
+        setVolume: Double,
+        into muscleVolume: inout [String: Double]
+    ) {
+        let segments = targetMuscles
+            .split(separator: ",")
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+        guard !segments.isEmpty else { return }
+        for (idx, segment) in segments.enumerated() {
+            let factor = idx == 0 ? 1.0 : 0.5
+            let groups = muscleGroupsMatchingSegment(segment)
+            guard !groups.isEmpty else { continue }
+            let share = setVolume * factor / Double(groups.count)
+            for g in groups {
+                muscleVolume[g.rawValue, default: 0] += share
+            }
+        }
+    }
+
+    private func computeMovementPatternBalance(volumes: [String: Double]) -> MovementPatternBalance {
+        func vol(_ group: MuscleGroup) -> Double {
+            volumes[group.rawValue, default: 0]
+        }
+
+        let push = vol(.chest) + vol(.shoulders) + vol(.triceps)
+        let pull = vol(.back) + vol(.biceps)
+        let quad = vol(.quads)
+        let posterior = vol(.hamstrings) + vol(.glutes)
+
+        let pushPullRatio: Double? = pull > 0 ? push / pull : nil
+        let posteriorToQuadRatio: Double? = quad > 0 ? posterior / quad : nil
+        let hasData = push + pull + quad + posterior > 0
+
+        return MovementPatternBalance(
+            pushVolume: push,
+            pullVolume: pull,
+            quadVolume: quad,
+            posteriorLegVolume: posterior,
+            pushPullRatio: pushPullRatio,
+            posteriorToQuadRatio: posteriorToQuadRatio,
+            hasData: hasData
+        )
+    }
+
     private func weeklyChange(entries: [(Date, Double)]) -> Double? {
         guard entries.count >= 2 else { return nil }
         let sorted = entries.sorted { $0.0 < $1.0 }
@@ -898,7 +980,7 @@ final class ComprehensiveMetricsStore: ObservableObject {
                 let maxWeight = completed.compactMap(\.weight).max() ?? 0
                 let maxReps = completed.compactMap(\.reps).max() ?? 0
                 let volume = completed.reduce(0.0) { partial, set in
-                    partial + ((set.weight ?? 0) * Double(set.reps ?? 0))
+                    partial + ((set.effectiveWeightForVolume ?? 0) * Double(set.reps ?? 0))
                 }
                 if index < max(1, recent.count / 2) {
                     previousByExercise[exercise.exercise.name] = (maxWeight, maxReps, volume)

@@ -1,7 +1,7 @@
 # FitComp Feature Tracker
 
 > Comprehensive catalog of all features in the FitComp fitness competition app (formerly StepComp).
-> Last updated: 2026-03-26 (v4)
+> Last updated: 2026-04-13 (v5)
 
 ---
 
@@ -136,9 +136,9 @@
 
 | Feature | File(s) | Description |
 |---------|---------|-------------|
-| Food Search | `FoodLogView.swift`, `USDAFoodService.swift` | USDA food database search |
-| Meal Logging | `FoodLogViewModel.swift` | Log meals with calories and macros |
-| Daily Summary | `FoodLogView.swift` | Calorie/macro progress rings |
+| Food Search | `AddMealView.swift`, `FoodSearchSection.swift`, `FoodSearchResultsSection.swift`, `USDAFoodService.swift` | USDA food database search |
+| Meal Logging | `FoodLogViewModel.swift`, `AddMealView.swift`, `MealEntryRow.swift`, `FoodLogMealSectionView.swift` | Log meals with calories and macros |
+| Daily Summary | `FoodLogView.swift`, `FoodLogSummaryCard.swift`, `FoodLogDailySummaryHeader.swift` | Calorie/macro progress rings |
 | Calorie Calculator | `CalorieCalculatorView.swift`, `CalorieCalculator.swift` | BMR/TDEE estimation with activity level |
 | Macro Targets | `FoodLogViewModel.swift` | Protein, carbs, fat goal tracking |
 | CalorieNinjas API | `CalorieNinjasService.swift` | Alternative nutrient calculation |
@@ -170,7 +170,7 @@
 
 | Feature | File(s) | Description |
 |---------|---------|-------------|
-| Group Info | `GroupDetailsView.swift`, `GroupViewModel.swift` | Challenge details, stats, management |
+| Group Info | `GroupDetailsView.swift` (coordinator), `GroupDetailsMemberContentView.swift`, `GroupDetailsChallengePreviewView.swift`, tab/header/countdown files in `Screens/GroupDetails/`, `GroupViewModel.swift` | Challenge details, stats, management; large SwiftUI surface split into focused subviews |
 | Group Settings | `GroupSettingsView.swift` | Creator admin controls |
 | Members List | `MembersListView.swift`, `MembersView.swift` | View/manage participants |
 | Group Chat | `ChallengeChatView.swift` | In-challenge messaging |
@@ -193,7 +193,7 @@
 
 | Feature | File(s) | Description |
 |---------|---------|-------------|
-| Challenge Chat | `ChallengeChatView.swift`, `ChallengeChatViewModel.swift` | Real-time group messaging |
+| Challenge Chat | `ChallengeChatView.swift`, `ChallengeChatViewModel.swift` | Real-time group messaging via Supabase postgresChange streams with polling fallback |
 | Chat List | `ChatListView.swift`, `ChatListViewModel.swift` | Overview of all chat conversations |
 | Message Actions | `ChallengeChatViewModel.swift` | Send, delete, auto-scroll |
 
@@ -231,6 +231,8 @@
 | Profile Metrics | `ProfileMetricsBuilder.swift` | Metrics builder for profile display |
 | Comprehensive Store | `ComprehensiveMetricsStore.swift` | Local metrics caching |
 | Strength Trend Accuracy | `ComprehensiveMetricsStore.swift`, `MetricsViewModel.swift`, `PerformancePillarSection.swift`, `ComprehensiveMetrics.swift` | Strength trend compares equal recent/prior windows, supports insufficient-data fallback (N/A), and shows comparable lift count |
+| Exercise History Section | `ExerciseHistorySection.swift`, `MetricsViewModel.swift`, `MetricsView.swift` | Collapsible metrics section showing top 5 exercises always visible with per-exercise volume trend sparklines and expandable full history list |
+| App Store Privacy Hardening | `Info.plist`, `PrivacyInfo.xcprivacy` | Pre-submission hardening removes unsupported background audio mode and declares collected data types for App Review compliance |
 
 ---
 
@@ -251,13 +253,22 @@
 
 | Feature | File(s) | Description |
 |---------|---------|-------------|
-| Dark Mode Toggle | `SettingsView.swift`, `ThemeManager.swift` | Light/dark theme switching |
-| Unit Preference | `SettingsView.swift`, `UnitPreferenceManager.swift` | Metric/imperial system |
-| HealthKit Toggle | `SettingsView.swift` | Enable/disable HealthKit integration |
-| Notification Prefs | `SettingsView.swift` | Daily recap, leaderboard alerts, motivational nudges |
-| Sign Out | `SettingsView.swift`, `SessionViewModel.swift` | Logout with proper cleanup |
-| Delete Account | `DeleteAccountConfirmationView.swift` | Account deletion with confirmation |
-| Streak Display | `SettingsView.swift` | Current step streak (30-day lookback) |
+| Settings screen (coordinator) | `SettingsView.swift`, `SettingsViewModifiers.swift` | Layout, HealthKit load/streak math, sign-out/delete flows, lifecycle & preference sync modifiers |
+| Settings layout & profile header | `SettingsLayoutViews.swift` | Mobile header, iPad sidebar, profile section, mini stat cards |
+| Settings grid content | `SettingsMainContent.swift` | Scroll/grid of cards, log out / delete account actions, footer |
+| Connectivity | `SettingsConnectivityCard.swift` | HealthKit sync, Apple Watch row |
+| Notifications card | `SettingsNotificationsCard.swift` | Permission UI and notification toggles |
+| App preferences card | `SettingsPreferencesCard.swift` | Dark mode, units, rest timer alerts, daily step goal sheet entry |
+| Support & legal | `SettingsSupportLegalCard.swift` | Feedback, FAQ, privacy, about sheets |
+| Shared settings UI | `SettingsSharedComponents.swift` | `SettingsCard`, `SettingItemRow`, `FunFooter`, layout helper |
+| Measurement / step goal sheets | `SettingsMeasurementSheets.swift`, `SettingsDailyStepGoalSheet.swift` | Height/weight editor (pickers), daily step goal editor |
+| Dark Mode Toggle | `SettingsPreferencesCard.swift`, `ThemeManager.swift` | Light/dark theme switching |
+| Unit Preference | `SettingsPreferencesCard.swift`, `UnitPreferenceManager.swift` | Metric/imperial system |
+| HealthKit Toggle | `SettingsConnectivityCard.swift` | Enable/disable HealthKit integration |
+| Notification Prefs | `SettingsNotificationsCard.swift` | Daily recap, leaderboard alerts, motivational nudges |
+| Sign Out | `SettingsView.swift`, `SettingsMainContent.swift`, `SessionViewModel.swift` | Logout with proper cleanup |
+| Delete Account | `DeleteAccountConfirmationView.swift`, `SettingsView.swift`, `SettingsViewModifiers.swift` | Account deletion with confirmation |
+| Streak Display | `SettingsView.swift`, `SettingsLayoutViews.swift` | Current step streak (30-day lookback) |
 
 ### Feedback System
 
@@ -288,7 +299,7 @@
 | Goal Setting | `GoalSettingView.swift` | Daily step goal configuration |
 | Avatar Selection | `AvatarSelectionView.swift` | Profile picture/avatar choice |
 | First Win | `FirstWinView.swift` | First achievement celebration |
-| Sign In | `SignInView.swift` | Apple Sign In / account creation |
+| Sign In | `SignInView.swift`, `SignInOnboardingLandingView.swift`, `SignInOnboardingView+Auth.swift`, `EmailAuthSheet.swift`, `OnboardingSignUpView.swift`, `EmailSignInFormView.swift`, `ForgotPasswordSheet.swift`, `PasswordResetView.swift`, `AppleSignInDelegate.swift` | Apple Sign In, email sign-up/sign-in, forgot/reset password (split into focused files; coordinator in `SignInView.swift`) |
 | Onboarding Flow | `OnboardingFlowView.swift` | 6-step sequential flow |
 
 ---
@@ -344,15 +355,16 @@
 | Theme Manager | `ThemeManager.swift` | Dark/light mode management |
 | Unit Preferences | `UnitPreferenceManager.swift` | Full metric/imperial system (kg/lbs, km/mi, cm/ft-in) with height/weight storage converters, distance formatting, and display name helpers |
 | Haptic Manager | `HapticManager.swift` | Haptic feedback patterns |
-| Keychain Store | `KeychainStore.swift` | Secure credential storage |
+| Keychain Store | `KeychainStore.swift` | Secure credential storage with kSecAttrService scoping and OSStatus error handling |
 | Retry Utility | `RetryUtility.swift` | Exponential backoff retry logic |
+| Offline Cache | `OfflineCacheService.swift` | Generic disk-backed Codable cache with fetch-with-fallback for offline resilience |
 | Cached Async Image | `CachedAsyncImage.swift` | Image caching for remote images (used in ProfileView, etc.) |
 | Reaction Effects | `ReactionEffectManager.swift` | Celebration/reaction animations |
 | Avatar View | `AvatarView.swift` | Reusable avatar component |
-| Card Styles | `CardStyle.swift`, `StepCompCardStyles.swift` | Consistent card UI components |
-| Color System | `StepCompColors.swift`, `PlatformColors.swift` | Custom color palette |
-| Font System | `StepCompFonts.swift` | Custom typography |
-| Progress Styles | `StepCompProgressStyles.swift` | Progress indicator styles |
+| Card Styles | `CardStyle.swift`, `FitCompCardStyles.swift` | Consistent card UI components |
+| Color System | `FitCompColors.swift`, `PlatformColors.swift` | Custom color palette |
+| Font System | `FitCompFonts.swift` | Custom typography |
+| Progress Styles | `FitCompProgressStyles.swift` | Progress indicator styles |
 | Extensions | `Extensions.swift` | Swift utility extensions |
 | Notification Names | `NotificationNames.swift` | Notification center constants |
 | App Delegate | `AppDelegate.swift` | APNs registration, lifecycle hooks |

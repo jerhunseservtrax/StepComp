@@ -57,7 +57,7 @@ final class FeedbackBoardViewModel: ObservableObject {
         do {
             #if canImport(Supabase)
             let logData1 = "{\"location\":\"FeedbackBoardViewModel.swift:53\",\"message\":\"loadFeedback called\",\"data\":{\"searchText\":\"\(searchText)\",\"category\":\"\(selectedCategory?.rawValue ?? "nil")\"},\"timestamp\":\(Int(Date().timeIntervalSince1970 * 1000)),\"sessionId\":\"debug-session\",\"runId\":\"initial\",\"hypothesisId\":\"A,B,C\"}\n"
-            try? logData1.write(toFile: "/Users/jefferyerhunse/GitRepos/FitComp/.cursor/debug.log", atomically: false, encoding: .utf8)
+            try? logData1.write(toFile: DebugLog.filePath, atomically: false, encoding: .utf8)
             
             let search = searchText.isEmpty ? nil : searchText
             let category = selectedCategory?.rawValue
@@ -72,7 +72,7 @@ final class FeedbackBoardViewModel: ObservableObject {
             )
             
             let logData2 = "{\"location\":\"FeedbackBoardViewModel.swift:71\",\"message\":\"Calling RPC get_feedback_posts\",\"data\":{\"sort\":\"\(selectedSort.rawValue)\",\"limit\":\(limit)},\"timestamp\":\(Int(Date().timeIntervalSince1970 * 1000)),\"sessionId\":\"debug-session\",\"runId\":\"initial\",\"hypothesisId\":\"A\"}\n"
-            if let fileHandle = FileHandle(forWritingAtPath: "/Users/jefferyerhunse/GitRepos/FitComp/.cursor/debug.log") { fileHandle.seekToEndOfFile(); fileHandle.write(logData2.data(using: .utf8)!); fileHandle.closeFile() }
+            if let fileHandle = FileHandle(forWritingAtPath: DebugLog.filePath) { fileHandle.seekToEndOfFile(); fileHandle.write(logData2.data(using: .utf8)!); fileHandle.closeFile() }
             
             let response = try await supabase
                 .rpc("get_feedback_posts", params: params)
@@ -81,7 +81,7 @@ final class FeedbackBoardViewModel: ObservableObject {
             if let rawJSON = String(data: response.data, encoding: .utf8) {
                 let truncated = String(rawJSON.prefix(1000)).replacingOccurrences(of: "\"", with: "\\\"").replacingOccurrences(of: "\n", with: "\\n")
                 let logData3 = "{\"location\":\"FeedbackBoardViewModel.swift:83\",\"message\":\"Raw response from Supabase\",\"data\":{\"rawJSON\":\"\(truncated)\"},\"timestamp\":\(Int(Date().timeIntervalSince1970 * 1000)),\"sessionId\":\"debug-session\",\"runId\":\"initial\",\"hypothesisId\":\"A,B,C,D,E\"}\n"
-                if let fileHandle = FileHandle(forWritingAtPath: "/Users/jefferyerhunse/GitRepos/FitComp/.cursor/debug.log") { fileHandle.seekToEndOfFile(); fileHandle.write(logData3.data(using: .utf8)!); fileHandle.closeFile() }
+                if let fileHandle = FileHandle(forWritingAtPath: DebugLog.filePath) { fileHandle.seekToEndOfFile(); fileHandle.write(logData3.data(using: .utf8)!); fileHandle.closeFile() }
             }
             
             let decoder = JSONDecoder()
@@ -125,19 +125,19 @@ final class FeedbackBoardViewModel: ObservableObject {
             // Don't use convertFromSnakeCase - we have explicit CodingKeys in FeedbackPost
             
             let logData4 = "{\"location\":\"FeedbackBoardViewModel.swift:93\",\"message\":\"About to decode with flexible date strategy\",\"data\":{},\"timestamp\":\(Int(Date().timeIntervalSince1970 * 1000)),\"sessionId\":\"debug-session\",\"runId\":\"initial\",\"hypothesisId\":\"B,C\"}\n"
-            if let fileHandle = FileHandle(forWritingAtPath: "/Users/jefferyerhunse/GitRepos/FitComp/.cursor/debug.log") { fileHandle.seekToEndOfFile(); fileHandle.write(logData4.data(using: .utf8)!); fileHandle.closeFile() }
+            if let fileHandle = FileHandle(forWritingAtPath: DebugLog.filePath) { fileHandle.seekToEndOfFile(); fileHandle.write(logData4.data(using: .utf8)!); fileHandle.closeFile() }
             
             feedbackPosts = try decoder.decode([FeedbackPost].self, from: response.data)
             
             let logData5 = "{\"location\":\"FeedbackBoardViewModel.swift:100\",\"message\":\"Successfully decoded feedback posts\",\"data\":{\"count\":\(feedbackPosts.count)},\"timestamp\":\(Int(Date().timeIntervalSince1970 * 1000)),\"sessionId\":\"debug-session\",\"runId\":\"initial\",\"hypothesisId\":\"SUCCESS\"}\n"
-            if let fileHandle = FileHandle(forWritingAtPath: "/Users/jefferyerhunse/GitRepos/FitComp/.cursor/debug.log") { fileHandle.seekToEndOfFile(); fileHandle.write(logData5.data(using: .utf8)!); fileHandle.closeFile() }
+            if let fileHandle = FileHandle(forWritingAtPath: DebugLog.filePath) { fileHandle.seekToEndOfFile(); fileHandle.write(logData5.data(using: .utf8)!); fileHandle.closeFile() }
             
             print("✅ Loaded \(feedbackPosts.count) feedback posts")
             #endif
         } catch {
             let errorDesc = String(describing: error).replacingOccurrences(of: "\"", with: "\\\"").replacingOccurrences(of: "\n", with: "\\n")
             let logData6 = "{\"location\":\"FeedbackBoardViewModel.swift:109\",\"message\":\"Error caught during loadFeedback\",\"data\":{\"error\":\"\(errorDesc)\"},\"timestamp\":\(Int(Date().timeIntervalSince1970 * 1000)),\"sessionId\":\"debug-session\",\"runId\":\"initial\",\"hypothesisId\":\"A,B,C,D,E\"}\n"
-            if let fileHandle = FileHandle(forWritingAtPath: "/Users/jefferyerhunse/GitRepos/FitComp/.cursor/debug.log") { fileHandle.seekToEndOfFile(); fileHandle.write(logData6.data(using: .utf8)!); fileHandle.closeFile() }
+            if let fileHandle = FileHandle(forWritingAtPath: DebugLog.filePath) { fileHandle.seekToEndOfFile(); fileHandle.write(logData6.data(using: .utf8)!); fileHandle.closeFile() }
             
             print("❌ Error loading feedback: \(error)")
             errorMessage = "Failed to load feedback: \(error.localizedDescription)"

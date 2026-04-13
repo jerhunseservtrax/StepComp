@@ -48,11 +48,6 @@ struct FriendsView: View {
             
             // Profile card overlay
             if vm.selectedProfileUserId != nil {
-                let _ = {
-                    let logData = "{\"location\":\"FriendsView.swift:51\",\"message\":\"Profile card should be visible\",\"data\":{\"userId\":\"\(vm.selectedProfileUserId ?? "nil")\"},\"timestamp\":\(Int(Date().timeIntervalSince1970 * 1000)),\"sessionId\":\"debug-session\",\"runId\":\"profile-tap\",\"hypothesisId\":\"H3,H4\"}\n"
-                    if let fileHandle = FileHandle(forWritingAtPath: "/Users/jefferyerhunse/GitRepos/FitComp/.cursor/debug.log") { fileHandle.seekToEndOfFile(); fileHandle.write(logData.data(using: .utf8)!); fileHandle.closeFile() }
-                }()
-                
                 UserProfileCard(
                     userId: vm.selectedProfileUserId ?? "",
                     currentUserId: sessionViewModel.currentUser?.id ?? "",
@@ -136,34 +131,26 @@ struct FriendsView: View {
                 } else {
                     ForEach(vm.friendItems) { item in
                         FriendRow(item: item, isEditing: vm.isEditing) {
-                            let logData = "{\"location\":\"FriendsView.swift:113\",\"message\":\"FriendRow onRemove tapped\",\"data\":{\"friendId\":\"\(item.id)\",\"username\":\"\(item.profile.username)\"},\"timestamp\":\(Int(Date().timeIntervalSince1970 * 1000)),\"sessionId\":\"debug-session\",\"runId\":\"swipe-debug\",\"hypothesisId\":\"C\"}\n"
-                            if let fileHandle = FileHandle(forWritingAtPath: "/Users/jefferyerhunse/GitRepos/FitComp/.cursor/debug.log") { fileHandle.seekToEndOfFile(); fileHandle.write(logData.data(using: .utf8)!); fileHandle.closeFile() }
                             Task { await vm.remove(friendshipId: item.id) }
                         } onAccept: {
                             Task { await vm.accept(friendshipId: item.id) }
                         }
                         .contentShape(Rectangle())
                         .onTapGesture {
-                            let logData = "{\"location\":\"FriendsView.swift:127\",\"message\":\"FriendRow tapped - showing profile\",\"data\":{\"userId\":\"\(item.profile.id)\",\"username\":\"\(item.profile.username)\",\"hasButtons\":\(item.isIncomingRequest || item.isOutgoingRequest)},\"timestamp\":\(Int(Date().timeIntervalSince1970 * 1000)),\"sessionId\":\"debug-session\",\"runId\":\"profile-tap\",\"hypothesisId\":\"A,B\"}\n"
-                            if let fileHandle = FileHandle(forWritingAtPath: "/Users/jefferyerhunse/GitRepos/FitComp/.cursor/debug.log") { fileHandle.seekToEndOfFile(); fileHandle.write(logData.data(using: .utf8)!); fileHandle.closeFile() }
-                            
-                            let logDataBeforeSet = "{\"location\":\"FriendsView.swift:135\",\"message\":\"About to set selectedProfileUserId\",\"data\":{\"currentValue\":\"\(vm.selectedProfileUserId ?? "nil")\",\"newValue\":\"\(item.profile.id)\"},\"timestamp\":\(Int(Date().timeIntervalSince1970 * 1000)),\"sessionId\":\"debug-session\",\"runId\":\"profile-tap\",\"hypothesisId\":\"A,H3\"}\n"
-                            if let fileHandle = FileHandle(forWritingAtPath: "/Users/jefferyerhunse/GitRepos/FitComp/.cursor/debug.log") { fileHandle.seekToEndOfFile(); fileHandle.write(logDataBeforeSet.data(using: .utf8)!); fileHandle.closeFile() }
-                            
                             vm.selectedProfileUserId = item.profile.id
-                            
-                            let logDataAfterSet = "{\"location\":\"FriendsView.swift:143\",\"message\":\"After setting selectedProfileUserId\",\"data\":{\"selectedValue\":\"\(vm.selectedProfileUserId ?? "nil")\"},\"timestamp\":\(Int(Date().timeIntervalSince1970 * 1000)),\"sessionId\":\"debug-session\",\"runId\":\"profile-tap\",\"hypothesisId\":\"A,H3\"}\n"
-                            if let fileHandle = FileHandle(forWritingAtPath: "/Users/jefferyerhunse/GitRepos/FitComp/.cursor/debug.log") { fileHandle.seekToEndOfFile(); fileHandle.write(logDataAfterSet.data(using: .utf8)!); fileHandle.closeFile() }
                         }
                         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                             Button(role: .destructive) {
-                                let logData = "{\"location\":\"FriendsView.swift:120\",\"message\":\"Swipe action Remove button tapped\",\"data\":{\"friendId\":\"\(item.id)\",\"username\":\"\(item.profile.username)\"},\"timestamp\":\(Int(Date().timeIntervalSince1970 * 1000)),\"sessionId\":\"debug-session\",\"runId\":\"swipe-debug\",\"hypothesisId\":\"A,C\"}\n"
-                                if let fileHandle = FileHandle(forWritingAtPath: "/Users/jefferyerhunse/GitRepos/FitComp/.cursor/debug.log") { fileHandle.seekToEndOfFile(); fileHandle.write(logData.data(using: .utf8)!); fileHandle.closeFile() }
                                 Task { await vm.remove(friendshipId: item.id) }
                             } label: {
                                 Label("Remove", systemImage: "person.badge.minus")
                             }
                             .tint(.red)
+                        }
+                        .onAppear {
+                            Task {
+                                await vm.loadMoreFriendshipsIfNeeded(currentItemId: item.id)
+                            }
                         }
                     }
                 }
@@ -193,7 +180,7 @@ struct FriendsView: View {
         ScrollView {
             VStack(spacing: 12) {
                 // Recommended Profiles List
-                ForEach(vm.discoverResults.prefix(10)) { profile in
+                ForEach(vm.discoverResults) { profile in
                     DiscoverProfileRow(
                         profile: profile,
                         friendshipStatus: vm.getFriendshipStatus(for: profile.id),
@@ -209,7 +196,7 @@ struct FriendsView: View {
                         vm.selectedProfileUserId = profile.id
                     }
                     .onAppear {
-                        if profile.id == vm.discoverResults.prefix(10).last?.id {
+                        if profile.id == vm.discoverResults.last?.id {
                             Task {
                                 await vm.loadMoreDiscover()
                             }
@@ -297,33 +284,42 @@ struct FriendRow: View {
     
     var body: some View {
         HStack(spacing: 12) {
-            AvatarCircle(url: item.profile.avatarUrl, fallback: avatarFallback)
+            Group {
+                AvatarCircle(url: item.profile.avatarUrl, fallback: avatarFallback)
 
-            VStack(alignment: .leading, spacing: 2) {
-                Text(fullName)
-                    .font(.headline)
-                    .foregroundColor(FitCompColors.textPrimary)
-                Text("@\(item.profile.username)")
-                    .font(.subheadline)
-                    .foregroundColor(FitCompColors.textSecondary)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(fullName)
+                        .font(.headline)
+                        .foregroundColor(FitCompColors.textPrimary)
+                    Text("@\(item.profile.username)")
+                        .font(.subheadline)
+                        .foregroundColor(FitCompColors.textSecondary)
+                }
             }
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel("\(fullName), @\(item.profile.username)")
+            .accessibilityHint("Double tap to open profile")
 
             Spacer()
 
             if item.isIncomingRequest {
                 Button("Accept") { 
-                    let logData = "{\"location\":\"FriendsView.swift:291\",\"message\":\"Accept button tapped in FriendRow\",\"data\":{\"userId\":\"\(item.profile.id)\"},\"timestamp\":\(Int(Date().timeIntervalSince1970 * 1000)),\"sessionId\":\"debug-session\",\"runId\":\"button-tap\",\"hypothesisId\":\"H2\"}\n"
-                    if let fileHandle = FileHandle(forWritingAtPath: "/Users/jefferyerhunse/GitRepos/FitComp/.cursor/debug.log") { fileHandle.seekToEndOfFile(); fileHandle.write(logData.data(using: .utf8)!); fileHandle.closeFile() }
                     onAccept() 
                 }
                 .buttonStyle(.borderedProminent)
                 .allowsHitTesting(true) // Ensure button is tappable but doesn't consume parent taps
+                .accessibilityLabel("Accept friend request")
+                .accessibilityHint("Adds this person to your friends")
             } else if item.isOutgoingRequest {
                 Text("Requested")
                     .foregroundStyle(.secondary)
+                    .accessibilityLabel("Friend request pending")
+                    .accessibilityValue("Awaiting their response")
             } else {
                 Text("Friend")
                     .foregroundStyle(.secondary)
+                    .accessibilityLabel("Friend")
+                    .accessibilityValue("Connected")
             }
         }
         .padding(.vertical, 6)
@@ -370,8 +366,13 @@ struct DiscoverProfileRow: View {
     
     private var cardContent: some View {
         HStack(spacing: 16) {
-            avatarSection
-            nameSection
+            Group {
+                avatarSection
+                nameSection
+            }
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel("\(profile.displayName ?? profile.username), @\(profile.username)")
+            .accessibilityHint("Double tap to open profile")
             Spacer()
             actionButton
         }
@@ -421,6 +422,8 @@ struct DiscoverProfileRow: View {
                 .shadow(color: Color.black.opacity(0.05), radius: 2, x: 0, y: 1)
         }
         .buttonStyle(.plain)
+        .accessibilityLabel("Add friend")
+        .accessibilityHint("Sends a friend request")
     }
     
     private var pendingButton: some View {
@@ -443,6 +446,9 @@ struct DiscoverProfileRow: View {
             )
         }
         .buttonStyle(.plain)
+        .accessibilityLabel("Cancel friend request")
+        .accessibilityValue("Pending")
+        .accessibilityHint("Withdraws your outgoing request")
     }
     
     private var friendButton: some View {
@@ -454,6 +460,9 @@ struct DiscoverProfileRow: View {
             .padding(.horizontal, 20)
             .background(FitCompColors.surfaceElevated)
             .cornerRadius(20)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Already friends")
+            .accessibilityValue("Connected")
     }
 }
 
@@ -487,6 +496,7 @@ struct PrivateDiscoveryCard: View {
                     .background(FitCompColors.primary)
                     .cornerRadius(10)
             }
+            .accessibilityHint("Opens the share sheet with your personal invite link")
         }
         .padding(.vertical, 8)
     }
@@ -614,6 +624,10 @@ struct FriendsHeader: View {
                 RoundedRectangle(cornerRadius: 20)
                     .stroke(FitCompColors.textSecondary.opacity(0.1), lineWidth: 1)
             )
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel("Search profiles")
+            .accessibilityValue(searchText.isEmpty ? "Empty" : searchText)
+            .accessibilityHint("Type a name or username to find people")
             .padding(.horizontal, 24)
             .padding(.bottom, 8)
             
@@ -638,6 +652,10 @@ struct FriendsHeader: View {
                         )
                 }
                 .buttonStyle(.plain)
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel("My Friends")
+                .accessibilityHint("Shows people you are friends with")
+                .accessibilityAddTraits(selectedTab == .friends ? .isSelected : [])
                 
                 Button(action: {
                     withAnimation {
@@ -658,6 +676,10 @@ struct FriendsHeader: View {
                         )
                 }
                 .buttonStyle(.plain)
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel("Discover")
+                .accessibilityHint("Search and add new friends")
+                .accessibilityAddTraits(selectedTab == .discover ? .isSelected : [])
             }
             .padding(4)
             .background(Color.black.opacity(0.04))

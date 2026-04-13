@@ -77,6 +77,7 @@ struct CreateWorkoutView: View {
                 workoutName = workout.name
                 selectedExercises = workout.exercises.map { we in
                     SelectedExercise(
+                        id: we.id,
                         exercise: we.exercise,
                         sets: we.sets.count,
                         reps: we.sets.first?.previousReps ?? we.sets.first?.reps ?? 10
@@ -191,7 +192,35 @@ struct CreateWorkoutView: View {
     private var exerciseList: some View {
         VStack(spacing: 12) {
             ForEach(Array(selectedExercises.enumerated()), id: \.element.id) { index, exercise in
-                HStack {
+                HStack(spacing: 10) {
+                    VStack(spacing: 0) {
+                        Button {
+                            guard index > 0 else { return }
+                            selectedExercises.swapAt(index, index - 1)
+                            HapticManager.shared.soft()
+                        } label: {
+                            Image(systemName: "chevron.up")
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundColor(index > 0 ? FitCompColors.primary : Color.gray.opacity(0.25))
+                                .frame(width: 32, height: 22)
+                        }
+                        .disabled(index == 0)
+                        .accessibilityLabel("Move exercise up")
+
+                        Button {
+                            guard index < selectedExercises.count - 1 else { return }
+                            selectedExercises.swapAt(index, index + 1)
+                            HapticManager.shared.soft()
+                        } label: {
+                            Image(systemName: "chevron.down")
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundColor(index < selectedExercises.count - 1 ? FitCompColors.primary : Color.gray.opacity(0.25))
+                                .frame(width: 32, height: 22)
+                        }
+                        .disabled(index >= selectedExercises.count - 1)
+                        .accessibilityLabel("Move exercise down")
+                    }
+
                     VStack(alignment: .leading, spacing: 4) {
                         Text(exercise.exercise.name)
                             .font(.system(size: 16, weight: .bold))
@@ -200,9 +229,9 @@ struct CreateWorkoutView: View {
                             .font(.system(size: 12))
                             .foregroundColor(.gray)
                     }
-                    
+
                     Spacer()
-                    
+
                     Button(action: {
                         selectedExercises.remove(at: index)
                     }) {
@@ -210,6 +239,7 @@ struct CreateWorkoutView: View {
                             .foregroundColor(.red)
                             .frame(width: 36, height: 36)
                     }
+                    .accessibilityLabel("Remove exercise")
                 }
                 .padding(12)
                 .background(Color.white)
@@ -407,6 +437,7 @@ struct CreateWorkoutView: View {
                 WorkoutSet(setNumber: setNumber)
             }
             return WorkoutExercise(
+                id: selectedExercise.id,
                 exercise: selectedExercise.exercise,
                 sets: sets
             )
@@ -440,10 +471,17 @@ struct CreateWorkoutView: View {
 }
 
 struct SelectedExercise: Identifiable {
-    let id = UUID()
+    let id: UUID
     let exercise: Exercise
     var sets: Int
     var reps: Int
+
+    init(id: UUID = UUID(), exercise: Exercise, sets: Int, reps: Int) {
+        self.id = id
+        self.exercise = exercise
+        self.sets = sets
+        self.reps = reps
+    }
 }
 
 struct ExerciseConfigCard: View {

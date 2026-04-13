@@ -6,8 +6,8 @@
 import Foundation
 
 enum USDAFoodConfig {
-    static let baseURL = URL(string: "https://api.nal.usda.gov/fdc/v1")!
-    static let apiKey = "9pCUtDv1MR7nj9aB7GUrJcggSSPhr5wDwaZLm3bd"
+    // Keep a single edge function contract and alias fallback to support old deployments.
+    static let edgeFunctionCandidates = ["usda-food-proxy", "nutrition-usda-proxy"]
 }
 
 enum USDAFoodError: LocalizedError {
@@ -100,30 +100,35 @@ final class USDAFoodService {
     }
 
     private func performSearch(_ requestBody: FDCSearchRequest) async throws -> FDCSearchResponse {
-        var components = URLComponents(
-            url: USDAFoodConfig.baseURL.appendingPathComponent("foods/search"),
-            resolvingAgainstBaseURL: false
-        )
-        components?.queryItems = [URLQueryItem(name: "api_key", value: USDAFoodConfig.apiKey)]
+        let payload: [String: Any] = [
+            "query": requestBody.query,
+            "page_size": requestBody.pageSize,
+            "data_type": requestBody.dataType ?? []
+        ]
 
-        guard let url = components?.url else {
-            throw USDAFoodError.invalidRequest
+        var lastError: Error?
+        for functionName in USDAFoodConfig.edgeFunctionCandidates {
+            do {
+                return try await EdgeFunctionService.shared.postJSON(
+                    functionName: functionName,
+                    payload: payload,
+                    decodeAs: FDCSearchResponse.self
+                )
+            } catch let edgeError as EdgeFunctionError {
+                if case .badStatus(let code) = edgeError, code == 404 {
+                    lastError = edgeError
+                    continue
+                }
+                throw USDAFoodError.requestFailed
+            } catch {
+                lastError = error
+            }
         }
 
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.httpBody = try JSONEncoder().encode(requestBody)
-
-        let (data, response) = try await URLSession.shared.data(for: request)
-        guard let http = response as? HTTPURLResponse else {
-            throw USDAFoodError.invalidResponse
-        }
-        guard (200...299).contains(http.statusCode) else {
+        if lastError != nil {
             throw USDAFoodError.requestFailed
         }
-
-        return try JSONDecoder().decode(FDCSearchResponse.self, from: data)
+        throw USDAFoodError.invalidResponse
     }
 
     private func mapToNutritionItem(_ food: FDCFood) -> NutritionItem? {

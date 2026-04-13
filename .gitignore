@@ -105,8 +105,8 @@ yarn-error.log
 # Supabase
 supabase/.temp/
 
-# Secrets (keep p8 folder but ignore contents if needed)
-# p8/*.p8
+# Secrets — never commit Apple auth keys
+p8/*.p8
 
 # Generated files
 generate_apple_secret.js

@@ -19,7 +19,7 @@ struct RadarChartShape: Shape {
         guard normalizedValues.count >= 3 else { return Path() }
 
         let center = CGPoint(x: rect.midX, y: rect.midY)
-        let radius = min(rect.width, rect.height) * 0.42
+        let radius = min(rect.width, rect.height) * 0.38
         let angleStep = (2 * Double.pi) / Double(normalizedValues.count)
 
         var path = Path()
@@ -48,6 +48,7 @@ struct RadarChartView: View {
     var maxReferenceValue: Double? = nil
     var fillColor: Color = FitCompColors.accent.opacity(0.30)
     var strokeColor: Color = FitCompColors.accent
+    var pointColors: [Color]? = nil
     var axisColor: Color = FitCompColors.textSecondary.opacity(0.30)
     var labelColor: Color = FitCompColors.textSecondary
 
@@ -62,7 +63,7 @@ struct RadarChartView: View {
         GeometryReader { geometry in
             let size = min(geometry.size.width, geometry.size.height)
             let center = CGPoint(x: geometry.size.width / 2, y: geometry.size.height / 2)
-            let radius = size * 0.42
+            let radius = size * 0.38
             let angleStep = (2 * Double.pi) / Double(max(data.count, 1))
 
             ZStack {
@@ -84,7 +85,7 @@ struct RadarChartView: View {
                     }
                     .stroke(axisColor, lineWidth: 1)
 
-                    let labelRadius = radius + 18
+                    let labelRadius = radius + 24
                     let labelAngle = (Double(index) * angleStep) - (Double.pi / 2)
                     let labelPoint = CGPoint(
                         x: center.x + CGFloat(cos(labelAngle) * Double(labelRadius)),
@@ -94,6 +95,8 @@ struct RadarChartView: View {
                     Text(point.label)
                         .font(.system(size: 11, weight: .semibold))
                         .foregroundColor(labelColor)
+                        .minimumScaleFactor(0.7)
+                        .lineLimit(1)
                         .position(labelPoint)
                 }
 
@@ -111,12 +114,17 @@ struct RadarChartView: View {
                     )
 
                     Circle()
-                        .fill(strokeColor)
+                        .fill(pointColor(at: index))
                         .frame(width: 8, height: 8)
                         .position(point)
                 }
             }
         }
+    }
+
+    private func pointColor(at index: Int) -> Color {
+        guard let pointColors, pointColors.indices.contains(index) else { return strokeColor }
+        return pointColors[index]
     }
 }
 

@@ -271,6 +271,8 @@ final class DashboardViewModel: ObservableObject {
 
     func computeScopeMetrics(weeklyStepData: [Int], dailyGoal: Int) {
         let workoutVm = WorkoutViewModel.shared
+        let sessions = workoutVm.completedSessions
+        let weightEntries = WeightViewModel.shared.entries
         let thisWeekWorkouts = workoutVm.completedSessions.filter {
             Calendar.current.dateComponents([.day], from: $0.endTime, to: Date()).day ?? 999 <= 7
         }.count
@@ -289,33 +291,39 @@ final class DashboardViewModel: ObservableObject {
             DashboardMetricPair(titleA: "Consistency", valueA: "\(consistency)%", titleB: "Weight Trend", valueB: String(format: "%+.1fkg", weightChange))
         ]
 
-        let store = ComprehensiveMetricsStore.shared
-        let strength = store.computeStrengthSnapshot(sessions: workoutVm.completedSessions)
-        let scores = store.computeEngagementScores(
-            sessions: workoutVm.completedSessions,
-            stepHistory: [],
-            strength: strength,
-            cardio: CardioMetricSnapshot(averagePaceMinPerKm: nil, speedImprovementPercent: 0, totalZoneMinutes: 0, vo2Max: nil)
-        )
-        let body = store.computeBodySnapshot(
-            weightEntries: WeightViewModel.shared.entries,
-            heightCm: nil
-        )
-
-        longTermScopeMetricPairs = [
-            DashboardMetricPair(
-                titleA: "Strength 1RM",
-                valueA: "\(Int(strength.estimatedOneRM.rounded()))kg",
-                titleB: "Performance",
-                valueB: "\(scores.performanceScore)"
-            ),
-            DashboardMetricPair(
-                titleA: "Overload",
-                valueA: "\(strength.overloadSuccessRate)%",
-                titleB: "Lean Mass",
-                valueB: body.leanMassKg.map { String(format: "%.1fkg", $0) } ?? "-"
+        Task.detached(priority: .utility) {
+            let store = ComprehensiveMetricsStore.shared
+            let strength = await store.computeStrengthSnapshot(sessions: sessions)
+            let scores = await store.computeEngagementScores(
+                sessions: sessions,
+                stepHistory: [],
+                strength: strength,
+                cardio: CardioMetricSnapshot(averagePaceMinPerKm: nil, speedImprovementPercent: 0, totalZoneMinutes: 0, vo2Max: nil)
             )
-        ]
+            let body = await store.computeBodySnapshot(
+                weightEntries: weightEntries,
+                heightCm: nil
+            )
+
+            let longTerm = [
+                DashboardMetricPair(
+                    titleA: "Strength 1RM",
+                    valueA: "\(Int(strength.estimatedOneRM.rounded()))kg",
+                    titleB: "Performance",
+                    valueB: "\(scores.performanceScore)"
+                ),
+                DashboardMetricPair(
+                    titleA: "Overload",
+                    valueA: "\(strength.overloadSuccessRate)%",
+                    titleB: "Lean Mass",
+                    valueB: body.leanMassKg.map { String(format: "%.1fkg", $0) } ?? "-"
+                )
+            ]
+
+            await MainActor.run {
+                self.longTermScopeMetricPairs = longTerm
+            }
+        }
     }
     
     // MARK: - Auto Refresh

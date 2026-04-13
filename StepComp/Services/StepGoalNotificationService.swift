@@ -22,7 +22,6 @@ final class StepGoalNotificationService {
     ]
     
     private init() {
-        requestAuthorization()
     }
     
     // MARK: - Authorization

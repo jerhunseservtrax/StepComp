@@ -17,11 +17,13 @@ final class FriendsService: ObservableObject {
 
     func setPublicProfile(_ isPublic: Bool, myUserId: String) async throws {
         #if canImport(Supabase)
-        _ = try await supabase
-            .from("profiles")
-            .update(["public_profile": isPublic])
-            .eq("id", value: myUserId)
-            .execute()
+        _ = try await SupabaseRequestExecutor.executeWithAuthRetry(context: "set_public_profile") {
+            try await supabase
+                .from("profiles")
+                .update(["public_profile": isPublic])
+                .eq("id", value: myUserId)
+                .execute()
+        }
         #endif
     }
 
@@ -73,16 +75,18 @@ final class FriendsService: ObservableObject {
         #if canImport(Supabase)
         // Insert and return the friendship ID
         // We need to select all fields to properly decode the Friendship model
-        let response: [Friendship] = try await supabase
-            .from("friendships")
-            .insert([
-                "requester_id": myUserId,
-                "addressee_id": targetUserId,
-                "status": "pending"
-            ])
-            .select() // Select all fields, not just id
-            .execute()
-            .value
+        let response: [Friendship] = try await SupabaseRequestExecutor.executeWithAuthRetry(context: "send_friend_request") {
+            try await supabase
+                .from("friendships")
+                .insert([
+                    "requester_id": myUserId,
+                    "addressee_id": targetUserId,
+                    "status": "pending"
+                ])
+                .select() // Select all fields, not just id
+                .execute()
+                .value
+        }
         
         guard let friendship = response.first else {
             return nil
@@ -127,24 +131,26 @@ final class FriendsService: ObservableObject {
 
     func acceptRequest(friendshipId: String) async throws {
         #if canImport(Supabase)
-        // First, get the friendship details to find the requester
-        let friendships: [Friendship] = try await supabase
-            .from("friendships")
-            .select()
-            .eq("id", value: friendshipId)
-            .execute()
-            .value
+        let friendships: [Friendship] = try await SupabaseRequestExecutor.executeWithAuthRetry(context: "accept_request_fetch") {
+            try await supabase
+                .from("friendships")
+                .select()
+                .eq("id", value: friendshipId)
+                .execute()
+                .value
+        }
         
         guard let friendship = friendships.first else {
             throw NSError(domain: "Friendship", code: 404, userInfo: [NSLocalizedDescriptionKey: "Friendship not found"])
         }
         
-        // Update the friendship status
-        _ = try await supabase
-            .from("friendships")
-            .update(["status": "accepted"])
-            .eq("id", value: friendshipId)
-            .execute()
+        _ = try await SupabaseRequestExecutor.executeWithAuthRetry(context: "accept_request_update") {
+            try await supabase
+                .from("friendships")
+                .update(["status": "accepted"])
+                .eq("id", value: friendshipId)
+                .execute()
+        }
         
         // The requester is the person who sent the request (needs notification)
         // The addressee is the person receiving/accepting the request (current user)
@@ -183,11 +189,13 @@ final class FriendsService: ObservableObject {
 
     func removeFriendship(friendshipId: String) async throws {
         #if canImport(Supabase)
-        _ = try await supabase
-            .from("friendships")
-            .delete()
-            .eq("id", value: friendshipId)
-            .execute()
+        _ = try await SupabaseRequestExecutor.executeWithAuthRetry(context: "remove_friendship") {
+            try await supabase
+                .from("friendships")
+                .delete()
+                .eq("id", value: friendshipId)
+                .execute()
+        }
         #endif
     }
 
@@ -195,10 +203,12 @@ final class FriendsService: ObservableObject {
 
     func createInviteRPC(expiresInHours: Int = 168) async throws -> InviteCreateResponse {
         #if canImport(Supabase)
-        let arr: [InviteCreateResponse] = try await supabase
-            .rpc("create_friend_invite", params: ["expires_in_hours": expiresInHours])
-            .execute()
-            .value
+        let arr: [InviteCreateResponse] = try await SupabaseRequestExecutor.executeWithAuthRetry(context: "create_invite") {
+            try await supabase
+                .rpc("create_friend_invite", params: ["expires_in_hours": expiresInHours])
+                .execute()
+                .value
+        }
         guard let first = arr.first else {
             throw NSError(domain: "Invite", code: 0, userInfo: [NSLocalizedDescriptionKey: "No invite returned"])
         }
@@ -210,10 +220,12 @@ final class FriendsService: ObservableObject {
 
     func consumeInviteRPC(token: String) async throws -> InviteConsumeResponse {
         #if canImport(Supabase)
-        let arr: [InviteConsumeResponse] = try await supabase
-            .rpc("consume_friend_invite", params: ["invite_token": token])
-            .execute()
-            .value
+        let arr: [InviteConsumeResponse] = try await SupabaseRequestExecutor.executeWithAuthRetry(context: "consume_invite") {
+            try await supabase
+                .rpc("consume_friend_invite", params: ["invite_token": token])
+                .execute()
+                .value
+        }
         guard let first = arr.first else {
             throw NSError(domain: "Invite", code: 0, userInfo: [NSLocalizedDescriptionKey: "Invalid invite token"])
         }
@@ -224,11 +236,3 @@ final class FriendsService: ObservableObject {
     }
 }
 
-// MARK: - JSONDecoder helper
-private extension JSONDecoder {
-    static var iso8601: JSONDecoder {
-        let d = JSONDecoder()
-        d.dateDecodingStrategy = .iso8601
-        return d
-    }
-}

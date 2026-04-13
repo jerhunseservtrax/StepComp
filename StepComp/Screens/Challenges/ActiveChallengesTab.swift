@@ -154,6 +154,13 @@ struct ActiveChallengeListItem: View {
         return icons[abs(challenge.name.hashValue) % icons.count]
     }
     
+    private var listItemAccessibilityValue: String {
+        let categoryName = challenge.category?.displayName ?? "Challenge"
+        let joined = challenge.participantIds.count
+        let daysLeft = challengeDuration(in: challenge)
+        return "\(categoryName), \(joined) participants, \(daysLeft) days left"
+    }
+    
     var body: some View {
         Button(action: onTap) {
             HStack(spacing: 12) {
@@ -265,6 +272,10 @@ struct ActiveChallengeListItem: View {
             .shadow(color: FitCompColors.shadowPrimary, radius: 4, x: 0, y: 2)
         }
         .buttonStyle(PlainButtonStyle())
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(challenge.name)
+        .accessibilityValue(listItemAccessibilityValue)
+        .accessibilityHint("Opens this challenge’s details and leaderboard")
     }
 }
 
@@ -289,6 +300,9 @@ struct ActiveViewModeToggle: View {
                     .background(viewMode == .grid ? FitCompColors.primary : FitCompColors.surfaceElevated)
                     .cornerRadius(8)
             }
+            .accessibilityLabel("Grid layout")
+            .accessibilityValue(viewMode == .grid ? "Selected" : "Not selected")
+            .accessibilityHint("Shows challenges as a grid of cards")
             
             // List Button
             Button(action: {
@@ -303,6 +317,9 @@ struct ActiveViewModeToggle: View {
                     .background(viewMode == .list ? FitCompColors.primary : FitCompColors.surfaceElevated)
                     .cornerRadius(8)
             }
+            .accessibilityLabel("List layout")
+            .accessibilityValue(viewMode == .list ? "Selected" : "Not selected")
+            .accessibilityHint("Shows challenges as a vertical list")
         }
         .background(FitCompColors.surfaceElevated)
         .cornerRadius(10)
@@ -390,6 +407,12 @@ struct ActiveChallengeGridCard: View {
     
     // Fixed card height for consistent grid layout
     private let cardHeight: CGFloat = 220
+    
+    private var gridCardAccessibilityValue: String {
+        let categoryName = challenge.category?.displayName ?? "Challenge"
+        let joined = challenge.participantIds.count
+        return "\(categoryName), \(joined) participants, \(daysRemaining) days remaining"
+    }
     
     var body: some View {
         Button(action: onTap) {
@@ -611,6 +634,10 @@ struct ActiveChallengeGridCard: View {
             .shadow(color: Color.black.opacity(0.15), radius: 8, x: 0, y: 4)
         }
         .buttonStyle(ScaleButtonStyle())
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(challenge.name)
+        .accessibilityValue(gridCardAccessibilityValue)
+        .accessibilityHint("Opens this challenge’s details and leaderboard")
     }
 }
 

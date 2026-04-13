@@ -276,8 +276,7 @@ struct CalorieCalculatorSheet: View {
     }
 
     var body: some View {
-        NavigationStack {
-            ScrollView(showsIndicators: false) {
+        NavigationStack {            ScrollView(showsIndicators: false) {
                 VStack(spacing: 16) {
                     VStack(alignment: .leading, spacing: 16) {
                         HStack(spacing: 12) {

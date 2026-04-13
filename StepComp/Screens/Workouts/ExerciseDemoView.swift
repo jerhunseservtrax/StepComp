@@ -211,6 +211,6 @@ struct ExerciseDemoButton: View {
 
 #Preview {
     ExerciseDemoButton(
-        exercise: Exercise(name: "Barbell Bench Press", targetMuscles: "Chest, Triceps")
+        exercise: Exercise(name: "Bench Press", targetMuscles: "Chest, Triceps")
     )
 }

@@ -52,14 +52,10 @@ final class SessionViewModel: ObservableObject {
                 self.isAuthenticated = isAuthenticated
                 
                 if isAuthenticated {
-                    // Re-check onboarding status when user becomes authenticated
-                    // This picks up the flag set by AuthService during session restore
                     self.checkOnboardingStatus()
-                } else {
-                    // Keep onboarding status intact for transient auth drops.
-                    // Explicit logout flow is the only place that clears it.
-                    self.hasCompletedOnboarding = false
                 }
+                // Transient auth drops must NOT clear onboarding —
+                // only the explicit signOut() flow does that.
             }
             .store(in: &cancellables)
         

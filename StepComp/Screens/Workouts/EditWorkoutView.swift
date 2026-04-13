@@ -28,6 +28,7 @@ struct EditWorkoutView: View {
         // Convert workout exercises to selected exercises
         let exercises = workout.exercises.map { workoutExercise in
             SelectedExercise(
+                id: workoutExercise.id,
                 exercise: workoutExercise.exercise,
                 sets: workoutExercise.sets.count,
                 reps: workoutExercise.sets.first?.reps ?? 10
@@ -40,105 +41,105 @@ struct EditWorkoutView: View {
         NavigationStack {
             ZStack {
                 FitCompColors.background.ignoresSafeArea()
-                
-                ScrollView {
-                    VStack(spacing: 24) {
-                        // Workout name
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("WORKOUT NAME")
-                                .font(.system(size: 12, weight: .bold))
+
+                List {
+                    Section {
+                        TextField("Workout name", text: $workoutName)
+                            .font(.system(size: 18, weight: .semibold))
+                            .foregroundColor(FitCompColors.textPrimary)
+                            .padding(16)
+                            .listRowInsets(EdgeInsets(top: 8, leading: 12, bottom: 8, trailing: 12))
+                            .listRowBackground(FitCompColors.surface)
+                            .cornerRadius(16)
+                    } header: {
+                        Text("WORKOUT NAME")
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundColor(FitCompColors.textSecondary)
+                            .textCase(nil)
+                    }
+
+                    Section {
+                        if selectedExercises.isEmpty {
+                            Text("No exercises added")
+                                .font(.system(size: 16))
                                 .foregroundColor(FitCompColors.textSecondary)
-                            
-                            TextField("Workout name", text: $workoutName)
-                                .font(.system(size: 18, weight: .semibold))
-                                .foregroundColor(FitCompColors.textPrimary)
-                                .padding(16)
-                                .background(FitCompColors.surface)
-                                .cornerRadius(16)
-                        }
-                        
-                        // Exercises
-                        VStack(alignment: .leading, spacing: 12) {
-                            Text("EXERCISES")
-                                .font(.system(size: 12, weight: .bold))
-                                .foregroundColor(FitCompColors.textSecondary)
-                            
-                            if selectedExercises.isEmpty {
-                                Text("No exercises added")
-                                    .font(.system(size: 16))
-                                    .foregroundColor(FitCompColors.textSecondary)
-                                    .frame(maxWidth: .infinity)
-                                    .frame(height: 100)
-                                    .background(FitCompColors.surface)
-                                    .cornerRadius(16)
-                            } else {
-                                ForEach(Array(selectedExercises.enumerated()), id: \.element.id) { index, exercise in
-                                    HStack {
-                                        VStack(alignment: .leading, spacing: 4) {
-                                            Text(exercise.exercise.name)
-                                                .font(.system(size: 16, weight: .bold))
-                                                .foregroundColor(FitCompColors.textPrimary)
-                                            Text("\(exercise.sets) sets × \(exercise.reps) reps")
-                                                .font(.system(size: 12))
-                                                .foregroundColor(FitCompColors.textSecondary)
-                                        }
-                                        
-                                        Spacer()
-                                        
-                                        Button(action: {
-                                            selectedExercises.remove(at: index)
-                                        }) {
-                                            Image(systemName: "trash")
-                                                .foregroundColor(.red)
-                                                .frame(width: 36, height: 36)
-                                        }
-                                    }
-                                    .padding(12)
-                                    .background(FitCompColors.surface)
-                                    .cornerRadius(12)
-                                }
-                            }
-                            
-                            Button(action: { showingExercisePicker = true }) {
-                                HStack {
-                                    Image(systemName: "plus.circle.fill")
-                                    Text("Add Exercise")
-                                        .font(.system(size: 16, weight: .bold))
-                                }
                                 .frame(maxWidth: .infinity)
-                                .frame(height: 48)
-                                .background(FitCompColors.surface)
-                                .foregroundColor(FitCompColors.textPrimary)
-                                .cornerRadius(12)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 12)
-                                        .stroke(FitCompColors.primary, lineWidth: 2)
-                                )
-                            }
+                                .frame(minHeight: 80)
+                                .listRowBackground(FitCompColors.surface)
                         }
-                        
-                        // Days
-                        VStack(alignment: .leading, spacing: 12) {
-                            Text("ASSIGNED DAYS")
-                                .font(.system(size: 12, weight: .bold))
-                                .foregroundColor(FitCompColors.textSecondary)
-                            
-                            ForEach(DayOfWeek.allCases) { day in
-                                DaySelectionButton(
-                                    day: day,
-                                    isSelected: selectedDays.contains(day),
-                                    action: {
-                                        if selectedDays.contains(day) {
-                                            selectedDays.remove(day)
-                                        } else {
-                                            selectedDays.insert(day)
-                                        }
+
+                        ForEach(Array(selectedExercises.enumerated()), id: \.element.id) { index, exercise in
+                            HStack {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text(exercise.exercise.name)
+                                        .font(.system(size: 16, weight: .bold))
+                                        .foregroundColor(FitCompColors.textPrimary)
+                                    Text("\(exercise.sets) sets × \(exercise.reps) reps")
+                                        .font(.system(size: 12))
+                                        .foregroundColor(FitCompColors.textSecondary)
+                                }
+
+                                Spacer()
+
+                                Button(action: {
+                                    selectedExercises.remove(at: index)
+                                }) {
+                                    Image(systemName: "trash")
+                                        .foregroundColor(.red)
+                                        .frame(width: 36, height: 36)
+                                }
+                                .accessibilityLabel("Remove exercise")
+                            }
+                            .padding(.vertical, 4)
+                            .listRowBackground(FitCompColors.surface)
+                        }
+                        .onMove { from, to in
+                            selectedExercises.move(fromOffsets: from, toOffset: to)
+                            HapticManager.shared.soft()
+                        }
+
+                        Button(action: { showingExercisePicker = true }) {
+                            HStack {
+                                Image(systemName: "plus.circle.fill")
+                                Text("Add Exercise")
+                                    .font(.system(size: 16, weight: .bold))
+                            }
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 48)
+                            .foregroundColor(FitCompColors.textPrimary)
+                        }
+                        .listRowBackground(FitCompColors.surface)
+                    } header: {
+                        Text("EXERCISES")
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundColor(FitCompColors.textSecondary)
+                            .textCase(nil)
+                    }
+
+                    Section {
+                        ForEach(DayOfWeek.allCases) { day in
+                            DaySelectionButton(
+                                day: day,
+                                isSelected: selectedDays.contains(day),
+                                action: {
+                                    if selectedDays.contains(day) {
+                                        selectedDays.remove(day)
+                                    } else {
+                                        selectedDays.insert(day)
                                     }
-                                )
-                            }
+                                }
+                            )
+                            .listRowBackground(Color.clear)
+                            .listRowSeparator(.hidden)
                         }
-                        
-                        // Delete workout button
+                    } header: {
+                        Text("ASSIGNED DAYS")
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundColor(FitCompColors.textSecondary)
+                            .textCase(nil)
+                    }
+
+                    Section {
                         Button(action: {
                             showingDeleteConfirmation = true
                         }) {
@@ -149,18 +150,15 @@ struct EditWorkoutView: View {
                             }
                             .frame(maxWidth: .infinity)
                             .frame(height: 56)
-                            .background(Color.red.opacity(0.1))
                             .foregroundColor(.red)
-                            .cornerRadius(16)
                         }
+                        .listRowBackground(Color.red.opacity(0.1))
                     }
-                    .padding(20)
-                    .padding(.bottom, 100)
                 }
-                
-                // Save button
-                VStack {
-                    Spacer()
+                .listStyle(.insetGrouped)
+                .scrollContentBackground(.hidden)
+                .padding(.horizontal, 4)
+                .safeAreaInset(edge: .bottom, spacing: 0) {
                     Button(action: saveWorkout) {
                         Text("Save Changes")
                             .font(.system(size: 16, weight: .bold))
@@ -183,6 +181,12 @@ struct EditWorkoutView: View {
                         dismiss()
                     }
                     .foregroundColor(FitCompColors.textPrimary)
+                }
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    if !selectedExercises.isEmpty {
+                        EditButton()
+                            .foregroundColor(FitCompColors.primary)
+                    }
                 }
             }
         }
@@ -228,6 +232,7 @@ struct EditWorkoutView: View {
                 WorkoutSet(setNumber: setNumber)
             }
             return WorkoutExercise(
+                id: selectedExercise.id,
                 exercise: selectedExercise.exercise,
                 sets: sets
             )

@@ -26,55 +26,56 @@ final class DeepLinkRouter: ObservableObject {
         let scheme = url.scheme ?? ""
         let host = url.host ?? ""
         
-        // Handle friend invite links
-        // je.fitcomp://friend-invite?token=ABC123
         if (scheme == "je.fitcomp" || scheme == "fitcomp") && host == "friend-invite" {
             if let comps = URLComponents(url: url, resolvingAgainstBaseURL: false),
                let token = comps.queryItems?.first(where: { $0.name == "token" })?.value,
                isValidInviteToken(token) {
                 pendingInviteToken = token
+                #if DEBUG
                 print("🔗 Friend invite token detected: \(token)")
+                #endif
             }
             return
         }
         
-        // Handle password reset links
-        // je.fitcomp://reset-password#access_token=...&type=recovery
         if (scheme == "je.fitcomp" || scheme == "fitcomp") && host == "reset-password" {
             pendingPasswordResetURL = url
+            #if DEBUG
             print("🔑 Password reset URL detected")
+            #endif
             return
         }
         
-        // Handle universal links (future)
-        // https://fitcomp.app/invite/friend/ABC123
-        if scheme == "https" && (host == "fitcomp.app" || host == "www.fitcomp.app") {
+        if scheme == "https" && (host == "fitcomp.app" || host == "www.fitcomp.app" || host == "stepcomp.app" || host == "www.stepcomp.app") {
             let pathComponents = url.pathComponents
             
-            // Friend invite: /invite/friend/TOKEN
             if pathComponents.count >= 4 && pathComponents[1] == "invite" && pathComponents[2] == "friend" {
                 let token = pathComponents[3]
                 if isValidInviteToken(token) {
                     pendingInviteToken = token
-                    print("🔗 Universal friend invite link detected: \(token)")
+                    #if DEBUG
+                    print("🔗 Universal friend invite link detected")
+                    #endif
                 }
                 return
             }
             
-            // Legacy format: /friend-invite/TOKEN (for backward compatibility)
             if pathComponents.count >= 3 && pathComponents[1] == "friend-invite" {
                 let token = pathComponents[2]
                 if isValidInviteToken(token) {
                     pendingInviteToken = token
-                    print("🔗 Universal friend invite link detected (legacy): \(token)")
+                    #if DEBUG
+                    print("🔗 Universal friend invite link detected (legacy)")
+                    #endif
                 }
                 return
             }
             
-            // Password reset: /reset-password
             if pathComponents.contains("reset-password") {
                 pendingPasswordResetURL = url
+                #if DEBUG
                 print("🔑 Universal password reset link detected")
+                #endif
                 return
             }
         }

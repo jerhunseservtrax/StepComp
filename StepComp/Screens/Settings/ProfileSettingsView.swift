@@ -893,7 +893,7 @@ struct ProfileSettingsView: View {
             let displayName = "\(firstName) \(lastName)".trimmingCharacters(in: .whitespaces)
             
             let logUpdate = "{\"location\":\"ProfileSettingsView.swift:775\",\"message\":\"Updating profile with display_name\",\"data\":{\"firstName\":\"\(firstName)\",\"lastName\":\"\(lastName)\",\"displayName\":\"\(displayName)\",\"username\":\"\(username)\"},\"timestamp\":\(Int(Date().timeIntervalSince1970 * 1000)),\"sessionId\":\"debug-session\",\"runId\":\"profile-update\",\"hypothesisId\":\"H1,H2\"}\n"
-            if let fileHandle = FileHandle(forWritingAtPath: "/Users/jefferyerhunse/GitRepos/FitComp/.cursor/debug.log") {
+            if let fileHandle = FileHandle(forWritingAtPath: DebugLog.filePath) {
                 fileHandle.seekToEndOfFile()
                 if let data = logUpdate.data(using: .utf8) {
                     fileHandle.write(data)

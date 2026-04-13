@@ -20,6 +20,8 @@ final class ChallengeChatViewModel: ObservableObject {
     @Published var isLoading: Bool = false
     @Published var errorMessage: String?
     @Published var unreadCount: Int = 0
+    @Published var isLoadingMore: Bool = false
+    @Published var hasMoreMessages: Bool = true
     
     let challengeId: String
     let currentUserId: String
@@ -27,6 +29,9 @@ final class ChallengeChatViewModel: ObservableObject {
     #if canImport(Supabase)
     private var channel: RealtimeChannelV2?
     #endif
+    private let pageSize = 40
+    private var oldestLoadedDate: Date?
+    private var refreshTask: Task<Void, Never>?
     
     init(challengeId: String, currentUserId: String) {
         self.challengeId = challengeId
@@ -43,124 +48,15 @@ final class ChallengeChatViewModel: ObservableObject {
     func loadMessages() async {
         isLoading = true
         errorMessage = nil
+        oldestLoadedDate = nil
+        hasMoreMessages = true
         
         #if canImport(Supabase)
         do {
-            // First, try with profile join
-            do {
-                let response: [ServerChallengeMessage] = try await supabase
-                    .from("challenge_messages")
-                    .select("""
-                        *,
-                        profiles(username, display_name, avatar_url)
-                    """)
-                    .eq("challenge_id", value: challengeId)
-                    .eq("is_deleted", value: false)
-                    .order("created_at", ascending: true)
-                    .execute()
-                    .value
-                
-                messages = response.map { $0.toChallengeMessage() }
-                print("✅ Loaded \(messages.count) messages for challenge \(challengeId)")
-                
-            } catch {
-                // Fallback: Load messages without profile join, then fetch profiles separately
-                print("⚠️ Profile join failed, using fallback method")
-                
-                struct SimpleMessage: Codable {
-                    let id: String
-                    let challengeId: String
-                    let userId: String
-                    let content: String
-                    let messageType: String
-                    let createdAt: String
-                    let editedAt: String?
-                    let isDeleted: Bool
-                    
-                    enum CodingKeys: String, CodingKey {
-                        case id
-                        case challengeId = "challenge_id"
-                        case userId = "user_id"
-                        case content
-                        case messageType = "message_type"
-                        case createdAt = "created_at"
-                        case editedAt = "edited_at"
-                        case isDeleted = "is_deleted"
-                    }
-                }
-                
-                let simpleMessages: [SimpleMessage] = try await supabase
-                    .from("challenge_messages")
-                    .select()
-                    .eq("challenge_id", value: challengeId)
-                    .eq("is_deleted", value: false)
-                    .order("created_at", ascending: true)
-                    .execute()
-                    .value
-                
-                // Get unique user IDs
-                let userIds = Array(Set(simpleMessages.map { $0.userId }))
-                
-                // Fetch profiles for these users
-                var profilesMap: [String: ServerChallengeMessage.ProfileInfo] = [:]
-                if !userIds.isEmpty {
-                    struct ProfileRow: Codable {
-                        let id: String
-                        let username: String?
-                        let displayName: String?
-                        let avatarUrl: String?
-                        
-                        enum CodingKeys: String, CodingKey {
-                            case id
-                            case username
-                            case displayName = "display_name"
-                            case avatarUrl = "avatar_url"
-                        }
-                    }
-                    
-                    let profiles: [ProfileRow] = try await supabase
-                        .from("profiles")
-                        .select()
-                        .in("id", values: userIds)
-                        .execute()
-                        .value
-                    
-                    for profile in profiles {
-                        profilesMap[profile.id] = ServerChallengeMessage.ProfileInfo(
-                            username: profile.username,
-                            displayName: profile.displayName,
-                            avatarUrl: profile.avatarUrl
-                        )
-                    }
-                }
-                
-                // Combine messages with profiles
-                messages = simpleMessages.map { msg in
-                    let profile = profilesMap[msg.userId]
-                    let messageType = ChallengeMessage.MessageType(rawValue: msg.messageType) ?? .text
-                    
-                    // Parse date from string
-                    let dateFormatter = ISO8601DateFormatter()
-                    let createdDate = dateFormatter.date(from: msg.createdAt) ?? Date()
-                    let editedDate: Date? = msg.editedAt.flatMap { dateFormatter.date(from: $0) }
-                    
-                    return ChallengeMessage(
-                        id: msg.id,
-                        challengeId: msg.challengeId,
-                        userId: msg.userId,
-                        content: msg.content,
-                        messageType: messageType,
-                        createdAt: createdDate,
-                        editedAt: editedDate,
-                        isDeleted: msg.isDeleted,
-                        senderName: profile?.displayName ?? profile?.username ?? "Unknown",
-                        senderAvatarURL: profile?.avatarUrl
-                    )
-                }
-                
-                print("✅ Loaded \(messages.count) messages using fallback method")
-            }
-            
+            let latest = try await fetchLatestMessages(limit: pageSize)
+            messages = latest
+            oldestLoadedDate = latest.first?.createdAt
+            hasMoreMessages = latest.count >= pageSize
             // Subscribe to realtime after loading
             subscribeToRealtime()
             
@@ -174,6 +70,29 @@ final class ChallengeChatViewModel: ObservableObject {
         #endif
         
         isLoading = false
+    }
+
+    func loadMoreMessages() async {
+        guard !isLoadingMore, hasMoreMessages else { return }
+        guard let oldestLoadedDate else { return }
+        isLoadingMore = true
+        defer { isLoadingMore = false }
+
+        #if canImport(Supabase)
+        do {
+            let older = try await fetchMessages(before: oldestLoadedDate, limit: pageSize)
+            if older.isEmpty {
+                hasMoreMessages = false
+                return
+            }
+
+            messages = (older + messages).uniquedById()
+            self.oldestLoadedDate = messages.first?.createdAt
+            hasMoreMessages = older.count >= pageSize
+        } catch {
+            errorMessage = "Failed to load older messages"
+        }
+        #endif
     }
     
     // MARK: - Send Message
@@ -197,8 +116,10 @@ final class ChallengeChatViewModel: ObservableObject {
             
             print("✅ Message sent successfully")
             
-            // Reload messages to get the new message with profile data
-            await loadMessages()
+            let latest = try await fetchLatestMessages(limit: pageSize)
+            messages = latest
+            oldestLoadedDate = latest.first?.createdAt
+            hasMoreMessages = latest.count >= pageSize
             
             // Post notification to update chat badge in dashboard header
             NotificationCenter.default.post(name: .chatMessageReceived, object: nil)
@@ -338,38 +259,156 @@ final class ChallengeChatViewModel: ObservableObject {
     }
     
     // MARK: - Realtime Subscription
-    
+
     func subscribeToRealtime() {
         #if canImport(Supabase)
-        let channelName = "challenge-chat-\(challengeId)"
-        
-        channel = supabase.channel(channelName)
-        
-        // Note: Realtime subscriptions in Supabase Swift use a different API
-        // For now, we'll implement manual polling as fallback
-        // TODO: Update to proper realtime when API is confirmed
-        
-        Task {
+        refreshTask?.cancel()
+        let cid = challengeId
+
+        let ch = supabase.channel("challenge-chat-\(cid)")
+        channel = ch
+
+        let insertStream = ch.postgresChange(
+            InsertAction.self,
+            schema: "public",
+            table: "challenge_messages",
+            filter: "challenge_id=eq.\(cid)"
+        )
+        let updateStream = ch.postgresChange(
+            UpdateAction.self,
+            schema: "public",
+            table: "challenge_messages",
+            filter: "challenge_id=eq.\(cid)"
+        )
+        let deleteStream = ch.postgresChange(
+            DeleteAction.self,
+            schema: "public",
+            table: "challenge_messages",
+            filter: "challenge_id=eq.\(cid)"
+        )
+
+        refreshTask = Task { [weak self] in
+            guard let self else { return }
             do {
-                try await channel?.subscribeWithError()
-                print("✅ Subscribed to realtime chat for challenge \(challengeId)")
+                try await ch.subscribeWithError()
             } catch {
-                print("⚠️ Error subscribing to realtime chat: \(error.localizedDescription)")
+                #if DEBUG
+                print("⚠️ Realtime subscribe failed, falling back to polling: \(error.localizedDescription)")
+                #endif
+                await self.fallbackPolling()
+                return
+            }
+
+            await withTaskGroup(of: Void.self) { group in
+                group.addTask { [weak self] in
+                    for await _ in insertStream {
+                        guard let self, !Task.isCancelled else { return }
+                        await self.refreshMessages()
+                    }
+                }
+                group.addTask { [weak self] in
+                    for await _ in updateStream {
+                        guard let self, !Task.isCancelled else { return }
+                        await self.refreshMessages()
+                    }
+                }
+                group.addTask { [weak self] in
+                    for await _ in deleteStream {
+                        guard let self, !Task.isCancelled else { return }
+                        await self.refreshMessages()
+                    }
+                }
             }
         }
-        
-        // Post notification for badge updates
+
         NotificationCenter.default.post(name: .chatMessageReceived, object: nil)
         #endif
     }
-    
+
     func unsubscribeFromRealtime() {
         #if canImport(Supabase)
-        Task {
+        refreshTask?.cancel()
+        refreshTask = nil
+        Task { [channel] in
             await channel?.unsubscribe()
-            print("✅ Unsubscribed from realtime chat")
         }
         #endif
+    }
+
+    #if canImport(Supabase)
+    private func refreshMessages() async {
+        do {
+            let latest = try await fetchLatestMessages(limit: pageSize)
+            if latest.last?.id != messages.last?.id || latest.count != messages.count {
+                messages = latest
+                oldestLoadedDate = latest.first?.createdAt
+                hasMoreMessages = latest.count >= pageSize
+                NotificationCenter.default.post(name: .chatMessageReceived, object: nil)
+            }
+        } catch {
+            #if DEBUG
+            print("⚠️ Refresh after realtime event failed: \(error.localizedDescription)")
+            #endif
+        }
+    }
+
+    private func fallbackPolling() async {
+        while !Task.isCancelled {
+            try? await Task.sleep(nanoseconds: 3_000_000_000)
+            await refreshMessages()
+        }
+    }
+    #endif
+
+    #if canImport(Supabase)
+    private func fetchLatestMessages(limit: Int) async throws -> [ChallengeMessage] {
+        let response: [ServerChallengeMessage] = try await supabase
+            .from("challenge_messages")
+            .select("""
+                *,
+                profiles(username, display_name, avatar_url)
+            """)
+            .eq("challenge_id", value: challengeId)
+            .eq("is_deleted", value: false)
+            .order("created_at", ascending: false)
+            .limit(limit)
+            .execute()
+            .value
+
+        return response
+            .map { $0.toChallengeMessage() }
+            .sorted { $0.createdAt < $1.createdAt }
+    }
+
+    private func fetchMessages(before: Date, limit: Int) async throws -> [ChallengeMessage] {
+        let iso = ISO8601DateFormatter().string(from: before)
+        let response: [ServerChallengeMessage] = try await supabase
+            .from("challenge_messages")
+            .select("""
+                *,
+                profiles(username, display_name, avatar_url)
+            """)
+            .eq("challenge_id", value: challengeId)
+            .eq("is_deleted", value: false)
+            .lt("created_at", value: iso)
+            .order("created_at", ascending: false)
+            .limit(limit)
+            .execute()
+            .value
+
+        return response
+            .map { $0.toChallengeMessage() }
+            .sorted { $0.createdAt < $1.createdAt }
+    }
+    #endif
+}
+
+private extension Array where Element == ChallengeMessage {
+    func uniquedById() -> [ChallengeMessage] {
+        var seen = Set<String>()
+        return filter {
+            seen.insert($0.id).inserted
+        }
     }
 }
 

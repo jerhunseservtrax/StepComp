@@ -48,17 +48,19 @@ final class ChatListViewModel: ObservableObject {
             var previews: [ChatPreview] = []
             var totalUnread = 0
             
-            // Process challenges in parallel for better performance
             await withTaskGroup(of: (ChatPreview?, Int).self) { group in
                 for challenge in challenges {
-                    group.addTask {
+                    let challengeId = challenge.id
+                    let challengeName = challenge.name
+                    group.addTask { [weak self] in
+                        guard self != nil else { return (nil, 0) }
                         do {
-                            let unreadCount = try await self.getUnreadCount(challengeId: challenge.id)
-                            let lastMessage = try? await self.getLastMessage(challengeId: challenge.id)
+                            let unreadCount = try await Self.fetchUnreadCount(challengeId: challengeId)
+                            let lastMessage = try? await Self.fetchLastMessage(challengeId: challengeId)
                             
                             let preview = ChatPreview(
-                                id: challenge.id,
-                                challengeName: challenge.name,
+                                id: challengeId,
+                                challengeName: challengeName,
                                 lastMessage: lastMessage?.content,
                                 lastMessageTime: lastMessage?.createdAt,
                                 unreadCount: unreadCount,
@@ -67,7 +69,7 @@ final class ChatListViewModel: ObservableObject {
                             
                             return (preview, unreadCount)
                         } catch {
-                            print("⚠️ Error processing challenge \(challenge.id): \(error.localizedDescription)")
+                            print("⚠️ Error processing challenge \(challengeId): \(error.localizedDescription)")
                             return (nil, 0)
                         }
                     }
@@ -155,7 +157,7 @@ final class ChatListViewModel: ObservableObject {
         return challenges
     }
     
-    private func getUnreadCount(challengeId: String) async throws -> Int {
+    nonisolated private static func fetchUnreadCount(challengeId: String) async throws -> Int {
         do {
             let result = try await supabase
                 .rpc("get_challenge_unread_count", params: [
@@ -163,35 +165,28 @@ final class ChatListViewModel: ObservableObject {
                 ])
                 .execute()
             
-            // The function returns an integer - try decoding as Int first, then as array
             let decoder = JSONDecoder()
             do {
-                // Try direct Int decode
                 let count = try decoder.decode(Int.self, from: result.data)
                 return count
             } catch {
-                // If that fails, try array of Int
                 if let counts = try? decoder.decode([Int].self, from: result.data),
                    let first = counts.first {
                     return first
                 }
-                // If that fails, try string representation
                 if let countString = String(data: result.data, encoding: .utf8),
                    let count = Int(countString.trimmingCharacters(in: .whitespacesAndNewlines)) {
                     return count
                 }
-                // Default to 0 if all decoding fails
-                print("⚠️ Could not decode unread count for challenge \(challengeId), defaulting to 0")
                 return 0
             }
         } catch {
-            // If RPC fails, return 0 instead of throwing
             print("⚠️ Error getting unread count for challenge \(challengeId): \(error.localizedDescription)")
             return 0
         }
     }
     
-    private func getLastMessage(challengeId: String) async throws -> LastMessageInfo? {
+    nonisolated private static func fetchLastMessage(challengeId: String) async throws -> LastMessageInfo? {
         let messages: [LastMessageInfo] = try await supabase
             .from("challenge_messages")
             .select("id, content, created_at")

@@ -54,6 +54,9 @@ struct LeaderboardRow: View {
             RoundedRectangle(cornerRadius: 12)
                 .stroke(isCurrentUser ? Color.blue : Color.clear, lineWidth: 2)
         )
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(entry.displayName)
+        .accessibilityValue("Rank \(entry.rank), \(entry.steps.formatted()) steps\(isCurrentUser ? ", you" : "")")
     }
     
     private var rankColor: Color {

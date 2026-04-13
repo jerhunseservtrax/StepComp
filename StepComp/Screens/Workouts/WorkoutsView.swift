@@ -30,6 +30,7 @@ struct WorkoutsView: View {
     @State private var showingPhotoGallery = false
     @State private var showingFoodLog = false
     @State private var showingSuggestions = false
+    @State private var muscleBalanceDataCache: [MuscleGroupVolume] = []
     
     var body: some View {
         NavigationStack {
@@ -84,6 +85,9 @@ struct WorkoutsView: View {
             LazyVStack(spacing: 20) {
                 // Header with timer
                 headerView
+
+                // Weekly scheduled workout tracker
+                weeklyWorkoutTracker
                 
                 // Date selector (horizontal calendar) - at the very top
                 dateSelector
@@ -125,6 +129,14 @@ struct WorkoutsView: View {
                 
                 // Consistency Tracker
                 ConsistencyTrackerCard(viewModel: viewModel)
+
+                if !muscleBalanceDataCache.isEmpty {
+                    MuscleBalanceCardView(
+                        title: "Muscle Engagement Tracker",
+                        subtitle: "Last 28 days · volume weighted (primary muscle 1×, secondary 0.5×)",
+                        data: muscleBalanceDataCache
+                    )
+                }
                 
                 // Completed exercises for selected day
                 completedExercisesForSelectedDay
@@ -137,6 +149,10 @@ struct WorkoutsView: View {
         }
         .onAppear {
             loadHealthData()
+            recomputeMuscleBalanceData()
+        }
+        .onChange(of: viewModel.completedSessions.count) { _, _ in
+            recomputeMuscleBalanceData()
         }
         .sheet(isPresented: $showingCreateWorkout) {
             CreateWorkoutView(viewModel: viewModel)
@@ -203,6 +219,49 @@ struct WorkoutsView: View {
             .cornerRadius(20)
         }
         .padding(.top, 20)
+    }
+
+    private var weeklyWorkoutTracker: some View {
+        let progress = viewModel.weeklyScheduledWorkoutProgress(for: selectedDate, weekStartsOnMonday: true)
+        let weekRange = mondayToSundayRangeString(for: selectedDate)
+        return VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text("WEEKLY WORKOUT TRACKER")
+                    .font(.system(size: 12, weight: .black))
+                    .tracking(1.2)
+                    .foregroundColor(FitCompColors.textSecondary)
+                Spacer()
+                Text(weekRange)
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundColor(FitCompColors.textSecondary)
+            }
+
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                Text("\(progress.completedCount)")
+                    .font(.system(size: 28, weight: .black))
+                    .foregroundColor(FitCompColors.textPrimary)
+                Text("/")
+                    .font(.system(size: 24, weight: .bold))
+                    .foregroundColor(FitCompColors.textSecondary)
+                Text("\(progress.scheduledCount)")
+                    .font(.system(size: 28, weight: .black))
+                    .foregroundColor(FitCompColors.textPrimary)
+                Text("scheduled workouts")
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundColor(FitCompColors.textSecondary)
+            }
+
+            ProgressView(value: progress.progress)
+                .tint(FitCompColors.primary)
+                .scaleEffect(x: 1, y: 1.4, anchor: .center)
+        }
+        .padding(16)
+        .background(colorScheme == .dark ? Color(hex: "1a1a1a") : Color.white)
+        .cornerRadius(16)
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(colorScheme == .dark ? Color.white.opacity(0.05) : Color.black.opacity(0.05), lineWidth: 1)
+        )
     }
     
     private var dateSelector: some View {
@@ -305,6 +364,18 @@ struct WorkoutsView: View {
         return (0..<63).compactMap { offset in
             calendar.date(byAdding: .day, value: offset, to: sunday)
         }
+    }
+
+    private func mondayToSundayRangeString(for date: Date) -> String {
+        let calendar = Calendar.current
+        let normalized = calendar.startOfDay(for: date)
+        let weekday = calendar.component(.weekday, from: normalized)
+        let daysFromMonday = (weekday + 5) % 7
+        let start = calendar.date(byAdding: .day, value: -daysFromMonday, to: normalized) ?? normalized
+        let end = calendar.date(byAdding: .day, value: 6, to: start) ?? start
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMM d"
+        return "\(formatter.string(from: start)) - \(formatter.string(from: end))"
     }
     
     private func loadHealthData() {
@@ -423,6 +494,25 @@ struct WorkoutsView: View {
     private func getRecentSessions() -> [CompletedWorkoutSession] {
         return viewModel.completedSessions
             .sorted { $0.endTime > $1.endTime }
+    }
+
+    private func recomputeMuscleBalanceData() {
+        let calendar = Calendar.current
+        let cutoff = calendar.date(byAdding: .day, value: -27, to: Date()) ?? Date()
+        let sessions = viewModel.completedSessions.filter { $0.endTime >= cutoff }
+
+        guard !sessions.isEmpty else {
+            muscleBalanceDataCache = []
+            return
+        }
+
+        let volumeByMuscle = ComprehensiveMetricsStore.shared.weightedMuscleGroupVolumes(from: sessions)
+
+        muscleBalanceDataCache = volumeByMuscle
+            .map { MuscleGroupVolume(muscleGroup: $0.key, volume: $0.value) }
+            .sorted { $0.volume > $1.volume }
+            .prefix(8)
+            .map { $0 }
     }
     
     private func isPRSet(_ set: WorkoutSet, exerciseName: String) -> Bool {
@@ -1155,11 +1245,11 @@ struct RecentWorkoutLogCard: View {
 
         for exercise in session.exercises {
             for set in exercise.sets {
-                if let weight = set.weight, let reps = set.reps, reps >= 1 && reps <= 10 {
-                    let estimated = viewModel.calculateEstimated1RM(weight: weight, reps: reps)
+                if let effectiveWeight = set.effectiveWeightForVolume, let reps = set.reps, reps >= 1 && reps <= 10 {
+                    let estimated = viewModel.calculateEstimated1RM(weight: effectiveWeight, reps: reps)
                     if best == nil || estimated > best!.estimated1RM {
-                        let isPR = checkIfPR(exercise: exercise.exercise.name, weight: weight, reps: reps, sessionDate: session.endTime)
-                        best = (exercise.exercise.name, weight, reps, estimated, isPR)
+                        let isPR = checkIfPR(exercise: exercise.exercise.name, weight: effectiveWeight, reps: reps, sessionDate: session.endTime)
+                        best = (exercise.exercise.name, effectiveWeight, reps, estimated, isPR)
                     }
                 }
             }
@@ -1181,8 +1271,8 @@ struct RecentWorkoutLogCard: View {
                 if oldExercise.exercise.name.lowercased().contains(exercise.lowercased()) ||
                    exercise.lowercased().contains(oldExercise.exercise.name.lowercased()) {
                     for oldSet in oldExercise.sets {
-                        if let oldWeight = oldSet.weight, let oldReps = oldSet.reps, oldReps >= 1 && oldReps <= 10 {
-                            let oldEstimated = viewModel.calculateEstimated1RM(weight: oldWeight, reps: oldReps)
+                        if let oldEffectiveWeight = oldSet.effectiveWeightForVolume, let oldReps = oldSet.reps, oldReps >= 1 && oldReps <= 10 {
+                            let oldEstimated = viewModel.calculateEstimated1RM(weight: oldEffectiveWeight, reps: oldReps)
                             // If we find a better or equal estimated 1RM in the past, it's not a PR
                             if oldEstimated >= currentEstimated {
                                 return false

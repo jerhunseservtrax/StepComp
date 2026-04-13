@@ -31,6 +31,7 @@ struct InboxView: View {
                 if isLoading {
                     ProgressView()
                         .progressViewStyle(CircularProgressViewStyle(tint: FitCompColors.primary))
+                        .accessibilityLabel("Loading notifications")
                 } else if unreadNotifications.isEmpty {
                     EmptyInboxView()
                 } else {
@@ -69,6 +70,8 @@ struct InboxView: View {
                             .foregroundColor(.secondary)
                             .font(.title3)
                     }
+                    .accessibilityLabel("Close")
+                    .accessibilityHint("Dismisses the inbox")
                 }
             }
             .alert("Error", isPresented: .constant(errorMessage != nil)) {
@@ -95,7 +98,7 @@ struct InboxView: View {
     
     private func loadNotifications() async {
         let logStart = "{\"location\":\"InboxView.swift:60\",\"message\":\"Loading notifications\",\"data\":{\"userId\":\"\(userId)\"},\"timestamp\":\(Int(Date().timeIntervalSince1970 * 1000)),\"sessionId\":\"debug-session\",\"runId\":\"inbox-load\",\"hypothesisId\":\"H\"}\n"
-        if let fileHandle = FileHandle(forWritingAtPath: "/Users/jefferyerhunse/GitRepos/FitComp/.cursor/debug.log") {
+        if let fileHandle = FileHandle(forWritingAtPath: DebugLog.filePath) {
             fileHandle.seekToEndOfFile()
             if let data = logStart.data(using: .utf8) {
                 fileHandle.write(data)
@@ -119,7 +122,7 @@ struct InboxView: View {
             notifications = fetchedNotifications
             
             let logSuccess = "{\"location\":\"InboxView.swift:75\",\"message\":\"Notifications loaded\",\"data\":{\"count\":\(notifications.count)},\"timestamp\":\(Int(Date().timeIntervalSince1970 * 1000)),\"sessionId\":\"debug-session\",\"runId\":\"inbox-load\",\"hypothesisId\":\"H\"}\n"
-            if let fileHandle = FileHandle(forWritingAtPath: "/Users/jefferyerhunse/GitRepos/FitComp/.cursor/debug.log") {
+            if let fileHandle = FileHandle(forWritingAtPath: DebugLog.filePath) {
                 fileHandle.seekToEndOfFile()
                 if let data = logSuccess.data(using: .utf8) {
                     fileHandle.write(data)
@@ -130,7 +133,7 @@ struct InboxView: View {
             print("✅ Loaded \(notifications.count) notifications")
         } catch {
             let logError = "{\"location\":\"InboxView.swift:85\",\"message\":\"Error loading notifications\",\"data\":{\"error\":\"\(error.localizedDescription)\"},\"timestamp\":\(Int(Date().timeIntervalSince1970 * 1000)),\"sessionId\":\"debug-session\",\"runId\":\"inbox-load\",\"hypothesisId\":\"I\"}\n"
-            if let fileHandle = FileHandle(forWritingAtPath: "/Users/jefferyerhunse/GitRepos/FitComp/.cursor/debug.log") {
+            if let fileHandle = FileHandle(forWritingAtPath: DebugLog.filePath) {
                 fileHandle.seekToEndOfFile()
                 if let data = logError.data(using: .utf8) {
                     fileHandle.write(data)
@@ -157,7 +160,7 @@ struct InboxView: View {
         #if canImport(Supabase)
         do {
             let logStart = "{\"location\":\"InboxView.swift:110\",\"message\":\"Accepting challenge invite\",\"data\":{\"notificationId\":\"\(notification.id)\",\"challengeId\":\"\(challengeId)\"},\"timestamp\":\(Int(Date().timeIntervalSince1970 * 1000)),\"sessionId\":\"debug-session\",\"runId\":\"accept-invite\",\"hypothesisId\":\"J\"}\n"
-            if let fileHandle = FileHandle(forWritingAtPath: "/Users/jefferyerhunse/GitRepos/FitComp/.cursor/debug.log") {
+            if let fileHandle = FileHandle(forWritingAtPath: DebugLog.filePath) {
                 fileHandle.seekToEndOfFile()
                 if let data = logStart.data(using: .utf8) {
                     fileHandle.write(data)
@@ -195,7 +198,7 @@ struct InboxView: View {
                 .value
             
             let logSuccess = "{\"location\":\"InboxView.swift:145\",\"message\":\"Challenge invite accepted\",\"data\":{\"inviteId\":\"\(invite.id)\"},\"timestamp\":\(Int(Date().timeIntervalSince1970 * 1000)),\"sessionId\":\"debug-session\",\"runId\":\"accept-invite\",\"hypothesisId\":\"J\"}\n"
-            if let fileHandle = FileHandle(forWritingAtPath: "/Users/jefferyerhunse/GitRepos/FitComp/.cursor/debug.log") {
+            if let fileHandle = FileHandle(forWritingAtPath: DebugLog.filePath) {
                 fileHandle.seekToEndOfFile()
                 if let data = logSuccess.data(using: .utf8) {
                     fileHandle.write(data)
@@ -212,7 +215,7 @@ struct InboxView: View {
             
         } catch {
             let logError = "{\"location\":\"InboxView.swift:160\",\"message\":\"Error accepting invite\",\"data\":{\"error\":\"\(error.localizedDescription)\"},\"timestamp\":\(Int(Date().timeIntervalSince1970 * 1000)),\"sessionId\":\"debug-session\",\"runId\":\"accept-invite\",\"hypothesisId\":\"K\"}\n"
-            if let fileHandle = FileHandle(forWritingAtPath: "/Users/jefferyerhunse/GitRepos/FitComp/.cursor/debug.log") {
+            if let fileHandle = FileHandle(forWritingAtPath: DebugLog.filePath) {
                 fileHandle.seekToEndOfFile()
                 if let data = logError.data(using: .utf8) {
                     fileHandle.write(data)
@@ -236,7 +239,7 @@ struct InboxView: View {
         #if canImport(Supabase)
         do {
             let logStart = "{\"location\":\"InboxView.swift:185\",\"message\":\"Declining challenge invite\",\"data\":{\"notificationId\":\"\(notification.id)\",\"challengeId\":\"\(challengeId)\"},\"timestamp\":\(Int(Date().timeIntervalSince1970 * 1000)),\"sessionId\":\"debug-session\",\"runId\":\"decline-invite\",\"hypothesisId\":\"L\"}\n"
-            if let fileHandle = FileHandle(forWritingAtPath: "/Users/jefferyerhunse/GitRepos/FitComp/.cursor/debug.log") {
+            if let fileHandle = FileHandle(forWritingAtPath: DebugLog.filePath) {
                 fileHandle.seekToEndOfFile()
                 if let data = logStart.data(using: .utf8) {
                     fileHandle.write(data)
@@ -274,7 +277,7 @@ struct InboxView: View {
                 .value
             
             let logSuccess = "{\"location\":\"InboxView.swift:220\",\"message\":\"Challenge invite declined\",\"data\":{\"inviteId\":\"\(invite.id)\"},\"timestamp\":\(Int(Date().timeIntervalSince1970 * 1000)),\"sessionId\":\"debug-session\",\"runId\":\"decline-invite\",\"hypothesisId\":\"L\"}\n"
-            if let fileHandle = FileHandle(forWritingAtPath: "/Users/jefferyerhunse/GitRepos/FitComp/.cursor/debug.log") {
+            if let fileHandle = FileHandle(forWritingAtPath: DebugLog.filePath) {
                 fileHandle.seekToEndOfFile()
                 if let data = logSuccess.data(using: .utf8) {
                     fileHandle.write(data)
@@ -291,7 +294,7 @@ struct InboxView: View {
             
         } catch {
             let logError = "{\"location\":\"InboxView.swift:235\",\"message\":\"Error declining invite\",\"data\":{\"error\":\"\(error.localizedDescription)\"},\"timestamp\":\(Int(Date().timeIntervalSince1970 * 1000)),\"sessionId\":\"debug-session\",\"runId\":\"decline-invite\",\"hypothesisId\":\"M\"}\n"
-            if let fileHandle = FileHandle(forWritingAtPath: "/Users/jefferyerhunse/GitRepos/FitComp/.cursor/debug.log") {
+            if let fileHandle = FileHandle(forWritingAtPath: DebugLog.filePath) {
                 fileHandle.seekToEndOfFile()
                 if let data = logError.data(using: .utf8) {
                     fileHandle.write(data)
@@ -314,7 +317,7 @@ struct InboxView: View {
         #if canImport(Supabase)
         do {
             let logStart = "{\"location\":\"InboxView.swift:320\",\"message\":\"Marking notification as read\",\"data\":{\"notificationId\":\"\(notification.id)\",\"type\":\"\(notification.type.rawValue)\"},\"timestamp\":\(Int(Date().timeIntervalSince1970 * 1000)),\"sessionId\":\"debug-session\",\"runId\":\"mark-read\",\"hypothesisId\":\"N1\"}\n"
-            if let fileHandle = FileHandle(forWritingAtPath: "/Users/jefferyerhunse/GitRepos/FitComp/.cursor/debug.log") {
+            if let fileHandle = FileHandle(forWritingAtPath: DebugLog.filePath) {
                 fileHandle.seekToEndOfFile()
                 if let data = logStart.data(using: .utf8) {
                     fileHandle.write(data)
@@ -334,7 +337,7 @@ struct InboxView: View {
                 .execute()
             
             let logSuccess = "{\"location\":\"InboxView.swift:345\",\"message\":\"Notification marked as read\",\"data\":{\"notificationId\":\"\(notification.id)\"},\"timestamp\":\(Int(Date().timeIntervalSince1970 * 1000)),\"sessionId\":\"debug-session\",\"runId\":\"mark-read\",\"hypothesisId\":\"N1\"}\n"
-            if let fileHandle = FileHandle(forWritingAtPath: "/Users/jefferyerhunse/GitRepos/FitComp/.cursor/debug.log") {
+            if let fileHandle = FileHandle(forWritingAtPath: DebugLog.filePath) {
                 fileHandle.seekToEndOfFile()
                 if let data = logSuccess.data(using: .utf8) {
                     fileHandle.write(data)
@@ -352,7 +355,7 @@ struct InboxView: View {
             
         } catch {
             let logError = "{\"location\":\"InboxView.swift:360\",\"message\":\"Error marking notification as read\",\"data\":{\"notificationId\":\"\(notification.id)\",\"error\":\"\(error.localizedDescription)\"},\"timestamp\":\(Int(Date().timeIntervalSince1970 * 1000)),\"sessionId\":\"debug-session\",\"runId\":\"mark-read\",\"hypothesisId\":\"N2\"}\n"
-            if let fileHandle = FileHandle(forWritingAtPath: "/Users/jefferyerhunse/GitRepos/FitComp/.cursor/debug.log") {
+            if let fileHandle = FileHandle(forWritingAtPath: DebugLog.filePath) {
                 fileHandle.seekToEndOfFile()
                 if let data = logError.data(using: .utf8) {
                     fileHandle.write(data)
@@ -387,6 +390,9 @@ struct EmptyInboxView: View {
                 .padding(.horizontal, 40)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("No notifications")
+        .accessibilityValue("Inbox is empty")
     }
 }
 
@@ -398,6 +404,13 @@ struct InboxNotificationRow: View {
     let onAccept: (() async -> Void)?
     let onDecline: (() async -> Void)?
     
+    private var rowAccessibilityValue: String {
+        var parts = [notification.message, timeAgo]
+        if !notification.isRead {
+            parts.append("Unread")
+        }
+        return parts.joined(separator: ", ")
+    }
     
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -435,8 +448,12 @@ struct InboxNotificationRow: View {
                     Circle()
                         .fill(FitCompColors.primary)
                         .frame(width: 10, height: 10)
+                        .accessibilityHidden(true)
                 }
             }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(notification.title)
+            .accessibilityValue(rowAccessibilityValue)
             
             // Action buttons for challenge invites
             if notification.type == .challengeInvite && !notification.isRead {
@@ -445,6 +462,7 @@ struct InboxNotificationRow: View {
                         ProgressView()
                             .progressViewStyle(CircularProgressViewStyle(tint: FitCompColors.primary))
                             .frame(maxWidth: .infinity)
+                            .accessibilityLabel("Processing invite")
                     } else {
                         Button(action: {
                             Task {
@@ -459,6 +477,8 @@ struct InboxNotificationRow: View {
                                 .background(Color.red.opacity(0.1))
                                 .cornerRadius(8)
                         }
+                        .accessibilityLabel("Decline")
+                        .accessibilityHint("Declines this challenge invitation")
                         
                         Button(action: {
                             Task {
@@ -473,6 +493,8 @@ struct InboxNotificationRow: View {
                                 .background(FitCompColors.primary)
                                 .cornerRadius(8)
                         }
+                        .accessibilityLabel("Accept")
+                        .accessibilityHint("Joins this challenge")
                     }
                 }
             }

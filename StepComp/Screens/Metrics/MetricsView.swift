@@ -23,11 +23,14 @@ struct MetricsView: View {
 
                     if viewModel.isLoading {
                         ProgressView("Loading metrics...")
+                            .accessibilityLabel("Loading metrics")
+                            .accessibilityHint("Waits until your workout and activity data finishes loading.")
                             .frame(maxWidth: .infinity, alignment: .center)
                             .padding(.vertical, 30)
                     } else {
                         PerformancePillarSection(viewModel: viewModel)
                         InsightsPillarSection(viewModel: viewModel)
+                        ExerciseHistorySection(viewModel: viewModel)
                     }
                 }
                 .padding(.horizontal, 20)
@@ -46,13 +49,10 @@ struct MetricsView: View {
     }
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: 0) {
             Text("Metrics")
                 .font(.system(size: 34, weight: .heavy))
                 .foregroundColor(FitCompColors.textPrimary)
-            Text("DATA -> SCORE -> STATUS -> ACTION")
-                .font(.system(size: 15, weight: .medium))
-                .foregroundColor(FitCompColors.textSecondary)
         }
     }
 
@@ -63,6 +63,9 @@ struct MetricsView: View {
             }
         }
         .pickerStyle(.segmented)
+        .accessibilityLabel("Time range for metrics")
+        .accessibilityValue(viewModel.selectedTimePeriod.title)
+        .accessibilityHint("Chooses how far back to load steps, workouts, and strength metrics.")
     }
 
     private func refreshData() async {

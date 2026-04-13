@@ -157,6 +157,8 @@ struct ChallengesHeader: View {
                         .font(.system(size: 24))
                         .foregroundColor(FitCompColors.primary)
                 }
+                .accessibilityLabel("Create challenge")
+                .accessibilityHint("Opens a form to start a new challenge")
             }
             .padding(.horizontal, 24)
             .padding(.vertical, 16)
@@ -165,6 +167,7 @@ struct ChallengesHeader: View {
             HStack(spacing: 0) {
                 TabButton(
                     title: "Active",
+                    tabAccessibilityHint: "Shows challenges you are in right now",
                     isSelected: selectedTab == .active,
                     action: {
                         withAnimation {
@@ -175,6 +178,7 @@ struct ChallengesHeader: View {
                 
                 TabButton(
                     title: "Discover",
+                    tabAccessibilityHint: "Shows public challenges you can browse and join",
                     isSelected: selectedTab == .discover,
                     action: {
                         withAnimation {
@@ -185,6 +189,7 @@ struct ChallengesHeader: View {
                 
                 TabButton(
                     title: "Archive",
+                    tabAccessibilityHint: "Shows past challenges and results",
                     isSelected: selectedTab == .archive,
                     action: {
                         withAnimation {
@@ -202,6 +207,7 @@ struct ChallengesHeader: View {
 
 struct TabButton: View {
     let title: String
+    let tabAccessibilityHint: String
     let isSelected: Bool
     let action: () -> Void
     
@@ -220,6 +226,10 @@ struct TabButton: View {
             }
             .frame(maxWidth: .infinity)
         }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(title)
+        .accessibilityHint(tabAccessibilityHint)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 }
 

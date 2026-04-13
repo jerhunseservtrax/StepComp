@@ -1,7 +1,7 @@
 # FitComp Fix Tracker
 
 > Log of all bugs encountered and fixes implemented to prevent recurrence.
-> Last updated: 2026-03-26 (v4)
+> Last updated: 2026-04-13 (v6)
 
 ---
 
@@ -227,6 +227,19 @@
 - **Files:** `SettingsView.swift`
 - **Prevention:** Break large SwiftUI views into sub-views/modifiers. Don't chain more than 3-4 onChange modifiers.
 
+### 24. Food Log Monolithic SwiftUI File
+- **Symptom:** `FoodLogView.swift` grew to ~1,600 lines, making the food log feature hard to navigate and increasing type-checking pressure.
+- **Root Cause:** Summary card, detail sheet, add-meal flow, camera, barcode scanner, and weight prompt all lived in one file.
+- **Fix:** Split into sibling views under `StepComp/Screens/Workouts/` (`FoodLogSummaryCard`, `FoodLogDailySummaryHeader`, `FoodLogMealSectionView`, `MealEntryRow`, add-meal sections, `AddMealWeightPromptSheet`, `CameraPickerView`, `BarcodeScannerViews`). `FoodLogView.swift` now composes `FoodLogDetailView` only.
+- **Prevention:** When a single SwiftUI source file passes a few hundred lines for one feature area, extract sections into dedicated structs/files in the same folder.
+
+### 24. SignIn onboarding file size (maintainability)
+- **Symptom:** `SignInView.swift` exceeded ~2k lines, slowing navigation and type-checking.
+- **Root Cause:** Multiple unrelated views, sheets, and auth helpers lived in one file.
+- **Fix:** Kept `SignInOnboardingView` coordinator and sheets in `SignInView.swift`; moved landing UI, email signup/sign-in sheets, password flows, Apple delegate, and auth/OAuth helpers into dedicated files under `Screens/Onboarding/`. Renamed the email sign-in **form** struct to `EmailSignInFormView` to avoid colliding with the file name.
+- **Files:** `SignInView.swift`, `SignInOnboardingLandingView.swift`, `SignInOnboardingView+Auth.swift`, `EmailAuthSheet.swift`, `OnboardingSignUpView.swift`, `EmailSignInFormView.swift`, `ForgotPasswordSheet.swift`, `PasswordResetView.swift`, `AppleSignInDelegate.swift`
+- **Prevention:** When an onboarding or settings screen grows past a few hundred lines, extract sheets and self-contained subviews into sibling files early.
+
 ### 24. Smart Quotes in Source Code
 - **Commit:** `22bb6e1`
 - **Symptom:** Compilation error in LegalAndSupportViews.
@@ -354,6 +367,12 @@
 - **Symptom:** Compilation error in Edit Height/Weight sheet.
 - **Root Cause:** Called `getMostRecentHeight()`/`getMostRecentWeight()` — actual methods are `getHeight()`/`getWeight()`.
 - **Prevention:** Always verify method names by reading the service file before calling.
+
+### 39a. SettingsView decomposed into multiple Swift files (2026-04-13)
+- **Type:** Refactor only (no behavior or UI change).
+- **Rationale:** The settings screen had grown to ~2,300 lines in a single file, which slowed navigation and review.
+- **Files:** `SettingsView.swift` (coordinator, HealthKit/streak/account logic), plus `SettingsSharedComponents.swift`, `SettingsLayoutViews.swift`, `SettingsMainContent.swift`, `SettingsConnectivityCard.swift`, `SettingsNotificationsCard.swift`, `SettingsPreferencesCard.swift`, `SettingsSupportLegalCard.swift`, `SettingsMeasurementSheets.swift`, `SettingsDailyStepGoalSheet.swift`, `SettingsViewModifiers.swift`.
+- **Prevention:** Prefer new settings UI in focused files; keep `SettingsView` as composition and cross-cutting state only.
 
 ---
 
@@ -569,6 +588,15 @@
 - **Files:** `MainTabView.swift`, `WorkoutDetailView.swift`
 - **Prevention:** Keep central tab index mapping documented and update all programmatic tab switches whenever tab order changes.
 
+## New Features
+
+### Auto-Complete Workout on All Sets Done
+- **Status:** Implemented (uncommitted)
+- **Feature:** Workout automatically finishes when every set across every exercise has been completed, after a 1.5-second delay with a "Workout Complete!" overlay.
+- **Behavior:** After the last set is checked off, a full-screen overlay appears with a checkmark, "Workout Complete!" text, and a "Keep Training" button. After 1.5s the workout finishes and saves. The user can cancel auto-finish by tapping "Keep Training" or adding a new set.
+- **Edge Cases Handled:** Adding a set cancels auto-finish; re-checks `allWorkoutSetsCompleted` before finishing; rest timer and number pad are dismissed on trigger; auto-finish state is cleaned up in `finishWorkout()` and `cancelWorkout()`.
+- **Files:** `WorkoutViewModel.swift`, `ActiveWorkoutView.swift`
+
 ---
 
 ## Quick Reference: Common Patterns That Cause Bugs
@@ -593,3 +621,66 @@
 | Hardcoded unit display (miles, lbs) | Wrong values for metric users | Always use `UnitPreferenceManager` formatters |
 | Capping progress at 100% in display | Misleading achievement info | Cap the visual ring, not the number |
 | Only checking recurring workout days | One-time workouts invisible | Query both `assignedDays` and `oneTimeDate` |
+
+---
+
+## Features
+
+### 2026-04-13 - Exercise History Section on Metrics Page
+- **Status:** Implemented (uncommitted)
+- **What:** Added a collapsible "Exercise History" section to the Metrics page that shows per-exercise volume trends over time.
+- **Behavior:**
+  - Top 5 exercises by total volume are always visible with sparkline charts, session count, total volume, and best weight.
+  - Remaining exercises are hidden behind a "Show All (N more)" toggle that expands/collapses with animation.
+  - Data is aggregated from local `CompletedWorkoutSession` records, filtered by the selected time period.
+  - Weight/volume values respect the user's unit preference (metric/imperial) via `UnitPreferenceManager`.
+- **Files:** `MetricsViewModel.swift`, `MetricsView.swift`, `ExerciseHistorySection.swift` (new)
+
+---
+
+## Release Pipeline
+
+### 2026-04-13 - App Review Rejection Risks Hardened Pre-Submission
+- **Release Context:** Final hardening pass before App Store submission after extended TestFlight soak.
+- **What changed:**
+  - Removed unsupported `UIBackgroundModes` audio declaration from app `Info.plist`.
+  - Populated `NSPrivacyCollectedDataTypes` in `PrivacyInfo.xcprivacy` with linked, non-tracking app-functionality data categories used by the app.
+  - Re-validated release config alignment against entitlements, export options, and ASC preflight runbook requirements.
+- **Files:** `StepComp/Info.plist`, `StepComp/PrivacyInfo.xcprivacy`
+- **Prevention:** Before every submission, explicitly verify background modes are feature-justified and privacy collected-data declarations match real app data usage.
+
+---
+
+### 2026-03-31 - App Store Preflight + ASC Runbook Standardized
+- **Release Context:** Deployment process hardening for App Store submission readiness.
+- **What changed:**
+  - Added mandatory preflight and `asc` command sequence documentation.
+  - Added explicit go/no-go gates and release ownership model.
+  - Updated TestFlight guide to align with `asc` dry-run, validate, and submit flow.
+  - Added one-command release helper: `scripts/shell/release_preflight_and_submit.sh`.
+  - Removed placeholder legal links from onboarding sign-up copy.
+- **Files:** `docs/setup/APP_STORE_PREFLIGHT_ASC_RUNBOOK.md`, `docs/setup/TESTFLIGHT_SUBMISSION_GUIDE.md`, `scripts/shell/release_preflight_and_submit.sh`, `StepComp/Screens/Onboarding/SignInView.swift`
+- **Prevention:** All future releases must pass the preflight gate and `asc` validation gate before submission; release findings must be logged in this section.
+
+---
+
+### 2026-04-13 - Full App Audit: Critical & High-Priority Fixes
+- **Context:** Comprehensive codebase audit uncovering security, architecture, and reliability issues.
+- **What changed:**
+  - **Secret exposure:** Removed `p8/AuthKey_*.p8` from git tracking; uncommented `.gitignore` rule.
+  - **Pagination bug:** Fixed `ChallengesViewModel.loadMorePublicChallenges` replacing public challenges instead of appending.
+  - **Onboarding flash:** Removed `hasCompletedOnboarding = false` on transient auth drops in `SessionViewModel`; only explicit `signOut()` clears it now.
+  - **Concurrency isolation:** Made `ChatListViewModel` TaskGroup child tasks use `nonisolated static` helpers instead of calling `@MainActor`-isolated instance methods from `@Sendable` closures.
+  - **Keychain hardening:** Added `kSecAttrService` scoping, `OSStatus` error checking, `@discardableResult` returns, and legacy-entry migration to `KeychainStore`.
+  - **Token logging:** Gated all `DeepLinkRouter` print statements containing invite tokens or reset URLs behind `#if DEBUG`.
+  - **401 retry standardization:** Wrapped all `MetricsService` fetch methods, `FriendsService` accept/remove/invite RPCs, and `ChallengeService` leaderboard RPCs with `SupabaseRequestExecutor.executeWithAuthRetry`.
+  - **UserDefaults bloat:** Added deduplication and cap (500) to `MetricsService` sync-tracking arrays.
+  - **Dead code removal:** Deleted 5 unused pillar section views (~40KB); moved vendor assets to `Resources/VendorAssets/`.
+  - **File organization:** Moved `MetricsViewModel.swift` to `ViewModels/`; renamed `StepCompApp.swift` → `FitCompApp.swift`, utility files to `FitComp*` prefix.
+  - **God view decomposition:** Split `GroupDetailsView` (2428→120 lines), `SettingsView` (2277→400), `SignInView` (2175→128), `FoodLogView` (1675→67) into focused sub-views.
+  - **Realtime chat:** Replaced 2-second polling loop with Supabase `postgresChange` streams (INSERT/UPDATE/DELETE) with polling fallback.
+  - **Offline cache:** Added `OfflineCacheService` with disk-backed generic cache; wired into leaderboard, metrics summary, and history fetches.
+  - **Accessibility:** Added VoiceOver labels, hints, and values across Home, Leaderboard, Metrics, Challenges, Friends, and Inbox screens.
+  - **Test scaffolding:** Created `StepCompTests/` with unit tests for KeychainStore, DeepLinkRouter, UnitPreferenceManager, RetryUtility; created `StepCompUITests/` with launch test.
+- **Files:** 50+ files modified or created (see audit plan for full list).
+- **Prevention:** Use `SupabaseRequestExecutor` for all new Supabase calls; keep views under 500 lines; never commit secrets; add tests for new utilities.

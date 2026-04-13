@@ -13,9 +13,11 @@
 	<key>com.apple.developer.associated-domains</key>
 	<array>
 		<string>applinks:stepcomp.app</string>
+		<string>applinks:fitcomp.app</string>
+		<string>applinks:www.fitcomp.app</string>
 	</array>
 	<key>aps-environment</key>
-	<string>development</string>
+	<string>production</string>
 	<key>com.apple.security.application-groups</key>
 	<array>
 		<string>group.JE.StepComp</string>

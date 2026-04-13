@@ -42,6 +42,22 @@ struct ChallengeChatView: View {
                 ScrollViewReader { proxy in
                     ScrollView {
                         LazyVStack(spacing: 16) {
+                            if viewModel.hasMoreMessages {
+                                Button {
+                                    Task { await viewModel.loadMoreMessages() }
+                                } label: {
+                                    if viewModel.isLoadingMore {
+                                        ProgressView()
+                                            .progressViewStyle(CircularProgressViewStyle(tint: FitCompColors.primary))
+                                    } else {
+                                        Text("Load older messages")
+                                            .font(.system(size: 13, weight: .semibold))
+                                            .foregroundColor(FitCompColors.textSecondary)
+                                    }
+                                }
+                                .padding(.top, 4)
+                            }
+
                             ForEach(viewModel.messages) { message in
                                 ChatMessageRow(
                                     message: message,

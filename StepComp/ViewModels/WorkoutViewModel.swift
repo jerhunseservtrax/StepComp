@@ -22,6 +22,16 @@ private struct ActiveWorkoutDraft: Codable {
 @MainActor
 class WorkoutViewModel: ObservableObject {
     static let shared = WorkoutViewModel()
+
+    struct WeeklyWorkoutProgress {
+        let scheduledCount: Int
+        let completedCount: Int
+
+        var progress: Double {
+            guard scheduledCount > 0 else { return 0 }
+            return Double(completedCount) / Double(scheduledCount)
+        }
+    }
     
     @Published var workouts: [Workout] = []
     @Published var currentSession: WorkoutSession?
@@ -31,16 +41,19 @@ class WorkoutViewModel: ObservableObject {
     @Published var completedSessions: [CompletedWorkoutSession] = []
     @Published var finishedSession: CompletedWorkoutSession?
     @Published var workoutTargetDate: Date? // The date this workout should be logged for
+    @Published var isAutoFinishing: Bool = false
     
     private var timer: Timer?
     private var pauseStartTime: Date?
     private var totalPausedTime: TimeInterval = 0
     private let autoFinishThreshold: TimeInterval = 6 * 3600
     private let analytics = WorkoutAnalyticsEngine()
+    private var autoFinishTask: Task<Void, Never>?
     
     private init() {
         loadWorkouts()
         loadCompletedSessions()
+        backfillPerSideWeightInputModeIfNeeded()
         migrateWeightsToKgIfNeeded()
         loadActiveWorkoutDraftIfAny()
     }
@@ -121,6 +134,17 @@ class WorkoutViewModel: ObservableObject {
                 // If no matching set number, use the first completed set as reference
                 if lastSet == nil {
                     lastSet = lastExercise?.sets.first { $0.isCompleted && $0.weight != nil && $0.reps != nil }
+                }
+
+                // Fallback to global history for this exercise when this workout has no direct history
+                if lastSet == nil {
+                    lastSet = latestCompletedSetForExercise(
+                        exerciseName: workoutExercise.exercise.name,
+                        setNumber: set.setNumber
+                    )
+                }
+                if lastSet == nil {
+                    lastSet = latestCompletedSetForExercise(exerciseName: workoutExercise.exercise.name)
                 }
                 
                 // Calculate progressive overload suggestions using smart engine
@@ -231,6 +255,9 @@ class WorkoutViewModel: ObservableObject {
 
         finishedSession = completedSession
 
+        autoFinishTask?.cancel()
+        autoFinishTask = nil
+        isAutoFinishing = false
         stopTimer()
         currentSession = nil
         sessionStartTime = nil
@@ -242,6 +269,9 @@ class WorkoutViewModel: ObservableObject {
     }
     
     func cancelWorkout() {
+        autoFinishTask?.cancel()
+        autoFinishTask = nil
+        isAutoFinishing = false
         stopTimer()
         currentSession = nil
         sessionStartTime = nil
@@ -255,18 +285,114 @@ class WorkoutViewModel: ObservableObject {
     
     // MARK: - Set Management
     
-    func updateSet(exerciseId: UUID, setId: UUID, weight: Double?, reps: Int?) {
+    func updateSet(
+        exerciseId: UUID,
+        setId: UUID,
+        weight: Double?,
+        reps: Int?,
+        weightInputMode: WorkoutSet.WeightInputMode? = nil
+    ) {
         guard var session = currentSession else { return }
 
         if let exerciseIndex = session.exercises.firstIndex(where: { $0.id == exerciseId }),
            let setIndex = session.exercises[exerciseIndex].sets.firstIndex(where: { $0.id == setId }) {
             session.exercises[exerciseIndex].sets[setIndex].weight = weight
             session.exercises[exerciseIndex].sets[setIndex].reps = reps
+            if let weightInputMode {
+                session.exercises[exerciseIndex].sets[setIndex].weightInputMode = weightInputMode
+            }
             currentSession = session
             saveActiveWorkoutDraft()
         }
     }
+
+    func updateExerciseWeightInputMode(exerciseId: UUID, mode: WorkoutSet.WeightInputMode) {
+        guard var session = currentSession,
+              let exerciseIndex = session.exercises.firstIndex(where: { $0.id == exerciseId }) else { return }
+
+        let multiplier = WorkoutSet.perSideCombinedMultiplier
+        for setIndex in session.exercises[exerciseIndex].sets.indices {
+            let previousMode = session.exercises[exerciseIndex].sets[setIndex].weightInputMode
+            guard previousMode != mode else {
+                session.exercises[exerciseIndex].sets[setIndex].weightInputMode = mode
+                continue
+            }
+
+            if let weight = session.exercises[exerciseIndex].sets[setIndex].weight {
+                switch (previousMode, mode) {
+                case (.total, .perSide):
+                    session.exercises[exerciseIndex].sets[setIndex].weight = weight / multiplier
+                case (.perSide, .total):
+                    session.exercises[exerciseIndex].sets[setIndex].weight = weight * multiplier
+                default:
+                    break
+                }
+            }
+
+            session.exercises[exerciseIndex].sets[setIndex].weightInputMode = mode
+        }
+
+        currentSession = session
+        saveActiveWorkoutDraft()
+    }
+
+    func weeklyScheduledWorkoutProgress(for anchorDate: Date, weekStartsOnMonday: Bool = true) -> WeeklyWorkoutProgress {
+        let calendar = Calendar.current
+        let weekStart = startOfWeek(for: anchorDate, weekStartsOnMonday: weekStartsOnMonday)
+        guard let weekEnd = calendar.date(byAdding: .day, value: 7, to: weekStart) else {
+            return WeeklyWorkoutProgress(scheduledCount: 0, completedCount: 0)
+        }
+
+        struct ScheduledWorkoutInstance: Hashable {
+            let workoutId: UUID
+            let date: Date
+        }
+
+        var scheduledInstances = Set<ScheduledWorkoutInstance>()
+        for workout in workouts {
+            if let oneTimeDate = workout.oneTimeDate {
+                let normalizedDate = calendar.startOfDay(for: oneTimeDate)
+                if normalizedDate >= weekStart && normalizedDate < weekEnd {
+                    scheduledInstances.insert(ScheduledWorkoutInstance(workoutId: workout.id, date: normalizedDate))
+                }
+                continue
+            }
+
+            for offset in 0..<7 {
+                guard let date = calendar.date(byAdding: .day, value: offset, to: weekStart) else { continue }
+                let day = DayOfWeek.from(date: date)
+                guard workout.assignedDays.contains(day) else { continue }
+                scheduledInstances.insert(
+                    ScheduledWorkoutInstance(
+                        workoutId: workout.id,
+                        date: calendar.startOfDay(for: date)
+                    )
+                )
+            }
+        }
+
+        var completedInstances = Set<ScheduledWorkoutInstance>()
+        for session in completedSessions {
+            let sessionDate = calendar.startOfDay(for: session.endTime)
+            guard sessionDate >= weekStart, sessionDate < weekEnd else { continue }
+            let instance = ScheduledWorkoutInstance(workoutId: session.workoutId, date: sessionDate)
+            guard scheduledInstances.contains(instance) else { continue }
+            completedInstances.insert(instance)
+        }
+
+        return WeeklyWorkoutProgress(
+            scheduledCount: scheduledInstances.count,
+            completedCount: completedInstances.count
+        )
+    }
     
+    var allWorkoutSetsCompleted: Bool {
+        guard let session = currentSession, !session.exercises.isEmpty else { return false }
+        return session.exercises.allSatisfy { exercise in
+            !exercise.sets.isEmpty && exercise.sets.allSatisfy(\.isCompleted)
+        }
+    }
+
     func completeSet(exerciseId: UUID, setId: UUID) {
         guard var session = currentSession else { return }
         
@@ -277,6 +403,29 @@ class WorkoutViewModel: ObservableObject {
             HapticManager.shared.success()
             saveActiveWorkoutDraft()
             pushWidgetState()
+
+            if allWorkoutSetsCompleted {
+                scheduleAutoFinish()
+            }
+        }
+    }
+
+    func cancelAutoFinish() {
+        autoFinishTask?.cancel()
+        autoFinishTask = nil
+        isAutoFinishing = false
+    }
+
+    private func scheduleAutoFinish() {
+        autoFinishTask?.cancel()
+        isAutoFinishing = true
+        autoFinishTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(nanoseconds: 1_500_000_000)
+            guard let self, !Task.isCancelled, self.isAutoFinishing, self.allWorkoutSetsCompleted else {
+                self?.isAutoFinishing = false
+                return
+            }
+            self.finishWorkout()
         }
     }
     
@@ -313,6 +462,7 @@ class WorkoutViewModel: ObservableObject {
     }
     
     func addSet(exerciseId: UUID) {
+        cancelAutoFinish()
         guard var session = currentSession else { return }
         
         if let exerciseIndex = session.exercises.firstIndex(where: { $0.id == exerciseId }) {
@@ -469,6 +619,38 @@ class WorkoutViewModel: ObservableObject {
             .first
     }
 
+    private func latestCompletedSetForExercise(exerciseName: String, setNumber: Int) -> WorkoutSet? {
+        let targetName = exerciseName.lowercased()
+        let sortedSessions = completedSessions.sorted { $0.endTime > $1.endTime }
+
+        for session in sortedSessions {
+            for exercise in session.exercises where exercise.exercise.name.lowercased() == targetName {
+                if let matchingSet = exercise.sets.first(where: {
+                    $0.setNumber == setNumber && $0.isCompleted && $0.weight != nil && $0.reps != nil
+                }) {
+                    return matchingSet
+                }
+            }
+        }
+        return nil
+    }
+
+    private func latestCompletedSetForExercise(exerciseName: String) -> WorkoutSet? {
+        let targetName = exerciseName.lowercased()
+        let sortedSessions = completedSessions.sorted { $0.endTime > $1.endTime }
+
+        for session in sortedSessions {
+            for exercise in session.exercises where exercise.exercise.name.lowercased() == targetName {
+                if let completedSet = exercise.sets.first(where: {
+                    $0.isCompleted && $0.weight != nil && $0.reps != nil
+                }) {
+                    return completedSet
+                }
+            }
+        }
+        return nil
+    }
+
     /// Gathers up to the last 10 completed sets for a specific exercise and set number
     /// across all completed sessions, sorted newest first.
     func getExerciseHistory(exerciseName: String, setNumber: Int = 1, limit: Int = 10) -> [HistoricalSet] {
@@ -491,8 +673,8 @@ class WorkoutViewModel: ObservableObject {
                     $0.isCompleted && $0.weight != nil && $0.reps != nil
                 }
 
-                if let set = matchingSet, let weight = set.weight, let reps = set.reps {
-                    results.append(HistoricalSet(date: session.endTime, weight: weight, reps: reps))
+                if let set = matchingSet, let effectiveWeight = set.effectiveWeightForVolume, let reps = set.reps {
+                    results.append(HistoricalSet(date: session.endTime, weight: effectiveWeight, reps: reps))
                 }
             }
         }
@@ -510,8 +692,8 @@ class WorkoutViewModel: ObservableObject {
         for session in sortedSessions.prefix(limit) {
             for exercise in session.exercises {
                 guard exercise.exercise.name.lowercased() == nameLower else { continue }
-                for set in exercise.sets where set.isCompleted && set.weight != nil && set.reps != nil {
-                    results.append(HistoricalSet(date: session.endTime, weight: set.weight!, reps: set.reps!))
+                for set in exercise.sets where set.isCompleted && set.effectiveWeightForVolume != nil && set.reps != nil {
+                    results.append(HistoricalSet(date: session.endTime, weight: set.effectiveWeightForVolume!, reps: set.reps!))
                 }
             }
         }
@@ -562,8 +744,8 @@ class WorkoutViewModel: ObservableObject {
         
         for session in completedSessions {
             for exercise in session.exercises {
-                for set in exercise.sets where set.weight != nil && set.reps != nil && set.reps! <= 10 && set.reps! >= 1 {
-                    let estimated = calculateEstimated1RM(weight: set.weight!, reps: set.reps!)
+                for set in exercise.sets where set.effectiveWeightForVolume != nil && set.reps != nil && set.reps! <= 10 && set.reps! >= 1 {
+                    let estimated = calculateEstimated1RM(weight: set.effectiveWeightForVolume!, reps: set.reps!)
                     maxOneRM = max(maxOneRM, estimated)
                 }
             }
@@ -581,8 +763,8 @@ class WorkoutViewModel: ObservableObject {
                 // Check if exercise name matches (case insensitive, contains)
                 if exerciseMatchesBigThree(exerciseName: exercise.exercise.name, category: exerciseName) {
                     foundExercise = true
-                    for set in exercise.sets where set.weight != nil && set.reps != nil && set.reps! <= 10 && set.reps! >= 1 {
-                        let estimated = calculateEstimated1RM(weight: set.weight!, reps: set.reps!)
+                    for set in exercise.sets where set.effectiveWeightForVolume != nil && set.reps != nil && set.reps! <= 10 && set.reps! >= 1 {
+                        let estimated = calculateEstimated1RM(weight: set.effectiveWeightForVolume!, reps: set.reps!)
                         maxOneRM = max(maxOneRM, estimated)
                     }
                 }
@@ -940,5 +1122,62 @@ class WorkoutViewModel: ObservableObject {
         
         // Mark migration as complete
         UserDefaults.standard.set(true, forKey: migrationKey)
+    }
+
+    /// Best-effort migration for legacy set data that was likely entered as per-side load.
+    /// Applies only once and only to high-confidence dumbbell naming patterns.
+    private func backfillPerSideWeightInputModeIfNeeded() {
+        let migrationKey = "set_weight_mode_per_side_backfill_v1"
+        guard !UserDefaults.standard.bool(forKey: migrationKey) else { return }
+
+        var didMigrate = false
+
+        completedSessions = completedSessions.map { session in
+            let migratedExercises = session.exercises.map { exercise in
+                guard shouldDefaultToPerSide(exerciseName: exercise.exercise.name) else {
+                    return exercise
+                }
+                let migratedSets = exercise.sets.map { set -> WorkoutSet in
+                    guard set.weightInputMode == .total else { return set }
+                    var updated = set
+                    updated.weightInputMode = .perSide
+                    didMigrate = true
+                    return updated
+                }
+                return WorkoutExercise(id: exercise.id, exercise: exercise.exercise, sets: migratedSets)
+            }
+            return CompletedWorkoutSession(
+                id: session.id,
+                workoutId: session.workoutId,
+                workoutName: session.workoutName,
+                startTime: session.startTime,
+                endTime: session.endTime,
+                exercises: migratedExercises
+            )
+        }
+
+        if didMigrate {
+            saveCompletedSessions()
+            print("✅ Backfilled per-side logging mode for legacy dumbbell sets")
+        }
+
+        UserDefaults.standard.set(true, forKey: migrationKey)
+    }
+
+    private func shouldDefaultToPerSide(exerciseName: String) -> Bool {
+        let name = exerciseName.lowercased()
+        return name.contains("dumbbell")
+            || name.contains(" db ")
+            || name.hasPrefix("db ")
+            || name.contains("(db")
+            || name.contains("arnold press")
+    }
+
+    private func startOfWeek(for date: Date, weekStartsOnMonday: Bool = true) -> Date {
+        let calendar = Calendar.current
+        let normalizedDate = calendar.startOfDay(for: date)
+        let weekday = calendar.component(.weekday, from: normalizedDate)
+        let daysFromStart = weekStartsOnMonday ? (weekday + 5) % 7 : (weekday - 1)
+        return calendar.date(byAdding: .day, value: -daysFromStart, to: normalizedDate) ?? normalizedDate
     }
 }

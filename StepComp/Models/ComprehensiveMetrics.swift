@@ -44,6 +44,19 @@ struct MuscleGroupVolume: Identifiable, Codable, Hashable {
     let volume: Double
 }
 
+/// Push/pull and lower-chain volume ratios derived from weighted muscle-group totals.
+struct MovementPatternBalance: Codable, Hashable {
+    let pushVolume: Double
+    let pullVolume: Double
+    let quadVolume: Double
+    let posteriorLegVolume: Double
+    /// Push divided by pull when pull volume is positive. Near 1.0 is balanced; above 1 means more push than pull.
+    let pushPullRatio: Double?
+    /// (Hamstrings + glutes) divided by quads when quad volume is positive. Near 1.0 is balanced lower-chain volume.
+    let posteriorToQuadRatio: Double?
+    let hasData: Bool
+}
+
 struct BodyMetricEntry: Identifiable, Codable, Hashable {
     let id: UUID
     let recordedOn: Date
@@ -250,6 +263,7 @@ struct PerformancePillarData: Codable, Hashable {
     let trainingLoadBalance: TrainingLoadBalance
     let plateauDetection: PlateauDetection
     let muscleBalance: [MuscleGroupVolume]
+    let movementPatternBalance: MovementPatternBalance
     let prVelocity: PRVelocity
 }
 

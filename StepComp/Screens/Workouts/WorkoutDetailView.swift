@@ -480,7 +480,7 @@ struct SetPreviewRow: View {
 #Preview {
     let sampleExercises = [
         WorkoutExercise(
-            exercise: Exercise(name: "Barbell Bench Press", targetMuscles: "Chest, Triceps"),
+            exercise: Exercise(name: "Bench Press", targetMuscles: "Chest, Triceps"),
             sets: [
                 WorkoutSet(setNumber: 1, previousWeight: 135, previousReps: 8),
                 WorkoutSet(setNumber: 2, previousWeight: 135, previousReps: 8),
@@ -488,7 +488,7 @@ struct SetPreviewRow: View {
             ]
         ),
         WorkoutExercise(
-            exercise: Exercise(name: "Incline Dumbbell Press", targetMuscles: "Upper Chest"),
+            exercise: Exercise(name: "Incline Bench Press (Dumbbell)", targetMuscles: "Upper Chest"),
             sets: [
                 WorkoutSet(setNumber: 1, previousWeight: 50, previousReps: 10),
                 WorkoutSet(setNumber: 2, previousWeight: 50, previousReps: 10),

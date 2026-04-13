@@ -13,18 +13,13 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         _ application: UIApplication,
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey : Any]? = nil
     ) -> Bool {
-        // Register for remote notifications to enable app icon in notifications
-        // Even if not using push notifications yet, this ensures the app icon appears
-        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .badge, .sound]) { granted, error in
-            if granted {
-                print("✅ Notification authorization granted")
-                DispatchQueue.main.async {
-                    application.registerForRemoteNotifications()
-                }
-            } else if let error = error {
-                print("⚠️ Notification authorization error: \(error.localizedDescription)")
-            } else {
-                print("⚠️ Notification authorization denied by user")
+        // Avoid duplicate authorization prompts; request flow is centralized in NotificationManager.
+        UNUserNotificationCenter.current().getNotificationSettings { settings in
+            guard settings.authorizationStatus == .authorized || settings.authorizationStatus == .provisional else {
+                return
+            }
+            DispatchQueue.main.async {
+                application.registerForRemoteNotifications()
             }
         }
         return true
@@ -50,6 +45,7 @@ class AppDelegate: NSObject, UIApplicationDelegate {
     ) {
         print("⚠️ Failed to register for remote notifications: \(error)")
         print("ℹ️  This is normal in Simulator - test on a real device for APNs")
+        CrashReportingService.capture(error: error, context: "apns_registration")
         // Notifications will still work, but app icon may not appear in Simulator
     }
 }

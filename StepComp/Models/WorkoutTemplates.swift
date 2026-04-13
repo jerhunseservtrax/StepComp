@@ -116,12 +116,12 @@ extension WorkoutSplitTemplate {
             SplitDay(
                 name: "Full Body B",
                 muscleGroups: MuscleGroup.allCases,
-                pinnedExercises: ["Deadlift", "Incline Dumbbell Press", "Lat Pulldown", "Lateral Raise", "Hammer Curl", "Skull Crushers", "Hanging Leg Raise"]
+                pinnedExercises: ["Deadlift", "Incline Bench Press (Dumbbell)", "Lat Pulldown", "Lateral Raise", "Hammer Curl", "Skull Crushers", "Hanging Leg Raise"]
             ),
             SplitDay(
                 name: "Full Body C",
                 muscleGroups: MuscleGroup.allCases,
-                pinnedExercises: ["Front Squat", "Chest Dip", "Cable Row", "Arnold Press", "EZ Bar Curl", "Dips", "Russian Twist"]
+                pinnedExercises: ["Front Squat", "Cable Row", "Arnold Press", "EZ Bar Curl", "Dips", "Russian Twist"]
             ),
         ],
         daysPerWeek: 3,
@@ -149,7 +149,7 @@ extension WorkoutSplitTemplate {
             SplitDay(
                 name: "Push",
                 muscleGroups: [.chest, .shoulders, .triceps],
-                pinnedExercises: ["Bench Press", "Incline Dumbbell Press", "Overhead Press", "Lateral Raise", "Tricep Extension", "Cable Fly"]
+                pinnedExercises: ["Bench Press", "Incline Bench Press (Dumbbell)", "Overhead Press", "Lateral Raise", "Tricep Extension", "Cable Fly"]
             ),
             SplitDay(
                 name: "Pull",
@@ -196,7 +196,7 @@ extension WorkoutSplitTemplate {
             SplitDay(
                 name: "Upper B (Hypertrophy)",
                 muscleGroups: [.chest, .back, .shoulders, .biceps, .triceps],
-                pinnedExercises: ["Incline Dumbbell Press", "Cable Row", "Lateral Raise", "Hammer Curl", "Tricep Extension"]
+                pinnedExercises: ["Incline Bench Press (Dumbbell)", "Cable Row", "Lateral Raise", "Hammer Curl", "Tricep Extension"]
             ),
             SplitDay(
                 name: "Lower B (Hypertrophy)",
@@ -228,7 +228,7 @@ extension WorkoutSplitTemplate {
             SplitDay(
                 name: "Chest",
                 muscleGroups: [.chest],
-                pinnedExercises: ["Bench Press", "Incline Dumbbell Press", "Cable Fly", "Chest Dip", "Decline Bench Press"]
+                pinnedExercises: ["Bench Press", "Incline Bench Press (Dumbbell)", "Cable Fly", "Dips", "Decline Bench Press"]
             ),
             SplitDay(
                 name: "Back",
@@ -286,7 +286,7 @@ extension WorkoutSplitTemplate {
             SplitDay(
                 name: "Push Hypertrophy",
                 muscleGroups: [.chest, .shoulders, .triceps],
-                pinnedExercises: ["Incline Dumbbell Press", "Cable Fly", "Lateral Raise", "Arnold Press", "Tricep Extension"]
+                pinnedExercises: ["Incline Bench Press (Dumbbell)", "Cable Fly", "Lateral Raise", "Arnold Press", "Tricep Extension"]
             ),
             SplitDay(
                 name: "Pull Hypertrophy",
@@ -318,7 +318,7 @@ extension WorkoutSplitTemplate {
             SplitDay(
                 name: "Chest & Back",
                 muscleGroups: [.chest, .back],
-                pinnedExercises: ["Bench Press", "Incline Dumbbell Press", "Barbell Row", "Chin-Up", "Cable Fly", "Lat Pulldown"]
+                pinnedExercises: ["Bench Press", "Incline Bench Press (Dumbbell)", "Barbell Row", "Chin-Up", "Cable Fly", "Lat Pulldown"]
             ),
             SplitDay(
                 name: "Shoulders & Arms",
@@ -370,7 +370,7 @@ extension WorkoutSplitTemplate {
             SplitDay(
                 name: "Hypertrophy",
                 muscleGroups: [.chest, .back, .shoulders, .biceps, .triceps, .quads, .hamstrings],
-                pinnedExercises: ["Incline Dumbbell Press", "Cable Row", "Lateral Raise", "Hammer Curl", "Leg Press", "Leg Curl"]
+                pinnedExercises: ["Incline Bench Press (Dumbbell)", "Cable Row", "Lateral Raise", "Hammer Curl", "Leg Press", "Leg Curl"]
             ),
         ],
         daysPerWeek: 4,

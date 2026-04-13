@@ -44,6 +44,8 @@ struct LeaderboardView: View {
                             .foregroundColor(.primary)
                             .frame(width: 40, height: 40)
                     }
+                    .accessibilityLabel("Back")
+                    .accessibilityHint("Return to the previous screen.")
                     
                     Spacer()
                     
@@ -58,6 +60,8 @@ struct LeaderboardView: View {
                             .foregroundColor(.primary)
                             .frame(width: 40, height: 40)
                     }
+                    .accessibilityLabel("More options")
+                    .accessibilityHint("Additional leaderboard actions.")
                 }
                 .padding(.horizontal, 16)
                 .padding(.top, 8)
@@ -88,7 +92,7 @@ struct LeaderboardView: View {
                         } else {
                             // Podium Section (Top 3)
                             PodiumView(
-                                entries: Array(viewModel.entries.prefix(3)),
+                                entries: Array(viewModel.visibleEntries.prefix(3)),
                                 currentUserId: sessionViewModel.currentUser?.id ?? ""
                             )
                             .padding(.top, 32)
@@ -96,13 +100,20 @@ struct LeaderboardView: View {
                             .padding(.horizontal, 16)
                             
                             // List Section (Ranks 4+)
-                            if viewModel.entries.count > 3 {
+                            if viewModel.visibleEntries.count > 3 {
                                 VStack(spacing: 12) {
-                                    ForEach(Array(viewModel.entries.dropFirst(3))) { entry in
+                                    ForEach(Array(viewModel.visibleEntries.dropFirst(3))) { entry in
                                         LeaderboardListRow(
                                             entry: entry,
                                             isCurrentUser: entry.userId == sessionViewModel.currentUser?.id ?? ""
                                         )
+                                    }
+                                    if viewModel.canLoadMore {
+                                        Button("Load more") {
+                                            viewModel.loadMore()
+                                        }
+                                        .font(.system(size: 13, weight: .semibold))
+                                        .foregroundColor(FitCompColors.textSecondary)
                                     }
                                 }
                                 .padding(.horizontal, 16)
@@ -318,6 +329,9 @@ struct PodiumCard: View {
                     .offset(y: -12)
             }
         }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(podiumAccessibilityLabel)
+        .accessibilityValue(podiumAccessibilityValue)
     }
     
     private func formatName(_ name: String) -> String {
@@ -330,6 +344,28 @@ struct PodiumCard: View {
     
     private func formatSteps(_ steps: Int) -> String {
         return steps.formatted()
+    }
+    
+    private var podiumAccessibilityLabel: String {
+        let place: String
+        switch rank {
+        case 1: place = "First place"
+        case 2: place = "Second place"
+        case 3: place = "Third place"
+        default: place = "Rank \(rank)"
+        }
+        return "\(place), \(formatName(entry.displayName))"
+    }
+    
+    private var podiumAccessibilityValue: String {
+        var value = "\(formatSteps(entry.steps)) steps"
+        if isCurrentUser {
+            value += ", you"
+        }
+        if isWinner {
+            value += ", leader"
+        }
+        return value
     }
 }
 
@@ -401,6 +437,9 @@ struct LeaderboardListRow: View {
             RoundedRectangle(cornerRadius: 12)
                 .stroke(Color(.systemBackground), lineWidth: 1)
         )
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(entry.displayName), rank \(entry.rank)")
+        .accessibilityValue("\(entry.steps.formatted()) steps")
     }
 }
 
@@ -468,6 +507,9 @@ struct UserStatsFooter: View {
                 .fill(Color.black)
                 .shadow(color: Color.black.opacity(0.2), radius: 20, x: 0, y: 10)
         )
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Your leaderboard stats")
+        .accessibilityValue("Rank \(entry.rank), \(entry.steps.formatted()) steps, \(stepsLabel)")
     }
 }
 

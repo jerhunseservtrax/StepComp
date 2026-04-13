@@ -35,37 +35,16 @@ final class MetricsService: ObservableObject {
             return
         }
 
-        var setsArray: [AnyJSON] = []
-        for exercise in session.exercises {
-            for workoutSet in exercise.sets {
-                var setDict: [String: AnyJSON] = [
-                    "exercise_name": .string(exercise.exercise.name),
-                    "target_muscles": .string(exercise.exercise.targetMuscles),
-                    "set_number": .integer(workoutSet.setNumber),
-                    "is_completed": .bool(workoutSet.isCompleted)
-                ]
-                if let w = workoutSet.weight { setDict["weight_kg"] = .integer(Int(w.rounded())) }
-                if let r = workoutSet.reps { setDict["reps"] = .integer(r) }
-                setsArray.append(.object(setDict))
-            }
-        }
-
-        let isoFormatter = ISO8601DateFormatter()
-        let sessionPayload: [String: AnyJSON] = [
-            "workout_id": .string(session.workoutId.uuidString),
-            "workout_name": .string(session.workoutName),
-            "started_at": .string(isoFormatter.string(from: session.startTime)),
-            "ended_at": .string(isoFormatter.string(from: session.endTime)),
-            "source": .string("app"),
-            "sets": .array(setsArray)
-        ]
+        let sessionPayload = sessionPayload(for: session)
 
         do {
-            _ = try await supabase
-                .rpc("sync_workout_session", params: [
-                    "p_session": .object(sessionPayload)
-                ] as [String: AnyJSON])
-                .execute()
+            _ = try await SupabaseRequestExecutor.executeWithAuthRetry(context: "sync_workout_session") {
+                try await supabase
+                    .rpc("sync_workout_session", params: [
+                        "p_session": .object(sessionPayload)
+                    ] as [String: AnyJSON])
+                    .execute()
+            }
 
             markSessionSynced(session.id)
             print("✅ [MetricsService] Synced workout session: \(session.workoutName)")
@@ -92,13 +71,15 @@ final class MetricsService: ObservableObject {
         let dateString = dateFormatter.string(from: entry.date)
 
         do {
-            _ = try await supabase
-                .rpc("sync_weight_entry", params: [
-                    "p_date": dateString,
-                    "p_weight_kg": String(entry.weightKg),
-                    "p_source": entry.source == .healthKit ? "healthKit" : "manual"
-                ])
-                .execute()
+            _ = try await SupabaseRequestExecutor.executeWithAuthRetry(context: "sync_weight_entry") {
+                try await supabase
+                    .rpc("sync_weight_entry", params: [
+                        "p_date": dateString,
+                        "p_weight_kg": String(entry.weightKg),
+                        "p_source": entry.source == .healthKit ? "healthKit" : "manual"
+                    ])
+                    .execute()
+            }
 
             markWeightEntrySynced(entry.id)
             print("✅ [MetricsService] Synced weight entry: \(entry.weightKg) kg on \(dateString)")
@@ -131,8 +112,18 @@ final class MetricsService: ObservableObject {
 
         if !unsyncedSessions.isEmpty {
             print("🔄 [MetricsService] Syncing \(unsyncedSessions.count) unsynced workout sessions...")
-            for session in unsyncedSessions {
-                await syncWorkoutSession(session)
+            let batchPayload = unsyncedSessions.map { AnyJSON.object(sessionPayload(for: $0)) }
+            do {
+                _ = try await SupabaseRequestExecutor.executeWithAuthRetry(context: "sync_workout_sessions_batch") {
+                    try await supabase
+                        .rpc("sync_workout_sessions_batch", params: ["p_sessions": .array(batchPayload)] as [String: AnyJSON])
+                        .execute()
+                }
+                unsyncedSessions.forEach { markSessionSynced($0.id) }
+            } catch {
+                for session in unsyncedSessions {
+                    await syncWorkoutSession(session)
+                }
             }
         }
 
@@ -141,8 +132,26 @@ final class MetricsService: ObservableObject {
 
         if !unsyncedEntries.isEmpty {
             print("🔄 [MetricsService] Syncing \(unsyncedEntries.count) unsynced weight entries...")
-            for entry in unsyncedEntries {
-                await syncWeightEntry(entry)
+            let formatter = DateFormatter()
+            formatter.dateFormat = "yyyy-MM-dd"
+            let batchPayload: [AnyJSON] = unsyncedEntries.map { entry in
+                .object([
+                    "date": .string(formatter.string(from: entry.date)),
+                    "weight_kg": .string(String(entry.weightKg)),
+                    "source": .string(entry.source == .healthKit ? "healthKit" : "manual")
+                ])
+            }
+            do {
+                _ = try await SupabaseRequestExecutor.executeWithAuthRetry(context: "sync_weight_entries_batch") {
+                    try await supabase
+                        .rpc("sync_weight_entries_batch", params: ["p_entries": .array(batchPayload)] as [String: AnyJSON])
+                        .execute()
+                }
+                unsyncedEntries.forEach { markWeightEntrySynced($0.id) }
+            } catch {
+                for entry in unsyncedEntries {
+                    await syncWeightEntry(entry)
+                }
             }
         }
 
@@ -158,15 +167,13 @@ final class MetricsService: ObservableObject {
 
     func fetchMetricsSummary(days: Int = 30) async -> MetricsSummary? {
         #if canImport(Supabase)
-        do {
-            let result: MetricsSummary = try await supabase
-                .rpc("get_user_metrics_summary", params: ["p_days": String(days)])
-                .execute()
-                .value
-            return result
-        } catch {
-            print("❌ [MetricsService] Failed to fetch metrics summary: \(error.localizedDescription)")
-            return nil
+        return await OfflineCacheService.fetchWithFallback(key: "metrics_summary_\(days)") {
+            try await SupabaseRequestExecutor.executeWithAuthRetry(context: "fetch_metrics_summary") {
+                try await supabase
+                    .rpc("get_user_metrics_summary", params: ["p_days": String(days)])
+                    .execute()
+                    .value
+            }
         }
         #else
         return nil
@@ -178,13 +185,15 @@ final class MetricsService: ObservableObject {
     func fetchExerciseHistory(exerciseName: String, days: Int = 90) async -> [ExerciseHistoryPoint] {
         #if canImport(Supabase)
         do {
-            let results: [ExerciseHistoryPoint] = try await supabase
-                .rpc("get_exercise_history", params: [
-                    "p_exercise_name": exerciseName,
-                    "p_days": String(days)
-                ])
-                .execute()
-                .value
+            let results: [ExerciseHistoryPoint] = try await SupabaseRequestExecutor.executeWithAuthRetry(context: "fetch_exercise_history") {
+                try await supabase
+                    .rpc("get_exercise_history", params: [
+                        "p_exercise_name": exerciseName,
+                        "p_days": String(days)
+                    ])
+                    .execute()
+                    .value
+            }
             return results
         } catch {
             print("❌ [MetricsService] Failed to fetch exercise history: \(error.localizedDescription)")
@@ -200,11 +209,7 @@ final class MetricsService: ObservableObject {
     func fetchPersonalRecords(exerciseName: String? = nil) async -> [PersonalRecord] {
         #if canImport(Supabase)
         do {
-            let query = supabase
-                .from("personal_records")
-                .select()
-                .order("achieved_at", ascending: false)
-                .limit(100)
+            let query = supabase.from("personal_records").select().order("achieved_at", ascending: false).limit(100)
             struct PersonalRecordRow: Codable {
                 let id: UUID
                 let exercise_name: String
@@ -212,7 +217,9 @@ final class MetricsService: ObservableObject {
                 let value: Double
                 let achieved_at: Date
             }
-            let rows: [PersonalRecordRow] = try await query.execute().value
+            let rows: [PersonalRecordRow] = try await SupabaseRequestExecutor.executeWithAuthRetry(context: "fetch_personal_records") {
+                try await query.execute().value
+            }
             return rows.compactMap { row in
                 if let exerciseName, !exerciseName.isEmpty, row.exercise_name != exerciseName {
                     return nil
@@ -311,15 +318,13 @@ final class MetricsService: ObservableObject {
 
     func fetchWeightHistory(days: Int = 90) async -> [WeightHistoryPoint] {
         #if canImport(Supabase)
-        do {
-            let results: [WeightHistoryPoint] = try await supabase
-                .rpc("get_weight_history", params: ["p_days": String(days)])
-                .execute()
-                .value
-            return results
-        } catch {
-            print("❌ [MetricsService] Failed to fetch weight history: \(error.localizedDescription)")
-            return []
+        return await OfflineCacheService.fetchArrayWithFallback(key: "weight_history_\(days)") {
+            try await SupabaseRequestExecutor.executeWithAuthRetry(context: "fetch_weight_history") {
+                try await supabase
+                    .rpc("get_weight_history", params: ["p_days": String(days)])
+                    .execute()
+                    .value
+            }
         }
         #else
         return []
@@ -330,15 +335,13 @@ final class MetricsService: ObservableObject {
 
     func fetchWorkoutHistory(days: Int = 90) async -> [WorkoutHistoryPoint] {
         #if canImport(Supabase)
-        do {
-            let results: [WorkoutHistoryPoint] = try await supabase
-                .rpc("get_workout_history", params: ["p_days": String(days)])
-                .execute()
-                .value
-            return results
-        } catch {
-            print("❌ [MetricsService] Failed to fetch workout history: \(error.localizedDescription)")
-            return []
+        return await OfflineCacheService.fetchArrayWithFallback(key: "workout_history_\(days)") {
+            try await SupabaseRequestExecutor.executeWithAuthRetry(context: "fetch_workout_history") {
+                try await supabase
+                    .rpc("get_workout_history", params: ["p_days": String(days)])
+                    .execute()
+                    .value
+            }
         }
         #else
         return []
@@ -347,13 +350,47 @@ final class MetricsService: ObservableObject {
 
     // MARK: - Sync Tracking (UserDefaults)
 
+    private func sessionPayload(for session: CompletedWorkoutSession) -> [String: AnyJSON] {
+        var setsArray: [AnyJSON] = []
+        for exercise in session.exercises {
+            for workoutSet in exercise.sets {
+                var setDict: [String: AnyJSON] = [
+                    "exercise_name": .string(exercise.exercise.name),
+                    "target_muscles": .string(exercise.exercise.targetMuscles),
+                    "set_number": .integer(workoutSet.setNumber),
+                    "is_completed": .bool(workoutSet.isCompleted)
+                ]
+                if let w = workoutSet.effectiveWeightForVolume { setDict["weight_kg"] = .integer(Int(w.rounded())) }
+                if let r = workoutSet.reps { setDict["reps"] = .integer(r) }
+                setsArray.append(.object(setDict))
+            }
+        }
+
+        let isoFormatter = ISO8601DateFormatter()
+        return [
+            "workout_id": .string(session.workoutId.uuidString),
+            "workout_name": .string(session.workoutName),
+            "started_at": .string(isoFormatter.string(from: session.startTime)),
+            "ended_at": .string(isoFormatter.string(from: session.endTime)),
+            "source": .string("app"),
+            "sets": .array(setsArray)
+        ]
+    }
+
     private func getSyncedSessionIds() -> Set<String> {
         Set(UserDefaults.standard.stringArray(forKey: syncedSessionsKey) ?? [])
     }
 
+    private let maxTrackedSyncIds = 500
+
     private func markSessionSynced(_ id: UUID) {
         var ids = UserDefaults.standard.stringArray(forKey: syncedSessionsKey) ?? []
-        ids.append(id.uuidString)
+        let idString = id.uuidString
+        guard !ids.contains(idString) else { return }
+        ids.append(idString)
+        if ids.count > maxTrackedSyncIds {
+            ids = Array(ids.suffix(maxTrackedSyncIds))
+        }
         UserDefaults.standard.set(ids, forKey: syncedSessionsKey)
     }
 
@@ -363,7 +400,12 @@ final class MetricsService: ObservableObject {
 
     private func markWeightEntrySynced(_ id: UUID) {
         var ids = UserDefaults.standard.stringArray(forKey: syncedWeightEntriesKey) ?? []
-        ids.append(id.uuidString)
+        let idString = id.uuidString
+        guard !ids.contains(idString) else { return }
+        ids.append(idString)
+        if ids.count > maxTrackedSyncIds {
+            ids = Array(ids.suffix(maxTrackedSyncIds))
+        }
         UserDefaults.standard.set(ids, forKey: syncedWeightEntriesKey)
     }
 }

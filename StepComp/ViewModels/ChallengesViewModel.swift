@@ -24,6 +24,9 @@ final class ChallengesViewModel: ObservableObject {
     private let userId: String
     private var loadChallengesTask: Task<Void, Never>?
     private var loadArchivedTask: Task<Void, Never>?
+    private let publicPageSize = 40
+    private var publicChallengesOffset = 0
+    @Published var hasMorePublicChallenges = true
     
     init(userId: String) {
         self.userId = userId
@@ -43,6 +46,8 @@ final class ChallengesViewModel: ObservableObject {
             guard let self else { return }
             self.isLoading = true
             self.errorMessage = nil
+            self.publicChallengesOffset = 0
+            self.hasMorePublicChallenges = true
             
             #if canImport(Supabase)
             await self.loadChallengesFromSupabase()
@@ -153,6 +158,8 @@ final class ChallengesViewModel: ObservableObject {
                 .select()
                 .eq("is_public", value: true)
                 .gte("end_date", value: ISO8601DateFormatter().string(from: Date()))
+                .order("created_at", ascending: false)
+                .range(from: publicChallengesOffset, to: publicChallengesOffset + publicPageSize - 1)
                 .execute()
                 .value
             
@@ -161,11 +168,9 @@ final class ChallengesViewModel: ObservableObject {
                 !participatingChallengeIds.contains(challenge.id)
             }
             
-            // Sort by created_at descending (newest first)
-            let sortedPublicChallenges = discoverableChallenges.sorted { $0.createdAt > $1.createdAt }
-            
             // Convert to Challenge models
-            let allPublic = try await convertToChallenges(sortedPublicChallenges)
+            let allPublic = try await convertToChallenges(discoverableChallenges)
+            hasMorePublicChallenges = allPublicChallenges.count >= publicPageSize
             
             // Show only public challenges that user is NOT already participating in
             // This allows users to discover and join new challenges
@@ -182,6 +187,36 @@ final class ChallengesViewModel: ObservableObject {
                 publicChallenges = []
                 archivedChallenges = []
             }
+        }
+    }
+
+    func loadMorePublicChallenges() async {
+        guard hasMorePublicChallenges else { return }
+        publicChallengesOffset += publicPageSize
+        
+        do {
+            _ = try await supabase.auth.session
+            
+            let participatingChallengeIds = Set(activeChallenges.map { $0.id })
+            
+            let nextPage: [SupabaseChallenge] = try await supabase
+                .from("challenges")
+                .select()
+                .eq("is_public", value: true)
+                .gte("end_date", value: ISO8601DateFormatter().string(from: Date()))
+                .order("created_at", ascending: false)
+                .range(from: publicChallengesOffset, to: publicChallengesOffset + publicPageSize - 1)
+                .execute()
+                .value
+            
+            hasMorePublicChallenges = nextPage.count >= publicPageSize
+            
+            let discoverable = nextPage.filter { !participatingChallengeIds.contains($0.id) }
+            let converted = try await convertToChallenges(discoverable)
+            
+            publicChallenges.append(contentsOf: converted)
+        } catch {
+            print("⚠️ Error loading more public challenges: \(error.localizedDescription)")
         }
     }
     

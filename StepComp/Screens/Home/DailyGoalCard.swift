@@ -28,6 +28,7 @@ struct DailyGoalCard: View {
     // Toggle view mode
     @State private var viewMode: ViewMode = .circular
     @State private var barAnimationProgress: Double = 0
+    @State private var tappedBarIndex: Int? = nil
     
     enum ViewMode {
         case circular
@@ -45,6 +46,15 @@ struct DailyGoalCard: View {
     
     private var percentage: Int {
         Int(rawProgress * 100)
+    }
+    
+    private var accessibilityStepRingSummary: String {
+        let current = formatNumber(currentSteps)
+        let goal = formatNumber(dailyGoal)
+        if isGoalExceeded {
+            return "\(current) steps, goal \(goal), goal reached"
+        }
+        return "\(current) of \(goal) steps, \(percentage) percent of daily goal"
     }
     
     var body: some View {
@@ -252,6 +262,13 @@ struct DailyGoalCard: View {
                 animatedProgress = newValue
             }
         }
+        .onChange(of: selectedDate) { _, _ in
+            // Clear manual bar selection when the calendar date changes.
+            tappedBarIndex = nil
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Daily step goal progress")
+        .accessibilityValue(accessibilityStepRingSummary)
     }
     
     @ViewBuilder
@@ -300,7 +317,7 @@ struct DailyGoalCard: View {
                     .font(.system(size: 16, weight: .bold))
                     .foregroundColor(FitCompColors.textPrimary)
                 Spacer()
-                Text("\(formatNumber(currentSteps)) steps")
+                Text("\(formatNumber(selectedBarSteps ?? currentSteps)) steps")
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundColor(FitCompColors.textSecondary)
             }
@@ -313,11 +330,40 @@ struct DailyGoalCard: View {
                         RoundedRectangle(cornerRadius: 22)
                             .fill(FitCompColors.surfaceElevated)
 
+                        HStack(alignment: .bottom, spacing: 9) {
+                            ForEach(displayedBars, id: \.index) { entry in
+                                BarView(
+                                    steps: entry.steps,
+                                    dailyGoal: dailyGoal,
+                                    maxSteps: chartMaxSteps,
+                                    animationProgress: barAnimationProgress,
+                                    dayLabel: dayLabel(for: entry.index),
+                                    isToday: isToday(entry.index),
+                                    isSelected: isSelectedDate(entry.index) || tappedBarIndex == entry.index,
+                                    colorScheme: colorScheme,
+                                    trackHeight: barTrackHeight,
+                                    showValue: isToday(entry.index) || isSelectedDate(entry.index) || tappedBarIndex == entry.index,
+                                    onTap: {
+                                        if tappedBarIndex == entry.index {
+                                            tappedBarIndex = nil
+                                        } else {
+                                            tappedBarIndex = entry.index
+                                        }
+                                    }
+                                )
+                                .frame(width: 40)
+                                .id(entry.index)
+                            }
+                        }
+                        .padding(.horizontal, 14)
+                        .padding(.top, barGroupTopPadding)
+                        .padding(.bottom, 10)
+
                         GeometryReader { geometry in
                             let goalY = goalLineOffsetY(maxSteps: chartMaxSteps)
 
                             Rectangle()
-                                .fill(FitCompColors.primary.opacity(0.85))
+                                .fill(FitCompColors.primary.opacity(0.9))
                                 .frame(height: 2)
                                 .padding(.horizontal, 12)
                                 .offset(y: goalY)
@@ -337,30 +383,9 @@ struct DailyGoalCard: View {
                                     y: goalY - 12
                                 )
                         }
-
-                        HStack(alignment: .bottom, spacing: 9) {
-                            ForEach(displayedBars, id: \.index) { entry in
-                                BarView(
-                                    steps: entry.steps,
-                                    dailyGoal: dailyGoal,
-                                    maxSteps: chartMaxSteps,
-                                    animationProgress: barAnimationProgress,
-                                    dayLabel: dayLabel(for: entry.index),
-                                    isToday: isToday(entry.index),
-                                    isSelected: isSelectedDate(entry.index),
-                                    colorScheme: colorScheme,
-                                    trackHeight: barTrackHeight,
-                                    showValue: isToday(entry.index) || isSelectedDate(entry.index)
-                                )
-                                .frame(width: 40)
-                                .id(entry.index)
-                            }
-                        }
-                        .padding(.horizontal, 14)
-                        .padding(.top, barGroupTopPadding)
-                        .padding(.bottom, 10)
+                        .allowsHitTesting(false)
                     }
-                    .frame(height: 228)
+                    .frame(height: 238)
                     .frame(minWidth: CGFloat(displayedBars.count) * 49 + 30)
                 }
                 .onAppear {
@@ -394,6 +419,11 @@ struct DailyGoalCard: View {
         let cappedGoal = min(max(dailyGoal, 0), maxSteps)
         let goalHeight = CGFloat(cappedGoal) / CGFloat(maxSteps) * barTrackHeight
         return barGroupTopPadding + (barTrackHeight - goalHeight)
+    }
+
+    private var selectedBarSteps: Int? {
+        guard let tappedBarIndex else { return nil }
+        return displayedBars.first(where: { $0.index == tappedBarIndex })?.steps
     }
 
     
@@ -687,12 +717,20 @@ struct BarView: View {
     let colorScheme: ColorScheme
     let trackHeight: CGFloat
     let showValue: Bool
+    let onTap: () -> Void
     
     @State private var barScale: CGFloat = 1.0
     @State private var barAnimationProgress: CGFloat = 0
     
     var body: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: 6) {
+            Text(showValue && steps > 0 ? formatNumberShort(steps) : " ")
+                .font(.system(size: 11, weight: .bold))
+                .foregroundColor(FitCompColors.textPrimary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+                .frame(height: 14)
+
             ZStack(alignment: .bottom) {
                 Capsule()
                     .fill(colorScheme == .dark
@@ -721,17 +759,10 @@ struct BarView: View {
                         )
                 }
             }
-            .overlay(alignment: .top) {
-                if showValue && steps > 0 {
-                    Text(formatNumberShort(steps))
-                        .font(.system(size: 11, weight: .bold))
-                        .foregroundColor(FitCompColors.textPrimary)
-                        .offset(y: -16)
-                }
-            }
             .scaleEffect(isSelected ? 1.03 : barScale)
             .onTapGesture {
                 HapticManager.shared.light()
+                onTap()
 
                 withAnimation(.spring(response: 0.25, dampingFraction: 0.7)) {
                     barScale = 1.05

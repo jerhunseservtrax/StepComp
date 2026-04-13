@@ -514,24 +514,24 @@ final class ChallengeService: ObservableObject {
     
     #if canImport(Supabase)
     private func getLeaderboardFromSupabase(challengeId: String) async -> [LeaderboardEntry] {
-        // Use server-side RPC function (secure, validated, computed from daily_steps)
+        let cacheKey = "leaderboard_\(challengeId)"
         do {
-            let serverEntries: [ServerLeaderboardEntry] = try await supabase
-                .rpc("get_challenge_leaderboard", params: ["p_challenge_id": challengeId])
-                .execute()
-                .value
-            
-            // Convert to client model
+            let serverEntries: [ServerLeaderboardEntry] = try await SupabaseRequestExecutor.executeWithAuthRetry(context: "get_leaderboard") {
+                try await supabase
+                    .rpc("get_challenge_leaderboard", params: ["p_challenge_id": challengeId])
+                    .execute()
+                    .value
+            }
+
             let entries = serverEntries.map { $0.toLeaderboardEntry(challengeId: challengeId) }
-            
-            // Cache for offline access
             leaderboardEntries[challengeId] = entries
-            
-            print("✅ Loaded \(entries.count) leaderboard entries from RPC")
+            OfflineCacheService.save(entries, key: cacheKey)
             return entries
         } catch {
-            print("⚠️ Error loading leaderboard from Supabase: \(error.localizedDescription)")
-            // Fallback to cached entries
+            if let cached = OfflineCacheService.load([LeaderboardEntry].self, key: cacheKey) {
+                leaderboardEntries[challengeId] = cached
+                return cached
+            }
             return leaderboardEntries[challengeId] ?? []
         }
     }
@@ -563,12 +563,13 @@ final class ChallengeService: ObservableObject {
     
     #if canImport(Supabase)
     private func getDailyLeaderboardFromSupabase(challengeId: String) async -> [LeaderboardEntry] {
-        // Use server-side RPC function that reads from daily_steps table
         do {
-            let serverEntries: [ServerLeaderboardEntry] = try await supabase
-                .rpc("get_challenge_leaderboard_today", params: ["p_challenge_id": challengeId])
-                .execute()
-                .value
+            let serverEntries: [ServerLeaderboardEntry] = try await SupabaseRequestExecutor.executeWithAuthRetry(context: "get_daily_leaderboard") {
+                try await supabase
+                    .rpc("get_challenge_leaderboard_today", params: ["p_challenge_id": challengeId])
+                    .execute()
+                    .value
+            }
             
             // Convert to client model
             let entries = serverEntries.map { $0.toLeaderboardEntry(challengeId: challengeId) }

@@ -86,11 +86,18 @@ struct MembersView: View {
                                 .padding(.vertical, 60)
                         } else {
                             // All members in list format (including top 3)
-                            ForEach(viewModel.entries) { entry in
+                            ForEach(viewModel.visibleEntries) { entry in
                                 LeaderboardListRow(
                                     entry: entry,
                                     isCurrentUser: entry.userId == sessionViewModel.currentUser?.id ?? ""
                                 )
+                            }
+                            if viewModel.canLoadMore {
+                                Button("Load more") {
+                                    viewModel.loadMore()
+                                }
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundColor(FitCompColors.textSecondary)
                             }
                         }
                     }

@@ -11,30 +11,6 @@ import Combine
 import Supabase
 #endif
 
-// MARK: - Debug Logging Helper
-private func debugLog(_ location: String, _ message: String, _ data: [String: Any], _ hypothesisId: String) {
-    let logEntry: [String: Any] = [
-        "location": location,
-        "message": message,
-        "data": data,
-        "timestamp": Int(Date().timeIntervalSince1970 * 1000),
-        "sessionId": "debug-session",
-        "runId": "run1",
-        "hypothesisId": hypothesisId
-    ]
-    if let logData = try? JSONSerialization.data(withJSONObject: logEntry),
-       let logString = String(data: logData, encoding: .utf8) {
-        if let fileHandle = FileHandle(forWritingAtPath: "/Users/jefferyerhunse/GitRepos/FitComp/.cursor/debug.log") {
-            fileHandle.seekToEndOfFile()
-            fileHandle.write(logString.data(using: .utf8)!)
-            fileHandle.write("\n".data(using: .utf8)!)
-            fileHandle.closeFile()
-        } else {
-            try? logString.write(toFile: "/Users/jefferyerhunse/GitRepos/FitComp/.cursor/debug.log", atomically: false, encoding: .utf8)
-        }
-    }
-}
-
 @MainActor
 final class FriendsViewModel: ObservableObject {
     enum Tab { case friends, discover }
@@ -56,6 +32,9 @@ final class FriendsViewModel: ObservableObject {
     @Published var discoverResults: [Profile] = []
     @Published var discoverOffset: Int = 0
     private let discoverPageSize: Int = 30
+    @Published var friendshipsOffset: Int = 0
+    private let friendshipsPageSize: Int = 50
+    private var hasMoreFriendships = true
 
     @Published var errorMessage: String?
 
@@ -82,8 +61,35 @@ final class FriendsViewModel: ObservableObject {
     }
 
     func refreshFriendships() async throws {
-        friendships = try await service.listMyFriendships(myUserId: myUserId, limit: 100, offset: 0)
+        friendshipsOffset = 0
+        hasMoreFriendships = true
+        friendships = try await service.listMyFriendships(myUserId: myUserId, limit: friendshipsPageSize, offset: 0)
+        hasMoreFriendships = friendships.count >= friendshipsPageSize
         friendItems = try await mapToFriendItems(friendships: friendships)
+    }
+
+    func loadMoreFriendshipsIfNeeded(currentItemId: String) async {
+        guard hasMoreFriendships else { return }
+        guard currentItemId == friendItems.last?.id else { return }
+        do {
+            friendshipsOffset += friendshipsPageSize
+            let more = try await service.listMyFriendships(
+                myUserId: myUserId,
+                limit: friendshipsPageSize,
+                offset: friendshipsOffset
+            )
+            if more.isEmpty {
+                hasMoreFriendships = false
+                return
+            }
+            hasMoreFriendships = more.count >= friendshipsPageSize
+            let existing = Set(friendships.map(\.id))
+            let appendable = more.filter { !existing.contains($0.id) }
+            friendships.append(contentsOf: appendable)
+            friendItems = try await mapToFriendItems(friendships: friendships)
+        } catch {
+            errorMessage = error.localizedDescription
+        }
     }
 
     func refreshDiscover() async throws {
