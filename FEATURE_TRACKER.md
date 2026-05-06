@@ -1,7 +1,7 @@
 # FitComp Feature Tracker
 
 > Comprehensive catalog of all features in the FitComp fitness competition app (formerly StepComp).
-> Last updated: 2026-04-13 (v5)
+> Last updated: 2026-05-06 (v6)
 
 ---
 
@@ -232,6 +232,7 @@
 | Comprehensive Store | `ComprehensiveMetricsStore.swift` | Local metrics caching |
 | Strength Trend Accuracy | `ComprehensiveMetricsStore.swift`, `MetricsViewModel.swift`, `PerformancePillarSection.swift`, `ComprehensiveMetrics.swift` | Strength trend compares equal recent/prior windows, supports insufficient-data fallback (N/A), and shows comparable lift count |
 | Exercise History Section | `ExerciseHistorySection.swift`, `MetricsViewModel.swift`, `MetricsView.swift` | Collapsible metrics section showing top 5 exercises always visible with per-exercise volume trend sparklines and expandable full history list |
+| Metrics Chart Scrubbing Safety | `MetricsChartViews.swift` | Weight chart drag scrubbing safely ignores gesture updates until Swift Charts exposes a plot frame, preventing early-layout crashes |
 | App Store Privacy Hardening | `Info.plist`, `PrivacyInfo.xcprivacy` | Pre-submission hardening removes unsupported background audio mode and declares collected data types for App Review compliance |
 
 ---
