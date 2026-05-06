@@ -1,7 +1,7 @@
 # FitComp Fix Tracker
 
 > Log of all bugs encountered and fixes implemented to prevent recurrence.
-> Last updated: 2026-04-13 (v6)
+> Last updated: 2026-05-06 (v7)
 
 ---
 
@@ -26,6 +26,14 @@
 ---
 
 ## Critical Fixes
+
+### 62. Metrics Chart Scrub Crash
+- **Status:** Fixed (2026-05-06)
+- **Symptom:** Dragging on the weight trend chart could crash the app during early chart layout or transitions.
+- **Root Cause:** The chart scrub gesture force-unwrapped Swift Charts' optional `ChartPlotProxy.plotFrame`, which can be `nil` before the plot area is available.
+- **Fix:** Guard `plotFrame` before reading geometry and skip the gesture update until the chart has a valid plot frame.
+- **Files:** `MetricsChartViews.swift`
+- **Prevention:** Treat Swift Charts proxy geometry as optional in gesture overlays; never force-unwrap `plotFrame`.
 
 ### 1. Workout State Data Loss After Long Sessions
 - **Commit:** `6b21b36`
