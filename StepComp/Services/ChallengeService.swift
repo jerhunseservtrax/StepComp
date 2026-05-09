@@ -517,7 +517,7 @@ final class ChallengeService: ObservableObject {
     #if canImport(Supabase)
     private func getLeaderboardFromSupabase(challengeId: String) async -> [LeaderboardEntry] {
         let cacheKey = "leaderboard_\(challengeId)"
-        let userId = await currentSessionUserId()
+        let requestUserId = await currentSessionUserId()
         do {
             let serverEntries: [ServerLeaderboardEntry] = try await SupabaseRequestExecutor.executeWithAuthRetry(context: "get_leaderboard") {
                 try await supabase
@@ -526,22 +526,24 @@ final class ChallengeService: ObservableObject {
                     .value
             }
 
+            guard let activeUserId = await activeSessionUserId(matching: requestUserId) else {
+                return []
+            }
             let entries = serverEntries.map { $0.toLeaderboardEntry(challengeId: challengeId) }
             leaderboardEntries[challengeId] = entries
-            if let userId {
-                leaderboardUserIds[challengeId] = userId
-            }
-            OfflineCacheService.save(entries, key: cacheKey, userId: userId)
+            leaderboardUserIds[challengeId] = activeUserId
+            OfflineCacheService.save(entries, key: cacheKey, userId: activeUserId)
             return entries
         } catch {
-            if let cached = OfflineCacheService.load([LeaderboardEntry].self, key: cacheKey, userId: userId) {
+            guard let activeUserId = await activeSessionUserId(matching: requestUserId) else {
+                return []
+            }
+            if let cached = OfflineCacheService.load([LeaderboardEntry].self, key: cacheKey, userId: activeUserId) {
                 leaderboardEntries[challengeId] = cached
-                if let userId {
-                    leaderboardUserIds[challengeId] = userId
-                }
+                leaderboardUserIds[challengeId] = activeUserId
                 return cached
             }
-            if let userId, leaderboardUserIds[challengeId] == userId {
+            if leaderboardUserIds[challengeId] == activeUserId {
                 return leaderboardEntries[challengeId] ?? []
             }
             return []
@@ -554,6 +556,16 @@ final class ChallengeService: ObservableObject {
         } catch {
             return nil
         }
+    }
+
+    private func activeSessionUserId(matching expectedUserId: String?) async -> String? {
+        guard let activeUserId = await currentSessionUserId() else {
+            return nil
+        }
+        if let expectedUserId, expectedUserId != activeUserId {
+            return nil
+        }
+        return activeUserId
     }
     #endif
     
@@ -798,6 +810,9 @@ final class ChallengeService: ObservableObject {
                 loadedChallenges.append(challenge)
             }
             
+            guard await activeSessionUserId(matching: userId) != nil else {
+                return
+            }
             challenges = loadedChallenges
             challengesUserId = userId
             print("✅ Loaded \(challenges.count) challenges from Supabase")
