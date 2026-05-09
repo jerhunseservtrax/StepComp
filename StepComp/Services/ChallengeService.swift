@@ -55,6 +55,9 @@ final class ChallengeService: ObservableObject {
     
     #if canImport(Supabase)
     private func createChallengeInSupabase(_ challenge: Challenge, isPublic: Bool) async throws {
+        guard let creatorUserId = await currentSessionUserId() else {
+            throw ChallengeError.notAuthenticated
+        }
         // Generate invite code if not provided (only for private challenges)
         // For public challenges, invite code is nil
         var inviteCode: String? = nil
@@ -70,7 +73,7 @@ final class ChallengeService: ObservableObject {
             description: challenge.description.isEmpty ? nil : challenge.description,
             startDate: challenge.startDate,
             endDate: challenge.endDate,
-            createdBy: challenge.creatorId,
+            createdBy: creatorUserId,
             isPublic: isPublic,
             inviteCode: inviteCode,
             category: challenge.category?.rawValue,
@@ -132,7 +135,7 @@ final class ChallengeService: ObservableObject {
         print("👤 Adding creator as challenge member...")
         
         do {
-            try await addChallengeMember(challengeId: challenge.id, userId: challenge.creatorId)
+            try await addChallengeMember(challengeId: challenge.id, userId: creatorUserId)
             print("✅ Creator added as challenge member")
             
             // Verify the creator was actually added
@@ -140,7 +143,7 @@ final class ChallengeService: ObservableObject {
                 .from("challenge_members")
                 .select()
                 .eq("challenge_id", value: challenge.id)
-                .eq("user_id", value: challenge.creatorId)
+                .eq("user_id", value: creatorUserId)
                 .execute()
                 .value
             
@@ -159,7 +162,7 @@ final class ChallengeService: ObservableObject {
         var successCount = 0
         var failedParticipants: [(String, String)] = []
         
-        for participantId in challenge.participantIds where participantId != challenge.creatorId {
+        for participantId in challenge.participantIds where participantId != creatorUserId {
             do {
                 try await addChallengeMember(challengeId: challenge.id, userId: participantId)
                 
@@ -461,12 +464,15 @@ final class ChallengeService: ObservableObject {
     
     #if canImport(Supabase)
     private func joinChallengeInSupabase(challengeId: String, userId: String) async throws {
+        guard let sessionUserId = await currentSessionUserId() else {
+            throw ChallengeError.notAuthenticated
+        }
         // Check if already a member
         let existing: [ChallengeMember] = try await supabase
             .from("challenge_members")
             .select()
             .eq("challenge_id", value: challengeId)
-            .eq("user_id", value: userId)
+            .eq("user_id", value: sessionUserId)
             .execute()
             .value
         
@@ -475,17 +481,17 @@ final class ChallengeService: ObservableObject {
         }
         
         // Add as challenge member
-        try await addChallengeMember(challengeId: challengeId, userId: userId)
+        try await addChallengeMember(challengeId: challengeId, userId: sessionUserId)
         
         // Update local cache
         if var challenge = getChallenge(challengeId) {
-            if !challenge.participantIds.contains(userId) {
-                challenge.participantIds.append(userId)
+            if !challenge.participantIds.contains(sessionUserId) {
+                challenge.participantIds.append(sessionUserId)
                 challenges = challenges.map { $0.id == challengeId ? challenge : $0 }
             }
         }
         
-        print("✅ User \(userId) joined challenge \(challengeId)")
+        print("✅ User \(sessionUserId) joined challenge \(challengeId)")
     }
     #endif
     
@@ -994,6 +1000,7 @@ enum ChallengeError: LocalizedError {
     case notFound
     case alreadyParticipating
     case invalidData
+    case notAuthenticated
     
     var errorDescription: String? {
         switch self {
@@ -1003,6 +1010,8 @@ enum ChallengeError: LocalizedError {
             return "You are already participating in this challenge"
         case .invalidData:
             return "Invalid challenge data"
+        case .notAuthenticated:
+            return "You must be signed in to perform this action"
         }
     }
 }

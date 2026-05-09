@@ -161,6 +161,9 @@ final class AuthService: ObservableObject {
         let completedBeforeTimeout = await waitForProfileLoad(profileLoadTask, timeoutNanoseconds: 8_000_000_000)
         if !completedBeforeTimeout {
             print("⚠️ Profile load timed out — using cached data")
+            guard await activeSessionMatches(userId: userId) else {
+                return
+            }
             if let cachedUser = self.loadCachedUser(), cachedUser.id == userId {
                 self.currentUser = cachedUser
                 self.isAuthenticated = true
@@ -853,6 +856,9 @@ final class AuthService: ObservableObject {
                 .single()
                 .execute()
                 .value
+            guard await activeSessionMatches(userId: userId) else {
+                return
+            }
             
             // Convert to app User model
             // Use firstName and lastName from profile, fallback to empty strings
@@ -903,6 +909,9 @@ final class AuthService: ObservableObject {
                 return
             }
             print("⚠️ Error loading user profile: \(error.localizedDescription)")
+            guard await activeSessionMatches(userId: userId) else {
+                return
+            }
             
             // If we can't load from database, try to use locally cached user
             // This handles offline scenarios
@@ -964,6 +973,16 @@ final class AuthService: ObservableObject {
         }
         return try? JSONDecoder().decode(User.self, from: data)
     }
+
+    #if canImport(Supabase)
+    private func activeSessionMatches(userId: String) async -> Bool {
+        do {
+            return try await supabase.auth.session.user.id.uuidString == userId
+        } catch {
+            return false
+        }
+    }
+    #endif
 
     private func makeMinimalUser(userId: String) -> User {
         User(

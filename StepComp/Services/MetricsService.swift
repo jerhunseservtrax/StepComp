@@ -184,6 +184,9 @@ final class MetricsService: ObservableObject {
 
     func fetchExerciseHistory(exerciseName: String, days: Int = 90) async -> [ExerciseHistoryPoint] {
         #if canImport(Supabase)
+        guard let requestUserId = await currentSessionUserId() else {
+            return []
+        }
         do {
             let results: [ExerciseHistoryPoint] = try await SupabaseRequestExecutor.executeWithAuthRetry(context: "fetch_exercise_history") {
                 try await supabase
@@ -193,6 +196,9 @@ final class MetricsService: ObservableObject {
                     ])
                     .execute()
                     .value
+            }
+            guard await activeSessionUserId(matching: requestUserId) != nil else {
+                return []
             }
             return results
         } catch {
@@ -208,6 +214,9 @@ final class MetricsService: ObservableObject {
 
     func fetchPersonalRecords(exerciseName: String? = nil) async -> [PersonalRecord] {
         #if canImport(Supabase)
+        guard let requestUserId = await currentSessionUserId() else {
+            return []
+        }
         do {
             let query = supabase.from("personal_records").select().order("achieved_at", ascending: false).limit(100)
             struct PersonalRecordRow: Codable {
@@ -219,6 +228,9 @@ final class MetricsService: ObservableObject {
             }
             let rows: [PersonalRecordRow] = try await SupabaseRequestExecutor.executeWithAuthRetry(context: "fetch_personal_records") {
                 try await query.execute().value
+            }
+            guard await activeSessionUserId(matching: requestUserId) != nil else {
+                return []
             }
             return rows.compactMap { row in
                 if let exerciseName, !exerciseName.isEmpty, row.exercise_name != exerciseName {
