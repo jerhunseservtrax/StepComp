@@ -1,7 +1,7 @@
 # FitComp Fix Tracker
 
 > Log of all bugs encountered and fixes implemented to prevent recurrence.
-> Last updated: 2026-04-13 (v6)
+> Last updated: 2026-05-09 (v7)
 
 ---
 
@@ -84,6 +84,16 @@
 - **Fix:** Changed to `@ObservedObject`. Wrapped state updates in `MainActor.run`. Added `.id()` modifier for clean view recreation.
 - **Files:** `RootView.swift`, `MainTabView.swift`, `SessionViewModel.swift`
 - **Prevention:** Use `@ObservedObject` for shared view models during view transitions. Use `.id()` to force clean recreation.
+
+---
+
+### 6A. Offline Cache Cross-Account Data Exposure
+- **Commit:** Current branch fix (2026-05-09)
+- **Symptom:** A second user on the same device could see the previous user's cached metrics, weight history, workout history, or challenge leaderboard if a network request failed after account switching.
+- **Root Cause:** `OfflineCacheService` used global cache keys such as `metrics_summary_30`, `weight_history_90`, and `leaderboard_<challengeId>` for user-owned data, and sign-out did not clear the disk cache.
+- **Fix:** Added user-scoped cache APIs, updated metrics and leaderboard caches to include the authenticated user id, clear offline cache on sign-out, and added a regression test for cross-user fallback isolation.
+- **Files:** `OfflineCacheService.swift`, `MetricsService.swift`, `ChallengeService.swift`, `AuthService.swift`, `OfflineCacheServiceTests.swift`
+- **Prevention:** Any disk cache containing user-owned data must include the authenticated user id in its key and must not fall back when no user id is available.
 
 ---
 
