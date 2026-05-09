@@ -1,7 +1,7 @@
 # FitComp Fix Tracker
 
 > Log of all bugs encountered and fixes implemented to prevent recurrence.
-> Last updated: 2026-04-13 (v6)
+> Last updated: 2026-05-09 (v7)
 
 ---
 
@@ -84,6 +84,16 @@
 - **Fix:** Changed to `@ObservedObject`. Wrapped state updates in `MainActor.run`. Added `.id()` modifier for clean view recreation.
 - **Files:** `RootView.swift`, `MainTabView.swift`, `SessionViewModel.swift`
 - **Prevention:** Use `@ObservedObject` for shared view models during view transitions. Use `.id()` to force clean recreation.
+
+---
+
+### 6A. Offline Cache Cross-Account Data Exposure
+- **Commit:** Current branch fix (2026-05-09)
+- **Symptom:** A second user on the same device could see the previous user's cached metrics, weight history, workout history, challenges, food logs, or challenge leaderboard if a network request failed after account switching; unsynced local health/nutrition records could also be uploaded into the next signed-in account.
+- **Root Cause:** `OfflineCacheService` used global cache keys such as `metrics_summary_30`, `weight_history_90`, and `leaderboard_<challengeId>` for user-owned data. Challenge in-memory fallback was also keyed only by challenge id, stale cached auth profiles were not id-checked, sign-out did not clear session caches, and local metric sync read global workout/weight/body/nutrition stores.
+- **Fix:** Added user-scoped cache APIs, updated metrics and leaderboard caches to use the Supabase session user id, disabled cross-user in-memory fallbacks, id-checked cached profile restores, guarded in-flight user data returns/syncs against session switches, cleared offline/challenge/workout/weight/food/body/nutrition caches on sign-out, and added a regression test for cross-user fallback isolation.
+- **Files:** `OfflineCacheService.swift`, `MetricsService.swift`, `ChallengeService.swift`, `AuthService.swift`, `WorkoutViewModel.swift`, `WeightViewModel.swift`, `FoodLogViewModel.swift`, `ComprehensiveMetricsStore.swift`, `OfflineCacheServiceTests.swift`
+- **Prevention:** Any disk or memory cache containing user-owned data must include the authenticated user id in its key and must not fall back or sync when no matching user id is available.
 
 ---
 

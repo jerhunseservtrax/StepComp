@@ -148,6 +148,10 @@ final class AuthService: ObservableObject {
     
     private func applyAuthenticatedSession(_ session: Session) async {
         let userId = session.user.id.uuidString
+        if let currentUser, currentUser.id != userId {
+            self.currentUser = nil
+            self.isAuthenticated = false
+        }
         
         // Keep profile loading in a standalone task so timeout does not cancel it.
         // If timeout wins, we use cached data immediately and let profile update when it finishes.
@@ -157,8 +161,14 @@ final class AuthService: ObservableObject {
         let completedBeforeTimeout = await waitForProfileLoad(profileLoadTask, timeoutNanoseconds: 8_000_000_000)
         if !completedBeforeTimeout {
             print("⚠️ Profile load timed out — using cached data")
-            if let cachedUser = self.loadCachedUser() {
+            guard await activeSessionMatches(userId: userId) else {
+                return
+            }
+            if let cachedUser = self.loadCachedUser(), cachedUser.id == userId {
                 self.currentUser = cachedUser
+                self.isAuthenticated = true
+            } else if self.currentUser == nil {
+                self.currentUser = makeMinimalUser(userId: userId)
                 self.isAuthenticated = true
             }
         }
@@ -203,6 +213,13 @@ final class AuthService: ObservableObject {
         if deleteCachedUser {
             KeychainStore.delete(account: keychainUserAccount)
         }
+        OfflineCacheService.clearAll()
+        ChallengeService.shared.clearSessionData()
+        WorkoutViewModel.clearCompletedWorkoutHistoryForSignOut()
+        WeightViewModel.clearLocalEntriesForSignOut()
+        FoodLogViewModel.clearLocalDataForSignOut()
+        ComprehensiveMetricsStore.shared.clearLocalDataForSignOut()
+        MetricsService.shared.clearLocalSyncStateForSignOut()
         
         // Clear active workout state (draft, widget, live activity)
         WorkoutViewModel.clearAllActiveWorkoutState()
@@ -844,6 +861,9 @@ final class AuthService: ObservableObject {
                 .single()
                 .execute()
                 .value
+            guard await activeSessionMatches(userId: userId) else {
+                return
+            }
             
             // Convert to app User model
             // Use firstName and lastName from profile, fallback to empty strings
@@ -894,10 +914,13 @@ final class AuthService: ObservableObject {
                 return
             }
             print("⚠️ Error loading user profile: \(error.localizedDescription)")
+            guard await activeSessionMatches(userId: userId) else {
+                return
+            }
             
             // If we can't load from database, try to use locally cached user
             // This handles offline scenarios
-            if let cachedUser = loadCachedUser() {
+            if let cachedUser = loadCachedUser(), cachedUser.id == userId {
                 print("ℹ️ Using cached user data for offline access")
                 currentUser = cachedUser
                 isAuthenticated = true
@@ -954,6 +977,29 @@ final class AuthService: ObservableObject {
             return nil
         }
         return try? JSONDecoder().decode(User.self, from: data)
+    }
+
+    #if canImport(Supabase)
+    private func activeSessionMatches(userId: String) async -> Bool {
+        do {
+            return try await supabase.auth.session.user.id.uuidString == userId
+        } catch {
+            return false
+        }
+    }
+    #endif
+
+    private func makeMinimalUser(userId: String) -> User {
+        User(
+            id: userId,
+            username: "user_\(userId.prefix(8))",
+            firstName: "User",
+            lastName: "",
+            email: nil,
+            publicProfile: true,
+            totalSteps: 0,
+            totalChallenges: 0
+        )
     }
     
     private func updateUserProfile(user: User) async {

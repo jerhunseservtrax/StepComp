@@ -133,4 +133,12 @@ class WeightViewModel: ObservableObject {
     private func updateLatestWeight() {
         latestWeight = entries.first?.weightKg
     }
+
+    static func clearLocalEntriesForSignOut() {
+        let vm = WeightViewModel.shared
+        vm.entries = []
+        vm.latestWeight = nil
+        UserDefaults.standard.removeObject(forKey: vm.userDefaultsKey)
+        print("🧹 Weight entries cleared for sign out")
+    }
 }

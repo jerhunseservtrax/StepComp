@@ -21,6 +21,8 @@ final class ChallengeService: ObservableObject {
     private let challengesKey = "challenges"
     private let leaderboardKey = "leaderboard"
     private let useSupabase: Bool
+    private var challengesUserId: String?
+    private var leaderboardUserIds: [String: String] = [:]
     
     init(useSupabase: Bool = true) {
         self.useSupabase = useSupabase
@@ -53,6 +55,9 @@ final class ChallengeService: ObservableObject {
     
     #if canImport(Supabase)
     private func createChallengeInSupabase(_ challenge: Challenge, isPublic: Bool) async throws {
+        guard let creatorUserId = await currentSessionUserId() else {
+            throw ChallengeError.notAuthenticated
+        }
         // Generate invite code if not provided (only for private challenges)
         // For public challenges, invite code is nil
         var inviteCode: String? = nil
@@ -68,7 +73,7 @@ final class ChallengeService: ObservableObject {
             description: challenge.description.isEmpty ? nil : challenge.description,
             startDate: challenge.startDate,
             endDate: challenge.endDate,
-            createdBy: challenge.creatorId,
+            createdBy: creatorUserId,
             isPublic: isPublic,
             inviteCode: inviteCode,
             category: challenge.category?.rawValue,
@@ -130,7 +135,7 @@ final class ChallengeService: ObservableObject {
         print("👤 Adding creator as challenge member...")
         
         do {
-            try await addChallengeMember(challengeId: challenge.id, userId: challenge.creatorId)
+            try await addChallengeMember(challengeId: challenge.id, userId: creatorUserId)
             print("✅ Creator added as challenge member")
             
             // Verify the creator was actually added
@@ -138,7 +143,7 @@ final class ChallengeService: ObservableObject {
                 .from("challenge_members")
                 .select()
                 .eq("challenge_id", value: challenge.id)
-                .eq("user_id", value: challenge.creatorId)
+                .eq("user_id", value: creatorUserId)
                 .execute()
                 .value
             
@@ -157,7 +162,7 @@ final class ChallengeService: ObservableObject {
         var successCount = 0
         var failedParticipants: [(String, String)] = []
         
-        for participantId in challenge.participantIds where participantId != challenge.creatorId {
+        for participantId in challenge.participantIds where participantId != creatorUserId {
             do {
                 try await addChallengeMember(challengeId: challenge.id, userId: participantId)
                 
@@ -279,6 +284,14 @@ final class ChallengeService: ObservableObject {
     }
     
     func getChallenge(_ challengeId: String) -> Challenge? {
+        #if canImport(Supabase)
+        if useSupabase {
+            guard let currentUserId = AuthService.shared.currentUser?.id,
+                  challengesUserId == currentUserId else {
+                return nil
+            }
+        }
+        #endif
         return challenges.first { $0.id == challengeId }
     }
     
@@ -289,14 +302,16 @@ final class ChallengeService: ObservableObject {
     
     // New async version that fetches from Supabase if not in cache
     func getChallengeAsync(_ challengeId: String) async -> Challenge? {
-        // First check local cache
-        if let cached = challenges.first(where: { $0.id == challengeId }) {
-            return cached
-        }
-        
-        // If not in cache, fetch from Supabase
         #if canImport(Supabase)
         if useSupabase {
+            guard let requestUserId = await currentSessionUserId() else {
+                return nil
+            }
+            if challengesUserId == requestUserId,
+               let cached = challenges.first(where: { $0.id == challengeId }) {
+                return cached
+            }
+
             do {
                 // Fetch challenge from Supabase
                 let supabaseChallenges: [SupabaseChallenge] = try await supabase
@@ -348,10 +363,14 @@ final class ChallengeService: ObservableObject {
                     imageUrl: supabaseChallenge.imageUrl
                 )
                 
+                guard await activeSessionUserId(matching: requestUserId) != nil else {
+                    return nil
+                }
                 // Add to cache for future use
                 if !challenges.contains(where: { $0.id == challenge.id }) {
                     challenges.append(challenge)
                 }
+                challengesUserId = requestUserId
                 
                 return challenge
             } catch {
@@ -359,6 +378,11 @@ final class ChallengeService: ObservableObject {
             }
         }
         #endif
+
+        // First check local cache in non-Supabase mode.
+        if let cached = challenges.first(where: { $0.id == challengeId }) {
+            return cached
+        }
         
         return nil
     }
@@ -366,6 +390,9 @@ final class ChallengeService: ObservableObject {
     func getUserChallenges(userId: String) -> [Challenge] {
         #if canImport(Supabase)
         if useSupabase {
+            guard challengesUserId == userId else {
+                return []
+            }
             // Return cached challenges (loaded from Supabase)
             let userChallenges = challenges.filter { challenge in
                 challenge.creatorId == userId || challenge.participantIds.contains(userId)
@@ -437,12 +464,15 @@ final class ChallengeService: ObservableObject {
     
     #if canImport(Supabase)
     private func joinChallengeInSupabase(challengeId: String, userId: String) async throws {
+        guard let sessionUserId = await currentSessionUserId() else {
+            throw ChallengeError.notAuthenticated
+        }
         // Check if already a member
         let existing: [ChallengeMember] = try await supabase
             .from("challenge_members")
             .select()
             .eq("challenge_id", value: challengeId)
-            .eq("user_id", value: userId)
+            .eq("user_id", value: sessionUserId)
             .execute()
             .value
         
@@ -451,17 +481,17 @@ final class ChallengeService: ObservableObject {
         }
         
         // Add as challenge member
-        try await addChallengeMember(challengeId: challengeId, userId: userId)
+        try await addChallengeMember(challengeId: challengeId, userId: sessionUserId)
         
         // Update local cache
         if var challenge = getChallenge(challengeId) {
-            if !challenge.participantIds.contains(userId) {
-                challenge.participantIds.append(userId)
+            if !challenge.participantIds.contains(sessionUserId) {
+                challenge.participantIds.append(sessionUserId)
                 challenges = challenges.map { $0.id == challengeId ? challenge : $0 }
             }
         }
         
-        print("✅ User \(userId) joined challenge \(challengeId)")
+        print("✅ User \(sessionUserId) joined challenge \(challengeId)")
     }
     #endif
     
@@ -515,6 +545,7 @@ final class ChallengeService: ObservableObject {
     #if canImport(Supabase)
     private func getLeaderboardFromSupabase(challengeId: String) async -> [LeaderboardEntry] {
         let cacheKey = "leaderboard_\(challengeId)"
+        let requestUserId = await currentSessionUserId()
         do {
             let serverEntries: [ServerLeaderboardEntry] = try await SupabaseRequestExecutor.executeWithAuthRetry(context: "get_leaderboard") {
                 try await supabase
@@ -523,17 +554,46 @@ final class ChallengeService: ObservableObject {
                     .value
             }
 
+            guard let activeUserId = await activeSessionUserId(matching: requestUserId) else {
+                return []
+            }
             let entries = serverEntries.map { $0.toLeaderboardEntry(challengeId: challengeId) }
             leaderboardEntries[challengeId] = entries
-            OfflineCacheService.save(entries, key: cacheKey)
+            leaderboardUserIds[challengeId] = activeUserId
+            OfflineCacheService.save(entries, key: cacheKey, userId: activeUserId)
             return entries
         } catch {
-            if let cached = OfflineCacheService.load([LeaderboardEntry].self, key: cacheKey) {
+            guard let activeUserId = await activeSessionUserId(matching: requestUserId) else {
+                return []
+            }
+            if let cached = OfflineCacheService.load([LeaderboardEntry].self, key: cacheKey, userId: activeUserId) {
                 leaderboardEntries[challengeId] = cached
+                leaderboardUserIds[challengeId] = activeUserId
                 return cached
             }
-            return leaderboardEntries[challengeId] ?? []
+            if leaderboardUserIds[challengeId] == activeUserId {
+                return leaderboardEntries[challengeId] ?? []
+            }
+            return []
         }
+    }
+
+    private func currentSessionUserId() async -> String? {
+        do {
+            return try await supabase.auth.session.user.id.uuidString
+        } catch {
+            return nil
+        }
+    }
+
+    private func activeSessionUserId(matching expectedUserId: String?) async -> String? {
+        guard let activeUserId = await currentSessionUserId() else {
+            return nil
+        }
+        if let expectedUserId, expectedUserId != activeUserId {
+            return nil
+        }
+        return activeUserId
     }
     #endif
     
@@ -563,6 +623,9 @@ final class ChallengeService: ObservableObject {
     
     #if canImport(Supabase)
     private func getDailyLeaderboardFromSupabase(challengeId: String) async -> [LeaderboardEntry] {
+        guard let requestUserId = await currentSessionUserId() else {
+            return []
+        }
         do {
             let serverEntries: [ServerLeaderboardEntry] = try await SupabaseRequestExecutor.executeWithAuthRetry(context: "get_daily_leaderboard") {
                 try await supabase
@@ -573,6 +636,9 @@ final class ChallengeService: ObservableObject {
             
             // Convert to client model
             let entries = serverEntries.map { $0.toLeaderboardEntry(challengeId: challengeId) }
+            guard await activeSessionUserId(matching: requestUserId) != nil else {
+                return []
+            }
             
             print("✅ Loaded \(entries.count) daily leaderboard entries from RPC")
             return entries
@@ -584,6 +650,9 @@ final class ChallengeService: ObservableObject {
     }
     
     private func getWeeklyLeaderboardFromSupabase(challengeId: String) async -> [LeaderboardEntry] {
+        guard let requestUserId = await currentSessionUserId() else {
+            return []
+        }
         do {
             let calendar = Calendar.current
             let now = Date()
@@ -643,6 +712,9 @@ final class ChallengeService: ObservableObject {
                 entries.append(entry)
             }
             
+            guard await activeSessionUserId(matching: requestUserId) != nil else {
+                return []
+            }
             return entries
         } catch {
             print("⚠️ Error loading weekly leaderboard: \(error.localizedDescription)")
@@ -659,6 +731,7 @@ final class ChallengeService: ObservableObject {
     }
     
     private func loadChallengesFromSupabase() async {
+        var requestedUserId: String?
         do {
             // Check if user is authenticated before trying to load challenges
             do {
@@ -672,6 +745,7 @@ final class ChallengeService: ObservableObject {
             // Get current user ID from session
             let session = try await supabase.auth.session
             let userId = session.user.id.uuidString
+            requestedUserId = userId
             
             let pageSize = 200
             // Load challenges where user is creator
@@ -776,7 +850,11 @@ final class ChallengeService: ObservableObject {
                 loadedChallenges.append(challenge)
             }
             
+            guard await activeSessionUserId(matching: userId) != nil else {
+                return
+            }
             challenges = loadedChallenges
+            challengesUserId = userId
             print("✅ Loaded \(challenges.count) challenges from Supabase")
             // Log challenge details for debugging
             for challenge in challenges {
@@ -785,11 +863,24 @@ final class ChallengeService: ObservableObject {
         } catch {
             print("⚠️ Error loading challenges from Supabase: \(error.localizedDescription)")
             lastErrorMessage = error.localizedDescription
-            // Fallback to local storage
-            loadChallenges()
+            if challengesUserId != requestedUserId {
+                challenges = []
+                leaderboardEntries = [:]
+                leaderboardUserIds = [:]
+            }
         }
     }
     #endif
+
+    func clearSessionData() {
+        challenges = []
+        leaderboardEntries = [:]
+        leaderboardUserIds = [:]
+        challengesUserId = nil
+        lastErrorMessage = nil
+        UserDefaults.standard.removeObject(forKey: challengesKey)
+        UserDefaults.standard.removeObject(forKey: leaderboardKey)
+    }
     
     // MARK: - Persistence
     
@@ -909,6 +1000,7 @@ enum ChallengeError: LocalizedError {
     case notFound
     case alreadyParticipating
     case invalidData
+    case notAuthenticated
     
     var errorDescription: String? {
         switch self {
@@ -918,6 +1010,8 @@ enum ChallengeError: LocalizedError {
             return "You are already participating in this challenge"
         case .invalidData:
             return "Invalid challenge data"
+        case .notAuthenticated:
+            return "You must be signed in to perform this action"
         }
     }
 }

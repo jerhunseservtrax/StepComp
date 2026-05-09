@@ -351,4 +351,16 @@ final class FoodLogViewModel: ObservableObject {
             await MetricsService.shared.syncNutritionLog(log)
         }
     }
+
+    static func clearLocalDataForSignOut() {
+        let vm = FoodLogViewModel.shared
+        vm.entries = []
+        vm.cachedFoods = []
+        vm.searchResults = []
+        vm.errorMessage = nil
+        vm.scanStatus = .idle
+        UserDefaults.standard.removeObject(forKey: vm.storageKey)
+        UserDefaults.standard.removeObject(forKey: vm.cachedFoodsKey)
+        try? FileManager.default.removeItem(at: vm.photoDirectory)
+    }
 }
