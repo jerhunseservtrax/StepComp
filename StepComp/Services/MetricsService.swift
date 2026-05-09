@@ -28,6 +28,10 @@ final class MetricsService: ObservableObject {
     /// Converts a local CompletedWorkoutSession to a JSON payload and syncs to Supabase.
     func syncWorkoutSession(_ session: CompletedWorkoutSession) async {
         #if canImport(Supabase)
+        guard WorkoutViewModel.shared.completedSessions.contains(where: { $0.id == session.id }) else {
+            print("⚠️ [MetricsService] Workout session no longer belongs to active local account, skipping sync")
+            return
+        }
         do {
             _ = try await supabase.auth.session
         } catch {
@@ -59,6 +63,10 @@ final class MetricsService: ObservableObject {
     /// Syncs a single weight entry to Supabase via the sync_weight_entry RPC.
     func syncWeightEntry(_ entry: WeightEntry) async {
         #if canImport(Supabase)
+        guard WeightViewModel.shared.entries.contains(where: { $0.id == entry.id }) else {
+            print("⚠️ [MetricsService] Weight entry no longer belongs to active local account, skipping sync")
+            return
+        }
         do {
             _ = try await supabase.auth.session
         } catch {
@@ -95,9 +103,7 @@ final class MetricsService: ObservableObject {
     /// Call this on app launch to recover from any missed syncs.
     func syncAllLocalData() async {
         #if canImport(Supabase)
-        do {
-            _ = try await supabase.auth.session
-        } catch {
+        guard let requestUserId = await currentSessionUserId() else {
             print("⚠️ [MetricsService] No session, skipping bulk sync")
             return
         }
@@ -111,6 +117,7 @@ final class MetricsService: ObservableObject {
         let unsyncedSessions = workoutVM.completedSessions.filter { !syncedSessionIds.contains($0.id.uuidString) }
 
         if !unsyncedSessions.isEmpty {
+            guard await activeSessionUserId(matching: requestUserId) != nil else { return }
             print("🔄 [MetricsService] Syncing \(unsyncedSessions.count) unsynced workout sessions...")
             let batchPayload = unsyncedSessions.map { AnyJSON.object(sessionPayload(for: $0)) }
             do {
@@ -131,6 +138,7 @@ final class MetricsService: ObservableObject {
         let unsyncedEntries = weightVM.entries.filter { !syncedWeightIds.contains($0.id.uuidString) }
 
         if !unsyncedEntries.isEmpty {
+            guard await activeSessionUserId(matching: requestUserId) != nil else { return }
             print("🔄 [MetricsService] Syncing \(unsyncedEntries.count) unsynced weight entries...")
             let formatter = DateFormatter()
             formatter.dateFormat = "yyyy-MM-dd"
@@ -480,5 +488,10 @@ final class MetricsService: ObservableObject {
             ids = Array(ids.suffix(maxTrackedSyncIds))
         }
         UserDefaults.standard.set(ids, forKey: syncedWeightEntriesKey)
+    }
+
+    func clearLocalSyncStateForSignOut() {
+        UserDefaults.standard.removeObject(forKey: syncedSessionsKey)
+        UserDefaults.standard.removeObject(forKey: syncedWeightEntriesKey)
     }
 }

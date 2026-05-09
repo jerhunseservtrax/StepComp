@@ -1032,6 +1032,13 @@ class WorkoutViewModel: ObservableObject {
         WorkoutLiveActivityManager.end()
         print("🧹 All active workout state cleared")
     }
+
+    static func clearCompletedWorkoutHistoryForSignOut() {
+        let vm = WorkoutViewModel.shared
+        vm.completedSessions = []
+        UserDefaults.standard.removeObject(forKey: "completed_workout_sessions")
+        print("🧹 Completed workout history cleared for sign out")
+    }
     
     // MARK: - Data Migration
     

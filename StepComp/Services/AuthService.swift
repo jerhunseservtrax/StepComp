@@ -215,6 +215,9 @@ final class AuthService: ObservableObject {
         }
         OfflineCacheService.clearAll()
         ChallengeService.shared.clearSessionData()
+        WorkoutViewModel.clearCompletedWorkoutHistoryForSignOut()
+        WeightViewModel.clearLocalEntriesForSignOut()
+        MetricsService.shared.clearLocalSyncStateForSignOut()
         
         // Clear active workout state (draft, widget, live activity)
         WorkoutViewModel.clearAllActiveWorkoutState()
