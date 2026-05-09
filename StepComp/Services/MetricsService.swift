@@ -167,8 +167,7 @@ final class MetricsService: ObservableObject {
 
     func fetchMetricsSummary(days: Int = 30) async -> MetricsSummary? {
         #if canImport(Supabase)
-        let userId = await currentSessionUserId()
-        return await OfflineCacheService.fetchWithFallback(key: "metrics_summary_\(days)", userId: userId) {
+        return await fetchUserScopedValue(key: "metrics_summary_\(days)") {
             try await SupabaseRequestExecutor.executeWithAuthRetry(context: "fetch_metrics_summary") {
                 try await supabase
                     .rpc("get_user_metrics_summary", params: ["p_days": String(days)])
@@ -319,8 +318,7 @@ final class MetricsService: ObservableObject {
 
     func fetchWeightHistory(days: Int = 90) async -> [WeightHistoryPoint] {
         #if canImport(Supabase)
-        let userId = await currentSessionUserId()
-        return await OfflineCacheService.fetchArrayWithFallback(key: "weight_history_\(days)", userId: userId) {
+        return await fetchUserScopedArray(key: "weight_history_\(days)") {
             try await SupabaseRequestExecutor.executeWithAuthRetry(context: "fetch_weight_history") {
                 try await supabase
                     .rpc("get_weight_history", params: ["p_days": String(days)])
@@ -337,8 +335,7 @@ final class MetricsService: ObservableObject {
 
     func fetchWorkoutHistory(days: Int = 90) async -> [WorkoutHistoryPoint] {
         #if canImport(Supabase)
-        let userId = await currentSessionUserId()
-        return await OfflineCacheService.fetchArrayWithFallback(key: "workout_history_\(days)", userId: userId) {
+        return await fetchUserScopedArray(key: "workout_history_\(days)") {
             try await SupabaseRequestExecutor.executeWithAuthRetry(context: "fetch_workout_history") {
                 try await supabase
                     .rpc("get_workout_history", params: ["p_days": String(days)])
@@ -386,6 +383,57 @@ final class MetricsService: ObservableObject {
             return try await supabase.auth.session.user.id.uuidString
         } catch {
             return nil
+        }
+    }
+
+    private func activeSessionUserId(matching expectedUserId: String) async -> String? {
+        guard let activeUserId = await currentSessionUserId(), activeUserId == expectedUserId else {
+            return nil
+        }
+        return activeUserId
+    }
+
+    private func fetchUserScopedValue<T: Codable>(
+        key: String,
+        fetch: () async throws -> T
+    ) async -> T? {
+        guard let requestUserId = await currentSessionUserId() else {
+            return nil
+        }
+        do {
+            let value = try await fetch()
+            guard let activeUserId = await activeSessionUserId(matching: requestUserId) else {
+                return nil
+            }
+            OfflineCacheService.save(value, key: key, userId: activeUserId)
+            return value
+        } catch {
+            guard let activeUserId = await activeSessionUserId(matching: requestUserId) else {
+                return nil
+            }
+            return OfflineCacheService.load(T.self, key: key, userId: activeUserId)
+        }
+    }
+
+    private func fetchUserScopedArray<T: Codable>(
+        key: String,
+        fetch: () async throws -> [T]
+    ) async -> [T] {
+        guard let requestUserId = await currentSessionUserId() else {
+            return []
+        }
+        do {
+            let value = try await fetch()
+            guard let activeUserId = await activeSessionUserId(matching: requestUserId) else {
+                return []
+            }
+            OfflineCacheService.save(value, key: key, userId: activeUserId)
+            return value
+        } catch {
+            guard let activeUserId = await activeSessionUserId(matching: requestUserId) else {
+                return []
+            }
+            return OfflineCacheService.load([T].self, key: key, userId: activeUserId) ?? []
         }
     }
     #endif

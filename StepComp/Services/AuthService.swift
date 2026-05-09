@@ -148,6 +148,10 @@ final class AuthService: ObservableObject {
     
     private func applyAuthenticatedSession(_ session: Session) async {
         let userId = session.user.id.uuidString
+        if let currentUser, currentUser.id != userId {
+            self.currentUser = nil
+            self.isAuthenticated = false
+        }
         
         // Keep profile loading in a standalone task so timeout does not cancel it.
         // If timeout wins, we use cached data immediately and let profile update when it finishes.
@@ -159,6 +163,9 @@ final class AuthService: ObservableObject {
             print("⚠️ Profile load timed out — using cached data")
             if let cachedUser = self.loadCachedUser(), cachedUser.id == userId {
                 self.currentUser = cachedUser
+                self.isAuthenticated = true
+            } else if self.currentUser == nil {
+                self.currentUser = makeMinimalUser(userId: userId)
                 self.isAuthenticated = true
             }
         }
@@ -956,6 +963,19 @@ final class AuthService: ObservableObject {
             return nil
         }
         return try? JSONDecoder().decode(User.self, from: data)
+    }
+
+    private func makeMinimalUser(userId: String) -> User {
+        User(
+            id: userId,
+            username: "user_\(userId.prefix(8))",
+            firstName: "User",
+            lastName: "",
+            email: nil,
+            publicProfile: true,
+            totalSteps: 0,
+            totalChallenges: 0
+        )
     }
     
     private func updateUserProfile(user: User) async {
