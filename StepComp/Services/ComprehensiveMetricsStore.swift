@@ -34,6 +34,7 @@ final class ComprehensiveMetricsStore: ObservableObject {
     }
 
     func addNutritionLog(
+        id: UUID = UUID(),
         calories: Int,
         proteinG: Int,
         carbsG: Int,
@@ -43,7 +44,7 @@ final class ComprehensiveMetricsStore: ObservableObject {
     ) {
         nutritionLogs.append(
             NutritionLog(
-                id: UUID(),
+                id: id,
                 loggedAt: loggedAt,
                 calories: calories,
                 proteinG: proteinG,
@@ -59,6 +60,13 @@ final class ComprehensiveMetricsStore: ObservableObject {
     func replaceNutritionLogs(_ logs: [NutritionLog]) {
         nutritionLogs = logs.sorted { $0.loggedAt > $1.loggedAt }
         save()
+    }
+
+    func clearLocalDataForSignOut() {
+        bodyMetrics = []
+        nutritionLogs = []
+        UserDefaults.standard.removeObject(forKey: bodyMetricsKey)
+        UserDefaults.standard.removeObject(forKey: nutritionLogsKey)
     }
 
     func computeStrengthSnapshot(sessions: [CompletedWorkoutSession]) -> StrengthMetricSnapshot {

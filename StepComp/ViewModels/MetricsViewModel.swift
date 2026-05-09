@@ -107,9 +107,10 @@ final class MetricsViewModel: ObservableObject {
     }
 
     func addNutritionLog(calories: Int, proteinG: Int, carbsG: Int, fatG: Int, waterMl: Int) {
+        let loggedAt = Date()
         let log = NutritionLog(
             id: UUID(),
-            loggedAt: Date(),
+            loggedAt: loggedAt,
             calories: calories,
             proteinG: proteinG,
             carbsG: carbsG,
@@ -117,11 +118,13 @@ final class MetricsViewModel: ObservableObject {
             waterMl: waterMl
         )
         comprehensiveStore.addNutritionLog(
+            id: log.id,
             calories: calories,
             proteinG: proteinG,
             carbsG: carbsG,
             fatG: fatG,
-            waterMl: waterMl
+            waterMl: waterMl,
+            loggedAt: loggedAt
         )
         Task.detached(priority: .utility) {
             await MetricsService.shared.syncNutritionLog(log)
@@ -129,9 +132,10 @@ final class MetricsViewModel: ObservableObject {
     }
 
     func addBodyMetric(bodyFatPercent: Double?, waistCm: Double?) {
-        comprehensiveStore.addBodyMetric(bodyFatPercent: bodyFatPercent, waistCm: waistCm)
+        let recordedAt = Date()
+        comprehensiveStore.addBodyMetric(bodyFatPercent: bodyFatPercent, waistCm: waistCm, date: recordedAt)
         Task.detached(priority: .utility) {
-            await MetricsService.shared.syncBodyMetric(bodyFatPercent: bodyFatPercent, waistCm: waistCm)
+            await MetricsService.shared.syncBodyMetric(bodyFatPercent: bodyFatPercent, waistCm: waistCm, date: recordedAt)
         }
     }
 

@@ -357,7 +357,7 @@
 | Haptic Manager | `HapticManager.swift` | Haptic feedback patterns |
 | Keychain Store | `KeychainStore.swift` | Secure credential storage with kSecAttrService scoping and OSStatus error handling |
 | Retry Utility | `RetryUtility.swift` | Exponential backoff retry logic |
-| Offline Cache | `OfflineCacheService.swift`, `AuthService.swift` | Disk-backed Codable cache with user-scoped fetch-with-fallback and sign-out cleanup for offline resilience without cross-account data exposure |
+| Offline Cache | `OfflineCacheService.swift`, `AuthService.swift` | Disk-backed Codable cache with user-scoped fetch-with-fallback and account-data sign-out cleanup for offline resilience without cross-account data exposure |
 | Cached Async Image | `CachedAsyncImage.swift` | Image caching for remote images (used in ProfileView, etc.) |
 | Reaction Effects | `ReactionEffectManager.swift` | Celebration/reaction animations |
 | Avatar View | `AvatarView.swift` | Reusable avatar component |

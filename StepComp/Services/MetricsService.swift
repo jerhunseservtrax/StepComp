@@ -272,6 +272,14 @@ final class MetricsService: ObservableObject {
 
     func syncBodyMetric(bodyFatPercent: Double?, waistCm: Double?, date: Date = Date()) async {
         #if canImport(Supabase)
+        guard ComprehensiveMetricsStore.shared.bodyMetrics.contains(where: {
+            $0.recordedOn == date
+                && $0.bodyFatPercent == bodyFatPercent
+                && $0.waistCm == waistCm
+        }) else {
+            print("⚠️ [MetricsService] Body metric no longer belongs to active local account, skipping sync")
+            return
+        }
         do {
             _ = try await supabase.auth.session
         } catch {
@@ -297,6 +305,10 @@ final class MetricsService: ObservableObject {
 
     func syncNutritionLog(_ log: NutritionLog) async {
         #if canImport(Supabase)
+        guard ComprehensiveMetricsStore.shared.nutritionLogs.contains(where: { $0.id == log.id }) else {
+            print("⚠️ [MetricsService] Nutrition log no longer belongs to active local account, skipping sync")
+            return
+        }
         do {
             _ = try await supabase.auth.session
         } catch {
