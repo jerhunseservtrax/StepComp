@@ -21,6 +21,8 @@ final class ChallengeService: ObservableObject {
     private let challengesKey = "challenges"
     private let leaderboardKey = "leaderboard"
     private let useSupabase: Bool
+    private var challengesUserId: String?
+    private var leaderboardUserIds: [String: String] = [:]
     
     init(useSupabase: Bool = true) {
         self.useSupabase = useSupabase
@@ -526,14 +528,23 @@ final class ChallengeService: ObservableObject {
 
             let entries = serverEntries.map { $0.toLeaderboardEntry(challengeId: challengeId) }
             leaderboardEntries[challengeId] = entries
+            if let userId {
+                leaderboardUserIds[challengeId] = userId
+            }
             OfflineCacheService.save(entries, key: cacheKey, userId: userId)
             return entries
         } catch {
             if let cached = OfflineCacheService.load([LeaderboardEntry].self, key: cacheKey, userId: userId) {
                 leaderboardEntries[challengeId] = cached
+                if let userId {
+                    leaderboardUserIds[challengeId] = userId
+                }
                 return cached
             }
-            return leaderboardEntries[challengeId] ?? []
+            if let userId, leaderboardUserIds[challengeId] == userId {
+                return leaderboardEntries[challengeId] ?? []
+            }
+            return []
         }
     }
     #endif
@@ -660,6 +671,7 @@ final class ChallengeService: ObservableObject {
     }
     
     private func loadChallengesFromSupabase() async {
+        var requestedUserId: String?
         do {
             // Check if user is authenticated before trying to load challenges
             do {
@@ -673,6 +685,7 @@ final class ChallengeService: ObservableObject {
             // Get current user ID from session
             let session = try await supabase.auth.session
             let userId = session.user.id.uuidString
+            requestedUserId = userId
             
             let pageSize = 200
             // Load challenges where user is creator
@@ -778,6 +791,7 @@ final class ChallengeService: ObservableObject {
             }
             
             challenges = loadedChallenges
+            challengesUserId = userId
             print("✅ Loaded \(challenges.count) challenges from Supabase")
             // Log challenge details for debugging
             for challenge in challenges {
@@ -786,11 +800,24 @@ final class ChallengeService: ObservableObject {
         } catch {
             print("⚠️ Error loading challenges from Supabase: \(error.localizedDescription)")
             lastErrorMessage = error.localizedDescription
-            // Fallback to local storage
-            loadChallenges()
+            if challengesUserId != requestedUserId {
+                challenges = []
+                leaderboardEntries = [:]
+                leaderboardUserIds = [:]
+            }
         }
     }
     #endif
+
+    func clearSessionData() {
+        challenges = []
+        leaderboardEntries = [:]
+        leaderboardUserIds = [:]
+        challengesUserId = nil
+        lastErrorMessage = nil
+        UserDefaults.standard.removeObject(forKey: challengesKey)
+        UserDefaults.standard.removeObject(forKey: leaderboardKey)
+    }
     
     // MARK: - Persistence
     

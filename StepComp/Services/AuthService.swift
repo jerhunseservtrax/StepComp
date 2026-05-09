@@ -157,7 +157,7 @@ final class AuthService: ObservableObject {
         let completedBeforeTimeout = await waitForProfileLoad(profileLoadTask, timeoutNanoseconds: 8_000_000_000)
         if !completedBeforeTimeout {
             print("⚠️ Profile load timed out — using cached data")
-            if let cachedUser = self.loadCachedUser() {
+            if let cachedUser = self.loadCachedUser(), cachedUser.id == userId {
                 self.currentUser = cachedUser
                 self.isAuthenticated = true
             }
@@ -204,6 +204,7 @@ final class AuthService: ObservableObject {
             KeychainStore.delete(account: keychainUserAccount)
         }
         OfflineCacheService.clearAll()
+        ChallengeService.shared.clearSessionData()
         
         // Clear active workout state (draft, widget, live activity)
         WorkoutViewModel.clearAllActiveWorkoutState()
@@ -898,7 +899,7 @@ final class AuthService: ObservableObject {
             
             // If we can't load from database, try to use locally cached user
             // This handles offline scenarios
-            if let cachedUser = loadCachedUser() {
+            if let cachedUser = loadCachedUser(), cachedUser.id == userId {
                 print("ℹ️ Using cached user data for offline access")
                 currentUser = cachedUser
                 isAuthenticated = true

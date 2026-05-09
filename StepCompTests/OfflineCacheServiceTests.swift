@@ -29,5 +29,11 @@ final class OfflineCacheServiceTests: XCTestCase {
         }
 
         XCTAssertNil(fallbackForUserB)
+
+        let fallbackWithoutUser: String? = await OfflineCacheService.fetchWithFallback(key: key, userId: nil) {
+            throw NSError(domain: "network", code: -1009)
+        }
+
+        XCTAssertNil(fallbackWithoutUser)
     }
 }
