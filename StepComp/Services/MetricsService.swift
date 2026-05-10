@@ -364,12 +364,12 @@ final class MetricsService: ObservableObject {
 
     #if canImport(Supabase)
     private func userScopedCacheKey(_ key: String) async -> String? {
-        if let userId = AuthService.shared.currentUser?.id, !userId.isEmpty {
-            return OfflineCacheService.userScopedKey(key, userId: userId)
-        }
-
         if let session = try? await supabase.auth.session {
             return OfflineCacheService.userScopedKey(key, userId: session.user.id.uuidString)
+        }
+
+        if let userId = AuthService.shared.currentUser?.id, !userId.isEmpty {
+            return OfflineCacheService.userScopedKey(key, userId: userId)
         }
 
         return nil
