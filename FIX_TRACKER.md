@@ -1,7 +1,7 @@
 # FitComp Fix Tracker
 
 > Log of all bugs encountered and fixes implemented to prevent recurrence.
-> Last updated: 2026-04-13 (v6)
+> Last updated: 2026-05-10 (v7)
 
 ---
 
@@ -588,6 +588,14 @@
 - **Files:** `MainTabView.swift`, `WorkoutDetailView.swift`
 - **Prevention:** Keep central tab index mapping documented and update all programmatic tab switches whenever tab order changes.
 
+### 62. Metrics Offline Cache Leaked Across Accounts
+- **Status:** Fixed
+- **Symptom:** On shared devices, a second signed-in user could see the previous user's cached metrics, weight history, or workout history if a metrics fetch failed and offline fallback was used.
+- **Root Cause:** Metrics offline cache keys were global (`metrics_summary_30`, `weight_history_90`, `workout_history_90`) and sign-out did not clear `OfflineCacheService`.
+- **Fix:** Added user-scoped cache keys for metrics fetches and cleared offline caches whenever signed-out state is applied.
+- **Files:** `OfflineCacheService.swift`, `MetricsService.swift`, `AuthService.swift`, `OfflineCacheServiceTests.swift`
+- **Prevention:** Any cached user-derived data must include the authenticated user ID in its cache key and be cleared on account boundary changes.
+
 ## New Features
 
 ### Auto-Complete Workout on All Sets Done
@@ -621,6 +629,7 @@
 | Hardcoded unit display (miles, lbs) | Wrong values for metric users | Always use `UnitPreferenceManager` formatters |
 | Capping progress at 100% in display | Misleading achievement info | Cap the visual ring, not the number |
 | Only checking recurring workout days | One-time workouts invisible | Query both `assignedDays` and `oneTimeDate` |
+| Global cache keys for user data | Cross-account data leakage | Include authenticated user ID and clear caches on sign-out |
 
 ---
 

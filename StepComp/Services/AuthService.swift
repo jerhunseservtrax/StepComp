@@ -203,6 +203,10 @@ final class AuthService: ObservableObject {
         if deleteCachedUser {
             KeychainStore.delete(account: keychainUserAccount)
         }
+
+        // Offline caches contain user-derived metrics/leaderboards and must not
+        // survive an account boundary on shared devices.
+        OfflineCacheService.clearAll()
         
         // Clear active workout state (draft, widget, live activity)
         WorkoutViewModel.clearAllActiveWorkoutState()
