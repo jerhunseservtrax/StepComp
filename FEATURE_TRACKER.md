@@ -1,7 +1,7 @@
 # FitComp Feature Tracker
 
 > Comprehensive catalog of all features in the FitComp fitness competition app (formerly StepComp).
-> Last updated: 2026-04-13 (v5)
+> Last updated: 2026-05-14 (v6)
 
 ---
 
@@ -328,6 +328,7 @@
 | Auth State Listener | `AuthService.swift` | Real-time auth state monitoring via Supabase events with automatic session recovery |
 | Auth Recovery | `RootView.swift` | Debounced periodic auth state recovery checks on foreground transitions |
 | Automatic Metrics Sync | `RootView.swift` | One-shot metrics sync on foreground/auth changes with dedup flag |
+| Auth Teardown Isolation | `AuthService.swift`, `WorkoutViewModel.swift`, `ChallengeService.swift`, `OfflineCacheService.swift` | Sign-out/account changes clear user-scoped offline cache, stale published identity, challenge runtime state, and active workout runtime state |
 | Singleton Services | `HealthKitService.swift`, `ChallengeService.swift` | Shared singleton instances to prevent state desync |
 | Supabase Client | `SupabaseClient.swift` | Database client configuration |
 | Step Sync | `StepSyncService.swift` | Sync steps to server with fraud detection, RPC fallback |
@@ -357,7 +358,7 @@
 | Haptic Manager | `HapticManager.swift` | Haptic feedback patterns |
 | Keychain Store | `KeychainStore.swift` | Secure credential storage with kSecAttrService scoping and OSStatus error handling |
 | Retry Utility | `RetryUtility.swift` | Exponential backoff retry logic |
-| Offline Cache | `OfflineCacheService.swift` | Generic disk-backed Codable cache with fetch-with-fallback for offline resilience |
+| Offline Cache | `OfflineCacheService.swift`, `MetricsService.swift`, `ChallengeService.swift` | Generic disk-backed Codable cache with active-session user-scoped fetch-with-fallback for offline resilience |
 | Cached Async Image | `CachedAsyncImage.swift` | Image caching for remote images (used in ProfileView, etc.) |
 | Reaction Effects | `ReactionEffectManager.swift` | Celebration/reaction animations |
 | Avatar View | `AvatarView.swift` | Reusable avatar component |
