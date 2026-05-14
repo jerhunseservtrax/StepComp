@@ -282,6 +282,23 @@ class WorkoutViewModel: ObservableObject {
         WorkoutLiveActivityManager.end()
         WorkoutWidgetStore.clear()
     }
+
+    private func discardActiveWorkoutState() {
+        autoFinishTask?.cancel()
+        autoFinishTask = nil
+        isAutoFinishing = false
+        stopTimer()
+        currentSession = nil
+        sessionStartTime = nil
+        elapsedTime = 0
+        totalPausedTime = 0
+        isPaused = false
+        pauseStartTime = nil
+        workoutTargetDate = nil
+        clearActiveWorkoutDraft()
+        WorkoutLiveActivityManager.end()
+        WorkoutWidgetStore.clear()
+    }
     
     // MARK: - Set Management
     
@@ -1027,9 +1044,7 @@ class WorkoutViewModel: ObservableObject {
     /// Clears all active workout state (draft, widget, live activity)
     static func clearAllActiveWorkoutState() {
         let vm = WorkoutViewModel.shared
-        vm.clearActiveWorkoutDraft()
-        WorkoutWidgetStore.clear()
-        WorkoutLiveActivityManager.end()
+        vm.discardActiveWorkoutState()
         print("🧹 All active workout state cleared")
     }
     

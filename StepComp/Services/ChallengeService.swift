@@ -286,6 +286,14 @@ final class ChallengeService: ObservableObject {
     func invalidateChallengeCache(_ challengeId: String) {
         challenges.removeAll { $0.id == challengeId }
     }
+
+    func clearLocalState() {
+        challenges.removeAll()
+        leaderboardEntries.removeAll()
+        lastErrorMessage = nil
+        UserDefaults.standard.removeObject(forKey: challengesKey)
+        UserDefaults.standard.removeObject(forKey: leaderboardKey)
+    }
     
     // New async version that fetches from Supabase if not in cache
     func getChallengeAsync(_ challengeId: String) async -> Challenge? {
@@ -514,7 +522,7 @@ final class ChallengeService: ObservableObject {
     
     #if canImport(Supabase)
     private func getLeaderboardFromSupabase(challengeId: String) async -> [LeaderboardEntry] {
-        let cacheKey = "leaderboard_\(challengeId)"
+        let cacheKey = userScopedCacheKey("leaderboard_\(challengeId)")
         do {
             let serverEntries: [ServerLeaderboardEntry] = try await SupabaseRequestExecutor.executeWithAuthRetry(context: "get_leaderboard") {
                 try await supabase
@@ -534,6 +542,13 @@ final class ChallengeService: ObservableObject {
             }
             return leaderboardEntries[challengeId] ?? []
         }
+    }
+
+    private func userScopedCacheKey(_ key: String) -> String {
+        guard let userId = AuthService.shared.currentUser?.id, !userId.isEmpty else {
+            return "anonymous__\(key)"
+        }
+        return "user_\(userId)__\(key)"
     }
     #endif
     

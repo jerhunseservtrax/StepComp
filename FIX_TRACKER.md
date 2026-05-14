@@ -1,7 +1,7 @@
 # FitComp Fix Tracker
 
 > Log of all bugs encountered and fixes implemented to prevent recurrence.
-> Last updated: 2026-04-13 (v6)
+> Last updated: 2026-05-14 (v7)
 
 ---
 
@@ -587,6 +587,22 @@
 - **Fix:** Restored a dedicated Workouts tab in a 5-tab layout and updated tab-index routing in workout start flow and tab manager helper.
 - **Files:** `MainTabView.swift`, `WorkoutDetailView.swift`
 - **Prevention:** Keep central tab index mapping documented and update all programmatic tab switches whenever tab order changes.
+
+### 62. Offline Cache Could Leak Metrics Across Accounts
+- **Status:** Fixed (2026-05-14)
+- **Symptom:** On a shared device, a second signed-in user could see the previous user's cached metrics or leaderboard data when the network/RPC fallback path used disk cache.
+- **Root Cause:** Offline cache keys for metrics and leaderboards were not scoped by authenticated user, and auth teardown did not clear the disk-backed offline cache or singleton challenge state.
+- **Fix:** Added user-scoped cache keys for metrics and leaderboard fallback data. Auth sign-out/account changes now clear offline cache and challenge runtime state.
+- **Files:** `MetricsService.swift`, `ChallengeService.swift`, `AuthService.swift`
+- **Prevention:** All offline caches that contain user data must include the authenticated user id in the key and must be cleared on auth teardown.
+
+### 63. Active Workout State Survived Sign-Out
+- **Status:** Fixed (2026-05-14)
+- **Symptom:** If a user signed out during an active workout, the persisted draft was removed but the singleton `WorkoutViewModel` still held the in-memory session. A later account in the same app process could see or re-persist the stale workout.
+- **Root Cause:** `clearAllActiveWorkoutState()` only cleared the draft, widget, and Live Activity; it did not reset `currentSession`, timers, pause state, or auto-finish state.
+- **Fix:** Added full runtime discard logic and routed auth cleanup through it so sign-out clears in-memory workout state as well as persisted draft/widget/Live Activity state.
+- **Files:** `WorkoutViewModel.swift`, `AuthService.swift`
+- **Prevention:** Auth teardown must clear both persisted and in-memory singleton state for any user-owned workflow.
 
 ## New Features
 
