@@ -592,7 +592,7 @@
 - **Status:** Fixed (2026-05-14)
 - **Symptom:** On a shared device, a second signed-in user could see the previous user's cached metrics or leaderboard data when the network/RPC fallback path used disk cache.
 - **Root Cause:** Offline cache keys for metrics and leaderboards were not scoped by authenticated user, and auth teardown did not clear the disk-backed offline cache or singleton challenge state.
-- **Fix:** Added user-scoped cache keys for metrics and leaderboard fallback data. Auth sign-out/account changes now clear offline cache and challenge runtime state.
+- **Fix:** Added user-scoped cache keys for metrics and leaderboard fallback data, deriving scope from the active Supabase session when available. Auth sign-out/account changes now clear offline cache, challenge runtime state, and stale published identity.
 - **Files:** `MetricsService.swift`, `ChallengeService.swift`, `AuthService.swift`
 - **Prevention:** All offline caches that contain user data must include the authenticated user id in the key and must be cleared on auth teardown.
 

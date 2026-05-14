@@ -31,6 +31,7 @@ final class AuthService: ObservableObject {
     private let testAccountDisplayName = "Test User"
     #endif
     private var refreshSessionTask: Task<Bool, Never>?
+    private var explicitSignOutInProgress = false
     #if canImport(Supabase)
     private var authStateListenerTask: Task<Void, Never>?
     #endif
@@ -119,7 +120,14 @@ final class AuthService: ObservableObject {
             }
         case .signedOut:
             print("🚪 Auth signed out event received")
-            if isCheckingSession, let cachedUser = loadCachedUser() {
+            if explicitSignOutInProgress {
+                explicitSignOutInProgress = false
+                applySignedOutState(
+                    deleteCachedUser: true,
+                    reason: "explicit sign-out auth event",
+                    allowDuringStartupCheck: true
+                )
+            } else if isCheckingSession, let cachedUser = loadCachedUser() {
                 // Startup races can emit signedOut before session recovery completes.
                 // Keep local user state and let the manual fallback re-check Supabase.
                 print("ℹ️ Ignoring signed-out event during startup because cached user exists")
@@ -150,6 +158,8 @@ final class AuthService: ObservableObject {
         let userId = session.user.id.uuidString
         if let currentUserId = currentUser?.id, currentUserId != userId {
             clearUserScopedRuntimeState()
+            currentUser = nil
+            isAuthenticated = false
         }
         
         // Keep profile loading in a standalone task so timeout does not cancel it.
@@ -270,7 +280,13 @@ final class AuthService: ObservableObject {
     private func forceLogout() async {
         #if canImport(Supabase)
         do {
-            try await supabase.auth.signOut()
+            explicitSignOutInProgress = true
+            do {
+                try await supabase.auth.signOut()
+            } catch {
+                explicitSignOutInProgress = false
+                throw error
+            }
             print("🚪 Force logout requested - waiting for signed-out event")
         } catch {
             print("⚠️ Force logout signOut failed, clearing local auth state: \(error.localizedDescription)")
@@ -596,7 +612,13 @@ final class AuthService: ObservableObject {
         if useSupabase {
             // This clears the session from Supabase's internal storage.
             // Local cleanup is handled by the signed-out auth state event.
-            try await supabase.auth.signOut()
+            explicitSignOutInProgress = true
+            do {
+                try await supabase.auth.signOut()
+            } catch {
+                explicitSignOutInProgress = false
+                throw error
+            }
             print("✅ Supabase sign out requested - awaiting signed-out event")
             return
         }

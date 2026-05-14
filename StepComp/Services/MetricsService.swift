@@ -167,7 +167,8 @@ final class MetricsService: ObservableObject {
 
     func fetchMetricsSummary(days: Int = 30) async -> MetricsSummary? {
         #if canImport(Supabase)
-        return await OfflineCacheService.fetchWithFallback(key: userScopedCacheKey("metrics_summary_\(days)")) {
+        let cacheKey = await userScopedCacheKey("metrics_summary_\(days)")
+        return await OfflineCacheService.fetchWithFallback(key: cacheKey) {
             try await SupabaseRequestExecutor.executeWithAuthRetry(context: "fetch_metrics_summary") {
                 try await supabase
                     .rpc("get_user_metrics_summary", params: ["p_days": String(days)])
@@ -318,7 +319,8 @@ final class MetricsService: ObservableObject {
 
     func fetchWeightHistory(days: Int = 90) async -> [WeightHistoryPoint] {
         #if canImport(Supabase)
-        return await OfflineCacheService.fetchArrayWithFallback(key: userScopedCacheKey("weight_history_\(days)")) {
+        let cacheKey = await userScopedCacheKey("weight_history_\(days)")
+        return await OfflineCacheService.fetchArrayWithFallback(key: cacheKey) {
             try await SupabaseRequestExecutor.executeWithAuthRetry(context: "fetch_weight_history") {
                 try await supabase
                     .rpc("get_weight_history", params: ["p_days": String(days)])
@@ -335,7 +337,8 @@ final class MetricsService: ObservableObject {
 
     func fetchWorkoutHistory(days: Int = 90) async -> [WorkoutHistoryPoint] {
         #if canImport(Supabase)
-        return await OfflineCacheService.fetchArrayWithFallback(key: userScopedCacheKey("workout_history_\(days)")) {
+        let cacheKey = await userScopedCacheKey("workout_history_\(days)")
+        return await OfflineCacheService.fetchArrayWithFallback(key: cacheKey) {
             try await SupabaseRequestExecutor.executeWithAuthRetry(context: "fetch_workout_history") {
                 try await supabase
                     .rpc("get_workout_history", params: ["p_days": String(days)])
@@ -350,7 +353,12 @@ final class MetricsService: ObservableObject {
 
     // MARK: - Sync Tracking (UserDefaults)
 
-    private func userScopedCacheKey(_ key: String) -> String {
+    private func userScopedCacheKey(_ key: String) async -> String {
+        #if canImport(Supabase)
+        if let session = try? await supabase.auth.session {
+            return "user_\(session.user.id.uuidString)__\(key)"
+        }
+        #endif
         guard let userId = AuthService.shared.currentUser?.id, !userId.isEmpty else {
             return "anonymous__\(key)"
         }
