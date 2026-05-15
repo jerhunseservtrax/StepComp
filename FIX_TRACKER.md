@@ -1,7 +1,7 @@
 # FitComp Fix Tracker
 
 > Log of all bugs encountered and fixes implemented to prevent recurrence.
-> Last updated: 2026-04-13 (v6)
+> Last updated: 2026-05-15 (v7)
 
 ---
 
@@ -490,11 +490,19 @@
 - **Files:** `DeepLinkRouter.swift`
 - **Prevention:** Always validate deep link parameters at the routing layer before passing to services.
 
+### 52. Password Reset Email Used Unregistered URL Scheme
+- **Status:** Fixed
+- **Symptom:** Password reset emails could open a `je.fitcomp://reset-password` link that iOS would not deliver to the app.
+- **Root Cause:** `ForgotPasswordSheet` requested Supabase recovery emails with a custom scheme that was not listed in `Info.plist`; the app only registers `fitcomp`.
+- **Fix:** Added `PasswordResetDeepLink.redirectURL` and changed recovery emails to use `fitcomp://reset-password`, matching the registered route and `DeepLinkRouter`.
+- **Files:** `ForgotPasswordSheet.swift`, `DeepLinkRouterTests.swift`
+- **Prevention:** Any new auth or invite deep link must use a shared route helper and be covered by a routing test that matches registered schemes.
+
 ---
 
 ## Profile & Settings
 
-### 52. ProfileSettings Height/Weight Ignored Unit System
+### 53. ProfileSettings Height/Weight Ignored Unit System
 - **Status:** Fixed (uncommitted)
 - **Symptom:** Profile settings always displayed and saved height/weight as imperial, even when user had selected metric.
 - **Root Cause:** Init hardcoded `cmToImperial` / `kgToLbs` conversion regardless of `UnitPreferenceManager.unitSystem`.
@@ -502,7 +510,7 @@
 - **Files:** `ProfileSettingsView.swift`
 - **Prevention:** All unit-dependent displays must consult `UnitPreferenceManager.shared.unitSystem` before converting.
 
-### 53. DailyGoalCard Progress Capped at 100%
+### 54. DailyGoalCard Progress Capped at 100%
 - **Status:** Fixed (uncommitted)
 - **Symptom:** Progress percentage showed max 100% even when user exceeded daily step goal.
 - **Root Cause:** `progress` computed property used `min(…, 1.0)`, capping at 100%.
@@ -510,7 +518,7 @@
 - **Files:** `DailyGoalCard.swift`
 - **Prevention:** Percentage display should reflect actual value. Only cap the visual ring, not the number.
 
-### 54. getNextWorkout Skipped One-Time Workouts
+### 55. getNextWorkout Skipped One-Time Workouts
 - **Status:** Fixed (uncommitted)
 - **Symptom:** One-time scheduled workouts never appeared in the "Upcoming Workout" card on the home dashboard.
 - **Root Cause:** `getWorkoutsForDay()` only checked `assignedDays` (recurring), ignoring `oneTimeDate`. `getNextWorkout()` started searching from tomorrow instead of today.
@@ -518,7 +526,7 @@
 - **Files:** `WorkoutViewModel.swift`
 - **Prevention:** When workouts can be both recurring and one-time, all query methods must check both scheduling modes.
 
-### 55. Settings Distance Display Hardcoded to Miles
+### 56. Settings Distance Display Hardcoded to Miles
 - **Status:** Fixed (uncommitted)
 - **Symptom:** Settings profile section always displayed distance in miles regardless of unit preference.
 - **Root Cause:** `formattedDistance` was hardcoded: `String(format: "%.1f mi", totalDistanceMiles)`.
@@ -530,7 +538,7 @@
 
 ## Service Initialization
 
-### 56. Multiple Service Instances Causing State Desync
+### 57. Multiple Service Instances Causing State Desync
 - **Status:** Fixed (uncommitted)
 - **Symptom:** HealthKit and Challenge data could become stale or inconsistent across different views.
 - **Root Cause:** `RootView` created new `HealthKitService()` and `ChallengeService()` instances instead of using shared singletons. `DashboardViewModel` init required service injection, creating additional instances.
@@ -542,7 +550,7 @@
 
 ## Notifications (continued)
 
-### 57. Excessive Step Goal Milestone Notifications
+### 58. Excessive Step Goal Milestone Notifications
 - **Status:** Fixed (uncommitted)
 - **Symptom:** Users received too many step-goal push notifications in one day (25%, 50%, 75%, 100%, plus above-goal tiers).
 - **Root Cause:** `StepGoalNotificationService` tracked and sent multiple milestone tiers, including extra "above and beyond" thresholds.
@@ -554,7 +562,7 @@
 
 ## Metrics & Analytics
 
-### 58. Strength Trend Displayed `+0%` Despite Progress
+### 59. Strength Trend Displayed `+0%` Despite Progress
 - **Status:** Fixed (uncommitted)
 - **Symptom:** Performance card showed `Strength Trend +0%` even when users increased reps/weight across recent lifts.
 - **Root Cause:** Trend compared split windows inside one lookback period and returned numeric zero when no overlapping lift names existed across windows; UI rounded small changes and lacked an insufficient-data state.
@@ -564,7 +572,7 @@
 
 ---
 
-### 59. Metrics Silently Coerced Missing Data to `0`
+### 60. Metrics Silently Coerced Missing Data to `0`
 - **Status:** Fixed (uncommitted)
 - **Symptom:** Some workout metrics appeared as confident numeric zeros (`0`, `+0%`, `1 PR / 0 workouts`) when data was insufficient, making progress interpretation misleading.
 - **Root Cause:** Multiple compute and rendering paths used zero fallbacks for unavailable data and non-optional report fields.
@@ -572,7 +580,7 @@
 - **Files:** `ComprehensiveMetrics.swift`, `ComprehensiveMetricsStore.swift`, `PerformancePillarSection.swift`, `InsightsPillarSection.swift`, `MetricsViewModel.swift`
 - **Prevention:** Use optional fields or availability flags for metrics with data sufficiency requirements; reserve numeric zero for true measured zero outcomes.
 
-### 60. Home Date Strip Opened at Oldest Day
+### 61. Home Date Strip Opened at Oldest Day
 - **Status:** Fixed (uncommitted)
 - **Symptom:** Home calendar/date strip opened at the far left (oldest date), forcing users to scroll right to current day on every load.
 - **Root Cause:** `ScrollViewReader.scrollTo` targeted `selectedDate` with time component while date-cell IDs were normalized to start-of-day, causing initial scroll target mismatch.
@@ -580,7 +588,7 @@
 - **Files:** `DateSelectorView.swift`, `HomeDashboardView.swift`
 - **Prevention:** Ensure `scrollTo` IDs and bound state values share identical normalization when using date-based IDs.
 
-### 61. Workouts Tab Missing from Bottom Navigation
+### 62. Workouts Tab Missing from Bottom Navigation
 - **Status:** Fixed (uncommitted)
 - **Symptom:** Workouts was no longer directly accessible from the bottom nav, increasing navigation friction.
 - **Root Cause:** Bottom tab configuration was reduced to 4 tabs and workout routing assumptions retained stale tab indices.

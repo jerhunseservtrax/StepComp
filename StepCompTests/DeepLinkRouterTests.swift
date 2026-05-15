@@ -40,6 +40,16 @@ final class DeepLinkRouterTests: XCTestCase {
         XCTAssertNotNil(router.pendingPasswordResetURL)
     }
 
+    func testPasswordResetRedirectURLUsesRegisteredRoute() {
+        let url = PasswordResetDeepLink.redirectURL
+
+        XCTAssertEqual(url.scheme, "fitcomp")
+        XCTAssertEqual(url.host, "reset-password")
+
+        router.handle(url: url)
+        XCTAssertEqual(router.pendingPasswordResetURL, url)
+    }
+
     func testUniversalLinkInvite() {
         let url = URL(string: "https://fitcomp.app/invite/friend/TEST1234")!
         router.handle(url: url)
