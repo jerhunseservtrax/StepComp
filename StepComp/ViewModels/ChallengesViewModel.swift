@@ -192,7 +192,7 @@ final class ChallengesViewModel: ObservableObject {
 
     func loadMorePublicChallenges() async {
         guard hasMorePublicChallenges else { return }
-        publicChallengesOffset += publicPageSize
+        let nextOffset = publicChallengesOffset + publicPageSize
         
         do {
             _ = try await supabase.auth.session
@@ -205,10 +205,11 @@ final class ChallengesViewModel: ObservableObject {
                 .eq("is_public", value: true)
                 .gte("end_date", value: ISO8601DateFormatter().string(from: Date()))
                 .order("created_at", ascending: false)
-                .range(from: publicChallengesOffset, to: publicChallengesOffset + publicPageSize - 1)
+                .range(from: nextOffset, to: nextOffset + publicPageSize - 1)
                 .execute()
                 .value
             
+            publicChallengesOffset = nextOffset
             hasMorePublicChallenges = nextPage.count >= publicPageSize
             
             let discoverable = nextPage.filter { !participatingChallengeIds.contains($0.id) }

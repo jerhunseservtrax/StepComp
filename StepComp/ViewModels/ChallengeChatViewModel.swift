@@ -117,9 +117,7 @@ final class ChallengeChatViewModel: ObservableObject {
             print("✅ Message sent successfully")
             
             let latest = try await fetchLatestMessages(limit: pageSize)
-            messages = latest
-            oldestLoadedDate = latest.first?.createdAt
-            hasMoreMessages = latest.count >= pageSize
+            applyLatestMessages(latest)
             
             // Post notification to update chat badge in dashboard header
             NotificationCenter.default.post(name: .chatMessageReceived, object: nil)
@@ -339,10 +337,9 @@ final class ChallengeChatViewModel: ObservableObject {
     private func refreshMessages() async {
         do {
             let latest = try await fetchLatestMessages(limit: pageSize)
-            if latest.last?.id != messages.last?.id || latest.count != messages.count {
-                messages = latest
-                oldestLoadedDate = latest.first?.createdAt
-                hasMoreMessages = latest.count >= pageSize
+            let merged = ChallengeChatMessageMerger.mergeLatestPage(latest, into: messages, pageSize: pageSize)
+            if merged != messages {
+                applyLatestMessages(latest)
                 NotificationCenter.default.post(name: .chatMessageReceived, object: nil)
             }
         } catch {
@@ -350,6 +347,16 @@ final class ChallengeChatViewModel: ObservableObject {
             print("⚠️ Refresh after realtime event failed: \(error.localizedDescription)")
             #endif
         }
+    }
+
+    private func applyLatestMessages(_ latest: [ChallengeMessage]) {
+        let hadLoadedOlderMessages = messages.count > latest.count
+        let previousHasMoreMessages = hasMoreMessages
+        let merged = ChallengeChatMessageMerger.mergeLatestPage(latest, into: messages, pageSize: pageSize)
+
+        messages = merged
+        oldestLoadedDate = merged.first?.createdAt
+        hasMoreMessages = hadLoadedOlderMessages ? previousHasMoreMessages : latest.count >= pageSize
     }
 
     private func fallbackPolling() async {
@@ -409,6 +416,29 @@ private extension Array where Element == ChallengeMessage {
         return filter {
             seen.insert($0.id).inserted
         }
+    }
+}
+
+enum ChallengeChatMessageMerger {
+    static func mergeLatestPage(
+        _ latestPage: [ChallengeMessage],
+        into existingMessages: [ChallengeMessage],
+        pageSize: Int
+    ) -> [ChallengeMessage] {
+        let latestSorted = latestPage.sorted { $0.createdAt < $1.createdAt }
+        guard !existingMessages.isEmpty else { return latestSorted }
+        guard latestSorted.count >= pageSize, let oldestLatestDate = latestSorted.first?.createdAt else {
+            return latestSorted
+        }
+
+        let latestIds = Set(latestSorted.map(\.id))
+        let olderLoadedMessages = existingMessages.filter { message in
+            !latestIds.contains(message.id) && message.createdAt < oldestLatestDate
+        }
+
+        return (olderLoadedMessages + latestSorted)
+            .sorted { $0.createdAt < $1.createdAt }
+            .uniquedById()
     }
 }
 

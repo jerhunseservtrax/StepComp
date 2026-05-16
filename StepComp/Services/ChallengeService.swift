@@ -21,6 +21,19 @@ final class ChallengeService: ObservableObject {
     private let challengesKey = "challenges"
     private let leaderboardKey = "leaderboard"
     private let useSupabase: Bool
+
+    nonisolated static func leaderboardCacheKey(challengeId: String, scope: LeaderboardScope) -> String {
+        let scopeKey: String
+        switch scope {
+        case .daily:
+            scopeKey = "daily"
+        case .weekly:
+            scopeKey = "weekly"
+        case .allTime:
+            scopeKey = "all_time"
+        }
+        return "leaderboard_\(scopeKey)_\(challengeId)"
+    }
     
     init(useSupabase: Bool = true) {
         self.useSupabase = useSupabase
@@ -514,7 +527,7 @@ final class ChallengeService: ObservableObject {
     
     #if canImport(Supabase)
     private func getLeaderboardFromSupabase(challengeId: String) async -> [LeaderboardEntry] {
-        let cacheKey = "leaderboard_\(challengeId)"
+        let cacheKey = Self.leaderboardCacheKey(challengeId: challengeId, scope: .allTime)
         do {
             let serverEntries: [ServerLeaderboardEntry] = try await SupabaseRequestExecutor.executeWithAuthRetry(context: "get_leaderboard") {
                 try await supabase
@@ -563,6 +576,7 @@ final class ChallengeService: ObservableObject {
     
     #if canImport(Supabase)
     private func getDailyLeaderboardFromSupabase(challengeId: String) async -> [LeaderboardEntry] {
+        let cacheKey = Self.leaderboardCacheKey(challengeId: challengeId, scope: .daily)
         do {
             let serverEntries: [ServerLeaderboardEntry] = try await SupabaseRequestExecutor.executeWithAuthRetry(context: "get_daily_leaderboard") {
                 try await supabase
@@ -573,13 +587,13 @@ final class ChallengeService: ObservableObject {
             
             // Convert to client model
             let entries = serverEntries.map { $0.toLeaderboardEntry(challengeId: challengeId) }
+            OfflineCacheService.save(entries, key: cacheKey)
             
             print("✅ Loaded \(entries.count) daily leaderboard entries from RPC")
             return entries
         } catch {
             print("⚠️ Error loading daily leaderboard: \(error.localizedDescription)")
-            // Fallback to all-time leaderboard (better than empty)
-            return await getLeaderboardFromSupabase(challengeId: challengeId)
+            return OfflineCacheService.load([LeaderboardEntry].self, key: cacheKey) ?? []
         }
     }
     

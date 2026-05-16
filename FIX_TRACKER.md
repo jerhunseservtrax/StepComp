@@ -1,7 +1,7 @@
 # FitComp Fix Tracker
 
 > Log of all bugs encountered and fixes implemented to prevent recurrence.
-> Last updated: 2026-04-13 (v6)
+> Last updated: 2026-05-16 (v7)
 
 ---
 
@@ -587,6 +587,38 @@
 - **Fix:** Restored a dedicated Workouts tab in a 5-tab layout and updated tab-index routing in workout start flow and tab manager helper.
 - **Files:** `MainTabView.swift`, `WorkoutDetailView.swift`
 - **Prevention:** Keep central tab index mapping documented and update all programmatic tab switches whenever tab order changes.
+
+### 62. OAuth Callback URLs Logged Credentials
+- **Status:** Fixed (2026-05-16)
+- **Symptom:** OAuth callback logs could include authorization codes, access tokens, or refresh tokens from query strings/fragments.
+- **Root Cause:** `SignInOnboardingView+Auth` printed raw callback URLs received from `ASWebAuthenticationSession` and `handleOAuthCallback`.
+- **Fix:** Added `OAuthLogSanitizer` and log only scheme/host/path with query and fragment redacted.
+- **Files:** `OAuthLogSanitizer.swift`, `SignInOnboardingView+Auth.swift`, `OAuthLogSanitizerTests.swift`
+- **Prevention:** Never log raw OAuth, password-reset, invite, or session URLs. Redact query and fragment before diagnostics.
+
+### 63. Daily Leaderboard Fallback Displayed All-Time Rankings
+- **Status:** Fixed (2026-05-16)
+- **Symptom:** If the daily leaderboard RPC failed, the Daily tab silently displayed all-time leaderboard entries.
+- **Root Cause:** `getDailyLeaderboardFromSupabase()` fell back to `getLeaderboardFromSupabase()`, which fetches/caches all-time data under the all-time semantics.
+- **Fix:** Added scope-specific leaderboard cache keys, save daily leaderboard responses separately, and fall back only to cached daily data or an empty list.
+- **Files:** `ChallengeService.swift`, `LeaderboardCacheKeyTests.swift`
+- **Prevention:** Fallback data must preserve the selected metric scope; never substitute a broader aggregate for a narrower one.
+
+### 64. Realtime Chat Refresh Dropped Loaded History
+- **Status:** Fixed (2026-05-16)
+- **Symptom:** After a user loaded older chat messages, realtime refresh or sending a message replaced the full list with only the latest page.
+- **Root Cause:** `ChallengeChatViewModel` assigned `fetchLatestMessages(pageSize)` directly to `messages` after refresh/send.
+- **Fix:** Added `ChallengeChatMessageMerger` to replace the latest page while preserving already-loaded older messages outside that page.
+- **Files:** `ChallengeChatViewModel.swift`, `ChallengeChatMessageMergerTests.swift`
+- **Prevention:** Realtime latest-page refreshes must merge into paginated state instead of replacing the entire loaded collection.
+
+### 65. Public Challenge Pagination Skipped Page After Failure
+- **Status:** Fixed (2026-05-16)
+- **Symptom:** A failed "load more" request advanced the public challenge offset, causing the next successful request to skip a page.
+- **Root Cause:** `loadMorePublicChallenges()` incremented `publicChallengesOffset` before the network request completed.
+- **Fix:** Compute the next offset locally and commit it only after the page fetch succeeds.
+- **Files:** `ChallengesViewModel.swift`
+- **Prevention:** Pagination cursors/offsets should advance only after the corresponding page is successfully fetched.
 
 ## New Features
 
