@@ -26,6 +26,7 @@ final class ChallengesViewModel: ObservableObject {
     private var loadArchivedTask: Task<Void, Never>?
     private let publicPageSize = 40
     private var publicChallengesOffset = 0
+    private var isLoadingMorePublicChallenges = false
     @Published var hasMorePublicChallenges = true
     
     init(userId: String) {
@@ -191,7 +192,10 @@ final class ChallengesViewModel: ObservableObject {
     }
 
     func loadMorePublicChallenges() async {
-        guard hasMorePublicChallenges else { return }
+        guard hasMorePublicChallenges, !isLoadingMorePublicChallenges else { return }
+        isLoadingMorePublicChallenges = true
+        defer { isLoadingMorePublicChallenges = false }
+
         let nextOffset = publicChallengesOffset + publicPageSize
         
         do {

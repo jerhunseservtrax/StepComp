@@ -305,15 +305,23 @@ final class ChallengeChatViewModel: ObservableObject {
                     }
                 }
                 group.addTask { [weak self] in
-                    for await _ in updateStream {
+                    for await update in updateStream {
                         guard let self, !Task.isCancelled else { return }
-                        await self.refreshMessages()
+                        if let serverMessage = try? update.decodeRecord(as: ServerChallengeMessage.self) {
+                            await self.applyRealtimeUpdate(serverMessage.toChallengeMessage())
+                        } else {
+                            await self.refreshMessages()
+                        }
                     }
                 }
                 group.addTask { [weak self] in
-                    for await _ in deleteStream {
+                    for await deletion in deleteStream {
                         guard let self, !Task.isCancelled else { return }
-                        await self.refreshMessages()
+                        if let deletedMessage = try? deletion.decodeOldRecord(as: RealtimeMessageIdentity.self) {
+                            await self.removeRealtimeMessage(id: deletedMessage.id)
+                        } else {
+                            await self.refreshMessages()
+                        }
                     }
                 }
             }
@@ -357,6 +365,38 @@ final class ChallengeChatViewModel: ObservableObject {
         messages = merged
         oldestLoadedDate = merged.first?.createdAt
         hasMoreMessages = hadLoadedOlderMessages ? previousHasMoreMessages : latest.count >= pageSize
+    }
+
+    private func applyRealtimeUpdate(_ message: ChallengeMessage) async {
+        if message.isDeleted {
+            await removeRealtimeMessage(id: message.id)
+            return
+        }
+
+        guard let index = messages.firstIndex(where: { $0.id == message.id }) else {
+            await refreshMessages()
+            return
+        }
+
+        var updatedMessage = message
+        updatedMessage.senderName = messages[index].senderName ?? message.senderName
+        updatedMessage.senderAvatarURL = messages[index].senderAvatarURL ?? message.senderAvatarURL
+        messages[index] = updatedMessage
+        messages.sort { $0.createdAt < $1.createdAt }
+        oldestLoadedDate = messages.first?.createdAt
+        NotificationCenter.default.post(name: .chatMessageReceived, object: nil)
+    }
+
+    private func removeRealtimeMessage(id: String) async {
+        let originalCount = messages.count
+        messages.removeAll { $0.id == id }
+
+        if messages.count != originalCount {
+            oldestLoadedDate = messages.first?.createdAt
+            NotificationCenter.default.post(name: .chatMessageReceived, object: nil)
+        } else {
+            await refreshMessages()
+        }
     }
 
     private func fallbackPolling() async {
@@ -440,5 +480,9 @@ enum ChallengeChatMessageMerger {
             .sorted { $0.createdAt < $1.createdAt }
             .uniquedById()
     }
+}
+
+private struct RealtimeMessageIdentity: Decodable {
+    let id: String
 }
 

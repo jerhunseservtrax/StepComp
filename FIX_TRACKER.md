@@ -608,8 +608,8 @@
 - **Status:** Fixed (2026-05-16)
 - **Symptom:** After a user loaded older chat messages, realtime refresh or sending a message replaced the full list with only the latest page.
 - **Root Cause:** `ChallengeChatViewModel` assigned `fetchLatestMessages(pageSize)` directly to `messages` after refresh/send.
-- **Fix:** Added `ChallengeChatMessageMerger` to replace the latest page while preserving already-loaded older messages outside that page.
-- **Files:** `ChallengeChatViewModel.swift`, `ChallengeChatMessageMergerTests.swift`
+- **Fix:** Added `ChallengeChatMessageMerger` to replace the latest page while preserving already-loaded older messages outside that page. Realtime update/delete payloads now update or remove already-loaded off-page messages by ID.
+- **Files:** `ChallengeChatViewModel.swift`, `ChallengeMessage.swift`, `ChallengeChatMessageMergerTests.swift`
 - **Prevention:** Realtime latest-page refreshes must merge into paginated state instead of replacing the entire loaded collection.
 
 ### 65. Public Challenge Pagination Skipped Page After Failure

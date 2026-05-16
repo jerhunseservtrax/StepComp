@@ -30,7 +30,7 @@ final class ChallengeService: ObservableObject {
         case .weekly:
             scopeKey = "weekly"
         case .allTime:
-            scopeKey = "all_time"
+            return "leaderboard_\(challengeId)"
         }
         return "leaderboard_\(scopeKey)_\(challengeId)"
     }
