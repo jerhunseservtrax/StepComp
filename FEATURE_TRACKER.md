@@ -1,7 +1,7 @@
 # FitComp Feature Tracker
 
 > Comprehensive catalog of all features in the FitComp fitness competition app (formerly StepComp).
-> Last updated: 2026-04-13 (v5)
+> Last updated: 2026-05-16 (v6)
 
 ---
 
@@ -165,6 +165,7 @@
 | Challenge Celebration | `ChallengeCelebrationView.swift` | Completion celebration screen |
 | Leaderboard Preview | `LeaderboardPreview.swift` | Preview ranking before joining |
 | Invite Friends | `InviteFriendsToChallengeView.swift` | Invite friends to existing challenges |
+| Resilient Public Pagination | `ChallengesViewModel.swift` | Public challenge load-more advances offsets only after successful page fetches |
 
 ### Group Details
 
@@ -194,6 +195,7 @@
 | Feature | File(s) | Description |
 |---------|---------|-------------|
 | Challenge Chat | `ChallengeChatView.swift`, `ChallengeChatViewModel.swift` | Real-time group messaging via Supabase postgresChange streams with polling fallback |
+| Chat History Preservation | `ChallengeChatViewModel.swift` | Realtime latest-page refreshes merge into paginated history instead of dropping older loaded messages |
 | Chat List | `ChatListView.swift`, `ChatListViewModel.swift` | Overview of all chat conversations |
 | Message Actions | `ChallengeChatViewModel.swift` | Send, delete, auto-scroll |
 
@@ -202,6 +204,7 @@
 | Feature | File(s) | Description |
 |---------|---------|-------------|
 | Daily Leaderboard | `LeaderboardView.swift`, `LeaderboardViewModel.swift` | Today's step rankings |
+| Scoped Leaderboard Fallback | `ChallengeService.swift` | Daily leaderboard failures fall back only to daily-scoped cached data, not all-time rankings |
 | All-Time Leaderboard | `LeaderboardView.swift` | Cumulative step rankings |
 | Podium Display | `LeaderboardView.swift` | 1st/2nd/3rd place highlights |
 | Leaderboard Row | `LeaderboardRow.swift` | Individual rank display |
@@ -356,6 +359,7 @@
 | Unit Preferences | `UnitPreferenceManager.swift` | Full metric/imperial system (kg/lbs, km/mi, cm/ft-in) with height/weight storage converters, distance formatting, and display name helpers |
 | Haptic Manager | `HapticManager.swift` | Haptic feedback patterns |
 | Keychain Store | `KeychainStore.swift` | Secure credential storage with kSecAttrService scoping and OSStatus error handling |
+| OAuth Log Sanitizer | `OAuthLogSanitizer.swift` | Redacts query strings and fragments before OAuth callback URLs are written to diagnostics |
 | Retry Utility | `RetryUtility.swift` | Exponential backoff retry logic |
 | Offline Cache | `OfflineCacheService.swift` | Generic disk-backed Codable cache with fetch-with-fallback for offline resilience |
 | Cached Async Image | `CachedAsyncImage.swift` | Image caching for remote images (used in ProfileView, etc.) |

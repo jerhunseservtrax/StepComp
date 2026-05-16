@@ -117,9 +117,7 @@ final class ChallengeChatViewModel: ObservableObject {
             print("✅ Message sent successfully")
             
             let latest = try await fetchLatestMessages(limit: pageSize)
-            messages = latest
-            oldestLoadedDate = latest.first?.createdAt
-            hasMoreMessages = latest.count >= pageSize
+            applyLatestMessages(latest)
             
             // Post notification to update chat badge in dashboard header
             NotificationCenter.default.post(name: .chatMessageReceived, object: nil)
@@ -307,15 +305,29 @@ final class ChallengeChatViewModel: ObservableObject {
                     }
                 }
                 group.addTask { [weak self] in
-                    for await _ in updateStream {
+                    for await update in updateStream {
                         guard let self, !Task.isCancelled else { return }
-                        await self.refreshMessages()
+                        if let serverMessage = try? update.decodeRecord(
+                            as: ServerChallengeMessage.self,
+                            decoder: ChatRealtimeDecoder.make()
+                        ) {
+                            await self.applyRealtimeUpdate(serverMessage.toChallengeMessage())
+                        } else {
+                            await self.refreshMessages()
+                        }
                     }
                 }
                 group.addTask { [weak self] in
-                    for await _ in deleteStream {
+                    for await deletion in deleteStream {
                         guard let self, !Task.isCancelled else { return }
-                        await self.refreshMessages()
+                        if let deletedMessage = try? deletion.decodeOldRecord(
+                            as: RealtimeMessageIdentity.self,
+                            decoder: ChatRealtimeDecoder.make()
+                        ) {
+                            await self.removeRealtimeMessage(id: deletedMessage.id)
+                        } else {
+                            await self.refreshMessages()
+                        }
                     }
                 }
             }
@@ -339,16 +351,57 @@ final class ChallengeChatViewModel: ObservableObject {
     private func refreshMessages() async {
         do {
             let latest = try await fetchLatestMessages(limit: pageSize)
-            if latest.last?.id != messages.last?.id || latest.count != messages.count {
-                messages = latest
-                oldestLoadedDate = latest.first?.createdAt
-                hasMoreMessages = latest.count >= pageSize
+            let merged = ChallengeChatMessageMerger.mergeLatestPage(latest, into: messages, pageSize: pageSize)
+            if merged != messages {
+                applyLatestMessages(latest)
                 NotificationCenter.default.post(name: .chatMessageReceived, object: nil)
             }
         } catch {
             #if DEBUG
             print("⚠️ Refresh after realtime event failed: \(error.localizedDescription)")
             #endif
+        }
+    }
+
+    private func applyLatestMessages(_ latest: [ChallengeMessage]) {
+        let hadLoadedOlderMessages = messages.count > latest.count
+        let previousHasMoreMessages = hasMoreMessages
+        let merged = ChallengeChatMessageMerger.mergeLatestPage(latest, into: messages, pageSize: pageSize)
+
+        messages = merged
+        oldestLoadedDate = merged.first?.createdAt
+        hasMoreMessages = hadLoadedOlderMessages ? previousHasMoreMessages : latest.count >= pageSize
+    }
+
+    private func applyRealtimeUpdate(_ message: ChallengeMessage) async {
+        if message.isDeleted {
+            await removeRealtimeMessage(id: message.id)
+            return
+        }
+
+        guard let index = messages.firstIndex(where: { $0.id == message.id }) else {
+            await refreshMessages()
+            return
+        }
+
+        var updatedMessage = message
+        updatedMessage.senderName = messages[index].senderName ?? message.senderName
+        updatedMessage.senderAvatarURL = messages[index].senderAvatarURL ?? message.senderAvatarURL
+        messages[index] = updatedMessage
+        messages.sort { $0.createdAt < $1.createdAt }
+        oldestLoadedDate = messages.first?.createdAt
+        NotificationCenter.default.post(name: .chatMessageReceived, object: nil)
+    }
+
+    private func removeRealtimeMessage(id: String) async {
+        let originalCount = messages.count
+        messages.removeAll { $0.id == id }
+
+        if messages.count != originalCount {
+            oldestLoadedDate = messages.first?.createdAt
+            NotificationCenter.default.post(name: .chatMessageReceived, object: nil)
+        } else {
+            await refreshMessages()
         }
     }
 
@@ -409,6 +462,60 @@ private extension Array where Element == ChallengeMessage {
         return filter {
             seen.insert($0.id).inserted
         }
+    }
+}
+
+enum ChallengeChatMessageMerger {
+    static func mergeLatestPage(
+        _ latestPage: [ChallengeMessage],
+        into existingMessages: [ChallengeMessage],
+        pageSize: Int
+    ) -> [ChallengeMessage] {
+        let latestSorted = latestPage.sorted { $0.createdAt < $1.createdAt }
+        guard !existingMessages.isEmpty else { return latestSorted }
+        guard latestSorted.count >= pageSize, let oldestLatestDate = latestSorted.first?.createdAt else {
+            return latestSorted
+        }
+
+        let latestIds = Set(latestSorted.map(\.id))
+        let olderLoadedMessages = existingMessages.filter { message in
+            !latestIds.contains(message.id) && message.createdAt < oldestLatestDate
+        }
+
+        return (olderLoadedMessages + latestSorted)
+            .sorted { $0.createdAt < $1.createdAt }
+            .uniquedById()
+    }
+}
+
+private struct RealtimeMessageIdentity: Decodable {
+    let id: String
+}
+
+private enum ChatRealtimeDecoder {
+    static func make() -> JSONDecoder {
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .custom { decoder in
+            let container = try decoder.singleValueContainer()
+            let dateString = try container.decode(String.self)
+
+            let iso8601Formatter = ISO8601DateFormatter()
+            iso8601Formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+            if let date = iso8601Formatter.date(from: dateString) {
+                return date
+            }
+
+            iso8601Formatter.formatOptions = [.withInternetDateTime]
+            if let date = iso8601Formatter.date(from: dateString) {
+                return date
+            }
+
+            throw DecodingError.dataCorruptedError(
+                in: container,
+                debugDescription: "Invalid realtime timestamp: \(dateString)"
+            )
+        }
+        return decoder
     }
 }
 

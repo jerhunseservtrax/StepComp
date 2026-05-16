@@ -8,7 +8,7 @@
 import Foundation
 
 // MARK: - Client Model (UI)
-struct ChallengeMessage: Identifiable, Codable, Equatable {
+struct ChallengeMessage: Identifiable, Codable, Equatable, Sendable {
     let id: String
     let challengeId: String
     let userId: String
@@ -51,7 +51,7 @@ struct ChallengeMessage: Identifiable, Codable, Equatable {
 }
 
 // MARK: - Server Model (from database with profiles join)
-struct ServerChallengeMessage: Codable {
+struct ServerChallengeMessage: Codable, Sendable {
     let id: String
     let challengeId: String
     let userId: String
@@ -62,7 +62,7 @@ struct ServerChallengeMessage: Codable {
     let isDeleted: Bool
     let profiles: ProfileInfo?
     
-    struct ProfileInfo: Codable {
+    struct ProfileInfo: Codable, Sendable {
         let username: String?
         let displayName: String?
         let avatarUrl: String?

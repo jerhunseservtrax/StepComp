@@ -447,7 +447,7 @@ extension SignInOnboardingView {
                 print("❌ [H7] Error domain: \((error as NSError).domain)")
             }
             if let callbackURL = callbackURL {
-                print("✅ [H7] Callback URL received: \(callbackURL.absoluteString)")
+                print("✅ [H7] Callback URL received: \(OAuthLogSanitizer.redactedDescription(for: callbackURL))")
             } else {
                 print("⚠️ [H7] No callback URL received")
             }
@@ -499,7 +499,7 @@ extension SignInOnboardingView {
     
     func handleOAuthCallback(url: URL) async {
         #if canImport(Supabase)
-        print("🔵 OAuth callback received: \(url)")
+        print("🔵 OAuth callback received: \(OAuthLogSanitizer.redactedDescription(for: url))")
         
         // Process the OAuth callback URL with Supabase
         // Extract tokens from the callback URL

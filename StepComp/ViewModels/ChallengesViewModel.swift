@@ -26,6 +26,7 @@ final class ChallengesViewModel: ObservableObject {
     private var loadArchivedTask: Task<Void, Never>?
     private let publicPageSize = 40
     private var publicChallengesOffset = 0
+    private var isLoadingMorePublicChallenges = false
     @Published var hasMorePublicChallenges = true
     
     init(userId: String) {
@@ -191,8 +192,11 @@ final class ChallengesViewModel: ObservableObject {
     }
 
     func loadMorePublicChallenges() async {
-        guard hasMorePublicChallenges else { return }
-        publicChallengesOffset += publicPageSize
+        guard hasMorePublicChallenges, !isLoadingMorePublicChallenges else { return }
+        isLoadingMorePublicChallenges = true
+        defer { isLoadingMorePublicChallenges = false }
+
+        let nextOffset = publicChallengesOffset + publicPageSize
         
         do {
             _ = try await supabase.auth.session
@@ -205,16 +209,16 @@ final class ChallengesViewModel: ObservableObject {
                 .eq("is_public", value: true)
                 .gte("end_date", value: ISO8601DateFormatter().string(from: Date()))
                 .order("created_at", ascending: false)
-                .range(from: publicChallengesOffset, to: publicChallengesOffset + publicPageSize - 1)
+                .range(from: nextOffset, to: nextOffset + publicPageSize - 1)
                 .execute()
                 .value
             
-            hasMorePublicChallenges = nextPage.count >= publicPageSize
-            
             let discoverable = nextPage.filter { !participatingChallengeIds.contains($0.id) }
             let converted = try await convertToChallenges(discoverable)
-            
+
             publicChallenges.append(contentsOf: converted)
+            publicChallengesOffset = nextOffset
+            hasMorePublicChallenges = nextPage.count >= publicPageSize
         } catch {
             print("⚠️ Error loading more public challenges: \(error.localizedDescription)")
         }

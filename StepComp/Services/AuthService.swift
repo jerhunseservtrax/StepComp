@@ -538,7 +538,7 @@ final class AuthService: ObservableObject {
         
         print("🔵 Calling supabase.auth.getOAuthSignInURL...")
         print("🔵 Provider: google")
-        print("🔵 Redirect URL: \(finalRedirectURL)")
+        print("🔵 Redirect URL: \(OAuthLogSanitizer.redactedDescription(for: finalRedirectURL))")
         
         
         // Supabase Swift SDK: getOAuthSignInURL generates the OAuth URL
@@ -549,7 +549,7 @@ final class AuthService: ObservableObject {
             redirectTo: finalRedirectURL
         )
         
-        print("✅ Google OAuth URL generated: \(url)")
+        print("✅ Google OAuth URL generated: \(OAuthLogSanitizer.redactedDescription(for: url))")
         return url
         
         #else
