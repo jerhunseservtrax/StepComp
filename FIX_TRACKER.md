@@ -591,9 +591,9 @@
 ### 62. OAuth Callback URLs Logged Credentials
 - **Status:** Fixed (2026-05-16)
 - **Symptom:** OAuth callback logs could include authorization codes, access tokens, or refresh tokens from query strings/fragments.
-- **Root Cause:** `SignInOnboardingView+Auth` printed raw callback URLs received from `ASWebAuthenticationSession` and `handleOAuthCallback`.
+- **Root Cause:** `SignInOnboardingView+Auth` and `AuthService` printed raw OAuth callback/generated URLs.
 - **Fix:** Added `OAuthLogSanitizer` and log only scheme/host/path with query and fragment redacted.
-- **Files:** `OAuthLogSanitizer.swift`, `SignInOnboardingView+Auth.swift`, `OAuthLogSanitizerTests.swift`
+- **Files:** `OAuthLogSanitizer.swift`, `SignInOnboardingView+Auth.swift`, `AuthService.swift`, `OAuthLogSanitizerTests.swift`
 - **Prevention:** Never log raw OAuth, password-reset, invite, or session URLs. Redact query and fragment before diagnostics.
 
 ### 63. Daily Leaderboard Fallback Displayed All-Time Rankings
