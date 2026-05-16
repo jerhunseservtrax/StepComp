@@ -213,13 +213,12 @@ final class ChallengesViewModel: ObservableObject {
                 .execute()
                 .value
             
-            publicChallengesOffset = nextOffset
-            hasMorePublicChallenges = nextPage.count >= publicPageSize
-            
             let discoverable = nextPage.filter { !participatingChallengeIds.contains($0.id) }
             let converted = try await convertToChallenges(discoverable)
-            
+
             publicChallenges.append(contentsOf: converted)
+            publicChallengesOffset = nextOffset
+            hasMorePublicChallenges = nextPage.count >= publicPageSize
         } catch {
             print("⚠️ Error loading more public challenges: \(error.localizedDescription)")
         }

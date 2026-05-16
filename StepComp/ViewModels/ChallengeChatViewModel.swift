@@ -307,7 +307,10 @@ final class ChallengeChatViewModel: ObservableObject {
                 group.addTask { [weak self] in
                     for await update in updateStream {
                         guard let self, !Task.isCancelled else { return }
-                        if let serverMessage = try? update.decodeRecord(as: ServerChallengeMessage.self) {
+                        if let serverMessage = try? update.decodeRecord(
+                            as: ServerChallengeMessage.self,
+                            decoder: ChatRealtimeDecoder.make()
+                        ) {
                             await self.applyRealtimeUpdate(serverMessage.toChallengeMessage())
                         } else {
                             await self.refreshMessages()
@@ -317,7 +320,10 @@ final class ChallengeChatViewModel: ObservableObject {
                 group.addTask { [weak self] in
                     for await deletion in deleteStream {
                         guard let self, !Task.isCancelled else { return }
-                        if let deletedMessage = try? deletion.decodeOldRecord(as: RealtimeMessageIdentity.self) {
+                        if let deletedMessage = try? deletion.decodeOldRecord(
+                            as: RealtimeMessageIdentity.self,
+                            decoder: ChatRealtimeDecoder.make()
+                        ) {
                             await self.removeRealtimeMessage(id: deletedMessage.id)
                         } else {
                             await self.refreshMessages()
@@ -484,5 +490,32 @@ enum ChallengeChatMessageMerger {
 
 private struct RealtimeMessageIdentity: Decodable {
     let id: String
+}
+
+private enum ChatRealtimeDecoder {
+    static func make() -> JSONDecoder {
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .custom { decoder in
+            let container = try decoder.singleValueContainer()
+            let dateString = try container.decode(String.self)
+
+            let iso8601Formatter = ISO8601DateFormatter()
+            iso8601Formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+            if let date = iso8601Formatter.date(from: dateString) {
+                return date
+            }
+
+            iso8601Formatter.formatOptions = [.withInternetDateTime]
+            if let date = iso8601Formatter.date(from: dateString) {
+                return date
+            }
+
+            throw DecodingError.dataCorruptedError(
+                in: container,
+                debugDescription: "Invalid realtime timestamp: \(dateString)"
+            )
+        }
+        return decoder
+    }
 }
 
