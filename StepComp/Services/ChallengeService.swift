@@ -109,6 +109,8 @@ final class ChallengeService: ObservableObject {
                         createdBy: supabaseChallenge.createdBy,
                         isPublic: supabaseChallenge.isPublic,
                         inviteCode: newInviteCode,
+                        category: supabaseChallenge.category,
+                        imageUrl: supabaseChallenge.imageUrl,
                         createdAt: supabaseChallenge.createdAt,
                         updatedAt: Date()
                     )

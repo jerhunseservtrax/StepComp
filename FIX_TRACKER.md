@@ -332,6 +332,14 @@
 - **Fix:** Added RPC fallback when Edge Function is unavailable.
 - **Files:** `StepSyncService.swift`
 
+### 62. Private Challenge Retry Missing Required Metadata Fields
+- **Status:** Fixed
+- **Symptom:** The app could fail to compile after challenge category/image fields were added because the private-challenge invite-code collision retry path constructed `SupabaseChallenge` without the required `category` and `imageUrl` arguments.
+- **Root Cause:** The retry initializer was not updated when `SupabaseChallenge` gained challenge metadata fields.
+- **Fix:** Preserve `category` and `imageUrl` from the original challenge payload when rebuilding the challenge with a regenerated invite code.
+- **Files:** `ChallengeService.swift`
+- **Prevention:** When Codable request models gain stored properties, update every retry/fallback initializer path and include static regression checks for alternate constructors.
+
 ---
 
 ## Chat System
