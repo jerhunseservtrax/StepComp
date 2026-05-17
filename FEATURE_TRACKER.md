@@ -156,6 +156,7 @@
 | Category Selection | `CreateChallengeView.swift` | Short-Term, Friends, Corporate, Marathon, Fun |
 | Challenge Images | `ChallengeImageBackground.swift` | Unsplash-powered background images |
 | Invite Codes | `CreateChallengeViewModel.swift` | 8-char shareable codes for private challenges |
+| Invite Code Collision Retry | `ChallengeService.swift` | Regenerates private challenge invite codes while preserving category and image metadata |
 | Active Challenges Tab | `ActiveChallengesTab.swift` | Current challenges list with progress |
 | Discover Tab | `DiscoverChallengesTab.swift` | Browse/search public challenges |
 | Archived Tab | `ArchivedChallengesTab.swift` | Historical completed challenges |
