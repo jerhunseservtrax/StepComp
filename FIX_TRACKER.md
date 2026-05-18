@@ -1,7 +1,7 @@
 # FitComp Fix Tracker
 
 > Log of all bugs encountered and fixes implemented to prevent recurrence.
-> Last updated: 2026-04-13 (v6)
+> Last updated: 2026-05-18 (v7)
 
 ---
 
@@ -84,6 +84,16 @@
 - **Fix:** Changed to `@ObservedObject`. Wrapped state updates in `MainActor.run`. Added `.id()` modifier for clean view recreation.
 - **Files:** `RootView.swift`, `MainTabView.swift`, `SessionViewModel.swift`
 - **Prevention:** Use `@ObservedObject` for shared view models during view transitions. Use `.id()` to force clean recreation.
+
+---
+
+### 6.1. Silent Step Sync Failures and Over-Aggressive Rate Limit
+- **Commits:** `28fbd78`, `64730b0`, `2e7db38`
+- **Symptom:** Dashboard step sync could report success while no backend write occurred; active users could also exceed the Edge Function's hourly sync cap after four auto-refreshes.
+- **Root Cause:** The Swift client only handled `success == true` and `success == false` with an error string, leaving `success == false` without an error as a no-op. The 401 retry path skipped response validation and returned without throwing if session refresh failed. The Edge Function allowed only 4 sync calls per hour while `DashboardViewModel` auto-refreshes every 60 seconds.
+- **Fix:** Added shared Edge Function response validation, applied it to first-attempt and retry responses, made failed session refresh throw, and raised the hourly Edge Function limit to support the documented dashboard cadence.
+- **Files:** `StepSyncService.swift`, `StepSyncResponseValidator.swift`, `supabase/functions/sync-steps/index.ts`, `scripts/step_sync_regression_check.py`
+- **Prevention:** Step sync responses must be validated on every path before logging success; rate limits must be checked against app refresh cadence before deployment.
 
 ---
 

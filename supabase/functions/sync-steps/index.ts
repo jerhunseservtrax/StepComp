@@ -6,7 +6,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { corsHeaders } from '../_shared/cors.ts'
 
 const RATE_LIMIT_PER_MIN = 30
-const RATE_LIMIT_PER_HOUR = 4
+const RATE_LIMIT_PER_HOUR = 120
 const MAX_STEPS_PER_HOUR = 10000 // Reasonable max for validation
 
 interface SyncStepsRequest {
