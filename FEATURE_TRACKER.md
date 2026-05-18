@@ -1,7 +1,7 @@
 # FitComp Feature Tracker
 
 > Comprehensive catalog of all features in the FitComp fitness competition app (formerly StepComp).
-> Last updated: 2026-04-13 (v5)
+> Last updated: 2026-05-18 (v6)
 
 ---
 
@@ -330,7 +330,7 @@
 | Automatic Metrics Sync | `RootView.swift` | One-shot metrics sync on foreground/auth changes with dedup flag |
 | Singleton Services | `HealthKitService.swift`, `ChallengeService.swift` | Shared singleton instances to prevent state desync |
 | Supabase Client | `SupabaseClient.swift` | Database client configuration |
-| Step Sync | `StepSyncService.swift` | Sync steps to server with fraud detection, RPC fallback |
+| Step Sync | `StepSyncService.swift`, `StepSyncResponseValidator.swift`, `supabase/functions/sync-steps/index.ts` | Sync steps to server with fraud detection, validated Edge Function responses, auth retry handling, cadence-aware rate limiting, and RPC fallback |
 | Challenge Service | `ChallengeService.swift` | CRUD for challenges, invites, leaderboards |
 | Friends Service | `FriendsService.swift` | Friendship management, profile search |
 | Metrics Service | `MetricsService.swift` | Sync workouts, weight, nutrition to server |
