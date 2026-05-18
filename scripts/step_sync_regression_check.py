@@ -35,6 +35,10 @@ def main() -> int:
         "Initial Edge Function response must be validated before logging success",
     ) and passed
     passed = require(
+        service.count("catch let stepSyncError as StepSyncEdgeFunctionError") >= 2,
+        "Both initial and retry validation failures must rethrow instead of using RPC fallback",
+    ) and passed
+    passed = require(
         "throw StepSyncEdgeFunctionError.sessionRefreshFailed" in service,
         "Step sync must throw when a 401 session refresh fails",
     ) and passed

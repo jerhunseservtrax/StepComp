@@ -116,6 +116,8 @@ final class StepSyncService: ObservableObject {
             if let isSuspicious = response.data?.is_suspicious, isSuspicious {
                 print("⚠️ Steps flagged as suspicious - under review")
             }
+        } catch let stepSyncError as StepSyncEdgeFunctionError {
+            throw stepSyncError
         } catch {
             let errorDescription = error.localizedDescription.lowercased()
             
