@@ -105,34 +105,16 @@ final class StepSyncService: ObservableObject {
             device_id: deviceId
         )
         
-        struct EdgeFunctionResponse: Decodable {
-            let success: Bool
-            let data: EdgeData?
-            let error: String?
-            
-            struct EdgeData: Decodable {
-                let is_suspicious: Bool?
-            }
-        }
-        
         // Call Edge Function and decode JSON response
         // Handle 401 errors by refreshing session and retrying (Instagram pattern)
         do {
-            let response: EdgeFunctionResponse = try await supabase.functions
+            let response: StepSyncEdgeFunctionResponse = try await supabase.functions
                 .invoke("sync-steps", options: FunctionInvokeOptions(body: payload))
             
-            if response.success {
-                print("✅ Edge Function sync successful")
-                if let isSuspicious = response.data?.is_suspicious, isSuspicious {
-                    print("⚠️ Steps flagged as suspicious - under review")
-                }
-            } else if let errorMessage = response.error {
-                print("❌ Edge Function error: \(errorMessage)")
-                throw NSError(
-                    domain: "StepSyncError",
-                    code: 400,
-                    userInfo: [NSLocalizedDescriptionKey: errorMessage]
-                )
+            try StepSyncEdgeFunctionResponseValidator.ensureSuccess(response)
+            print("✅ Edge Function sync successful")
+            if let isSuspicious = response.data?.is_suspicious, isSuspicious {
+                print("⚠️ Steps flagged as suspicious - under review")
             }
         } catch {
             let errorDescription = error.localizedDescription.lowercased()
@@ -147,11 +129,12 @@ final class StepSyncService: ObservableObject {
                     print("🔄 Session refreshed, retrying sync...")
                     
                     do {
-                        let retryResponse: EdgeFunctionResponse = try await supabase.functions
+                        let retryResponse: StepSyncEdgeFunctionResponse = try await supabase.functions
                             .invoke("sync-steps", options: FunctionInvokeOptions(body: payload))
-                        if retryResponse.success {
-                            print("✅ Edge Function sync successful after refresh")
-                        }
+                        try StepSyncEdgeFunctionResponseValidator.ensureSuccess(retryResponse)
+                        print("✅ Edge Function sync successful after refresh")
+                    } catch let stepSyncError as StepSyncEdgeFunctionError {
+                        throw stepSyncError
                     } catch {
                         print("⚠️ Edge Function retry failed, using RPC fallback...")
                         // Fall back to RPC when Edge Function consistently fails
@@ -160,6 +143,7 @@ final class StepSyncService: ObservableObject {
                 } else {
                     // Refresh failed - user will be logged out by AuthService
                     print("❌ Session refresh failed - user will be logged out")
+                    throw StepSyncEdgeFunctionError.sessionRefreshFailed
                 }
                 return
             }
