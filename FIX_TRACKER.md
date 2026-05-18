@@ -88,7 +88,7 @@
 ---
 
 ### 6.1. Silent Step Sync Failures and Over-Aggressive Rate Limit
-- **Commit:** `28fbd78`
+- **Commits:** `28fbd78`, `64730b0`
 - **Symptom:** Dashboard step sync could report success while no backend write occurred; active users could also exceed the Edge Function's hourly sync cap after four auto-refreshes.
 - **Root Cause:** The Swift client only handled `success == true` and `success == false` with an error string, leaving `success == false` without an error as a no-op. The 401 retry path skipped response validation and returned without throwing if session refresh failed. The Edge Function allowed only 4 sync calls per hour while `DashboardViewModel` auto-refreshes every 60 seconds.
 - **Fix:** Added shared Edge Function response validation, applied it to first-attempt and retry responses, made failed session refresh throw, and raised the hourly Edge Function limit to support the documented dashboard cadence.
