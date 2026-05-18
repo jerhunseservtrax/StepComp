@@ -31,12 +31,22 @@ def main() -> int:
 
     service = (ROOT / "StepComp" / "Services" / "StepSyncService.swift").read_text()
     passed = require(
+        "StepSyncEdgeFunctionResponseValidator.ensureSuccess(response)" in service,
+        "Initial Edge Function response must be validated before logging success",
+    ) and passed
+    passed = require(
         "throw StepSyncEdgeFunctionError.sessionRefreshFailed" in service,
         "Step sync must throw when a 401 session refresh fails",
     ) and passed
     passed = require(
         "StepSyncEdgeFunctionResponseValidator.ensureSuccess(retryResponse)" in service,
         "401 retry response must use the same success validation as first attempt",
+    ) and passed
+    passed = require(
+        "let retryErrorDescription = error.localizedDescription.lowercased()" in service
+        and 'retryErrorDescription.contains("404")' in service
+        and 'retryErrorDescription.contains("not found")' in service,
+        "401 retry fallback must be limited to confirmed missing Edge Function errors",
     ) and passed
 
     edge_function = (ROOT / "supabase" / "functions" / "sync-steps" / "index.ts").read_text()

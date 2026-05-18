@@ -136,9 +136,13 @@ final class StepSyncService: ObservableObject {
                     } catch let stepSyncError as StepSyncEdgeFunctionError {
                         throw stepSyncError
                     } catch {
-                        print("⚠️ Edge Function retry failed, using RPC fallback...")
-                        // Fall back to RPC when Edge Function consistently fails
-                        try await syncStepsViaRPCFallback(steps: steps, day: day, deviceId: deviceId)
+                        let retryErrorDescription = error.localizedDescription.lowercased()
+                        if retryErrorDescription.contains("404") || retryErrorDescription.contains("not found") {
+                            print("⚠️ Edge Function retry failed because 'sync-steps' is not deployed. Using RPC fallback.")
+                            try await syncStepsViaRPCFallback(steps: steps, day: day, deviceId: deviceId)
+                        } else {
+                            throw error
+                        }
                     }
                 } else {
                     // Refresh failed - user will be logged out by AuthService
