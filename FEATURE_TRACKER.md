@@ -1,7 +1,7 @@
 # FitComp Feature Tracker
 
 > Comprehensive catalog of all features in the FitComp fitness competition app (formerly StepComp).
-> Last updated: 2026-04-13 (v5)
+> Last updated: 2026-05-19 (v6)
 
 ---
 
@@ -110,6 +110,7 @@
 | Smart Rest Suggestions | `WorkoutAnalyticsEngine.swift` | Auto-suggest rest duration based on exercise intensity and set exertion |
 | Progressive Overload | `WorkoutAnalyticsEngine.swift` | Trend detection (progressing/plateau/regressing), 1RM estimation, overload recommendations |
 | Workout Persistence | `WorkoutViewModel.swift` | Save/restore active workout state across app lifecycle |
+| Sign-Out Active Workout Cleanup | `WorkoutViewModel.swift` | Clears in-memory session, timer, draft, widget, and Live Activity state together when auth invalidates |
 | Workout Summary | `WorkoutSummaryView.swift` | Post-workout stats (duration, exercises, sets, calories) |
 | Session History | `CompletedSessionDetailView.swift` | View past workout details |
 | Edit Sessions | `EditCompletedSessionView.swift` | Modify completed session data |
