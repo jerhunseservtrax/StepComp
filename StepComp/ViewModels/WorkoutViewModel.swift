@@ -275,6 +275,8 @@ class WorkoutViewModel: ObservableObject {
         stopTimer()
         currentSession = nil
         sessionStartTime = nil
+        pauseStartTime = nil
+        workoutTargetDate = nil
         elapsedTime = 0
         totalPausedTime = 0
         isPaused = false
@@ -1024,12 +1026,10 @@ class WorkoutViewModel: ObservableObject {
         }
     }
     
-    /// Clears all active workout state (draft, widget, live activity)
+    /// Clears all active workout state, including in-memory session, draft, widget, and live activity surfaces.
     static func clearAllActiveWorkoutState() {
         let vm = WorkoutViewModel.shared
-        vm.clearActiveWorkoutDraft()
-        WorkoutWidgetStore.clear()
-        WorkoutLiveActivityManager.end()
+        vm.cancelWorkout()
         print("🧹 All active workout state cleared")
     }
     

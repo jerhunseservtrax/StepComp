@@ -1,7 +1,7 @@
 # FitComp Fix Tracker
 
 > Log of all bugs encountered and fixes implemented to prevent recurrence.
-> Last updated: 2026-04-13 (v6)
+> Last updated: 2026-05-19 (v7)
 
 ---
 
@@ -587,6 +587,14 @@
 - **Fix:** Restored a dedicated Workouts tab in a 5-tab layout and updated tab-index routing in workout start flow and tab manager helper.
 - **Files:** `MainTabView.swift`, `WorkoutDetailView.swift`
 - **Prevention:** Keep central tab index mapping documented and update all programmatic tab switches whenever tab order changes.
+
+### 62. Active Workout Re-Saved After Sign Out
+- **Status:** Fixed (2026-05-19)
+- **Symptom:** Signing out during an active workout cleared the persisted draft, widget, and Live Activity but left the in-memory workout session alive. A later lifecycle reconciliation could re-save the signed-out user's draft, exposing it to the next user in the same app process.
+- **Root Cause:** `WorkoutViewModel.clearAllActiveWorkoutState()` removed only external persisted surfaces and did not clear `currentSession`, timer state, pause state, or auto-finish state.
+- **Fix:** Route sign-out cleanup through the same in-memory cleanup path as workout cancellation so the active session, timer, draft, widget, and Live Activity are all cleared together.
+- **Files:** `WorkoutViewModel.swift`, `WorkoutViewModelSignOutTests.swift`
+- **Prevention:** Any auth invalidation cleanup must clear both persisted state and live singleton/in-memory state before lifecycle reconciliation can run.
 
 ## New Features
 
