@@ -47,6 +47,7 @@ class WorkoutViewModel: ObservableObject {
     private var pauseStartTime: Date?
     private var totalPausedTime: TimeInterval = 0
     private let autoFinishThreshold: TimeInterval = 6 * 3600
+    private let activeWorkoutDraftKey = "active_workout_draft"
     private let analytics = WorkoutAnalyticsEngine()
     private var autoFinishTask: Task<Void, Never>?
     
@@ -114,6 +115,11 @@ class WorkoutViewModel: ObservableObject {
     // MARK: - Workout Session Management
     
     func startWorkout(_ workout: Workout, targetDate: Date = Date()) {
+        guard currentSession == nil else {
+            print("⚠️ Ignoring startWorkout while another workout is active")
+            return
+        }
+
         workoutTargetDate = targetDate
         
         // Find the last completed session for this workout
@@ -948,14 +954,14 @@ class WorkoutViewModel: ObservableObject {
         )
         
         if let encoded = try? JSONEncoder().encode(draft) {
-            UserDefaults.standard.set(encoded, forKey: "active_workout_draft")
+            UserDefaults.standard.set(encoded, forKey: activeWorkoutDraftKey)
             print("💾 Active workout draft saved")
         }
     }
     
     /// Loads and restores an active workout draft if one exists
     private func loadActiveWorkoutDraftIfAny() {
-        guard let data = UserDefaults.standard.data(forKey: "active_workout_draft"),
+        guard let data = UserDefaults.standard.data(forKey: activeWorkoutDraftKey),
               let draft = try? JSONDecoder().decode(ActiveWorkoutDraft.self, from: data) else {
             print("ℹ️ No active workout draft found")
             return
@@ -987,7 +993,7 @@ class WorkoutViewModel: ObservableObject {
     
     /// Clears the active workout draft from persistence
     private func clearActiveWorkoutDraft() {
-        UserDefaults.standard.removeObject(forKey: "active_workout_draft")
+        UserDefaults.standard.removeObject(forKey: activeWorkoutDraftKey)
         print("🧹 Active workout draft cleared")
     }
     
@@ -1017,6 +1023,11 @@ class WorkoutViewModel: ObservableObject {
             refreshElapsedTime()
             saveActiveWorkoutDraft()
         } else {
+            guard UserDefaults.standard.data(forKey: activeWorkoutDraftKey) == nil else {
+                print("⚠️ Active workout draft exists but is not restored; preserving it for recovery")
+                return
+            }
+
             // No active session, ensure draft and widget are cleared
             clearActiveWorkoutDraft()
             WorkoutWidgetStore.clear()

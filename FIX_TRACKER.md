@@ -1,7 +1,7 @@
 # FitComp Fix Tracker
 
 > Log of all bugs encountered and fixes implemented to prevent recurrence.
-> Last updated: 2026-04-13 (v6)
+> Last updated: 2026-05-20 (v7)
 
 ---
 
@@ -84,6 +84,14 @@
 - **Fix:** Changed to `@ObservedObject`. Wrapped state updates in `MainActor.run`. Added `.id()` modifier for clean view recreation.
 - **Files:** `RootView.swift`, `MainTabView.swift`, `SessionViewModel.swift`
 - **Prevention:** Use `@ObservedObject` for shared view models during view transitions. Use `.id()` to force clean recreation.
+
+### 62. Critical Audit Regression Fixes
+- **Status:** Fixed (2026-05-20)
+- **Symptom:** Recent audit changes left several high-impact regressions: password-reset links used an unregistered scheme, OAuth callback URLs could be logged in release builds, offline metrics/leaderboard cache could survive account changes, chat-list loading deleted ended challenge memberships, daily leaderboard fallback could show all-time totals as "today", and a new workout start could overwrite an active session.
+- **Root Cause:** Large cross-cutting refactor/hardening work missed a few lifecycle boundaries: URL scheme migration was incomplete, token-bearing logs were not consistently debug-gated, sensitive disk cache was not purged on logout, chat filtering confused ended challenges with orphaned memberships, scope-specific leaderboard errors fell back to the wrong data scope, and `WorkoutViewModel.startWorkout` lacked an invariant guard.
+- **Fix:** Aligned password reset redirect and Supabase redirect helper with `fitcomp://`, removed release logging of OAuth callback URLs, cleared offline cache on confirmed sign-out/forced logout state, removed destructive chat-list membership cleanup, returned an empty daily leaderboard instead of all-time data on daily RPC failure, guarded active workout starts, and preserved unrestored workout drafts during lifecycle reconciliation.
+- **Files:** `ForgotPasswordSheet.swift`, `SignInOnboardingView+Auth.swift`, `AuthService.swift`, `SupabaseRequestExecutor.swift`, `ChatListViewModel.swift`, `ChallengeService.swift`, `WorkoutViewModel.swift`, `scripts/critical_regression_checks.py`, `scripts/shell/update_redirect_urls.sh`, `docs/fixes/FIX_PASSWORD_RESET_LINK.md`, `docs/setup/PASSWORD_RESET_SETUP.md`, `.gitignore`
+- **Prevention:** Run `python3 scripts/critical_regression_checks.py` after auth/cache/chat/workout lifecycle changes; never delete historical membership records from read-only UI loaders; never substitute all-time data for scoped leaderboard labels; purge sensitive offline caches at auth boundaries.
 
 ---
 

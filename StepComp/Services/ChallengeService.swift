@@ -578,8 +578,8 @@ final class ChallengeService: ObservableObject {
             return entries
         } catch {
             print("⚠️ Error loading daily leaderboard: \(error.localizedDescription)")
-            // Fallback to all-time leaderboard (better than empty)
-            return await getLeaderboardFromSupabase(challengeId: challengeId)
+            // Do not show all-time totals as "today"; an empty daily state is safer than misleading data.
+            return []
         }
     }
     

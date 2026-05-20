@@ -23,7 +23,7 @@ Supabase sends secure email with time-limited token
         ↓
 User taps link in email
         ↓
-Link opens: je.stepcomp://reset-password#access_token=...&type=recovery
+Link opens: fitcomp://reset-password#access_token=...&type=recovery
         ↓
 App presents PasswordResetView
         ↓
@@ -51,7 +51,7 @@ User signs in with new password
 - Calls `supabase.auth.resetPasswordForEmail()` with deep link redirect
 
 ### 2. **DeepLinkRouter** (`DeepLinkRouter.swift`)
-- Handles `je.stepcomp://reset-password` URLs
+- Handles `fitcomp://reset-password` URLs
 - Parses both custom schemes and universal links
 - Publishes `pendingPasswordResetURL` for RootView to observe
 
@@ -86,7 +86,7 @@ User signs in with new password
 2. Add these redirect URLs:
 
 ```
-je.stepcomp://reset-password
+fitcomp://reset-password
 https://stepcomp.app/reset-password
 ```
 
@@ -284,10 +284,10 @@ Before launching, test these scenarios:
 
 ```bash
 # On iOS Simulator
-xcrun simctl openurl booted "je.stepcomp://reset-password#access_token=TEST&refresh_token=TEST&type=recovery"
+xcrun simctl openurl booted "fitcomp://reset-password#access_token=TEST&refresh_token=TEST&type=recovery"
 
 # On Physical Device (via Terminal)
-xcrun devicectl device info open-url --device <DEVICE_ID> "je.stepcomp://reset-password#access_token=TEST&refresh_token=TEST&type=recovery"
+xcrun devicectl device info open-url --device <DEVICE_ID> "fitcomp://reset-password#access_token=TEST&refresh_token=TEST&type=recovery"
 ```
 
 **Expected Result:**
@@ -412,7 +412,7 @@ try await supabase.auth.update(password: newPassword)
 ## 🛠️ Configuration Summary
 
 ### Supabase Dashboard
-- ✅ Add redirect URL: `je.stepcomp://reset-password`
+- ✅ Add redirect URL: `fitcomp://reset-password`
 - ✅ Customize email template (optional but recommended)
 - ✅ Enable Email provider
 - ✅ Configure token expiration (default 1 hour is good)
