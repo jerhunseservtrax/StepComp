@@ -16,8 +16,8 @@ curl -X PATCH "https://api.supabase.com/v1/projects/${PROJECT_REF}/config/auth" 
   -H "Authorization: Bearer ${ACCESS_TOKEN}" \
   -H "Content-Type: application/json" \
   -d '{
-    "SITE_URL": "je.stepcomp://",
-    "ADDITIONAL_REDIRECT_URLS": "je.stepcomp://reset-password,je.stepcomp://friend-invite"
+    "SITE_URL": "fitcomp://",
+    "ADDITIONAL_REDIRECT_URLS": "fitcomp://reset-password,fitcomp://friend-invite"
   }'
 
 echo ""
@@ -26,6 +26,6 @@ echo "✅ Done! Wait 1-2 minutes for changes to propagate."
 echo ""
 echo "To verify:"
 echo "1. Request a password reset in your app"
-echo "2. Check the email link - it should start with je.stepcomp://"
+echo "2. Check the email link - it should start with fitcomp://"
 echo ""
 

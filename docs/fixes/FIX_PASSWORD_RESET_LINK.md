@@ -19,7 +19,7 @@ Password reset emails contain an invalid URL that Safari can't open, showing:
 3. **Add Redirect URLs**:
    In the "Redirect URLs" section, add:
    ```
-   je.stepcomp://reset-password
+   fitcomp://reset-password
    ```
 
 4. **Click "Save"**
@@ -35,7 +35,7 @@ Change the button URL from:
 
 To:
 ```
-je.stepcomp://reset-password#{{ .TokenHash }}
+fitcomp://reset-password#{{ .TokenHash }}
 ```
 
 This ensures the email link uses your app's custom URL scheme.
@@ -55,7 +55,7 @@ This ensures the email link uses your app's custom URL scheme.
 
 You should receive an email with a link like:
 ```
-je.stepcomp://reset-password#access_token=...&type=recovery
+fitcomp://reset-password#access_token=...&type=recovery
 ```
 
 ### Test 3: Tap the Link
@@ -97,7 +97,7 @@ You should see references in:
 ### Fixed Flow:
 ```
 1. User requests reset
-2. Supabase sends email with: je.stepcomp://reset-password#...
+2. Supabase sends email with: fitcomp://reset-password#...
 3. User taps link
 4. ✅ iOS opens StepComp app
 5. ✅ App shows password reset screen
@@ -139,7 +139,7 @@ If the issue persists:
 
 1. **Check Supabase Dashboard**:
    - Go to Authentication → URL Configuration
-   - Verify `je.stepcomp://reset-password` is listed
+   - Verify `fitcomp://reset-password` is listed
 
 2. **Check App Logs**:
    - Run the app in Xcode
@@ -149,7 +149,7 @@ If the issue persists:
 3. **Manual Test**:
    ```bash
    # Open this in Safari (replace TOKEN):
-   je.stepcomp://reset-password#access_token=test123&type=recovery
+   fitcomp://reset-password#access_token=test123&type=recovery
    
    # Should open your app
    ```
@@ -173,7 +173,7 @@ Password reset is working when:
 ```
 Project: cwrirmowykxajumjokjj
 Authentication → URL Configuration → Redirect URLs:
-  - je.stepcomp://reset-password ✅
+  - fitcomp://reset-password ✅
 ```
 
 **App Configuration:**

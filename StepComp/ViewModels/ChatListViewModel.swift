@@ -125,7 +125,8 @@ final class ChatListViewModel: ObservableObject {
             return []
         }
         
-        // Get challenge info - check if challenges actually exist AND haven't ended
+        // Get active challenge info for chat previews. Ended challenges are omitted
+        // from the chat list but their memberships must remain for history/stats.
         let challenges: [SimpleChallengeInfo] = try await supabase
             .from("challenges")
             .select("id, name")
@@ -133,27 +134,7 @@ final class ChatListViewModel: ObservableObject {
             .gte("end_date", value: ISO8601DateFormatter().string(from: Date()))
             .execute()
             .value
-        
-        // Find orphaned challenge_members (member record exists but challenge doesn't or has ended)
-        let foundChallengeIds = Set(challenges.map { $0.id })
-        let orphanedIds = Set(challengeIds).subtracting(foundChallengeIds)
-        
-        // Clean up orphaned records
-        if !orphanedIds.isEmpty {
-            for orphanedId in orphanedIds {
-                do {
-                    try await supabase
-                        .from("challenge_members")
-                        .delete()
-                        .eq("user_id", value: userId)
-                        .eq("challenge_id", value: orphanedId)
-                        .execute()
-                } catch {
-                    print("⚠️ Failed to clean up orphaned record: \(error.localizedDescription)")
-                }
-            }
-        }
-        
+
         return challenges
     }
     

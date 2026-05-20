@@ -25,8 +25,9 @@ enum SupabaseRequestExecutor {
     private static func shouldRetryAfter401(_ error: Error) -> Bool {
         let message = error.localizedDescription.lowercased()
         return message.contains("401")
-            || message.contains("jwt")
-            || message.contains("token")
             || message.contains("unauthorized")
+            || message.contains("jwt expired")
+            || message.contains("expired jwt")
+            || message.contains("invalid jwt")
     }
 }
