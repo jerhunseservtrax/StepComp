@@ -40,6 +40,18 @@ final class DeepLinkRouterTests: XCTestCase {
         XCTAssertNotNil(router.pendingPasswordResetURL)
     }
 
+    func testLegacyStepCompPasswordResetScheme() {
+        let url = URL(string: "je.stepcomp://reset-password#access_token=abc&type=recovery")!
+        router.handle(url: url)
+        XCTAssertEqual(router.pendingPasswordResetURL, url)
+    }
+
+    func testLegacyStepCompInviteScheme() {
+        let url = URL(string: "je.stepcomp://friend-invite?token=LEGACY12")!
+        router.handle(url: url)
+        XCTAssertEqual(router.pendingInviteToken, "LEGACY12")
+    }
+
     func testUniversalLinkInvite() {
         let url = URL(string: "https://fitcomp.app/invite/friend/TEST1234")!
         router.handle(url: url)

@@ -1,7 +1,7 @@
 # FitComp Fix Tracker
 
 > Log of all bugs encountered and fixes implemented to prevent recurrence.
-> Last updated: 2026-04-13 (v6)
+> Last updated: 2026-05-21 (v7)
 
 ---
 
@@ -635,6 +635,42 @@
   - Data is aggregated from local `CompletedWorkoutSession` records, filtered by the selected time period.
   - Weight/volume values respect the user's unit preference (metric/imperial) via `UnitPreferenceManager`.
 - **Files:** `MetricsViewModel.swift`, `MetricsView.swift`, `ExerciseHistorySection.swift` (new)
+
+---
+
+## Critical Correctness Audit
+
+### 62. Password Reset Deep Links Used Unregistered Scheme
+- **Status:** Fixed (this branch)
+- **Symptom:** Password reset emails could generate `je.fitcomp://` links while the app only registered `fitcomp://`, so tapping the email link did not open the app.
+- **Root Cause:** Rebrand work left multiple custom URL schemes (`fitcomp`, `je.fitcomp`, `je.stepcomp`) split across code, docs, and runtime routing.
+- **Fix:** Changed password reset requests to use canonical `fitcomp://reset-password`, registered legacy schemes for existing emails/config, and taught `DeepLinkRouter` to route all supported schemes.
+- **Files:** `ForgotPasswordSheet.swift`, `Info.plist`, `DeepLinkRouter.swift`, `DeepLinkRouterTests.swift`, `scripts/shell/update_redirect_urls.sh`
+- **Prevention:** Password reset/OAuth redirect URLs must match `Info.plist` URL schemes exactly; keep legacy scheme aliases registered until external Supabase config has fully migrated.
+
+### 63. Challenge Detail Screen Went Blank After List Refresh
+- **Status:** Fixed (this branch)
+- **Symptom:** A pushed challenge detail view could turn blank after joining a public challenge or refreshing lists while still on the detail route.
+- **Root Cause:** `navigationDestination` rendered `EmptyView` if the challenge ID was no longer present in the current tab's backing list, but navigation paths outlive list membership changes.
+- **Fix:** Always route `groupDetails` destinations to `GroupDetailsView`; let the destination load/handle the challenge by ID.
+- **Files:** `DiscoverChallengesTab.swift`, `ActiveChallengesTab.swift`
+- **Prevention:** Navigation destinations should be keyed by route intent, not transient list membership.
+
+### 64. Realtime Chat Refresh Dropped Loaded History
+- **Status:** Fixed (this branch)
+- **Symptom:** Loading older chat messages and then receiving/sending a message replaced the full chat array with only the newest page, making older history disappear.
+- **Root Cause:** Realtime and send refresh paths assigned `messages = latest` instead of merging the latest page into already loaded paginated history.
+- **Fix:** Added a merge path that preserves older loaded messages, replaces overlapping latest-page messages, and keeps pagination state intact.
+- **Files:** `ChallengeChatViewModel.swift`, `ChallengeChatViewModelTests.swift`
+- **Prevention:** Realtime refreshes for paginated lists must merge by stable ID; full replacement is only safe for an explicit full reload.
+
+### 65. Undecodable Active Workout Draft Deleted During Reconcile
+- **Status:** Fixed (this branch)
+- **Symptom:** If an active workout draft existed but failed to decode after relaunch/update/corruption, lifecycle reconciliation deleted the persisted draft.
+- **Root Cause:** Reconcile treated `currentSession == nil` as proof that no draft should exist, conflating "no active workout" with "restore failed."
+- **Fix:** Preserve an existing draft when no in-memory session was restored so future recovery/manual diagnostics can still access it.
+- **Files:** `WorkoutViewModel.swift`, `WorkoutViewModelPersistenceTests.swift`
+- **Prevention:** Only explicit finish/cancel/sign-out cleanup should delete active workout drafts; decode failures should retain persisted user work.
 
 ---
 

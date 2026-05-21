@@ -15,6 +15,8 @@ final class DeepLinkRouter: ObservableObject {
     @Published var pendingInviteToken: String?
     @Published var pendingPasswordResetURL: URL?
 
+    private let supportedAppSchemes: Set<String> = ["fitcomp", "je.fitcomp", "je.stepcomp"]
+
     private func isValidInviteToken(_ token: String) -> Bool {
         let trimmed = token.trimmingCharacters(in: .whitespacesAndNewlines)
         guard (8...128).contains(trimmed.count) else { return false }
@@ -26,7 +28,7 @@ final class DeepLinkRouter: ObservableObject {
         let scheme = url.scheme ?? ""
         let host = url.host ?? ""
         
-        if (scheme == "je.fitcomp" || scheme == "fitcomp") && host == "friend-invite" {
+        if supportedAppSchemes.contains(scheme) && host == "friend-invite" {
             if let comps = URLComponents(url: url, resolvingAgainstBaseURL: false),
                let token = comps.queryItems?.first(where: { $0.name == "token" })?.value,
                isValidInviteToken(token) {
@@ -38,7 +40,7 @@ final class DeepLinkRouter: ObservableObject {
             return
         }
         
-        if (scheme == "je.fitcomp" || scheme == "fitcomp") && host == "reset-password" {
+        if supportedAppSchemes.contains(scheme) && host == "reset-password" {
             pendingPasswordResetURL = url
             #if DEBUG
             print("🔑 Password reset URL detected")

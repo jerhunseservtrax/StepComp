@@ -990,6 +990,10 @@ class WorkoutViewModel: ObservableObject {
         UserDefaults.standard.removeObject(forKey: "active_workout_draft")
         print("🧹 Active workout draft cleared")
     }
+
+    private var hasPersistedActiveWorkoutDraft: Bool {
+        UserDefaults.standard.data(forKey: "active_workout_draft") != nil
+    }
     
     /// Recalculates elapsed time based on stored timestamps and paused duration
     private func refreshElapsedTime() {
@@ -1017,6 +1021,11 @@ class WorkoutViewModel: ObservableObject {
             refreshElapsedTime()
             saveActiveWorkoutDraft()
         } else {
+            if hasPersistedActiveWorkoutDraft {
+                print("⚠️ Active workout draft exists but was not restored; preserving it for recovery")
+                return
+            }
+
             // No active session, ensure draft and widget are cleared
             clearActiveWorkoutDraft()
             WorkoutWidgetStore.clear()
