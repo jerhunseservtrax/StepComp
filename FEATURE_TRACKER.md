@@ -1,7 +1,7 @@
 # FitComp Feature Tracker
 
 > Comprehensive catalog of all features in the FitComp fitness competition app (formerly StepComp).
-> Last updated: 2026-04-13 (v5)
+> Last updated: 2026-05-21 (v6)
 
 ---
 
@@ -27,7 +27,7 @@
 | Feature | File(s) | Description |
 |---------|---------|-------------|
 | StepComp → FitComp | All files | Complete app rename across codebase, URL schemes, keychain keys |
-| URL Scheme Update | `DeepLinkRouter.swift`, `Info.plist` | Changed from `stepcomp://` to `fitcomp://` |
+| URL Scheme Update | `DeepLinkRouter.swift`, `Info.plist`, `project.pbxproj` | Changed from `stepcomp://` to `fitcomp://`; legacy `je.fitcomp`/`je.stepcomp` aliases remain registered for existing reset/invite links |
 | Color System Overhaul | `StepCompColors.swift` | Unified yellow primary (#FACC15/#EAB308) across light/dark modes |
 | Tab Bar Accent | `MainTabView.swift` | Changed tab selection indicator from yellow to blue |
 | Color System Rename | `StepCompColors.swift` → `FitCompColors` | Renamed color references across all views |
@@ -40,8 +40,10 @@
 |---------|---------|-------------|
 | 5-Tab Navigation | `MainTabView.swift` | Home, Workouts, Challenges, Metrics, Settings |
 | Deep Link Routing | `DeepLinkRouter.swift`, `AppRoute.swift` | Route handling for leaderboard, profile, create/join challenge, OAuth callbacks |
+| Password Reset Deep Links | `ForgotPasswordSheet.swift`, `DeepLinkRouter.swift`, `Info.plist`, `project.pbxproj`, `scripts/shell/update_redirect_urls.sh` | Password reset emails use the registered `fitcomp://reset-password` scheme with legacy scheme routing support |
 | Invite Token Validation | `DeepLinkRouter.swift` | Validates invite tokens (8-128 chars, alphanumeric) before processing |
 | Haptic Tab Switching | `HapticManager.swift` | Tactile feedback on tab changes |
+| Stable Challenge Detail Routing | `ActiveChallengesTab.swift`, `DiscoverChallengesTab.swift` | Challenge detail routes stay rendered after list refreshes or membership changes |
 
 ---
 
@@ -110,6 +112,7 @@
 | Smart Rest Suggestions | `WorkoutAnalyticsEngine.swift` | Auto-suggest rest duration based on exercise intensity and set exertion |
 | Progressive Overload | `WorkoutAnalyticsEngine.swift` | Trend detection (progressing/plateau/regressing), 1RM estimation, overload recommendations |
 | Workout Persistence | `WorkoutViewModel.swift` | Save/restore active workout state across app lifecycle |
+| Draft Recovery Preservation | `WorkoutViewModel.swift` | Lifecycle reconciliation preserves unreadable active workout drafts instead of deleting user work |
 | Workout Summary | `WorkoutSummaryView.swift` | Post-workout stats (duration, exercises, sets, calories) |
 | Session History | `CompletedSessionDetailView.swift` | View past workout details |
 | Edit Sessions | `EditCompletedSessionView.swift` | Modify completed session data |
@@ -194,6 +197,7 @@
 | Feature | File(s) | Description |
 |---------|---------|-------------|
 | Challenge Chat | `ChallengeChatView.swift`, `ChallengeChatViewModel.swift` | Real-time group messaging via Supabase postgresChange streams with polling fallback |
+| Paginated Chat History Preservation | `ChallengeChatViewModel.swift` | Realtime/send refreshes merge the latest page into loaded history instead of dropping older messages |
 | Chat List | `ChatListView.swift`, `ChatListViewModel.swift` | Overview of all chat conversations |
 | Message Actions | `ChallengeChatViewModel.swift` | Send, delete, auto-scroll |
 

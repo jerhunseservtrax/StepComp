@@ -12,6 +12,8 @@
 			<key>CFBundleURLSchemes</key>
 			<array>
 				<string>fitcomp</string>
+				<string>je.fitcomp</string>
+				<string>je.stepcomp</string>
 			</array>
 		</dict>
 	</array>

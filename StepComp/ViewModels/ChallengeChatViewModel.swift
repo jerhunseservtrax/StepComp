@@ -117,9 +117,7 @@ final class ChallengeChatViewModel: ObservableObject {
             print("✅ Message sent successfully")
             
             let latest = try await fetchLatestMessages(limit: pageSize)
-            messages = latest
-            oldestLoadedDate = latest.first?.createdAt
-            hasMoreMessages = latest.count >= pageSize
+            applyLatestMessagePage(latest)
             
             // Post notification to update chat badge in dashboard header
             NotificationCenter.default.post(name: .chatMessageReceived, object: nil)
@@ -339,16 +337,23 @@ final class ChallengeChatViewModel: ObservableObject {
     private func refreshMessages() async {
         do {
             let latest = try await fetchLatestMessages(limit: pageSize)
-            if latest.last?.id != messages.last?.id || latest.count != messages.count {
-                messages = latest
-                oldestLoadedDate = latest.first?.createdAt
-                hasMoreMessages = latest.count >= pageSize
+            if latest.isEmpty ? !messages.isEmpty : latest != Array(messages.suffix(latest.count)) {
+                applyLatestMessagePage(latest)
                 NotificationCenter.default.post(name: .chatMessageReceived, object: nil)
             }
         } catch {
             #if DEBUG
             print("⚠️ Refresh after realtime event failed: \(error.localizedDescription)")
             #endif
+        }
+    }
+
+    private func applyLatestMessagePage(_ latest: [ChallengeMessage]) {
+        let merged = messages.mergingLatestPage(latest)
+        messages = merged
+        oldestLoadedDate = merged.first?.createdAt
+        if merged.count <= latest.count {
+            hasMoreMessages = latest.count >= pageSize
         }
     }
 
@@ -403,7 +408,22 @@ final class ChallengeChatViewModel: ObservableObject {
     #endif
 }
 
-private extension Array where Element == ChallengeMessage {
+extension Array where Element == ChallengeMessage {
+    func mergingLatestPage(_ latest: [ChallengeMessage]) -> [ChallengeMessage] {
+        guard let latestOldestDate = latest.first?.createdAt else {
+            return []
+        }
+
+        let latestIds = Set(latest.map(\.id))
+        let retainedOlderMessages = filter { message in
+            message.createdAt <= latestOldestDate && !latestIds.contains(message.id)
+        }
+
+        return (retainedOlderMessages + latest)
+            .uniquedById()
+            .sorted { $0.createdAt < $1.createdAt }
+    }
+
     func uniquedById() -> [ChallengeMessage] {
         var seen = Set<String>()
         return filter {

@@ -176,14 +176,10 @@ struct DiscoverChallengesTab: View {
     private func destinationView(for route: AppRoute) -> some View {
         switch route {
         case .groupDetails(let challengeId):
-            if viewModel.publicChallenges.contains(where: { $0.id == challengeId }) {
-                GroupDetailsView(
-                    sessionViewModel: sessionViewModel,
-                    challengeId: challengeId
-                )
-            } else {
-                EmptyView()
-            }
+            GroupDetailsView(
+                sessionViewModel: sessionViewModel,
+                challengeId: challengeId
+            )
         default:
             EmptyView()
         }
