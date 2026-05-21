@@ -645,7 +645,7 @@
 - **Symptom:** Password reset emails could generate `je.fitcomp://` links while the app only registered `fitcomp://`, so tapping the email link did not open the app.
 - **Root Cause:** Rebrand work left multiple custom URL schemes (`fitcomp`, `je.fitcomp`, `je.stepcomp`) split across code, docs, and runtime routing.
 - **Fix:** Changed password reset requests to use canonical `fitcomp://reset-password`, registered legacy schemes for existing emails/config, and taught `DeepLinkRouter` to route all supported schemes.
-- **Files:** `ForgotPasswordSheet.swift`, `Info.plist`, `DeepLinkRouter.swift`, `DeepLinkRouterTests.swift`, `scripts/shell/update_redirect_urls.sh`
+- **Files:** `ForgotPasswordSheet.swift`, `Info.plist`, `project.pbxproj`, `DeepLinkRouter.swift`, `DeepLinkRouterTests.swift`, `scripts/shell/update_redirect_urls.sh`
 - **Prevention:** Password reset/OAuth redirect URLs must match `Info.plist` URL schemes exactly; keep legacy scheme aliases registered until external Supabase config has fully migrated.
 
 ### 63. Challenge Detail Screen Went Blank After List Refresh

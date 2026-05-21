@@ -27,7 +27,7 @@
 | Feature | File(s) | Description |
 |---------|---------|-------------|
 | StepComp → FitComp | All files | Complete app rename across codebase, URL schemes, keychain keys |
-| URL Scheme Update | `DeepLinkRouter.swift`, `Info.plist` | Changed from `stepcomp://` to `fitcomp://`; legacy `je.fitcomp`/`je.stepcomp` aliases remain registered for existing reset/invite links |
+| URL Scheme Update | `DeepLinkRouter.swift`, `Info.plist`, `project.pbxproj` | Changed from `stepcomp://` to `fitcomp://`; legacy `je.fitcomp`/`je.stepcomp` aliases remain registered for existing reset/invite links |
 | Color System Overhaul | `StepCompColors.swift` | Unified yellow primary (#FACC15/#EAB308) across light/dark modes |
 | Tab Bar Accent | `MainTabView.swift` | Changed tab selection indicator from yellow to blue |
 | Color System Rename | `StepCompColors.swift` → `FitCompColors` | Renamed color references across all views |
@@ -40,7 +40,7 @@
 |---------|---------|-------------|
 | 5-Tab Navigation | `MainTabView.swift` | Home, Workouts, Challenges, Metrics, Settings |
 | Deep Link Routing | `DeepLinkRouter.swift`, `AppRoute.swift` | Route handling for leaderboard, profile, create/join challenge, OAuth callbacks |
-| Password Reset Deep Links | `ForgotPasswordSheet.swift`, `DeepLinkRouter.swift`, `Info.plist`, `scripts/shell/update_redirect_urls.sh` | Password reset emails use the registered `fitcomp://reset-password` scheme with legacy scheme routing support |
+| Password Reset Deep Links | `ForgotPasswordSheet.swift`, `DeepLinkRouter.swift`, `Info.plist`, `project.pbxproj`, `scripts/shell/update_redirect_urls.sh` | Password reset emails use the registered `fitcomp://reset-password` scheme with legacy scheme routing support |
 | Invite Token Validation | `DeepLinkRouter.swift` | Validates invite tokens (8-128 chars, alphanumeric) before processing |
 | Haptic Tab Switching | `HapticManager.swift` | Tactile feedback on tab changes |
 | Stable Challenge Detail Routing | `ActiveChallengesTab.swift`, `DiscoverChallengesTab.swift` | Challenge detail routes stay rendered after list refreshes or membership changes |
