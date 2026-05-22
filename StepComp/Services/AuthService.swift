@@ -203,6 +203,8 @@ final class AuthService: ObservableObject {
         if deleteCachedUser {
             KeychainStore.delete(account: keychainUserAccount)
         }
+        OfflineCacheService.clearAll()
+        ChallengeService.shared.clearLocalStateAndPersistedData()
         
         // Clear active workout state (draft, widget, live activity)
         WorkoutViewModel.clearAllActiveWorkoutState()
@@ -253,10 +255,11 @@ final class AuthService: ObservableObject {
         #if canImport(Supabase)
         do {
             try await supabase.auth.signOut()
-            print("🚪 Force logout requested - waiting for signed-out event")
+            print("🚪 Force logout requested")
+            applySignedOutState(deleteCachedUser: true, reason: "forced Supabase logout")
         } catch {
             print("⚠️ Force logout signOut failed, clearing local auth state: \(error.localizedDescription)")
-            applySignedOutState(deleteCachedUser: true)
+            applySignedOutState(deleteCachedUser: true, reason: "forced Supabase logout failed")
         }
         #else
         applySignedOutState(deleteCachedUser: true)
@@ -577,9 +580,16 @@ final class AuthService: ObservableObject {
         #if canImport(Supabase)
         if useSupabase {
             // This clears the session from Supabase's internal storage.
-            // Local cleanup is handled by the signed-out auth state event.
-            try await supabase.auth.signOut()
-            print("✅ Supabase sign out requested - awaiting signed-out event")
+            // Also clear local state here so cache cleanup is not skipped if the
+            // auth-state event is delayed or the network sign-out throws.
+            do {
+                try await supabase.auth.signOut()
+                print("✅ Supabase sign out requested")
+                applySignedOutState(deleteCachedUser: true, reason: "manual Supabase sign out")
+            } catch {
+                applySignedOutState(deleteCachedUser: true, reason: "manual Supabase sign out failed")
+                throw error
+            }
             return
         }
         #endif

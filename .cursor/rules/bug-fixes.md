@@ -96,3 +96,48 @@ Verification checklist for any rest timer changes:
 - Start rest timer, leave app, wait for completion time: receive local notification popup.
 - Start timer, add time, leave app: notification fires at updated end time.
 - Start timer then cancel/skip: no completion notification should fire.
+
+## Rule 6: Generated Deep Link Schemes Must Be Registered
+
+Status: fixed on 2026-05-22
+
+Symptoms that must never return:
+- Password reset email links open Safari or do nothing instead of opening the app.
+- `PasswordResetView` is not shown after tapping a valid reset email link.
+
+Root causes that were fixed:
+- `ForgotPasswordSheet` generated `je.fitcomp://reset-password` links while `Info.plist` only registered `fitcomp`.
+- Routing code accepted `je.fitcomp`, but iOS could not deliver that URL scheme to the app.
+
+Required guardrails:
+1. Any custom URL scheme used in an auth redirect must appear in `StepComp/Info.plist` under `CFBundleURLSchemes`.
+2. `DeepLinkRouter` coverage must include every custom auth scheme that the app generates.
+3. Password-reset redirect constants and app URL scheme configuration must be reviewed together.
+
+Verification checklist for any auth deep-link change:
+- Parse `StepComp/Info.plist` and confirm generated redirect schemes are registered.
+- Open `je.fitcomp://reset-password#access_token=TEST&type=recovery` on a simulator/device and confirm the app routes to password reset.
+- Submit forgot-password email and confirm the email link opens the app.
+
+## Rule 7: User-Specific Caches Must Clear On Auth Boundary
+
+Status: fixed on 2026-05-22
+
+Symptoms that must never return:
+- User B sees User A's metrics, workout history, challenge list, or leaderboard after account switch.
+- Offline/network-failure fallback surfaces data from a previous signed-in account.
+
+Root causes that were fixed:
+- `OfflineCacheService` cache files used global keys for user-specific data.
+- `ChallengeService` persisted fallback data in global UserDefaults keys.
+- Sign-out cleanup did not clear those fallback stores, including sign-out error paths.
+
+Required guardrails:
+1. `AuthService.applySignedOutState` must clear `OfflineCacheService` and ChallengeService local fallback state.
+2. `AuthService.signOut()` must apply local signed-out cleanup even if Supabase sign-out throws.
+3. New user-specific caches must either include the authenticated user id in their key or be cleared on sign-out/forced logout.
+
+Verification checklist for any cache or auth-boundary change:
+- Sign in as User A, populate metrics/challenge cache, sign out, sign in as User B offline: no User A data is displayed.
+- Force a Supabase sign-out error path and confirm local offline/challenge caches are removed.
+- Confirm explicit logout still clears active workout state and shows onboarding/login.

@@ -11,15 +11,21 @@ import Combine
 import Supabase
 #endif
 
+private enum ChallengeServiceStorageKeys {
+    static let challenges = "challenges"
+    static let leaderboard = "leaderboard"
+}
+
 @MainActor
 final class ChallengeService: ObservableObject {
     static let shared = ChallengeService()
+
     @Published var challenges: [Challenge] = []
     @Published var leaderboardEntries: [String: [LeaderboardEntry]] = [:] // challengeId: entries
     @Published var lastErrorMessage: String?
     
-    private let challengesKey = "challenges"
-    private let leaderboardKey = "leaderboard"
+    private let challengesKey = ChallengeServiceStorageKeys.challenges
+    private let leaderboardKey = ChallengeServiceStorageKeys.leaderboard
     private let useSupabase: Bool
     
     init(useSupabase: Bool = true) {
@@ -33,6 +39,18 @@ final class ChallengeService: ObservableObject {
         loadChallenges()
         loadLeaderboards()
         #endif
+    }
+
+    nonisolated static func clearPersistedLocalData() {
+        UserDefaults.standard.removeObject(forKey: ChallengeServiceStorageKeys.challenges)
+        UserDefaults.standard.removeObject(forKey: ChallengeServiceStorageKeys.leaderboard)
+    }
+
+    func clearLocalStateAndPersistedData() {
+        challenges = []
+        leaderboardEntries = [:]
+        lastErrorMessage = nil
+        Self.clearPersistedLocalData()
     }
     
     // MARK: - Challenges
