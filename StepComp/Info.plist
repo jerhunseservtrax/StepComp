@@ -12,6 +12,7 @@
 			<key>CFBundleURLSchemes</key>
 			<array>
 				<string>fitcomp</string>
+				<string>je.fitcomp</string>
 			</array>
 		</dict>
 	</array>

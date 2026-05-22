@@ -1,7 +1,7 @@
 # FitComp Feature Tracker
 
 > Comprehensive catalog of all features in the FitComp fitness competition app (formerly StepComp).
-> Last updated: 2026-04-13 (v5)
+> Last updated: 2026-05-22 (v6)
 
 ---
 
@@ -300,6 +300,7 @@
 | Avatar Selection | `AvatarSelectionView.swift` | Profile picture/avatar choice |
 | First Win | `FirstWinView.swift` | First achievement celebration |
 | Sign In | `SignInView.swift`, `SignInOnboardingLandingView.swift`, `SignInOnboardingView+Auth.swift`, `EmailAuthSheet.swift`, `OnboardingSignUpView.swift`, `EmailSignInFormView.swift`, `ForgotPasswordSheet.swift`, `PasswordResetView.swift`, `AppleSignInDelegate.swift` | Apple Sign In, email sign-up/sign-in, forgot/reset password (split into focused files; coordinator in `SignInView.swift`) |
+| Password Reset Deep Linking | `ForgotPasswordSheet.swift`, `Info.plist`, `DeepLinkRouter.swift` | Reset-password emails use the registered `je.fitcomp://reset-password` custom scheme and route into `PasswordResetView` |
 | Onboarding Flow | `OnboardingFlowView.swift` | 6-step sequential flow |
 
 ---
@@ -357,7 +358,7 @@
 | Haptic Manager | `HapticManager.swift` | Haptic feedback patterns |
 | Keychain Store | `KeychainStore.swift` | Secure credential storage with kSecAttrService scoping and OSStatus error handling |
 | Retry Utility | `RetryUtility.swift` | Exponential backoff retry logic |
-| Offline Cache | `OfflineCacheService.swift` | Generic disk-backed Codable cache with fetch-with-fallback for offline resilience |
+| Offline Cache | `OfflineCacheService.swift`, `AuthService.swift`, `ChallengeService.swift` | Generic disk-backed Codable cache with fetch-with-fallback for offline resilience; user-specific cached data is cleared on sign-out/forced logout |
 | Cached Async Image | `CachedAsyncImage.swift` | Image caching for remote images (used in ProfileView, etc.) |
 | Reaction Effects | `ReactionEffectManager.swift` | Celebration/reaction animations |
 | Avatar View | `AvatarView.swift` | Reusable avatar component |

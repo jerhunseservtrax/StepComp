@@ -1,7 +1,7 @@
 # FitComp Fix Tracker
 
 > Log of all bugs encountered and fixes implemented to prevent recurrence.
-> Last updated: 2026-04-13 (v6)
+> Last updated: 2026-05-22 (v7)
 
 ---
 
@@ -88,6 +88,14 @@
 ---
 
 ## Authentication & Session
+
+### 7a. Password Reset Deep Link Scheme Not Registered
+- **Status:** Fixed (2026-05-22)
+- **Symptom:** Password reset emails redirected to `je.fitcomp://reset-password`, but iOS only registered the `fitcomp` URL scheme, so tapping the email link did not open the app or show the reset-password flow.
+- **Root Cause:** `ForgotPasswordSheet` and `DeepLinkRouter` supported `je.fitcomp`, but `Info.plist` omitted that scheme from `CFBundleURLSchemes`.
+- **Fix:** Registered `je.fitcomp` in `Info.plist` and added regression coverage for password-reset URL scheme registration/routing.
+- **Files:** `Info.plist`, `InfoPlistURLSchemeTests.swift`, `.cursor/rules/bug-fixes.md`
+- **Prevention:** Every app-generated custom deep link scheme must be registered in `Info.plist` and covered by a scheme/routing test.
 
 ### 7. Apple Sign In Profile Creation Failure
 - **Commit:** `fda99a6`
@@ -272,6 +280,14 @@
 ---
 
 ## Data Integrity
+
+### 28a. Cross-Account Offline Cache Leakage After Sign Out
+- **Status:** Fixed (2026-05-22)
+- **Symptom:** If User A had cached metrics/challenge data, signed out, and User B signed in while offline or during a network failure, fallback paths could show User A's cached metrics, workout history, or challenge data to User B.
+- **Root Cause:** Offline cache files and `ChallengeService` UserDefaults fallbacks were global and were not cleared during auth sign-out/forced logout.
+- **Fix:** Clear `OfflineCacheService` and ChallengeService persisted/in-memory fallback state whenever signed-out state is applied. Added cache-isolation regression coverage.
+- **Files:** `AuthService.swift`, `ChallengeService.swift`, `CacheIsolationTests.swift`, `.cursor/rules/bug-fixes.md`
+- **Prevention:** Any cache containing user-specific data must either be user-scoped or cleared on every auth boundary transition.
 
 ### 28. Rest Timer Drifts in Background
 - **Documented in:** `.cursor/rules/bug-fixes.md`
@@ -621,6 +637,8 @@
 | Hardcoded unit display (miles, lbs) | Wrong values for metric users | Always use `UnitPreferenceManager` formatters |
 | Capping progress at 100% in display | Misleading achievement info | Cap the visual ring, not the number |
 | Only checking recurring workout days | One-time workouts invisible | Query both `assignedDays` and `oneTimeDate` |
+| User-specific cache not cleared on auth boundary | Cross-account data leakage | Scope caches by user or clear them on sign-out/forced logout |
+| Deep link scheme used in code but missing from `Info.plist` | OS never opens app for the link | Keep generated redirect schemes and `CFBundleURLSchemes` in sync |
 
 ---
 
