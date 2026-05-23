@@ -267,7 +267,7 @@
 | Unit Preference | `SettingsPreferencesCard.swift`, `UnitPreferenceManager.swift` | Metric/imperial system |
 | HealthKit Toggle | `SettingsConnectivityCard.swift` | Enable/disable HealthKit integration |
 | Notification Prefs | `SettingsNotificationsCard.swift` | Daily recap, leaderboard alerts, motivational nudges |
-| Sign Out | `SettingsView.swift`, `SettingsMainContent.swift`, `SessionViewModel.swift` | Logout with proper cleanup |
+| Sign Out | `SettingsView.swift`, `SettingsMainContent.swift`, `SessionViewModel.swift`, `AuthService.swift` | Logout with immediate cache and in-memory service cleanup |
 | Delete Account | `DeleteAccountConfirmationView.swift`, `SettingsView.swift`, `SettingsViewModifiers.swift` | Account deletion with confirmation |
 | Streak Display | `SettingsView.swift`, `SettingsLayoutViews.swift` | Current step streak (30-day lookback) |
 

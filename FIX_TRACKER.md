@@ -600,7 +600,7 @@
 - **Status:** Fixed (uncommitted)
 - **Symptom:** On shared devices, User B could see User A's cached metrics, weight/workout history, or leaderboard data when a network fetch fell back to disk cache.
 - **Root Cause:** `OfflineCacheService` used global cache keys and sign-out did not clear the offline cache.
-- **Fix:** Added user-scoped cache keys for metrics and leaderboard fallback data, cleared offline cache during signed-out state cleanup, and added regression coverage for per-user cache isolation.
+- **Fix:** Added user-scoped cache keys for metrics and leaderboard fallback data, cleared offline cache and in-memory challenge state during signed-out state cleanup, and added regression coverage for per-user cache isolation.
 - **Files:** `OfflineCacheService.swift`, `MetricsService.swift`, `ChallengeService.swift`, `AuthService.swift`, `KeychainStoreTests.swift`
 - **Prevention:** Any disk cache containing user data must be keyed by authenticated user ID and cleared on logout/account deletion.
 
@@ -608,8 +608,8 @@
 - **Status:** Fixed (uncommitted)
 - **Symptom:** Password reset links generated from the forgot-password flow could fail to open the app.
 - **Root Cause:** `ForgotPasswordSheet` requested reset emails with `je.fitcomp://reset-password`, but `Info.plist` only registers `fitcomp://`.
-- **Fix:** Changed the reset redirect URL to `fitcomp://reset-password`.
-- **Files:** `ForgotPasswordSheet.swift`
+- **Fix:** Changed the reset redirect URL to `fitcomp://reset-password` and registered the `fitcomp` scheme in generated Debug/Release Info.plist build settings.
+- **Files:** `ForgotPasswordSheet.swift`, `Info.plist`, `project.pbxproj`
 - **Prevention:** OAuth and recovery redirect URLs must match registered app schemes and deep-link router tests.
 
 ### 65. Weight Chart Scrub Gesture Crash
