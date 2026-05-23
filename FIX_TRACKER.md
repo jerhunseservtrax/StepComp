@@ -1,7 +1,7 @@
 # FitComp Fix Tracker
 
 > Log of all bugs encountered and fixes implemented to prevent recurrence.
-> Last updated: 2026-04-13 (v6)
+> Last updated: 2026-05-23 (v7)
 
 ---
 
@@ -587,6 +587,38 @@
 - **Fix:** Restored a dedicated Workouts tab in a 5-tab layout and updated tab-index routing in workout start flow and tab manager helper.
 - **Files:** `MainTabView.swift`, `WorkoutDetailView.swift`
 - **Prevention:** Keep central tab index mapping documented and update all programmatic tab switches whenever tab order changes.
+
+### 62. Chat List Deleted Ended Challenge Memberships
+- **Status:** Fixed (uncommitted)
+- **Symptom:** Opening chat list could delete a user's `challenge_members` rows for ended challenges, erasing archived membership and step history.
+- **Root Cause:** `ChatListViewModel.getUserChallenges()` filtered challenges by `end_date >= now`, then treated filtered-out ended challenge IDs as orphaned records and deleted them from Supabase.
+- **Fix:** Removed client-side membership cleanup from the chat list read path. The chat list still shows active conversations only, but it no longer mutates membership records.
+- **Files:** `ChatListViewModel.swift`
+- **Prevention:** Read-only UI loaders must never perform destructive cleanup of server-owned history. Orphan cleanup must be explicit and server-side.
+
+### 63. Offline Cache Cross-Account Data Exposure
+- **Status:** Fixed (uncommitted)
+- **Symptom:** On shared devices, User B could see User A's cached metrics, weight/workout history, or leaderboard data when a network fetch fell back to disk cache.
+- **Root Cause:** `OfflineCacheService` used global cache keys and sign-out did not clear the offline cache.
+- **Fix:** Added user-scoped cache keys for metrics and leaderboard fallback data, cleared offline cache during signed-out state cleanup, and added regression coverage for per-user cache isolation.
+- **Files:** `OfflineCacheService.swift`, `MetricsService.swift`, `ChallengeService.swift`, `AuthService.swift`, `KeychainStoreTests.swift`
+- **Prevention:** Any disk cache containing user data must be keyed by authenticated user ID and cleared on logout/account deletion.
+
+### 64. Password Reset Email Used Unregistered URL Scheme
+- **Status:** Fixed (uncommitted)
+- **Symptom:** Password reset links generated from the forgot-password flow could fail to open the app.
+- **Root Cause:** `ForgotPasswordSheet` requested reset emails with `je.fitcomp://reset-password`, but `Info.plist` only registers `fitcomp://`.
+- **Fix:** Changed the reset redirect URL to `fitcomp://reset-password`.
+- **Files:** `ForgotPasswordSheet.swift`
+- **Prevention:** OAuth and recovery redirect URLs must match registered app schemes and deep-link router tests.
+
+### 65. Weight Chart Scrub Gesture Crash
+- **Status:** Fixed (uncommitted)
+- **Symptom:** Dragging the weight trend chart during initial layout, rotation, or empty-to-populated transitions could crash the app.
+- **Root Cause:** `WeightTrendChart` force-unwrapped `proxy.plotFrame`, which can be nil before Swift Charts finishes laying out.
+- **Fix:** Guarded `plotFrame` before calculating the scrub location.
+- **Files:** `MetricsChartViews.swift`
+- **Prevention:** Never force-unwrap Swift Charts proxy geometry; gestures should no-op until plot geometry is available.
 
 ## New Features
 

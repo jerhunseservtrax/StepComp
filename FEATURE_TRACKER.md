@@ -1,7 +1,7 @@
 # FitComp Feature Tracker
 
 > Comprehensive catalog of all features in the FitComp fitness competition app (formerly StepComp).
-> Last updated: 2026-04-13 (v5)
+> Last updated: 2026-05-23 (v6)
 
 ---
 
@@ -194,7 +194,7 @@
 | Feature | File(s) | Description |
 |---------|---------|-------------|
 | Challenge Chat | `ChallengeChatView.swift`, `ChallengeChatViewModel.swift` | Real-time group messaging via Supabase postgresChange streams with polling fallback |
-| Chat List | `ChatListView.swift`, `ChatListViewModel.swift` | Overview of all chat conversations |
+| Chat List | `ChatListView.swift`, `ChatListViewModel.swift` | Overview of active chat conversations without client-side membership cleanup |
 | Message Actions | `ChallengeChatViewModel.swift` | Send, delete, auto-scroll |
 
 ### Leaderboard
@@ -232,6 +232,7 @@
 | Comprehensive Store | `ComprehensiveMetricsStore.swift` | Local metrics caching |
 | Strength Trend Accuracy | `ComprehensiveMetricsStore.swift`, `MetricsViewModel.swift`, `PerformancePillarSection.swift`, `ComprehensiveMetrics.swift` | Strength trend compares equal recent/prior windows, supports insufficient-data fallback (N/A), and shows comparable lift count |
 | Exercise History Section | `ExerciseHistorySection.swift`, `MetricsViewModel.swift`, `MetricsView.swift` | Collapsible metrics section showing top 5 exercises always visible with per-exercise volume trend sparklines and expandable full history list |
+| Weight Chart Scrubbing | `MetricsChartViews.swift` | Interactive weight trend scrubbing that safely waits for chart plot geometry |
 | App Store Privacy Hardening | `Info.plist`, `PrivacyInfo.xcprivacy` | Pre-submission hardening removes unsupported background audio mode and declares collected data types for App Review compliance |
 
 ---
@@ -299,7 +300,7 @@
 | Goal Setting | `GoalSettingView.swift` | Daily step goal configuration |
 | Avatar Selection | `AvatarSelectionView.swift` | Profile picture/avatar choice |
 | First Win | `FirstWinView.swift` | First achievement celebration |
-| Sign In | `SignInView.swift`, `SignInOnboardingLandingView.swift`, `SignInOnboardingView+Auth.swift`, `EmailAuthSheet.swift`, `OnboardingSignUpView.swift`, `EmailSignInFormView.swift`, `ForgotPasswordSheet.swift`, `PasswordResetView.swift`, `AppleSignInDelegate.swift` | Apple Sign In, email sign-up/sign-in, forgot/reset password (split into focused files; coordinator in `SignInView.swift`) |
+| Sign In | `SignInView.swift`, `SignInOnboardingLandingView.swift`, `SignInOnboardingView+Auth.swift`, `EmailAuthSheet.swift`, `OnboardingSignUpView.swift`, `EmailSignInFormView.swift`, `ForgotPasswordSheet.swift`, `PasswordResetView.swift`, `AppleSignInDelegate.swift` | Apple Sign In, email sign-up/sign-in, forgot/reset password via registered `fitcomp://` recovery links |
 | Onboarding Flow | `OnboardingFlowView.swift` | 6-step sequential flow |
 
 ---
@@ -357,7 +358,7 @@
 | Haptic Manager | `HapticManager.swift` | Haptic feedback patterns |
 | Keychain Store | `KeychainStore.swift` | Secure credential storage with kSecAttrService scoping and OSStatus error handling |
 | Retry Utility | `RetryUtility.swift` | Exponential backoff retry logic |
-| Offline Cache | `OfflineCacheService.swift` | Generic disk-backed Codable cache with fetch-with-fallback for offline resilience |
+| Offline Cache | `OfflineCacheService.swift` | User-scoped disk-backed Codable cache with fetch-with-fallback for offline resilience and sign-out cleanup |
 | Cached Async Image | `CachedAsyncImage.swift` | Image caching for remote images (used in ProfileView, etc.) |
 | Reaction Effects | `ReactionEffectManager.swift` | Celebration/reaction animations |
 | Avatar View | `AvatarView.swift` | Reusable avatar component |
