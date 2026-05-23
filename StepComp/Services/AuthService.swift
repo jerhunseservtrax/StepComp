@@ -203,6 +203,9 @@ final class AuthService: ObservableObject {
         if deleteCachedUser {
             KeychainStore.delete(account: keychainUserAccount)
         }
+        OfflineCacheService.clearAll()
+        ChallengeService.shared.challenges = []
+        ChallengeService.shared.leaderboardEntries = [:]
         
         // Clear active workout state (draft, widget, live activity)
         WorkoutViewModel.clearAllActiveWorkoutState()
@@ -254,6 +257,11 @@ final class AuthService: ObservableObject {
         do {
             try await supabase.auth.signOut()
             print("🚪 Force logout requested - waiting for signed-out event")
+            applySignedOutState(
+                deleteCachedUser: true,
+                reason: "force logout",
+                allowDuringStartupCheck: true
+            )
         } catch {
             print("⚠️ Force logout signOut failed, clearing local auth state: \(error.localizedDescription)")
             applySignedOutState(deleteCachedUser: true)
@@ -577,9 +585,24 @@ final class AuthService: ObservableObject {
         #if canImport(Supabase)
         if useSupabase {
             // This clears the session from Supabase's internal storage.
-            // Local cleanup is handled by the signed-out auth state event.
-            try await supabase.auth.signOut()
-            print("✅ Supabase sign out requested - awaiting signed-out event")
+            // Local cleanup is also performed immediately so privacy-sensitive
+            // caches cannot survive a delayed or failed auth-state event.
+            do {
+                try await supabase.auth.signOut()
+                print("✅ Supabase sign out requested - local auth state cleared")
+                applySignedOutState(
+                    deleteCachedUser: true,
+                    reason: "explicit sign out",
+                    allowDuringStartupCheck: true
+                )
+            } catch {
+                applySignedOutState(
+                    deleteCachedUser: true,
+                    reason: "explicit sign out failed",
+                    allowDuringStartupCheck: true
+                )
+                throw error
+            }
             return
         }
         #endif

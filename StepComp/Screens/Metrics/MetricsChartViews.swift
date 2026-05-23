@@ -343,7 +343,8 @@ struct WeightTrendChart: View {
                             .gesture(
                                 DragGesture(minimumDistance: 0)
                                     .onChanged { value in
-                                        let origin = geo[proxy.plotFrame!].origin
+                                        guard let plotFrame = proxy.plotFrame else { return }
+                                        let origin = geo[plotFrame].origin
                                         let locationX = value.location.x - origin.x
                                         guard let date: Date = proxy.value(atX: locationX) else { return }
                                         let closest = sorted.enumerated().min(by: {

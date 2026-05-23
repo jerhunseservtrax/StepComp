@@ -49,3 +49,23 @@ final class KeychainStoreTests: XCTestCase {
         XCTAssertEqual(loaded, second)
     }
 }
+
+final class OfflineCacheServiceTests: XCTestCase {
+    override func tearDown() {
+        OfflineCacheService.clearAll()
+        super.tearDown()
+    }
+
+    func testUserScopedCacheDoesNotBleedBetweenAccounts() {
+        let key = "metrics_summary_30"
+
+        OfflineCacheService.save(["user-a-private"], key: key, userId: "user-a")
+
+        XCTAssertEqual(
+            OfflineCacheService.load([String].self, key: key, userId: "user-a"),
+            ["user-a-private"]
+        )
+        XCTAssertNil(OfflineCacheService.load([String].self, key: key, userId: "user-b"))
+        XCTAssertNil(OfflineCacheService.load([String].self, key: key))
+    }
+}
