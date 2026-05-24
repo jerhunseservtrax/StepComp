@@ -20,6 +20,7 @@ class WeightViewModel: ObservableObject {
     
     private let userDefaultsKey = "weight_entries"
     private let healthKitService: HealthKitService
+    private var blocksAutomaticHealthKitImport = false
     
     private init() {
         self.healthKitService = HealthKitService.shared
@@ -34,6 +35,7 @@ class WeightViewModel: ObservableObject {
     // MARK: - Public Methods
     
     func addEntry(weightKg: Double, date: Date, source: WeightEntry.WeightSource) {
+        blocksAutomaticHealthKitImport = false
         let entry = WeightEntry(date: date, weightKg: weightKg, source: source)
         entries.append(entry)
         entries.sort { $0.date > $1.date } // Newest first
@@ -49,8 +51,10 @@ class WeightViewModel: ObservableObject {
         
         // Sync to Supabase in the background
         let entryToSync = entry
-        Task.detached(priority: .utility) {
-            await MetricsService.shared.syncWeightEntry(entryToSync)
+        if let syncUserId = AuthService.shared.currentUser?.id {
+            Task.detached(priority: .utility) {
+                await MetricsService.shared.syncWeightEntry(entryToSync, expectedUserId: syncUserId)
+            }
         }
     }
     
@@ -65,10 +69,25 @@ class WeightViewModel: ObservableObject {
         let cutoffDate = calendar.date(byAdding: .day, value: -days, to: Date()) ?? Date()
         return entries.filter { $0.date >= cutoffDate }.sorted { $0.date < $1.date }
     }
+
+    func clearLocalUserData() {
+        blocksAutomaticHealthKitImport = true
+        entries = []
+        latestWeight = nil
+        UserDefaults.standard.removeObject(forKey: userDefaultsKey)
+    }
+
+    func prepareForAuthenticatedUser() {
+        blocksAutomaticHealthKitImport = false
+    }
     
     // MARK: - HealthKit Integration
     
     func syncWithHealthKit() async {
+        guard !blocksAutomaticHealthKitImport else {
+            print("⚠️ Local user data cleared, skipping automatic HealthKit weight import")
+            return
+        }
         guard healthKitService.isAuthorized else {
             print("⚠️ HealthKit not authorized, skipping sync")
             return
@@ -76,6 +95,10 @@ class WeightViewModel: ObservableObject {
         
         do {
             if let healthKitWeight = try await healthKitService.getWeight() {
+                guard !blocksAutomaticHealthKitImport else {
+                    print("⚠️ Local user data cleared during HealthKit read, skipping import")
+                    return
+                }
                 // Check if we need to add this as a new entry
                 let today = Calendar.current.startOfDay(for: Date())
                 let hasEntryToday = entries.contains { entry in

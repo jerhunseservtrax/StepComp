@@ -191,11 +191,24 @@ struct PasswordResetView: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") {
-                        onComplete()
+                        Task {
+                            await cancelPasswordReset()
+                        }
                     }
                 }
             }
         }
+    }
+
+    private func cancelPasswordReset() async {
+        #if canImport(Supabase)
+        do {
+            try await authService.signOut()
+        } catch {
+            print("⚠️ Password reset cancellation sign-out failed: \(error.localizedDescription)")
+        }
+        #endif
+        onComplete()
     }
     
     private func resetPassword() async {

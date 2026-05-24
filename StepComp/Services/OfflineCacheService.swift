@@ -57,6 +57,12 @@ enum OfflineCacheService {
             save(value, key: key)
             return value
         } catch {
+            guard canServeCachedValue(after: error) else {
+                #if DEBUG
+                print("⚠️ OfflineCache refusing cached data for \(key) after auth/permission error")
+                #endif
+                return nil
+            }
             #if DEBUG
             print("⚠️ OfflineCache network failed for \(key), using cached data")
             #endif
@@ -74,11 +80,33 @@ enum OfflineCacheService {
             save(value, key: key)
             return value
         } catch {
+            guard canServeCachedValue(after: error) else {
+                #if DEBUG
+                print("⚠️ OfflineCache refusing cached data for \(key) after auth/permission error")
+                #endif
+                return []
+            }
             #if DEBUG
             print("⚠️ OfflineCache network failed for \(key), using cached data")
             #endif
             return load([T].self, key: key) ?? []
         }
+    }
+
+    static func canServeCachedValue(after error: Error) -> Bool {
+        let message = error.localizedDescription.lowercased()
+        let blockedFragments = [
+            "permission",
+            "unauthorized",
+            "forbidden",
+            "jwt",
+            "token",
+            "row level",
+            "rls",
+            "auth"
+        ]
+
+        return !blockedFragments.contains { message.contains($0) }
     }
 
     private static func safeName(_ key: String) -> String {
