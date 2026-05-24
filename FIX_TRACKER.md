@@ -691,11 +691,12 @@
 - **Context:** Deep correctness audit of recent auth, offline cache, metrics, and workout persistence changes.
 - **Symptoms prevented:**
   - Signed-out users could leave an in-memory active workout, local workout history, weight entries, sync markers, or offline cache available to the next account on the same device.
+  - Fire-and-forget workout/weight sync tasks could run after an account switch and attach prior-user fitness data to the next Supabase session.
   - Offline cache fallback could show private metrics/leaderboard data after auth or RLS permission failures.
   - Password reset recovery links could establish a Supabase session that remained usable if the user cancelled the reset screen.
   - Password reset emails used an unregistered `je.fitcomp://` scheme after the app registered `fitcomp://`.
   - Body metrics and nutrition inserts omitted `user_id`, causing RLS/not-null failures and silent cloud sync loss.
 - **Root Cause:** Sign-out cleanup relied on async auth events and only cleared active workout drafts; offline cache had global keys and unconditional fallback; recovery-session cancellation did not sign out; metrics payloads did not satisfy the new Supabase schema.
-- **Fix:** Added immediate local cleanup on manual/forced sign-out, full workout/weight/sync/cache purging, active workout in-memory teardown, auth-aware cache fallback blocking, reset cancellation sign-out, registered reset URL scheme usage, and `user_id` in body/nutrition sync payloads.
+- **Fix:** Added immediate local cleanup on manual/forced sign-out, full workout/weight/sync/cache purging, active workout in-memory teardown, auth-aware cache and in-memory leaderboard fallback blocking, user-id checks for delayed workout/weight sync tasks, reset cancellation sign-out, registered reset URL scheme usage, and `user_id` in body/nutrition sync payloads.
 - **Files:** `AuthService.swift`, `WorkoutViewModel.swift`, `WeightViewModel.swift`, `MetricsService.swift`, `OfflineCacheService.swift`, `ChallengeService.swift`, `ForgotPasswordSheet.swift`, `PasswordResetView.swift`, `KeychainStoreTests.swift`
 - **Prevention:** Any signed-out path must clear or user-scope private local state before another account can authenticate; offline cache must never satisfy auth/permission failures; password recovery sessions must be explicitly dismissed by password update or sign-out.

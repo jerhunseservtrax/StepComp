@@ -51,8 +51,10 @@ class WeightViewModel: ObservableObject {
         
         // Sync to Supabase in the background
         let entryToSync = entry
-        Task.detached(priority: .utility) {
-            await MetricsService.shared.syncWeightEntry(entryToSync)
+        if let syncUserId = AuthService.shared.currentUser?.id {
+            Task.detached(priority: .utility) {
+                await MetricsService.shared.syncWeightEntry(entryToSync, expectedUserId: syncUserId)
+            }
         }
     }
     

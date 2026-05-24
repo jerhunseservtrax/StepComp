@@ -528,8 +528,13 @@ final class ChallengeService: ObservableObject {
             OfflineCacheService.save(entries, key: cacheKey)
             return entries
         } catch {
-            if OfflineCacheService.canServeCachedValue(after: error),
-               let cached = OfflineCacheService.load([LeaderboardEntry].self, key: cacheKey) {
+            guard OfflineCacheService.canServeCachedValue(after: error) else {
+                leaderboardEntries[challengeId] = nil
+                OfflineCacheService.remove(key: cacheKey)
+                return []
+            }
+
+            if let cached = OfflineCacheService.load([LeaderboardEntry].self, key: cacheKey) {
                 leaderboardEntries[challengeId] = cached
                 return cached
             }

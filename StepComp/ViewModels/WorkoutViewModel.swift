@@ -243,8 +243,10 @@ class WorkoutViewModel: ObservableObject {
         
         // Sync to Supabase in the background (fire-and-forget)
         let sessionToSync = completedSession
-        Task.detached(priority: .utility) {
-            await MetricsService.shared.syncWorkoutSession(sessionToSync)
+        if let syncUserId = AuthService.shared.currentUser?.id {
+            Task.detached(priority: .utility) {
+                await MetricsService.shared.syncWorkoutSession(sessionToSync, expectedUserId: syncUserId)
+            }
         }
         
         // Update the workout's last completed date
