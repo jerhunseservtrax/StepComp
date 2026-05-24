@@ -1024,13 +1024,23 @@ class WorkoutViewModel: ObservableObject {
         }
     }
     
-    /// Clears all active workout state (draft, widget, live activity)
+    /// Clears all active workout state (memory, draft, widget, live activity).
     static func clearAllActiveWorkoutState() {
         let vm = WorkoutViewModel.shared
-        vm.clearActiveWorkoutDraft()
-        WorkoutWidgetStore.clear()
-        WorkoutLiveActivityManager.end()
+        vm.cancelWorkout()
         print("🧹 All active workout state cleared")
+    }
+
+    /// Removes workout data that belongs to the signed-out user.
+    static func clearLocalUserData() {
+        let vm = WorkoutViewModel.shared
+        vm.cancelWorkout()
+        vm.workouts = []
+        vm.completedSessions = []
+        vm.finishedSession = nil
+        UserDefaults.standard.removeObject(forKey: "saved_workouts")
+        UserDefaults.standard.removeObject(forKey: "completed_workout_sessions")
+        print("🧹 Local workout data cleared")
     }
     
     // MARK: - Data Migration

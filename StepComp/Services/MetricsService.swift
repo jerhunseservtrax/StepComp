@@ -23,6 +23,12 @@ final class MetricsService: ObservableObject {
 
     private init() {}
 
+    func clearLocalSyncState() {
+        UserDefaults.standard.removeObject(forKey: syncedSessionsKey)
+        UserDefaults.standard.removeObject(forKey: syncedWeightEntriesKey)
+        nutritionLogTableUnavailable = false
+    }
+
     // MARK: - Sync: Workout Session
 
     /// Converts a local CompletedWorkoutSession to a JSON payload and syncs to Supabase.
@@ -252,14 +258,16 @@ final class MetricsService: ObservableObject {
 
     func syncBodyMetric(bodyFatPercent: Double?, waistCm: Double?, date: Date = Date()) async {
         #if canImport(Supabase)
+        let session: Session
         do {
-            _ = try await supabase.auth.session
+            session = try await supabase.auth.session
         } catch {
             return
         }
         let dateFormatter = DateFormatter()
         dateFormatter.dateFormat = "yyyy-MM-dd"
         let payload: [String: AnyJSON] = [
+            "user_id": .string(session.user.id.uuidString),
             "recorded_on": .string(dateFormatter.string(from: date)),
             "body_fat_pct": bodyFatPercent.map { .string(String($0)) } ?? .null,
             "waist_cm": waistCm.map { .string(String($0)) } ?? .null,
@@ -277,8 +285,9 @@ final class MetricsService: ObservableObject {
 
     func syncNutritionLog(_ log: NutritionLog) async {
         #if canImport(Supabase)
+        let session: Session
         do {
-            _ = try await supabase.auth.session
+            session = try await supabase.auth.session
         } catch {
             return
         }
@@ -289,6 +298,7 @@ final class MetricsService: ObservableObject {
 
         let iso = ISO8601DateFormatter().string(from: log.loggedAt)
         let payload: [String: AnyJSON] = [
+            "user_id": .string(session.user.id.uuidString),
             "logged_at": .string(iso),
             "calories": .integer(log.calories),
             "protein_g": .integer(log.proteinG),

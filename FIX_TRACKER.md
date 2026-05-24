@@ -1,7 +1,7 @@
 # FitComp Fix Tracker
 
 > Log of all bugs encountered and fixes implemented to prevent recurrence.
-> Last updated: 2026-04-13 (v6)
+> Last updated: 2026-05-24 (v7)
 
 ---
 
@@ -684,3 +684,18 @@
   - **Test scaffolding:** Created `StepCompTests/` with unit tests for KeychainStore, DeepLinkRouter, UnitPreferenceManager, RetryUtility; created `StepCompUITests/` with launch test.
 - **Files:** 50+ files modified or created (see audit plan for full list).
 - **Prevention:** Use `SupabaseRequestExecutor` for all new Supabase calls; keep views under 500 lines; never commit secrets; add tests for new utilities.
+
+---
+
+### 2026-05-24 - Critical Sign-Out, Offline Cache, and Password Recovery Hardening
+- **Context:** Deep correctness audit of recent auth, offline cache, metrics, and workout persistence changes.
+- **Symptoms prevented:**
+  - Signed-out users could leave an in-memory active workout, local workout history, weight entries, sync markers, or offline cache available to the next account on the same device.
+  - Offline cache fallback could show private metrics/leaderboard data after auth or RLS permission failures.
+  - Password reset recovery links could establish a Supabase session that remained usable if the user cancelled the reset screen.
+  - Password reset emails used an unregistered `je.fitcomp://` scheme after the app registered `fitcomp://`.
+  - Body metrics and nutrition inserts omitted `user_id`, causing RLS/not-null failures and silent cloud sync loss.
+- **Root Cause:** Sign-out cleanup relied on async auth events and only cleared active workout drafts; offline cache had global keys and unconditional fallback; recovery-session cancellation did not sign out; metrics payloads did not satisfy the new Supabase schema.
+- **Fix:** Added immediate local cleanup on manual/forced sign-out, full workout/weight/sync/cache purging, active workout in-memory teardown, auth-aware cache fallback blocking, reset cancellation sign-out, registered reset URL scheme usage, and `user_id` in body/nutrition sync payloads.
+- **Files:** `AuthService.swift`, `WorkoutViewModel.swift`, `WeightViewModel.swift`, `MetricsService.swift`, `OfflineCacheService.swift`, `ChallengeService.swift`, `ForgotPasswordSheet.swift`, `PasswordResetView.swift`, `KeychainStoreTests.swift`
+- **Prevention:** Any signed-out path must clear or user-scope private local state before another account can authenticate; offline cache must never satisfy auth/permission failures; password recovery sessions must be explicitly dismissed by password update or sign-out.
