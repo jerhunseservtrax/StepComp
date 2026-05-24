@@ -132,18 +132,8 @@ final class MetricsService: ObservableObject {
 
         if !unsyncedSessions.isEmpty {
             print("🔄 [MetricsService] Syncing \(unsyncedSessions.count) unsynced workout sessions...")
-            let batchPayload = unsyncedSessions.map { AnyJSON.object(sessionPayload(for: $0)) }
-            do {
-                _ = try await SupabaseRequestExecutor.executeWithAuthRetry(context: "sync_workout_sessions_batch") {
-                    try await supabase
-                        .rpc("sync_workout_sessions_batch", params: ["p_sessions": .array(batchPayload)] as [String: AnyJSON])
-                        .execute()
-                }
-                unsyncedSessions.forEach { markSessionSynced($0.id) }
-            } catch {
-                for session in unsyncedSessions {
-                    await syncWorkoutSession(session, expectedUserId: expectedUserId)
-                }
+            for session in unsyncedSessions {
+                await syncWorkoutSession(session, expectedUserId: expectedUserId)
             }
         }
 
@@ -152,26 +142,8 @@ final class MetricsService: ObservableObject {
 
         if !unsyncedEntries.isEmpty {
             print("🔄 [MetricsService] Syncing \(unsyncedEntries.count) unsynced weight entries...")
-            let formatter = DateFormatter()
-            formatter.dateFormat = "yyyy-MM-dd"
-            let batchPayload: [AnyJSON] = unsyncedEntries.map { entry in
-                .object([
-                    "date": .string(formatter.string(from: entry.date)),
-                    "weight_kg": .string(String(entry.weightKg)),
-                    "source": .string(entry.source == .healthKit ? "healthKit" : "manual")
-                ])
-            }
-            do {
-                _ = try await SupabaseRequestExecutor.executeWithAuthRetry(context: "sync_weight_entries_batch") {
-                    try await supabase
-                        .rpc("sync_weight_entries_batch", params: ["p_entries": .array(batchPayload)] as [String: AnyJSON])
-                        .execute()
-                }
-                unsyncedEntries.forEach { markWeightEntrySynced($0.id) }
-            } catch {
-                for entry in unsyncedEntries {
-                    await syncWeightEntry(entry, expectedUserId: expectedUserId)
-                }
+            for entry in unsyncedEntries {
+                await syncWeightEntry(entry, expectedUserId: expectedUserId)
             }
         }
 
