@@ -19,6 +19,86 @@ private struct ActiveWorkoutDraft: Codable {
     let workoutTargetDate: Date?
 }
 
+enum WorkoutWeightStorageMigration {
+    private static let poundsPerKilogram = 2.20462
+
+    static func shouldMigrate(unitSystem: UnitSystem) -> Bool {
+        unitSystem == .imperial
+    }
+
+    static func completedSessionByConvertingPoundsToKilograms(
+        _ session: CompletedWorkoutSession
+    ) -> (session: CompletedWorkoutSession, didMigrate: Bool) {
+        let result = exercisesByConvertingPoundsToKilograms(session.exercises)
+        return (
+            CompletedWorkoutSession(
+                id: session.id,
+                workoutId: session.workoutId,
+                workoutName: session.workoutName,
+                startTime: session.startTime,
+                endTime: session.endTime,
+                exercises: result.exercises
+            ),
+            result.didMigrate
+        )
+    }
+
+    static func sessionByConvertingPoundsToKilograms(
+        _ session: WorkoutSession
+    ) -> (session: WorkoutSession, didMigrate: Bool) {
+        let result = exercisesByConvertingPoundsToKilograms(session.exercises)
+        return (
+            WorkoutSession(
+                id: session.id,
+                workoutId: session.workoutId,
+                workoutName: session.workoutName,
+                startTime: session.startTime,
+                endTime: session.endTime,
+                exercises: result.exercises,
+                isActive: session.isActive
+            ),
+            result.didMigrate
+        )
+    }
+
+    private static func exercisesByConvertingPoundsToKilograms(
+        _ exercises: [WorkoutExercise]
+    ) -> (exercises: [WorkoutExercise], didMigrate: Bool) {
+        var didMigrate = false
+        let migratedExercises = exercises.map { exercise in
+            let migratedSets = exercise.sets.map { set in
+                let result = setByConvertingPoundsToKilograms(set)
+                didMigrate = didMigrate || result.didMigrate
+                return result.set
+            }
+            return WorkoutExercise(id: exercise.id, exercise: exercise.exercise, sets: migratedSets)
+        }
+        return (migratedExercises, didMigrate)
+    }
+
+    private static func setByConvertingPoundsToKilograms(
+        _ set: WorkoutSet
+    ) -> (set: WorkoutSet, didMigrate: Bool) {
+        var migratedSet = set
+        var didMigrate = false
+
+        if let weight = set.weight {
+            migratedSet.weight = weight / poundsPerKilogram
+            didMigrate = true
+        }
+        if let previousWeight = set.previousWeight {
+            migratedSet.previousWeight = previousWeight / poundsPerKilogram
+            didMigrate = true
+        }
+        if let suggestedWeight = set.suggestedWeight {
+            migratedSet.suggestedWeight = suggestedWeight / poundsPerKilogram
+            didMigrate = true
+        }
+
+        return (migratedSet, didMigrate)
+    }
+}
+
 @MainActor
 class WorkoutViewModel: ObservableObject {
     static let shared = WorkoutViewModel()
@@ -53,9 +133,9 @@ class WorkoutViewModel: ObservableObject {
     private init() {
         loadWorkouts()
         loadCompletedSessions()
+        loadActiveWorkoutDraftIfAny()
         backfillPerSideWeightInputModeIfNeeded()
         migrateWeightsToKgIfNeeded()
-        loadActiveWorkoutDraftIfAny()
     }
     
     // MARK: - Workout Management
@@ -1024,9 +1104,24 @@ class WorkoutViewModel: ObservableObject {
         }
     }
     
-    /// Clears all active workout state (draft, widget, live activity)
+    private func clearInMemoryActiveWorkoutState() {
+        autoFinishTask?.cancel()
+        autoFinishTask = nil
+        isAutoFinishing = false
+        stopTimer()
+        currentSession = nil
+        sessionStartTime = nil
+        elapsedTime = 0
+        totalPausedTime = 0
+        isPaused = false
+        pauseStartTime = nil
+        workoutTargetDate = nil
+    }
+
+    /// Clears all active workout state (in-memory session, draft, widget, live activity)
     static func clearAllActiveWorkoutState() {
         let vm = WorkoutViewModel.shared
+        vm.clearInMemoryActiveWorkoutState()
         vm.clearActiveWorkoutDraft()
         WorkoutWidgetStore.clear()
         WorkoutLiveActivityManager.end()
@@ -1036,13 +1131,18 @@ class WorkoutViewModel: ObservableObject {
     // MARK: - Data Migration
     
     /// Migrates workout weights from lbs to kg storage format.
-    /// This runs once per installation to convert legacy data.
-    /// Assumes user was using imperial units (lbs) before the migration.
+    /// This runs once per installation for legacy imperial users only.
     private func migrateWeightsToKgIfNeeded() {
         let migrationKey = "weights_migrated_to_kg_v1"
         
         // Check if migration already completed
         if UserDefaults.standard.bool(forKey: migrationKey) {
+            return
+        }
+
+        guard WorkoutWeightStorageMigration.shouldMigrate(unitSystem: UnitPreferenceManager.shared.unitSystem) else {
+            UserDefaults.standard.set(true, forKey: migrationKey)
+            print("✅ Skipping workout weight migration for metric storage")
             return
         }
         
@@ -1051,70 +1151,24 @@ class WorkoutViewModel: ObservableObject {
         // Migrate completed sessions
         var didMigrate = false
         completedSessions = completedSessions.map { session in
-            let migratedExercises = session.exercises.map { exercise in
-                let migratedSets = exercise.sets.map { set in
-                    var newSet = set
-                    if let weight = set.weight {
-                        newSet.weight = weight / 2.20462
-                        didMigrate = true
-                    }
-                    if let prevWeight = set.previousWeight {
-                        newSet.previousWeight = prevWeight / 2.20462
-                        didMigrate = true
-                    }
-                    if let sugWeight = set.suggestedWeight {
-                        newSet.suggestedWeight = sugWeight / 2.20462
-                        didMigrate = true
-                    }
-                    return newSet
-                }
-                return WorkoutExercise(id: exercise.id, exercise: exercise.exercise, sets: migratedSets)
-            }
-            return CompletedWorkoutSession(
-                id: session.id,
-                workoutId: session.workoutId,
-                workoutName: session.workoutName,
-                startTime: session.startTime,
-                endTime: session.endTime,
-                exercises: migratedExercises
-            )
+            let result = WorkoutWeightStorageMigration.completedSessionByConvertingPoundsToKilograms(session)
+            didMigrate = didMigrate || result.didMigrate
+            return result.session
         }
         
         // Migrate current session if active
         if let session = currentSession {
-            let migratedExercises = session.exercises.map { exercise in
-                let migratedSets = exercise.sets.map { set in
-                    var newSet = set
-                    if let weight = set.weight {
-                        newSet.weight = weight / 2.20462
-                        didMigrate = true
-                    }
-                    if let prevWeight = set.previousWeight {
-                        newSet.previousWeight = prevWeight / 2.20462
-                        didMigrate = true
-                    }
-                    if let sugWeight = set.suggestedWeight {
-                        newSet.suggestedWeight = sugWeight / 2.20462
-                        didMigrate = true
-                    }
-                    return newSet
-                }
-                return WorkoutExercise(id: exercise.id, exercise: exercise.exercise, sets: migratedSets)
-            }
-            currentSession = WorkoutSession(
-                id: session.id,
-                workoutId: session.workoutId,
-                workoutName: session.workoutName,
-                startTime: session.startTime,
-                endTime: session.endTime,
-                exercises: migratedExercises,
-                isActive: session.isActive
-            )
+            let result = WorkoutWeightStorageMigration.sessionByConvertingPoundsToKilograms(session)
+            currentSession = result.session
+            didMigrate = didMigrate || result.didMigrate
         }
         
         if didMigrate {
             // Save migrated data
             saveCompletedSessions()
+            if currentSession != nil {
+                saveActiveWorkoutDraft()
+            }
             print("✅ Migration complete: Workout weights converted to kg")
         } else {
             print("✅ No workout data to migrate")

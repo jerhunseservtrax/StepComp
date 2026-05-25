@@ -1,7 +1,7 @@
 # FitComp Fix Tracker
 
 > Log of all bugs encountered and fixes implemented to prevent recurrence.
-> Last updated: 2026-04-13 (v6)
+> Last updated: 2026-05-25 (v7)
 
 ---
 
@@ -27,7 +27,17 @@
 
 ## Critical Fixes
 
-### 1. Workout State Data Loss After Long Sessions
+### 1. Active Workout Cross-Account Data Contamination
+- **Commit:** `14fbe82`
+- **Symptom:** Signing out with an active workout cleared the persisted draft/widget/live activity but left the singleton `currentSession` in memory. A subsequent user on the same device could inherit and finish the prior user's workout.
+- **Root Cause:** `WorkoutViewModel.clearAllActiveWorkoutState()` did not clear in-memory workout fields (`currentSession`, timers, pause state, target date, auto-finish state). The active workout draft cleanup was incomplete for singleton state.
+- **Fix:** Added full in-memory active workout reset during auth cleanup and explicit sign-out. Loaded active drafts before weight migration, migrated restored drafts, and skipped legacy lbs-to-kg migration for metric users to avoid corrupting workout weights.
+- **Files:** `WorkoutViewModel.swift`, `SessionViewModel.swift`, `WorkoutViewModelTests.swift`, `StepComp.xcodeproj`
+- **Prevention:** Auth invalidation/sign-out cleanup must clear both persisted and process-resident user state. One-shot migrations must include persisted in-progress drafts and must be gated by the user's legacy storage unit.
+
+---
+
+### 2. Workout State Data Loss After Long Sessions
 - **Commit:** `6b21b36`
 - **Symptom:** Users lost in-progress workout data (sets/reps) after long sessions or app suspension. Widget continued tracking while app lost in-memory state.
 - **Root Cause:** Workout state was only held in memory — any app lifecycle event (suspension, termination) wiped it.
@@ -37,7 +47,7 @@
 
 ---
 
-### 2. Number Pad Input Bug (Typing 5 Shows 4)
+### 3. Number Pad Input Bug (Typing 5 Shows 4)
 - **Commit:** `2f162e5`
 - **Symptom:** During workout set entry, typing 5 showed 4, typing 1 showed 0.
 - **Root Cause:** System keyboard with TextField caused a feedback loop. Unit conversions (lbs/kg) happened on every keystroke, and rounding errors accumulated.
@@ -47,7 +57,7 @@
 
 ---
 
-### 3. Session Persistence Across Force Quit
+### 4. Session Persistence Across Force Quit
 - **Commit:** `d1f326b`
 - **Symptom:** Users logged out on force quit; login page shown on reopen.
 - **Root Cause:** Multiple `AuthService` instances (RootView, SessionViewModel, StepCompApp each created one). State was not shared. On nil `.initialSession`, `isAuthenticated` was set to false, clearing onboarding flag.
@@ -57,7 +67,7 @@
 
 ---
 
-### 4. Critical Deadlock on Sign Out
+### 5. Critical Deadlock on Sign Out
 - **Commit:** `94d60b0`
 - **Symptom:** App froze completely on sign out, stuck in `pthread_kill`.
 - **Root Cause:** `await MainActor.run` called from within a `@MainActor` context in `SessionViewModel.signOut()`. The main actor was waiting for itself — a circular wait.
@@ -67,7 +77,7 @@
 
 ---
 
-### 5. App Crash During Sign Out (Retain Cycle)
+### 6. App Crash During Sign Out (Retain Cycle)
 - **Commit:** `e2c8fb1`
 - **Symptom:** "DashboardViewModel deallocated with non-zero retain count 2" — memory corruption and crash.
 - **Root Cause:** `deinit` called `stopAutoRefresh()` which was `nonisolated` and created a `Task` capturing `self`, incrementing retain count during deallocation.
@@ -77,7 +87,7 @@
 
 ---
 
-### 6. App Crash on Sign-Out View Transition
+### 7. App Crash on Sign-Out View Transition
 - **Commit:** `096e282`
 - **Symptom:** Crash during sign-out transition from MainTabView to OnboardingFlowView.
 - **Root Cause:** `@StateObject` for SessionViewModel caused double ownership conflict during view transition.
@@ -89,7 +99,7 @@
 
 ## Authentication & Session
 
-### 7. Apple Sign In Profile Creation Failure
+### 8. Apple Sign In Profile Creation Failure
 - **Commit:** `fda99a6`
 - **Symptom:** Apple Sign In users couldn't create challenges due to incomplete profile.
 - **Root Cause:** Missing `displayName`, `email`, `totalSteps`, `dailyStepGoal` fields. Username could collide with other users.
@@ -97,7 +107,7 @@
 - **Files:** `AuthService.swift`, `CreateChallengeViewModel.swift`
 - **Prevention:** All auth providers must create complete profiles with all required fields populated.
 
-### 8. Missing Auth Session on Challenge Load
+### 9. Missing Auth Session on Challenge Load
 - **Commit:** `992b491`
 - **Symptom:** "Auth session missing" error on app launch.
 - **Root Cause:** ChallengeService tried to load challenges before authentication completed.
@@ -109,7 +119,7 @@
 
 ## Database & Supabase RLS
 
-### 9. Infinite Recursion in RLS Policies
+### 10. Infinite Recursion in RLS Policies
 - **Commits:** `dbd6730`, `77a6696`, `39f8ee7`
 - **Symptom:** Database queries hanging or failing with recursion errors.
 - **Root Cause:** `challenges` SELECT policy referenced `challenge_members`, which referenced back to `challenges` — circular dependency.
@@ -117,21 +127,21 @@
 - **Files:** SQL scripts, RLS policies
 - **Prevention:** Never create RLS policies that reference tables with policies referencing back. Use helper functions or simple subqueries.
 
-### 10. Waitlist 401 Unauthorized
+### 11. Waitlist 401 Unauthorized
 - **Commits:** `b5a0cc9`, `a1a0e98`, `d41ca23`, `814e879`, `f7abe47`
 - **Symptom:** Email submission to waitlist returned 401, then 42501 RLS violation.
 - **Root Cause:** Multiple issues: `anon` role lacked INSERT grant; sequence permissions missing; RLS policy used `TO public` instead of `TO anon`; `.select()` after INSERT triggered SELECT policy.
 - **Fix:** Grant INSERT to anon; grant sequence usage; recreate policy with `TO anon, authenticated`; remove `.select()` from insert.
 - **Prevention:** For public-facing tables: grant to `anon` explicitly, test as unauthenticated user, avoid `.select()` after insert if SELECT policy is restrictive.
 
-### 11. Profiles Table Schema Mismatch
+### 12. Profiles Table Schema Mismatch
 - **Commit:** `dbd6730`
 - **Symptom:** Compilation errors and query failures.
 - **Root Cause:** `profiles` table used `user_id` instead of `id` as expected by the app.
 - **Fix:** SQL migration to rename column. Fixed all references in code.
 - **Prevention:** Establish schema conventions early. App model field names should match DB column names.
 
-### 12. PostgreSQL inet Type Error
+### 13. PostgreSQL inet Type Error
 - **Commit:** `f85b681`
 - **Symptom:** Step sync failed with type error.
 - **Root Cause:** `p_ip` parameter set to string `'unknown'`, invalid for PostgreSQL `inet` type.
@@ -142,7 +152,7 @@
 
 ## UI/UX Bugs
 
-### 13. Height/Weight Off-by-One Error
+### 14. Height/Weight Off-by-One Error
 - **Commit:** `e6fcb89`
 - **Symptom:** User enters 5'11", saves, reload shows 5'10". User enters 170 lbs, shows 169 lbs.
 - **Root Cause:** Truncation (`Int()`) instead of rounding in unit conversions. `Int(71 * 2.54) = 180`, then `180 / 2.54 = 70.866` → `Int(70.866 % 12) = 10`.
@@ -150,7 +160,7 @@
 - **Files:** `ProfileSettingsView.swift`
 - **Prevention:** Always use `.rounded()` before truncating to Int in unit conversions.
 
-### 14. Tab Bar Selector Wrong Color
+### 15. Tab Bar Selector Wrong Color
 - **Commit:** `85fa20b`
 - **Symptom:** Tab bar selector was yellow in dark mode (should be coral).
 - **Root Cause:** `.tint(StepCompColors.primary)` modifier overriding `UITabBarAppearance`.

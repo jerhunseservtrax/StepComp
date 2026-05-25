@@ -89,6 +89,7 @@ final class SessionViewModel: ObservableObject {
         isAuthenticated = false
         hasCompletedOnboarding = false
         UserDefaults.standard.removeObject(forKey: "hasCompletedOnboarding")
+        WorkoutViewModel.clearAllActiveWorkoutState()
     }
     
     func updateUser(_ user: User) {
