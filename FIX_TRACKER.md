@@ -32,7 +32,7 @@
 - **Symptom:** Signing out with an active workout cleared the persisted draft/widget/live activity but left the singleton `currentSession` in memory. A subsequent user on the same device could inherit and finish the prior user's workout.
 - **Root Cause:** `WorkoutViewModel.clearAllActiveWorkoutState()` did not clear in-memory workout fields (`currentSession`, timers, pause state, target date, auto-finish state). The active workout draft cleanup was incomplete for singleton state.
 - **Fix:** Added full in-memory active workout reset during auth cleanup and explicit sign-out. Loaded active drafts before weight migration, migrated restored drafts, and skipped legacy lbs-to-kg migration for metric users to avoid corrupting workout weights.
-- **Files:** `WorkoutViewModel.swift`, `SessionViewModel.swift`
+- **Files:** `WorkoutViewModel.swift`, `SessionViewModel.swift`, `WorkoutViewModelTests.swift`, `StepComp.xcodeproj`
 - **Prevention:** Auth invalidation/sign-out cleanup must clear both persisted and process-resident user state. One-shot migrations must include persisted in-progress drafts and must be gated by the user's legacy storage unit.
 
 ---
