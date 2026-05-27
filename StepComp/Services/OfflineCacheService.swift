@@ -47,6 +47,10 @@ enum OfflineCacheService {
         try? fileManager.removeItem(at: cacheDirectory)
     }
 
+    static func scopedKey(_ key: String, userId: String) -> String {
+        "user_\(safeName(userId))_\(key)"
+    }
+
     /// Fetch from the network; on success cache the result, on failure return cached data.
     static func fetchWithFallback<T: Codable>(
         key: String,
@@ -60,6 +64,7 @@ enum OfflineCacheService {
             #if DEBUG
             print("⚠️ OfflineCache network failed for \(key), using cached data")
             #endif
+            guard !isAuthFailure(error) else { return nil }
             return load(T.self, key: key)
         }
     }
@@ -77,6 +82,7 @@ enum OfflineCacheService {
             #if DEBUG
             print("⚠️ OfflineCache network failed for \(key), using cached data")
             #endif
+            guard !isAuthFailure(error) else { return [] }
             return load([T].self, key: key) ?? []
         }
     }
@@ -84,5 +90,13 @@ enum OfflineCacheService {
     private static func safeName(_ key: String) -> String {
         key.replacingOccurrences(of: "/", with: "_")
             .replacingOccurrences(of: ":", with: "_")
+    }
+
+    private static func isAuthFailure(_ error: Error) -> Bool {
+        let message = error.localizedDescription.lowercased()
+        return message.contains("401")
+            || message.contains("jwt")
+            || message.contains("token")
+            || message.contains("unauthorized")
     }
 }

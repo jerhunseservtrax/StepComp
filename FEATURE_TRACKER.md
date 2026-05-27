@@ -1,7 +1,7 @@
 # FitComp Feature Tracker
 
 > Comprehensive catalog of all features in the FitComp fitness competition app (formerly StepComp).
-> Last updated: 2026-04-13 (v5)
+> Last updated: 2026-05-27 (v6)
 
 ---
 
@@ -194,7 +194,7 @@
 | Feature | File(s) | Description |
 |---------|---------|-------------|
 | Challenge Chat | `ChallengeChatView.swift`, `ChallengeChatViewModel.swift` | Real-time group messaging via Supabase postgresChange streams with polling fallback |
-| Chat List | `ChatListView.swift`, `ChatListViewModel.swift` | Overview of all chat conversations |
+| Chat List | `ChatListView.swift`, `ChatListViewModel.swift` | Overview of active chat conversations without mutating archived challenge memberships |
 | Message Actions | `ChallengeChatViewModel.swift` | Send, delete, auto-scroll |
 
 ### Leaderboard
@@ -269,6 +269,7 @@
 | Sign Out | `SettingsView.swift`, `SettingsMainContent.swift`, `SessionViewModel.swift` | Logout with proper cleanup |
 | Delete Account | `DeleteAccountConfirmationView.swift`, `SettingsView.swift`, `SettingsViewModifiers.swift` | Account deletion with confirmation |
 | Streak Display | `SettingsView.swift`, `SettingsLayoutViews.swift` | Current step streak (30-day lookback) |
+| Password Reset Recovery | `SignInView.swift`, `ForgotPasswordSheet.swift`, `DeepLinkRouter.swift` | Forgot-password flow dismisses email auth before presenting reset sheet and sends registered `fitcomp://reset-password` links |
 
 ### Feedback System
 
@@ -357,7 +358,7 @@
 | Haptic Manager | `HapticManager.swift` | Haptic feedback patterns |
 | Keychain Store | `KeychainStore.swift` | Secure credential storage with kSecAttrService scoping and OSStatus error handling |
 | Retry Utility | `RetryUtility.swift` | Exponential backoff retry logic |
-| Offline Cache | `OfflineCacheService.swift` | Generic disk-backed Codable cache with fetch-with-fallback for offline resilience |
+| Offline Cache | `OfflineCacheService.swift`, `MetricsService.swift`, `AuthService.swift` | User-scoped disk-backed Codable cache with auth-failure safeguards and sign-out cleanup |
 | Cached Async Image | `CachedAsyncImage.swift` | Image caching for remote images (used in ProfileView, etc.) |
 | Reaction Effects | `ReactionEffectManager.swift` | Celebration/reaction animations |
 | Avatar View | `AvatarView.swift` | Reusable avatar component |

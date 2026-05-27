@@ -1,7 +1,7 @@
 # FitComp Fix Tracker
 
 > Log of all bugs encountered and fixes implemented to prevent recurrence.
-> Last updated: 2026-04-13 (v6)
+> Last updated: 2026-05-27 (v7)
 
 ---
 
@@ -26,6 +26,18 @@
 ---
 
 ## Critical Fixes
+
+### 1a. Critical Bug-Finding Automation Fixes (2026-05-27)
+- **Status:** Fixed in `cursor/critical-bug-investigation-1a59`
+- **Bugs and impact:**
+  - Chat unread refresh deleted `challenge_members` rows for ended challenges, permanently hiding archived challenge history.
+  - Offline metrics cache used global keys, allowing a second signed-in user on the same device to see the previous user's cached health/workout metrics after a fetch failure.
+  - Password reset emails used unregistered `je.fitcomp://` links and the forgot-password sheet was presented while the email auth sheet was still active, blocking account recovery.
+  - Joining from a challenge preview invalidated cache, then reloaded with cache-only `getChallenge()`, leaving successful joiners stuck on preview/loading until re-entry.
+- **Root Cause:** Recent audit hardening introduced broad lifecycle/cache/chat changes without preserving per-user cache boundaries, archived challenge membership invariants, or matching async refetch/deep-link routing semantics.
+- **Fix:** Scoped offline cache keys by authenticated user ID, skipped cache fallback on auth failures, cleared offline cache on sign-out, removed chat-side membership cleanup, changed group refresh to `getChallengeAsync`, aligned reset redirect with registered `fitcomp://` scheme, and serialized forgot-password sheet presentation after email sheet dismissal.
+- **Files:** `OfflineCacheService.swift`, `MetricsService.swift`, `AuthService.swift`, `ChatListViewModel.swift`, `GroupViewModel.swift`, `DeepLinkRouter.swift`, `ForgotPasswordSheet.swift`, `SignInView.swift`, `DeepLinkRouterTests.swift`, `OfflineCacheServiceTests.swift`
+- **Prevention:** Cache keys for user-owned data must include user identity; read/display paths must not delete relationship rows; cache invalidation must be followed by an async/source-of-truth refetch; auth redirect URLs must use schemes registered in `Info.plist`.
 
 ### 1. Workout State Data Loss After Long Sessions
 - **Commit:** `6b21b36`

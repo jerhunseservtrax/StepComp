@@ -206,6 +206,7 @@ final class AuthService: ObservableObject {
         
         // Clear active workout state (draft, widget, live activity)
         WorkoutViewModel.clearAllActiveWorkoutState()
+        OfflineCacheService.clearAll()
     }
     
     /// Refreshes the session when a 401 is received.

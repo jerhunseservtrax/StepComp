@@ -31,6 +31,7 @@ struct SignInOnboardingView: View {
     @State var isLoading: Bool = false
     @State var errorMessage: String?
     @State var showingForgotPassword = false
+    @State private var shouldPresentForgotPasswordAfterEmailDismiss = false
     @State var showingTerms = false
     @State var showingPrivacyPolicy = false
 
@@ -81,12 +82,18 @@ struct SignInOnboardingView: View {
                     }
                 },
                 onForgotPassword: {
-                    showingForgotPassword = true
+                    shouldPresentForgotPasswordAfterEmailDismiss = true
+                    showingEmailAuth = false
                 },
                 onAppleSignIn: {
                     triggerAppleSignIn()
                 }
             )
+        }
+        .onChange(of: showingEmailAuth) { isPresented in
+            guard !isPresented, shouldPresentForgotPasswordAfterEmailDismiss else { return }
+            shouldPresentForgotPasswordAfterEmailDismiss = false
+            showingForgotPassword = true
         }
         .sheet(isPresented: $showingForgotPassword) {
             ForgotPasswordSheet(email: $email)

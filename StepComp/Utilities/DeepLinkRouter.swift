@@ -8,6 +8,10 @@
 import Foundation
 import Combine
 
+enum AppDeepLinkURLs {
+    static let passwordReset = URL(string: "fitcomp://reset-password")!
+}
+
 final class DeepLinkRouter: ObservableObject {
     static let shared = DeepLinkRouter()
     private init() {}
