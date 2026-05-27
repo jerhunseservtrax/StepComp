@@ -210,7 +210,7 @@ final class GroupViewModel: ObservableObject {
         isLoading = true
         errorMessage = ""
         
-        challenge = challengeService.getChallenge(challengeId)
+        challenge = await challengeService.getChallengeAsync(challengeId)
         
         // Load all-time leaderboard to get all members
         leaderboardEntries = await challengeService.getLeaderboard(for: challengeId, scope: .allTime)
