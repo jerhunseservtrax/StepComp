@@ -58,7 +58,11 @@ struct SignInOnboardingView: View {
                 onShowPrivacy: { showingPrivacyPolicy = true }
             )
         }
-        .sheet(isPresented: $showingEmailAuth) {
+        .sheet(isPresented: $showingEmailAuth, onDismiss: {
+            guard shouldPresentForgotPasswordAfterEmailDismiss else { return }
+            shouldPresentForgotPasswordAfterEmailDismiss = false
+            showingForgotPassword = true
+        }) {
             EmailAuthSheet(
                 isSignUp: $isSignUp,
                 email: $email,
@@ -89,11 +93,6 @@ struct SignInOnboardingView: View {
                     triggerAppleSignIn()
                 }
             )
-        }
-        .onChange(of: showingEmailAuth) { isPresented in
-            guard !isPresented, shouldPresentForgotPasswordAfterEmailDismiss else { return }
-            shouldPresentForgotPasswordAfterEmailDismiss = false
-            showingForgotPassword = true
         }
         .sheet(isPresented: $showingForgotPassword) {
             ForgotPasswordSheet(email: $email)
