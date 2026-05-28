@@ -523,22 +523,15 @@ final class AuthService: ObservableObject {
         
         print("🔵 Using Supabase OAuth for Google Sign-In")
         
-        // Use Supabase OAuth for Google Sign-In
-        // IMPORTANT: redirectTo must be the Supabase callback URL configured in Dashboard
-        // Supabase will redirect to your app's custom URL scheme after processing OAuth
-        let supabaseCallbackURL = URL(string: SupabaseConfig.supabaseOAuthCallbackURL)!
+        // Supabase Swift expects redirectTo to be the app callback URL.
+        // The same URL must be registered in the Supabase Dashboard redirect URLs.
+        let redirectURL = SupabaseConfig.oauthRedirectURL
         
-        // Build the redirect URL with the app's custom scheme as a parameter
-        // Format: https://your-project.supabase.co/auth/v1/callback?redirect_to=your-app-scheme://auth-callback
-        var components = URLComponents(url: supabaseCallbackURL, resolvingAgainstBaseURL: false)!
-        components.queryItems = [
-            URLQueryItem(name: "redirect_to", value: SupabaseConfig.oauthRedirectURL.absoluteString)
-        ]
-        let finalRedirectURL = components.url!
-        
+        #if DEBUG
         print("🔵 Calling supabase.auth.getOAuthSignInURL...")
         print("🔵 Provider: google")
-        print("🔵 Redirect URL: \(finalRedirectURL)")
+        print("🔵 Redirect URL: \(SensitiveURLRedactor.redacted(redirectURL))")
+        #endif
         
         
         // Supabase Swift SDK: getOAuthSignInURL generates the OAuth URL
@@ -546,10 +539,12 @@ final class AuthService: ObservableObject {
         let url = try supabase.auth.getOAuthSignInURL(
             provider: .google,
             scopes: "email profile", // Request email and profile scopes
-            redirectTo: finalRedirectURL
+            redirectTo: redirectURL
         )
         
-        print("✅ Google OAuth URL generated: \(url)")
+        #if DEBUG
+        print("✅ Google OAuth URL generated: \(SensitiveURLRedactor.redacted(url))")
+        #endif
         return url
         
         #else

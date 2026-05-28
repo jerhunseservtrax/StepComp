@@ -1,7 +1,7 @@
 # FitComp Fix Tracker
 
 > Log of all bugs encountered and fixes implemented to prevent recurrence.
-> Last updated: 2026-04-13 (v6)
+> Last updated: 2026-05-28 (v7)
 
 ---
 
@@ -84,6 +84,16 @@
 - **Fix:** Changed to `@ObservedObject`. Wrapped state updates in `MainActor.run`. Added `.id()` modifier for clean view recreation.
 - **Files:** `RootView.swift`, `MainTabView.swift`, `SessionViewModel.swift`
 - **Prevention:** Use `@ObservedObject` for shared view models during view transitions. Use `.id()` to force clean recreation.
+
+---
+
+### 7. Google OAuth Callback Token Exposure and Wrong-Account Session
+- **Commit:** Current OAuth security fix
+- **Symptom:** Google OAuth callbacks could expose Supabase access/refresh tokens in production logs, and the callback handler could reuse a previously persisted session instead of applying the returned Google OAuth callback.
+- **Root Cause:** `ASWebAuthenticationSession` completion logged the raw callback URL, `handleOAuthCallback(url:)` read `supabase.auth.session` without first processing the callback URL delivered by the web authentication session, and the OAuth URL generation passed Supabase's callback endpoint back into `redirectTo` instead of the app callback URL expected by Supabase Swift.
+- **Fix:** Added sensitive URL redaction for OAuth/deep-link diagnostics, gated verbose OAuth URL logs to DEBUG, changed Google callback handling to call `supabase.auth.session(from: url)` before reading user state, and passed `SupabaseConfig.oauthRedirectURL` directly to `getOAuthSignInURL`.
+- **Files:** `SignInOnboardingView+Auth.swift`, `AuthService.swift`, `SensitiveURLRedactor.swift`
+- **Prevention:** Never log raw OAuth/deep-link URLs that may contain tokens. Any custom OAuth session completion must apply the callback URL to Supabase before checking app auth state.
 
 ---
 
