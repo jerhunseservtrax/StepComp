@@ -536,9 +536,11 @@ final class AuthService: ObservableObject {
         ]
         let finalRedirectURL = components.url!
         
+        #if DEBUG
         print("🔵 Calling supabase.auth.getOAuthSignInURL...")
         print("🔵 Provider: google")
-        print("🔵 Redirect URL: \(finalRedirectURL)")
+        print("🔵 Redirect URL: \(SensitiveURLRedactor.redacted(finalRedirectURL))")
+        #endif
         
         
         // Supabase Swift SDK: getOAuthSignInURL generates the OAuth URL
@@ -549,7 +551,9 @@ final class AuthService: ObservableObject {
             redirectTo: finalRedirectURL
         )
         
-        print("✅ Google OAuth URL generated: \(url)")
+        #if DEBUG
+        print("✅ Google OAuth URL generated: \(SensitiveURLRedactor.redacted(url))")
+        #endif
         return url
         
         #else

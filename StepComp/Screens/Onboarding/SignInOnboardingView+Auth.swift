@@ -447,7 +447,9 @@ extension SignInOnboardingView {
                 print("❌ [H7] Error domain: \((error as NSError).domain)")
             }
             if let callbackURL = callbackURL {
-                print("✅ [H7] Callback URL received: \(callbackURL.absoluteString)")
+                #if DEBUG
+                print("✅ [H7] Callback URL received: \(SensitiveURLRedactor.redacted(callbackURL))")
+                #endif
             } else {
                 print("⚠️ [H7] No callback URL received")
             }
@@ -499,26 +501,15 @@ extension SignInOnboardingView {
     
     func handleOAuthCallback(url: URL) async {
         #if canImport(Supabase)
-        print("🔵 OAuth callback received: \(url)")
+        #if DEBUG
+        print("🔵 OAuth callback received: \(SensitiveURLRedactor.redacted(url))")
+        #endif
         
-        // Process the OAuth callback URL with Supabase
-        // Extract tokens from the callback URL
-        // Supabase OAuth callbacks contain tokens in the URL fragment or query parameters
-        let components = URLComponents(url: url, resolvingAgainstBaseURL: false)
-        
-        // Check if this is a valid OAuth callback
-        if let fragment = components?.fragment, fragment.contains("access_token") {
-            // Parse the fragment to extract tokens
-            print("🔵 Found OAuth tokens in URL fragment")
-        } else if let queryItems = components?.queryItems, queryItems.contains(where: { $0.name == "code" || $0.name == "access_token" }) {
-            // Parse query parameters
-            print("🔵 Found OAuth tokens in URL query")
-        }
-        
-        // Supabase SDK should handle the callback automatically
-        // Try to get the current session
         do {
-            let session = try await supabase.auth.session
+            // ASWebAuthenticationSession delivers the callback here, so apply it
+            // directly before reading auth state. Otherwise an old persisted
+            // session can be reused after a different Google account signs in.
+            let session = try await supabase.auth.session(from: url)
             print("✅ OAuth session established: \(session.user.id)")
             
             // Load user profile
