@@ -542,7 +542,11 @@ extension SignInOnboardingView {
                 errorMessage = "Google Sign In completed but authentication failed. Please try again."
             }
         } catch {
+            #if DEBUG
             print("⚠️ No session found after OAuth callback: \(error.localizedDescription)")
+            #else
+            print("⚠️ No session found after OAuth callback")
+            #endif
             errorMessage = "Google Sign In completed but no session was established. Please try again."
         }
         #else
