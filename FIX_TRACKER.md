@@ -90,8 +90,8 @@
 ### 7. Google OAuth Callback Token Exposure and Wrong-Account Session
 - **Commit:** Current OAuth security fix
 - **Symptom:** Google OAuth callbacks could expose Supabase access/refresh tokens in production logs, and the callback handler could reuse a previously persisted session instead of applying the returned Google OAuth callback.
-- **Root Cause:** `ASWebAuthenticationSession` completion logged the raw callback URL, then `handleOAuthCallback(url:)` read `supabase.auth.session` without first processing the callback URL delivered by the web authentication session.
-- **Fix:** Added sensitive URL redaction for OAuth/deep-link diagnostics, gated verbose OAuth URL logs to DEBUG, and changed Google callback handling to call `supabase.auth.session(from: url)` before reading user state.
+- **Root Cause:** `ASWebAuthenticationSession` completion logged the raw callback URL, `handleOAuthCallback(url:)` read `supabase.auth.session` without first processing the callback URL delivered by the web authentication session, and the OAuth URL generation passed Supabase's callback endpoint back into `redirectTo` instead of the app callback URL expected by Supabase Swift.
+- **Fix:** Added sensitive URL redaction for OAuth/deep-link diagnostics, gated verbose OAuth URL logs to DEBUG, changed Google callback handling to call `supabase.auth.session(from: url)` before reading user state, and passed `SupabaseConfig.oauthRedirectURL` directly to `getOAuthSignInURL`.
 - **Files:** `SignInOnboardingView+Auth.swift`, `AuthService.swift`, `SensitiveURLRedactor.swift`
 - **Prevention:** Never log raw OAuth/deep-link URLs that may contain tokens. Any custom OAuth session completion must apply the callback URL to Supabase before checking app auth state.
 
