@@ -523,7 +523,8 @@ class WorkoutViewModel: ObservableObject {
                 self.elapsedTime = Date().timeIntervalSince(startTime) - self.totalPausedTime
 
                 if self.elapsedTime >= self.autoFinishThreshold {
-                    self.finishWorkout()
+                    // Preserve partial workout data instead of saving an incomplete session as completed.
+                    self.pauseWorkout()
                 }
             }
         }

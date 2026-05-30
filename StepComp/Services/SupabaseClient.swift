@@ -29,6 +29,11 @@ enum SupabaseConfig {
         // Must match the scheme in Info.plist URL Types
         URL(string: "fitcomp://auth-callback")!
     }
+
+    static var passwordResetRedirectURL: URL {
+        // Must match the scheme in Info.plist URL Types
+        URL(string: "fitcomp://reset-password")!
+    }
     
     // Supabase OAuth callback URL (configured in Supabase Dashboard)
     static var supabaseOAuthCallbackURL: String {

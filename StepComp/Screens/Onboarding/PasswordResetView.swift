@@ -191,9 +191,20 @@ struct PasswordResetView: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") {
-                        onComplete()
+                        cancelPasswordReset()
                     }
                 }
+            }
+        }
+    }
+
+    private func cancelPasswordReset() {
+        Task {
+            #if canImport(Supabase)
+            try? await supabase.auth.signOut()
+            #endif
+            await MainActor.run {
+                onComplete()
             }
         }
     }
@@ -291,6 +302,7 @@ struct PasswordResetView: View {
             
             // ✅ Security Best Practice: Invalidate old sessions after password reset
             // Supabase automatically invalidates old sessions when password is updated
+            try? await supabase.auth.signOut()
             
             // Wait to show success message
             try? await Task.sleep(nanoseconds: 2_000_000_000) // 2 seconds

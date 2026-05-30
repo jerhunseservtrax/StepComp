@@ -202,6 +202,7 @@ final class AuthService: ObservableObject {
         isAuthenticated = false
         if deleteCachedUser {
             KeychainStore.delete(account: keychainUserAccount)
+            OfflineCacheService.clearAll()
         }
         
         // Clear active workout state (draft, widget, live activity)
@@ -230,10 +231,10 @@ final class AuthService: ObservableObject {
                 await self.loadUserProfile(userId: refreshedSession.user.id.uuidString)
                 return true
             } catch {
-                // Refresh failed - session is truly invalid
-                // This is the ONLY case where we force logout (besides manual logout)
-                print("❌ Session refresh failed - user must login again: \(error.localizedDescription)")
-                await self.forceLogout()
+                // A refresh can fail for transient network reasons. Do not destroy local
+                // auth, cached metrics, or active workout drafts unless Supabase emits
+                // a signed-out event or the user explicitly signs out.
+                print("⚠️ Session refresh failed after 401; preserving local state: \(error.localizedDescription)")
                 return false
             }
         }
