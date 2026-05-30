@@ -1,5 +1,34 @@
 # 🔧 ALL FIXES APPLIED - Summary
 
+## 🆕 Change Log Update - Critical Auth/Cache/Workout Regression Sweep (May 30, 2026)
+
+### Scope
+- Fixed high-severity regressions found during recent commit review across auth recovery, offline cache privacy, password-reset deep links, OAuth logging, and active workout lifecycle.
+
+### Changes applied
+1. ✅ Updated `StepComp/Services/OfflineCacheService.swift`, `StepComp/Services/MetricsService.swift`, `StepComp/Services/ChallengeService.swift`, and `StepComp/Services/AuthService.swift`
+   - User-scoped offline cache keys for metrics and leaderboards.
+   - Clear offline cache during signed-out cleanup.
+2. ✅ Updated `StepComp/Services/AuthService.swift`
+   - Preserve local auth state and active workout drafts when token refresh fails for transient reasons.
+3. ✅ Updated `StepComp/Screens/Onboarding/SignInOnboardingView+Auth.swift`
+   - Removed full OAuth callback URL logging to avoid token exposure.
+4. ✅ Updated `StepComp/Services/SupabaseClient.swift`, `StepComp/Screens/Onboarding/ForgotPasswordSheet.swift`, and `StepComp/Screens/Onboarding/PasswordResetView.swift`
+   - Password reset emails now use the registered `fitcomp://reset-password` scheme.
+   - Recovery sessions are signed out on cancel and after password update.
+5. ✅ Updated `StepComp/ViewModels/WorkoutViewModel.swift`
+   - Six-hour active workout threshold now pauses instead of silently saving partial workouts as completed.
+6. ✅ Added regression coverage in `StepCompTests/OfflineCacheServiceTests.swift` and `StepCompTests/SupabaseConfigTests.swift`.
+
+### Validation evidence
+- ⚠️ Source-level verification only in this automation environment; Linux worker does not provide `swift` or `xcodebuild`.
+- ✅ Static checks confirmed stale `je.fitcomp://reset-password` and full OAuth callback URL logging were removed from Swift sources.
+
+### Operational status
+- Shared-device offline cache leaks, transient-refresh workout data loss, broken reset links, OAuth token logs, and silent partial-workout completion paths are remediated in source.
+
+---
+
 ## 🆕 Change Log Update - Metrics, Nav, and Calendar Cleanup (March 26, 2026)
 
 ### Scope

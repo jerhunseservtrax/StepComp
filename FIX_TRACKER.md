@@ -1,7 +1,7 @@
 # FitComp Fix Tracker
 
 > Log of all bugs encountered and fixes implemented to prevent recurrence.
-> Last updated: 2026-04-13 (v6)
+> Last updated: 2026-05-30 (v7)
 
 ---
 
@@ -684,3 +684,17 @@
   - **Test scaffolding:** Created `StepCompTests/` with unit tests for KeychainStore, DeepLinkRouter, UnitPreferenceManager, RetryUtility; created `StepCompUITests/` with launch test.
 - **Files:** 50+ files modified or created (see audit plan for full list).
 - **Prevention:** Use `SupabaseRequestExecutor` for all new Supabase calls; keep views under 500 lines; never commit secrets; add tests for new utilities.
+
+---
+
+### 2026-05-30 - Critical Regression Sweep: Auth, Cache, Reset Links, Workout Drafts
+- **Context:** Deep bug-finding automation reviewed recent audit/rebrand commits for high-severity correctness and security regressions.
+- **What changed:**
+  - **Offline cache privacy:** Scoped metrics and leaderboard disk-cache keys by authenticated user ID and clear offline cache on signed-out cleanup to prevent cross-account data exposure on shared devices.
+  - **401 refresh safety:** Stopped `refreshSessionOn401()` from force-logging out on any refresh error so transient network failures cannot delete cached auth state or active workout drafts.
+  - **OAuth token logging:** Removed full OAuth callback URLs from onboarding Google sign-in logs.
+  - **Password reset routing:** Replaced the stale `je.fitcomp://reset-password` redirect with the registered `fitcomp://reset-password` scheme.
+  - **Recovery-session cleanup:** Sign out recovery sessions when reset is cancelled or after password update so reset links cannot drop users into the app without completing the intended flow.
+  - **Workout data preservation:** Changed the six-hour active workout threshold from silent `finishWorkout()` to `pauseWorkout()` so partial workouts are not saved/synced as completed sessions.
+- **Files:** `AuthService.swift`, `OfflineCacheService.swift`, `MetricsService.swift`, `ChallengeService.swift`, `SignInOnboardingView+Auth.swift`, `SupabaseClient.swift`, `ForgotPasswordSheet.swift`, `PasswordResetView.swift`, `WorkoutViewModel.swift`, `StepCompTests/OfflineCacheServiceTests.swift`, `StepCompTests/SupabaseConfigTests.swift`
+- **Prevention:** Any disk cache containing user data must be user-scoped or cleared on sign-out; auth refresh failures must preserve local state unless a signed-out event or explicit sign-out occurs; never log URLs that may contain OAuth fragments.
