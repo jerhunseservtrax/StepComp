@@ -89,7 +89,7 @@
 - **Commit:** This fix
 - **Symptom:** Password reset links used an unregistered `je.fitcomp://` scheme and could not open the app. Google Sign-In callbacks received by `ASWebAuthenticationSession` did not establish a Supabase session because they bypassed `FitCompApp.onOpenURL`.
 - **Root Cause:** Reset redirects were hard-coded separately from the registered `fitcomp` scheme. Google OAuth handling assumed the app-level URL handler would process callbacks that are delivered directly to the web auth session completion handler.
-- **Fix:** Centralized password reset redirects on `fitcomp://reset-password`, restricted custom deep-link routing to the registered scheme, and explicitly handed `ASWebAuthenticationSession` callback URLs to Supabase before reading the session.
+- **Fix:** Centralized password reset redirects on `fitcomp://reset-password`, restricted custom deep-link routing to the registered scheme, and explicitly awaited Supabase's `session(from:)` exchange for `ASWebAuthenticationSession` callback URLs.
 - **Files:** `ForgotPasswordSheet.swift`, `SupabaseClient.swift`, `SignInOnboardingView+Auth.swift`, `DeepLinkRouter.swift`, `DeepLinkRouterTests.swift`
 - **Prevention:** Auth redirect URLs must be defined from shared config and match `Info.plist`; web-auth callbacks must be processed at the callback boundary, not only in app-level URL handlers.
 

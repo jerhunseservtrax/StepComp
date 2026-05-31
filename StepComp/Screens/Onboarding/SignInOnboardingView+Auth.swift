@@ -516,12 +516,9 @@ extension SignInOnboardingView {
         }
         
         // ASWebAuthenticationSession callbacks do not flow through FitCompApp.onOpenURL.
-        // Hand the callback to Supabase here so the session is persisted before lookup.
-        supabase.auth.handle(url)
-
-        // Try to get the current session
+        // Await the callback exchange so the session is persisted before continuing.
         do {
-            let session = try await supabase.auth.session
+            let session = try await supabase.auth.session(from: url)
             print("✅ OAuth session established: \(session.user.id)")
             
             // Load user profile

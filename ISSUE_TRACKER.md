@@ -11,5 +11,5 @@
 - **Severity:** Critical
 - **Impact:** Password reset links could fail to open the app because they used an unregistered URL scheme. Google Sign-In could complete in the browser but fail to establish an app session because the callback was not processed by Supabase in the web-auth completion path.
 - **Root Cause:** Auth redirects were split across hard-coded URL strings and app-level URL handling, while `ASWebAuthenticationSession` delivers callbacks directly to its completion handler.
-- **Resolution:** Password reset redirects now use the registered `fitcomp://reset-password` URL, custom-scheme routing rejects unregistered schemes, and Google OAuth callbacks are handed to Supabase before session lookup.
+- **Resolution:** Password reset redirects now use the registered `fitcomp://reset-password` URL, custom-scheme routing rejects unregistered schemes, and Google OAuth callbacks await Supabase's callback exchange before session lookup.
 - **Validation:** Added DeepLinkRouter regression coverage for unregistered custom schemes and the configured password-reset redirect URL. iOS XCTest execution is unavailable on this Linux runner (`xcodebuild` and `swift` are not installed).

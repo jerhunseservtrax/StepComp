@@ -40,7 +40,7 @@
 |---------|---------|-------------|
 | 5-Tab Navigation | `MainTabView.swift` | Home, Workouts, Challenges, Metrics, Settings |
 | Deep Link Routing | `DeepLinkRouter.swift`, `AppRoute.swift` | Route handling for leaderboard, profile, create/join challenge, OAuth callbacks |
-| Registered Auth Redirects | `SupabaseClient.swift`, `ForgotPasswordSheet.swift`, `SignInOnboardingView+Auth.swift`, `DeepLinkRouter.swift` | Password reset and OAuth callbacks use the registered `fitcomp` scheme and are handed to Supabase at the callback boundary |
+| Registered Auth Redirects | `SupabaseClient.swift`, `ForgotPasswordSheet.swift`, `SignInOnboardingView+Auth.swift`, `DeepLinkRouter.swift` | Password reset and OAuth callbacks use the registered `fitcomp` scheme; web auth callbacks are exchanged with Supabase before session lookup |
 | Invite Token Validation | `DeepLinkRouter.swift` | Validates invite tokens (8-128 chars, alphanumeric) before processing |
 | Haptic Tab Switching | `HapticManager.swift` | Tactile feedback on tab changes |
 
