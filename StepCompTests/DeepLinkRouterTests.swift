@@ -40,6 +40,23 @@ final class DeepLinkRouterTests: XCTestCase {
         XCTAssertNotNil(router.pendingPasswordResetURL)
     }
 
+    func testUnregisteredCustomSchemeIgnoredForPasswordReset() {
+        let url = URL(string: "je.fitcomp://reset-password#access_token=abc&type=recovery")!
+        router.handle(url: url)
+        XCTAssertNil(router.pendingPasswordResetURL)
+    }
+
+    func testUnregisteredCustomSchemeIgnoredForFriendInvite() {
+        let url = URL(string: "je.fitcomp://friend-invite?token=ABCD1234")!
+        router.handle(url: url)
+        XCTAssertNil(router.pendingInviteToken)
+    }
+
+    func testPasswordResetRedirectURLUsesRegisteredCustomScheme() {
+        XCTAssertEqual(SupabaseConfig.passwordResetRedirectURL.scheme, "fitcomp")
+        XCTAssertEqual(SupabaseConfig.passwordResetRedirectURL.host, "reset-password")
+    }
+
     func testUniversalLinkInvite() {
         let url = URL(string: "https://fitcomp.app/invite/friend/TEST1234")!
         router.handle(url: url)

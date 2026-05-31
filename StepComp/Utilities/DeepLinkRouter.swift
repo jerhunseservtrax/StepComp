@@ -12,6 +12,8 @@ final class DeepLinkRouter: ObservableObject {
     static let shared = DeepLinkRouter()
     private init() {}
 
+    private let registeredCustomScheme = "fitcomp"
+
     @Published var pendingInviteToken: String?
     @Published var pendingPasswordResetURL: URL?
 
@@ -26,7 +28,7 @@ final class DeepLinkRouter: ObservableObject {
         let scheme = url.scheme ?? ""
         let host = url.host ?? ""
         
-        if (scheme == "je.fitcomp" || scheme == "fitcomp") && host == "friend-invite" {
+        if scheme == registeredCustomScheme && host == "friend-invite" {
             if let comps = URLComponents(url: url, resolvingAgainstBaseURL: false),
                let token = comps.queryItems?.first(where: { $0.name == "token" })?.value,
                isValidInviteToken(token) {
@@ -38,7 +40,7 @@ final class DeepLinkRouter: ObservableObject {
             return
         }
         
-        if (scheme == "je.fitcomp" || scheme == "fitcomp") && host == "reset-password" {
+        if scheme == registeredCustomScheme && host == "reset-password" {
             pendingPasswordResetURL = url
             #if DEBUG
             print("🔑 Password reset URL detected")
