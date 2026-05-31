@@ -515,7 +515,10 @@ extension SignInOnboardingView {
             print("🔵 Found OAuth tokens in URL query")
         }
         
-        // Supabase SDK should handle the callback automatically
+        // ASWebAuthenticationSession callbacks do not flow through FitCompApp.onOpenURL.
+        // Hand the callback to Supabase here so the session is persisted before lookup.
+        supabase.auth.handle(url)
+
         // Try to get the current session
         do {
             let session = try await supabase.auth.session
