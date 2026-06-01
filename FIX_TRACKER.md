@@ -30,8 +30,8 @@
 ### 2026-06-01 - Password Reset Recovery Session Auth Bypass
 - **Symptom:** Opening a valid password-reset link could let Supabase create and persist an authenticated recovery session before the user changed their password. Canceling the reset UI could then route into the app for that account. Reset emails also used an unregistered `je.fitcomp://` scheme, so iOS would not deliver the link to the app.
 - **Root Cause:** `FitCompApp.onOpenURL` passed every deep link, including recovery links, to `supabase.auth.handle(url)` before `PasswordResetView` ran. `ForgotPasswordSheet` generated reset links with a URL scheme that was not registered in `Info.plist`.
-- **Fix:** Added shared password-reset URL detection in `DeepLinkRouter`, skipped global Supabase auth handling for reset links, and changed reset emails to the registered `fitcomp://reset-password` redirect URL.
-- **Files:** `FitCompApp.swift`, `DeepLinkRouter.swift`, `ForgotPasswordSheet.swift`, `DeepLinkRouterTests.swift`
+- **Fix:** Added shared password-reset URL detection in `DeepLinkRouter`, skipped global/sign-in OAuth Supabase auth handling for reset links, changed reset emails to the registered `fitcomp://reset-password` redirect URL, and let `PasswordResetView` establish the recovery session at submit time for both token-fragment and PKCE `code` links.
+- **Files:** `FitCompApp.swift`, `SignInView.swift`, `SignInOnboardingView+Auth.swift`, `DeepLinkRouter.swift`, `ForgotPasswordSheet.swift`, `PasswordResetView.swift`, `DeepLinkRouterTests.swift`
 - **Prevention:** Recovery links must be routed to password-reset UI first; do not establish an auth session until the user submits the new password. Keep redirect URLs aligned with registered app schemes.
 
 ### 2026-06-01 - Google OAuth Callback Not Creating Session

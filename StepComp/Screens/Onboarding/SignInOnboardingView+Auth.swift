@@ -499,6 +499,11 @@ extension SignInOnboardingView {
     
     func handleOAuthCallback(url: URL) async {
         #if canImport(Supabase)
+        guard !DeepLinkRouter.isPasswordResetURL(url) else {
+            DeepLinkRouter.shared.handle(url: url)
+            return
+        }
+
         print("🔵 OAuth callback received: \(url)")
         supabase.auth.handle(url)
         

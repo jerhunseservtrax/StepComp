@@ -40,7 +40,7 @@
 |---------|---------|-------------|
 | 5-Tab Navigation | `MainTabView.swift` | Home, Workouts, Challenges, Metrics, Settings |
 | Deep Link Routing | `DeepLinkRouter.swift`, `AppRoute.swift` | Route handling for leaderboard, profile, create/join challenge, OAuth callbacks |
-| Secure Password Reset Links | `DeepLinkRouter.swift`, `FitCompApp.swift`, `ForgotPasswordSheet.swift`, `PasswordResetView.swift` | Password reset links use the registered `fitcomp://` scheme and are routed to the reset UI without pre-authenticating the recovery session |
+| Secure Password Reset Links | `DeepLinkRouter.swift`, `FitCompApp.swift`, `SignInView.swift`, `ForgotPasswordSheet.swift`, `PasswordResetView.swift` | Password reset links use the registered `fitcomp://` scheme and are routed to the reset UI without pre-authenticating the recovery session |
 | Invite Token Validation | `DeepLinkRouter.swift` | Validates invite tokens (8-128 chars, alphanumeric) before processing |
 | Haptic Tab Switching | `HapticManager.swift` | Tactile feedback on tab changes |
 
