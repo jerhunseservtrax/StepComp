@@ -185,8 +185,8 @@ struct ForgotPasswordSheet: View {
         
         do {
             #if canImport(Supabase)
-            // Use custom URL scheme for deep link
-            let redirectURL = URL(string: "je.fitcomp://reset-password")!
+            // Use the app's registered custom URL scheme for deep link delivery.
+            let redirectURL = DeepLinkRouter.passwordResetRedirectURL
             try await supabase.auth.resetPasswordForEmail(
                 trimmedEmail,
                 redirectTo: redirectURL

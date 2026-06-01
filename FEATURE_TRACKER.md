@@ -40,6 +40,7 @@
 |---------|---------|-------------|
 | 5-Tab Navigation | `MainTabView.swift` | Home, Workouts, Challenges, Metrics, Settings |
 | Deep Link Routing | `DeepLinkRouter.swift`, `AppRoute.swift` | Route handling for leaderboard, profile, create/join challenge, OAuth callbacks |
+| Secure Password Reset Links | `DeepLinkRouter.swift`, `FitCompApp.swift`, `ForgotPasswordSheet.swift`, `PasswordResetView.swift` | Password reset links use the registered `fitcomp://` scheme and are routed to the reset UI without pre-authenticating the recovery session |
 | Invite Token Validation | `DeepLinkRouter.swift` | Validates invite tokens (8-128 chars, alphanumeric) before processing |
 | Haptic Tab Switching | `HapticManager.swift` | Tactile feedback on tab changes |
 
@@ -110,6 +111,7 @@
 | Smart Rest Suggestions | `WorkoutAnalyticsEngine.swift` | Auto-suggest rest duration based on exercise intensity and set exertion |
 | Progressive Overload | `WorkoutAnalyticsEngine.swift` | Trend detection (progressing/plateau/regressing), 1RM estimation, overload recommendations |
 | Workout Persistence | `WorkoutViewModel.swift` | Save/restore active workout state across app lifecycle |
+| Auth-Safe Workout Teardown | `WorkoutViewModel.swift`, `AuthService.swift` | Clears in-memory active workout session, persisted draft, widget, and Live Activity on auth cleanup |
 | Workout Summary | `WorkoutSummaryView.swift` | Post-workout stats (duration, exercises, sets, calories) |
 | Session History | `CompletedSessionDetailView.swift` | View past workout details |
 | Edit Sessions | `EditCompletedSessionView.swift` | Modify completed session data |
@@ -299,7 +301,7 @@
 | Goal Setting | `GoalSettingView.swift` | Daily step goal configuration |
 | Avatar Selection | `AvatarSelectionView.swift` | Profile picture/avatar choice |
 | First Win | `FirstWinView.swift` | First achievement celebration |
-| Sign In | `SignInView.swift`, `SignInOnboardingLandingView.swift`, `SignInOnboardingView+Auth.swift`, `EmailAuthSheet.swift`, `OnboardingSignUpView.swift`, `EmailSignInFormView.swift`, `ForgotPasswordSheet.swift`, `PasswordResetView.swift`, `AppleSignInDelegate.swift` | Apple Sign In, email sign-up/sign-in, forgot/reset password (split into focused files; coordinator in `SignInView.swift`) |
+| Sign In | `SignInView.swift`, `SignInOnboardingLandingView.swift`, `SignInOnboardingView+Auth.swift`, `EmailAuthSheet.swift`, `OnboardingSignUpView.swift`, `EmailSignInFormView.swift`, `ForgotPasswordSheet.swift`, `PasswordResetView.swift`, `AppleSignInDelegate.swift` | Apple Sign In, Google OAuth, email sign-up/sign-in, forgot/reset password (split into focused files; coordinator in `SignInView.swift`) |
 | Onboarding Flow | `OnboardingFlowView.swift` | 6-step sequential flow |
 
 ---

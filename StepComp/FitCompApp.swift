@@ -43,8 +43,12 @@ struct FitCompApp: App {
                     print("============================================================")
                     
                     #if canImport(Supabase)
-                    // Supabase must handle OAuth/password-reset deep links to persist sessions correctly.
-                    supabase.auth.handle(url)
+                    // Password recovery links must be handled by PasswordResetView only.
+                    // Letting the global auth handler consume them creates a session
+                    // before the user actually changes their password.
+                    if !DeepLinkRouter.isPasswordResetURL(url) {
+                        supabase.auth.handle(url)
+                    }
                     #endif
                     
                     // Handle deep links (friend invites, OAuth, etc.)

@@ -500,6 +500,7 @@ extension SignInOnboardingView {
     func handleOAuthCallback(url: URL) async {
         #if canImport(Supabase)
         print("🔵 OAuth callback received: \(url)")
+        supabase.auth.handle(url)
         
         // Process the OAuth callback URL with Supabase
         // Extract tokens from the callback URL
