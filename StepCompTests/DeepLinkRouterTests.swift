@@ -40,6 +40,23 @@ final class DeepLinkRouterTests: XCTestCase {
         XCTAssertNotNil(router.pendingPasswordResetURL)
     }
 
+    func testPasswordResetURLWithPKCECode() {
+        let url = URL(string: "fitcomp://reset-password?code=abc123")!
+        router.handle(url: url)
+        XCTAssertEqual(router.pendingPasswordResetURL, url)
+    }
+
+    func testPasswordResetRedirectURLUsesRegisteredFitCompScheme() {
+        let redirectURL = DeepLinkRouter.passwordResetRedirectURL
+        XCTAssertEqual(redirectURL.scheme, "fitcomp")
+        XCTAssertEqual(redirectURL.host, "reset-password")
+    }
+
+    func testPasswordResetURLDetectionDoesNotMatchOAuthCallback() {
+        let url = URL(string: "fitcomp://auth/callback#access_token=abc&type=signup")!
+        XCTAssertFalse(DeepLinkRouter.isPasswordResetURL(url))
+    }
+
     func testUniversalLinkInvite() {
         let url = URL(string: "https://fitcomp.app/invite/friend/TEST1234")!
         router.handle(url: url)

@@ -119,6 +119,11 @@ struct SignInOnboardingView: View {
             isAnimating = true
         }
         .onOpenURL { url in
+            guard !DeepLinkRouter.isPasswordResetURL(url) else {
+                DeepLinkRouter.shared.handle(url: url)
+                return
+            }
+
             // Handle OAuth callback URL
             Task {
                 await handleOAuthCallback(url: url)

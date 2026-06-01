@@ -27,6 +27,27 @@
 
 ## Critical Fixes
 
+### 2026-06-01 - Password Reset Recovery Session Auth Bypass
+- **Symptom:** Opening a valid password-reset link could let Supabase create and persist an authenticated recovery session before the user changed their password. Canceling the reset UI could then route into the app for that account. Reset emails also used an unregistered `je.fitcomp://` scheme, so iOS would not deliver the link to the app.
+- **Root Cause:** `FitCompApp.onOpenURL` passed every deep link, including recovery links, to `supabase.auth.handle(url)` before `PasswordResetView` ran. `ForgotPasswordSheet` generated reset links with a URL scheme that was not registered in `Info.plist`.
+- **Fix:** Added shared password-reset URL detection in `DeepLinkRouter`, skipped global/sign-in OAuth Supabase auth handling for reset links, changed reset emails to the registered `fitcomp://reset-password` redirect URL, and let `PasswordResetView` establish the recovery session at submit time for both token-fragment and PKCE `code` links.
+- **Files:** `FitCompApp.swift`, `SignInView.swift`, `SignInOnboardingView+Auth.swift`, `DeepLinkRouter.swift`, `ForgotPasswordSheet.swift`, `PasswordResetView.swift`, `DeepLinkRouterTests.swift`
+- **Prevention:** Recovery links must be routed to password-reset UI first; do not establish an auth session until the user submits the new password. Keep redirect URLs aligned with registered app schemes.
+
+### 2026-06-01 - Google OAuth Callback Not Creating Session
+- **Symptom:** Google OAuth could complete in the browser but return to the app without an authenticated session.
+- **Root Cause:** The `ASWebAuthenticationSession` callback URL was logged and inspected but never passed to Supabase's auth URL handler. The app-level `onOpenURL` handler is not guaranteed to receive callbacks consumed by `ASWebAuthenticationSession`.
+- **Fix:** Await `supabase.auth.session(from: url)` inside `handleOAuthCallback(url:)` before checking/applying local session state.
+- **Files:** `SignInOnboardingView+Auth.swift`
+- **Prevention:** OAuth callbacks received by `ASWebAuthenticationSession` must be explicitly handed to the auth SDK before reading session state.
+
+### 2026-06-01 - Active Workout Survives Auth Cleanup
+- **Symptom:** Signing out during an active workout could leave the singleton's in-memory `currentSession` running even after the persisted draft, widget, and Live Activity were cleared. A later lifecycle reconciliation could save the previous user's workout draft again.
+- **Root Cause:** `WorkoutViewModel.clearAllActiveWorkoutState()` only cleared disk/widget/activity state and did not cancel the live in-memory session, timer, pause state, or auto-finish task.
+- **Fix:** Route global workout cleanup through `cancelWorkout()` so in-memory session state and persisted surfaces are cleared together.
+- **Files:** `WorkoutViewModel.swift`, `WorkoutViewModelTests.swift`
+- **Prevention:** Auth cleanup must clear both persisted and in-memory user-owned state; never clear only the persisted draft for active workflows.
+
 ### 1. Workout State Data Loss After Long Sessions
 - **Commit:** `6b21b36`
 - **Symptom:** Users lost in-progress workout data (sets/reps) after long sessions or app suspension. Widget continued tracking while app lost in-memory state.

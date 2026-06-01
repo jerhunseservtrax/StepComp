@@ -499,6 +499,11 @@ extension SignInOnboardingView {
     
     func handleOAuthCallback(url: URL) async {
         #if canImport(Supabase)
+        guard !DeepLinkRouter.isPasswordResetURL(url) else {
+            DeepLinkRouter.shared.handle(url: url)
+            return
+        }
+
         print("🔵 OAuth callback received: \(url)")
         
         // Process the OAuth callback URL with Supabase
@@ -515,10 +520,10 @@ extension SignInOnboardingView {
             print("🔵 Found OAuth tokens in URL query")
         }
         
-        // Supabase SDK should handle the callback automatically
-        // Try to get the current session
+        // Exchange the callback URL into a persisted Supabase session before
+        // reading auth state or applying onboarding side effects.
         do {
-            let session = try await supabase.auth.session
+            let session = try await supabase.auth.session(from: url)
             print("✅ OAuth session established: \(session.user.id)")
             
             // Load user profile

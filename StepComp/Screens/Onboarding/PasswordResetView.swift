@@ -240,6 +240,7 @@ struct PasswordResetView: View {
             let components = URLComponents(url: resetURL, resolvingAgainstBaseURL: false)
             var accessToken: String?
             var refreshToken: String?
+            var authCode: String?
             
             // Extract tokens from URL fragment (common format)
             if let fragment = components?.fragment {
@@ -263,21 +264,27 @@ struct PasswordResetView: View {
                         accessToken = item.value
                     } else if item.name == "refresh_token" {
                         refreshToken = item.value
+                    } else if item.name == "code" {
+                        authCode = item.value
                     }
                 }
             }
             
-            guard let accessToken = accessToken, let refreshToken = refreshToken else {
+            if let accessToken = accessToken, let refreshToken = refreshToken {
+                // Set the session with tokens from reset URL
+                try await supabase.auth.setSession(
+                    accessToken: accessToken,
+                    refreshToken: refreshToken
+                )
+            } else if let authCode = authCode {
+                // PKCE recovery links provide a code that must be exchanged only
+                // after the user submits a replacement password.
+                try await supabase.auth.exchangeCodeForSession(authCode: authCode)
+            } else {
                 errorMessage = "Invalid reset link. Please request a new password reset email."
                 isLoading = false
                 return
             }
-            
-            // Set the session with tokens from reset URL
-            try await supabase.auth.setSession(
-                accessToken: accessToken,
-                refreshToken: refreshToken
-            )
             
             // Wait a moment for session to be established
             try? await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
