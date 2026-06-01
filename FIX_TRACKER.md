@@ -37,7 +37,7 @@
 ### 2026-06-01 - Google OAuth Callback Not Creating Session
 - **Symptom:** Google OAuth could complete in the browser but return to the app without an authenticated session.
 - **Root Cause:** The `ASWebAuthenticationSession` callback URL was logged and inspected but never passed to Supabase's auth URL handler. The app-level `onOpenURL` handler is not guaranteed to receive callbacks consumed by `ASWebAuthenticationSession`.
-- **Fix:** Pass the callback URL to `supabase.auth.handle(url)` inside `handleOAuthCallback(url:)` before checking `supabase.auth.session`.
+- **Fix:** Await `supabase.auth.session(from: url)` inside `handleOAuthCallback(url:)` before checking/applying local session state.
 - **Files:** `SignInOnboardingView+Auth.swift`
 - **Prevention:** OAuth callbacks received by `ASWebAuthenticationSession` must be explicitly handed to the auth SDK before reading session state.
 
