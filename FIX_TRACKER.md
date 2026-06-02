@@ -1,7 +1,7 @@
 # FitComp Fix Tracker
 
 > Log of all bugs encountered and fixes implemented to prevent recurrence.
-> Last updated: 2026-04-13 (v6)
+> Last updated: 2026-06-02 (v7)
 
 ---
 
@@ -349,6 +349,14 @@
 - **Symptom:** ERROR 42725 — multiple overloads causing ambiguity.
 - **Fix:** Drop all existing overloads before creating new function.
 - **Prevention:** Always drop existing DB functions before recreating to avoid overload ambiguity.
+
+### 37a. Ended Challenge Memberships Deleted by Chat List
+- **Status:** Fixed
+- **Symptom:** Opening Home or the chat list could remove `challenge_members` rows for ended challenges, causing non-creator participants to lose archived challenge history.
+- **Root Cause:** `ChatListViewModel.getUserChallenges()` used an active-challenge query (`end_date >= now`) to decide which memberships were orphaned. Ended challenges were therefore misclassified as missing parent records.
+- **Fix:** Split parent-existence checks from active-chat filtering. Only memberships whose challenge row no longer exists are cleaned up; ended challenges are omitted from chat previews without mutation.
+- **Files:** `ChatListViewModel.swift`
+- **Prevention:** Destructive cleanup must be based on parent-row existence, not UI visibility filters such as status/date.
 
 ---
 

@@ -125,7 +125,21 @@ final class ChatListViewModel: ObservableObject {
             return []
         }
         
-        // Get challenge info - check if challenges actually exist AND haven't ended
+        // Check existence separately from active-chat eligibility. Ended challenges should
+        // not appear in chat, but their memberships power archived challenge history.
+        let existingChallenges: [ChallengeExistenceInfo] = try await supabase
+            .from("challenges")
+            .select("id")
+            .in("id", values: challengeIds)
+            .execute()
+            .value
+
+        let orphanedIds = ChatListMembershipFilter.orphanedChallengeIds(
+            memberChallengeIds: challengeIds,
+            existingChallengeIds: existingChallenges.map { $0.id }
+        )
+
+        // Get active challenge info for chat previews.
         let challenges: [SimpleChallengeInfo] = try await supabase
             .from("challenges")
             .select("id, name")
@@ -133,11 +147,7 @@ final class ChatListViewModel: ObservableObject {
             .gte("end_date", value: ISO8601DateFormatter().string(from: Date()))
             .execute()
             .value
-        
-        // Find orphaned challenge_members (member record exists but challenge doesn't or has ended)
-        let foundChallengeIds = Set(challenges.map { $0.id })
-        let orphanedIds = Set(challengeIds).subtracting(foundChallengeIds)
-        
+
         // Clean up orphaned records
         if !orphanedIds.isEmpty {
             for orphanedId in orphanedIds {
@@ -207,6 +217,23 @@ final class ChatListViewModel: ObservableObject {
 struct SimpleChallengeInfo: Codable {
     let id: String
     let name: String
+}
+
+struct ChallengeExistenceInfo: Codable {
+    let id: String
+}
+
+enum ChatListMembershipFilter {
+    static func orphanedChallengeIds(
+        memberChallengeIds: [String],
+        existingChallengeIds: [String]
+    ) -> [String] {
+        let existingIds = Set(existingChallengeIds)
+        var returnedIds = Set<String>()
+        return memberChallengeIds.filter { challengeId in
+            !existingIds.contains(challengeId) && returnedIds.insert(challengeId).inserted
+        }
+    }
 }
 
 struct LastMessageInfo: Codable {
