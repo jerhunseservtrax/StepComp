@@ -204,7 +204,11 @@ final class AuthService: ObservableObject {
             KeychainStore.delete(account: keychainUserAccount)
         }
         
-        // Clear active workout state (draft, widget, live activity)
+        // Clear user-scoped local state so a later account cannot see stale private data.
+        OfflineCacheService.clearAll()
+        ChallengeService.shared.clearSessionState()
+
+        // Clear active workout state (in-memory session, draft, widget, live activity)
         WorkoutViewModel.clearAllActiveWorkoutState()
     }
     

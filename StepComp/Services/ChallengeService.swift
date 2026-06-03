@@ -486,6 +486,12 @@ final class ChallengeService: ObservableObject {
         leaderboardEntries[challengeId] = entries
         saveLeaderboards()
     }
+
+    func clearSessionState() {
+        challenges = []
+        leaderboardEntries = [:]
+        lastErrorMessage = nil
+    }
     
     func getLeaderboard(for challengeId: String) async -> [LeaderboardEntry] {
         #if canImport(Supabase)
@@ -515,6 +521,10 @@ final class ChallengeService: ObservableObject {
     #if canImport(Supabase)
     private func getLeaderboardFromSupabase(challengeId: String) async -> [LeaderboardEntry] {
         let cacheKey = "leaderboard_\(challengeId)"
+        guard let userId = AuthService.shared.currentUser?.id else {
+            return leaderboardEntries[challengeId] ?? []
+        }
+
         do {
             let serverEntries: [ServerLeaderboardEntry] = try await SupabaseRequestExecutor.executeWithAuthRetry(context: "get_leaderboard") {
                 try await supabase
@@ -525,10 +535,10 @@ final class ChallengeService: ObservableObject {
 
             let entries = serverEntries.map { $0.toLeaderboardEntry(challengeId: challengeId) }
             leaderboardEntries[challengeId] = entries
-            OfflineCacheService.save(entries, key: cacheKey)
+            OfflineCacheService.save(entries, key: cacheKey, userId: userId)
             return entries
         } catch {
-            if let cached = OfflineCacheService.load([LeaderboardEntry].self, key: cacheKey) {
+            if let cached = OfflineCacheService.load([LeaderboardEntry].self, key: cacheKey, userId: userId) {
                 leaderboardEntries[challengeId] = cached
                 return cached
             }
