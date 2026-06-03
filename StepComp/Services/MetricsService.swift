@@ -26,9 +26,10 @@ final class MetricsService: ObservableObject {
     // MARK: - Sync: Workout Session
 
     /// Converts a local CompletedWorkoutSession to a JSON payload and syncs to Supabase.
-    func syncWorkoutSession(_ session: CompletedWorkoutSession) async {
+    func syncWorkoutSession(_ session: CompletedWorkoutSession, expectedUserId: String) async {
         #if canImport(Supabase)
-        guard let userId = AuthService.shared.currentUser?.id else {
+        let userId = expectedUserId
+        guard AuthService.shared.currentUser?.id == userId else {
             print("⚠️ [MetricsService] No current user, skipping workout sync")
             return
         }
@@ -76,9 +77,10 @@ final class MetricsService: ObservableObject {
     // MARK: - Sync: Weight Entry
 
     /// Syncs a single weight entry to Supabase via the sync_weight_entry RPC.
-    func syncWeightEntry(_ entry: WeightEntry) async {
+    func syncWeightEntry(_ entry: WeightEntry, expectedUserId: String) async {
         #if canImport(Supabase)
-        guard let userId = AuthService.shared.currentUser?.id else {
+        let userId = expectedUserId
+        guard AuthService.shared.currentUser?.id == userId else {
             print("⚠️ [MetricsService] No current user, skipping weight sync")
             return
         }
@@ -179,7 +181,7 @@ final class MetricsService: ObservableObject {
                 unsyncedSessions.forEach { markSessionSynced($0.id, userId: userId) }
             } catch {
                 for session in unsyncedSessions {
-                    await syncWorkoutSession(session)
+                    await syncWorkoutSession(session, expectedUserId: userId)
                 }
             }
         }
@@ -218,7 +220,7 @@ final class MetricsService: ObservableObject {
                 unsyncedEntries.forEach { markWeightEntrySynced($0.id, userId: userId) }
             } catch {
                 for entry in unsyncedEntries {
-                    await syncWeightEntry(entry)
+                    await syncWeightEntry(entry, expectedUserId: userId)
                 }
             }
         }
@@ -341,6 +343,7 @@ final class MetricsService: ObservableObject {
         let dateFormatter = DateFormatter()
         dateFormatter.dateFormat = "yyyy-MM-dd"
         let payload: [String: AnyJSON] = [
+            "user_id": .string(expectedUserId),
             "recorded_on": .string(dateFormatter.string(from: date)),
             "body_fat_pct": bodyFatPercent.map { .string(String($0)) } ?? .null,
             "waist_cm": waistCm.map { .string(String($0)) } ?? .null,
@@ -374,6 +377,7 @@ final class MetricsService: ObservableObject {
 
         let iso = ISO8601DateFormatter().string(from: log.loggedAt)
         let payload: [String: AnyJSON] = [
+            "user_id": .string(expectedUserId),
             "logged_at": .string(iso),
             "calories": .integer(log.calories),
             "protein_g": .integer(log.proteinG),
