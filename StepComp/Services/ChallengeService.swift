@@ -491,6 +491,8 @@ final class ChallengeService: ObservableObject {
         challenges = []
         leaderboardEntries = [:]
         lastErrorMessage = nil
+        UserDefaults.standard.removeObject(forKey: challengesKey)
+        UserDefaults.standard.removeObject(forKey: leaderboardKey)
     }
     
     func getLeaderboard(for challengeId: String) async -> [LeaderboardEntry] {
