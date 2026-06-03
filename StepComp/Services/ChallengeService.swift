@@ -534,12 +534,18 @@ final class ChallengeService: ObservableObject {
                     .execute()
                     .value
             }
+            guard AuthService.shared.currentUser?.id == userId else {
+                return []
+            }
 
             let entries = serverEntries.map { $0.toLeaderboardEntry(challengeId: challengeId) }
             leaderboardEntries[challengeId] = entries
             OfflineCacheService.save(entries, key: cacheKey, userId: userId)
             return entries
         } catch {
+            guard AuthService.shared.currentUser?.id == userId else {
+                return []
+            }
             if let cached = OfflineCacheService.load([LeaderboardEntry].self, key: cacheKey, userId: userId) {
                 leaderboardEntries[challengeId] = cached
                 return cached

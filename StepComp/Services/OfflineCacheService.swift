@@ -74,12 +74,26 @@ enum OfflineCacheService {
 
     /// User-owned data must be cached under a user-specific key so account switches
     /// cannot fall back to another user's cached response while offline.
+    @MainActor
     static func fetchWithFallback<T: Codable>(
         key: String,
         userId: String,
+        isUserScopeValid: () -> Bool,
         fetch: () async throws -> T
     ) async -> T? {
-        await fetchWithFallback(key: scopedKey(key, userId: userId), fetch: fetch)
+        let scopedKey = scopedKey(key, userId: userId)
+        do {
+            let value = try await fetch()
+            guard isUserScopeValid() else { return nil }
+            save(value, key: scopedKey)
+            return value
+        } catch {
+            guard isUserScopeValid() else { return nil }
+            #if DEBUG
+            print("⚠️ OfflineCache network failed for \(scopedKey), using cached data")
+            #endif
+            return load(T.self, key: scopedKey)
+        }
     }
 
     /// Fetch an array from the network; on success cache, on failure return cached copy or empty.
@@ -99,12 +113,26 @@ enum OfflineCacheService {
         }
     }
 
+    @MainActor
     static func fetchArrayWithFallback<T: Codable>(
         key: String,
         userId: String,
+        isUserScopeValid: () -> Bool,
         fetch: () async throws -> [T]
     ) async -> [T] {
-        await fetchArrayWithFallback(key: scopedKey(key, userId: userId), fetch: fetch)
+        let scopedKey = scopedKey(key, userId: userId)
+        do {
+            let value = try await fetch()
+            guard isUserScopeValid() else { return [] }
+            save(value, key: scopedKey)
+            return value
+        } catch {
+            guard isUserScopeValid() else { return [] }
+            #if DEBUG
+            print("⚠️ OfflineCache network failed for \(scopedKey), using cached data")
+            #endif
+            return load([T].self, key: scopedKey) ?? []
+        }
     }
 
     static func scopedKey(_ key: String, userId: String) -> String {

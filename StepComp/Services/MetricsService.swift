@@ -180,7 +180,12 @@ final class MetricsService: ObservableObject {
             return try? await fetch()
         }
 
-        return await OfflineCacheService.fetchWithFallback(key: "metrics_summary_\(days)", userId: userId, fetch: fetch)
+        return await OfflineCacheService.fetchWithFallback(
+            key: "metrics_summary_\(days)",
+            userId: userId,
+            isUserScopeValid: { AuthService.shared.currentUser?.id == userId },
+            fetch: fetch
+        )
         #else
         return nil
         #endif
@@ -337,7 +342,12 @@ final class MetricsService: ObservableObject {
             return (try? await fetch()) ?? []
         }
 
-        return await OfflineCacheService.fetchArrayWithFallback(key: "weight_history_\(days)", userId: userId, fetch: fetch)
+        return await OfflineCacheService.fetchArrayWithFallback(
+            key: "weight_history_\(days)",
+            userId: userId,
+            isUserScopeValid: { AuthService.shared.currentUser?.id == userId },
+            fetch: fetch
+        )
         #else
         return []
         #endif
@@ -360,7 +370,12 @@ final class MetricsService: ObservableObject {
             return (try? await fetch()) ?? []
         }
 
-        return await OfflineCacheService.fetchArrayWithFallback(key: "workout_history_\(days)", userId: userId, fetch: fetch)
+        return await OfflineCacheService.fetchArrayWithFallback(
+            key: "workout_history_\(days)",
+            userId: userId,
+            isUserScopeValid: { AuthService.shared.currentUser?.id == userId },
+            fetch: fetch
+        )
         #else
         return []
         #endif

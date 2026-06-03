@@ -38,4 +38,20 @@ final class OfflineCacheServiceTests: XCTestCase {
             OfflineCacheService.load(String.self, key: "weight_history_90", userId: "user-a")
         )
     }
+
+    @MainActor
+    func testScopedFetchDoesNotSaveWhenUserScopeBecomesInvalid() async {
+        let result: String? = await OfflineCacheService.fetchWithFallback(
+            key: "metrics_summary_30",
+            userId: "user-a",
+            isUserScopeValid: { false }
+        ) {
+            "late-user-a-response"
+        }
+
+        XCTAssertNil(result)
+        XCTAssertNil(
+            OfflineCacheService.load(String.self, key: "metrics_summary_30", userId: "user-a")
+        )
+    }
 }
