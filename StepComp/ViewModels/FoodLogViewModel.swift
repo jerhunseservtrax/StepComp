@@ -353,6 +353,7 @@ final class FoodLogViewModel: ObservableObject {
     }
 
     private func syncEntryToSupabaseMetrics(_ entry: FoodLogEntry) {
+        guard let userId = AuthService.shared.currentUser?.id else { return }
         let log = NutritionLog(
             id: entry.id,
             loggedAt: entry.loggedAt,
@@ -363,7 +364,7 @@ final class FoodLogViewModel: ObservableObject {
             waterMl: 0
         )
         Task.detached(priority: .utility) {
-            await MetricsService.shared.syncNutritionLog(log)
+            await MetricsService.shared.syncNutritionLog(log, expectedUserId: userId)
         }
     }
 }

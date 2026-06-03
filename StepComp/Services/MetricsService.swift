@@ -50,7 +50,10 @@ final class MetricsService: ObservableObject {
                 print("⚠️ [MetricsService] User changed before workout sync started")
                 return
             }
-            _ = try await SupabaseRequestExecutor.executeWithAuthRetry(context: "sync_workout_session") {
+            _ = try await SupabaseRequestExecutor.executeWithAuthRetry(
+                context: "sync_workout_session",
+                expectedUserId: userId
+            ) {
                 try await supabase
                     .rpc("sync_workout_session", params: [
                         "p_session": .object(sessionPayload)
@@ -99,7 +102,10 @@ final class MetricsService: ObservableObject {
                 print("⚠️ [MetricsService] User changed before weight sync started")
                 return
             }
-            _ = try await SupabaseRequestExecutor.executeWithAuthRetry(context: "sync_weight_entry") {
+            _ = try await SupabaseRequestExecutor.executeWithAuthRetry(
+                context: "sync_weight_entry",
+                expectedUserId: userId
+            ) {
                 try await supabase
                     .rpc("sync_weight_entry", params: [
                         "p_date": dateString,
@@ -158,7 +164,10 @@ final class MetricsService: ObservableObject {
                     print("⚠️ [MetricsService] User changed before batch workout sync started")
                     return
                 }
-                _ = try await SupabaseRequestExecutor.executeWithAuthRetry(context: "sync_workout_sessions_batch") {
+                _ = try await SupabaseRequestExecutor.executeWithAuthRetry(
+                    context: "sync_workout_sessions_batch",
+                    expectedUserId: userId
+                ) {
                     try await supabase
                         .rpc("sync_workout_sessions_batch", params: ["p_sessions": .array(batchPayload)] as [String: AnyJSON])
                         .execute()
@@ -194,7 +203,10 @@ final class MetricsService: ObservableObject {
                     print("⚠️ [MetricsService] User changed before batch weight sync started")
                     return
                 }
-                _ = try await SupabaseRequestExecutor.executeWithAuthRetry(context: "sync_weight_entries_batch") {
+                _ = try await SupabaseRequestExecutor.executeWithAuthRetry(
+                    context: "sync_weight_entries_batch",
+                    expectedUserId: userId
+                ) {
                     try await supabase
                         .rpc("sync_weight_entries_batch", params: ["p_entries": .array(batchPayload)] as [String: AnyJSON])
                         .execute()
@@ -317,10 +329,12 @@ final class MetricsService: ObservableObject {
 
     // MARK: - Sync: Body Metrics
 
-    func syncBodyMetric(bodyFatPercent: Double?, waistCm: Double?, date: Date = Date()) async {
+    func syncBodyMetric(bodyFatPercent: Double?, waistCm: Double?, date: Date = Date(), expectedUserId: String) async {
         #if canImport(Supabase)
+        guard AuthService.shared.currentUser?.id == expectedUserId else { return }
         do {
-            _ = try await supabase.auth.session
+            let authSession = try await supabase.auth.session
+            guard authSession.user.id.uuidString == expectedUserId else { return }
         } catch {
             return
         }
@@ -333,7 +347,9 @@ final class MetricsService: ObservableObject {
             "source": .string("manual")
         ]
         do {
+            guard AuthService.shared.currentUser?.id == expectedUserId else { return }
             _ = try await supabase.from("body_metrics").upsert(payload).execute()
+            guard AuthService.shared.currentUser?.id == expectedUserId else { return }
         } catch {
             print("❌ [MetricsService] Failed to sync body metrics: \(error.localizedDescription)")
         }
@@ -342,10 +358,12 @@ final class MetricsService: ObservableObject {
 
     // MARK: - Sync: Nutrition Log
 
-    func syncNutritionLog(_ log: NutritionLog) async {
+    func syncNutritionLog(_ log: NutritionLog, expectedUserId: String) async {
         #if canImport(Supabase)
+        guard AuthService.shared.currentUser?.id == expectedUserId else { return }
         do {
-            _ = try await supabase.auth.session
+            let authSession = try await supabase.auth.session
+            guard authSession.user.id.uuidString == expectedUserId else { return }
         } catch {
             return
         }
@@ -364,7 +382,9 @@ final class MetricsService: ObservableObject {
             "water_ml": .integer(log.waterMl)
         ]
         do {
+            guard AuthService.shared.currentUser?.id == expectedUserId else { return }
             _ = try await supabase.from("nutrition_log").insert(payload).execute()
+            guard AuthService.shared.currentUser?.id == expectedUserId else { return }
         } catch {
             let lowercasedError = error.localizedDescription.lowercased()
             let isMissingNutritionLogTable =

@@ -75,7 +75,7 @@ class WeightViewModel: ObservableObject {
     // MARK: - HealthKit Integration
     
     func syncWithHealthKit() async {
-        guard AuthService.shared.currentUser != nil else {
+        guard let userId = AuthService.shared.currentUser?.id else {
             print("⚠️ No current user, skipping HealthKit weight sync")
             return
         }
@@ -86,7 +86,7 @@ class WeightViewModel: ObservableObject {
         
         do {
             if let healthKitWeight = try await healthKitService.getWeight() {
-                guard AuthService.shared.currentUser != nil else {
+                guard AuthService.shared.currentUser?.id == userId else {
                     print("⚠️ User signed out before HealthKit weight sync completed")
                     return
                 }
