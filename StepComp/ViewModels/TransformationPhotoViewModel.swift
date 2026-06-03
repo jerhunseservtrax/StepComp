@@ -33,6 +33,7 @@ class TransformationPhotoViewModel: ObservableObject {
     // MARK: - Public Methods
     
     func addPhotoSet(frontImage: UIImage, sideImage: UIImage, backImage: UIImage, date: Date = Date(), note: String? = nil) {
+        guard let userId = AuthService.shared.currentUser?.id else { return }
         let directory = photoDirectory
         Task.detached(priority: .utility) { [weak self] in
             guard let self else { return }
@@ -61,6 +62,12 @@ class TransformationPhotoViewModel: ObservableObject {
                 try backData.write(to: backURL)
 
                 await MainActor.run {
+                    guard AuthService.shared.currentUser?.id == userId else {
+                        try? FileManager.default.removeItem(at: frontURL)
+                        try? FileManager.default.removeItem(at: sideURL)
+                        try? FileManager.default.removeItem(at: backURL)
+                        return
+                    }
                     let photo = TransformationPhoto(
                         date: date,
                         frontFilename: frontFilename,
@@ -120,6 +127,14 @@ class TransformationPhotoViewModel: ObservableObject {
             return nil
         }
         return image
+    }
+
+    func clearAllUserDataForSignOut() {
+        try? FileManager.default.removeItem(at: photoDirectory)
+        photos = []
+        latestPhoto = nil
+        UserDefaults.standard.removeObject(forKey: userDefaultsKey)
+        createPhotoDirectoryIfNeeded()
     }
     
     // MARK: - Private Methods

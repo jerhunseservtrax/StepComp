@@ -31,6 +31,7 @@ final class AuthService: ObservableObject {
     private let testAccountDisplayName = "Test User"
     #endif
     private var refreshSessionTask: Task<Bool, Never>?
+    private var authStateGeneration = 0
     #if canImport(Supabase)
     private var authStateListenerTask: Task<Void, Never>?
     #endif
@@ -148,22 +149,24 @@ final class AuthService: ObservableObject {
     
     private func applyAuthenticatedSession(_ session: Session) async {
         let userId = session.user.id.uuidString
+        let generation = beginAuthStateGeneration()
         
         // Keep profile loading in a standalone task so timeout does not cancel it.
         // If timeout wins, we use cached data immediately and let profile update when it finishes.
         let profileLoadTask = Task { @MainActor [weak self] in
-            _ = await self?.loadUserProfile(userId: userId)
+            _ = await self?.loadUserProfile(userId: userId, generation: generation)
         }
         let completedBeforeTimeout = await waitForProfileLoad(profileLoadTask, timeoutNanoseconds: 8_000_000_000)
         if !completedBeforeTimeout {
+            guard isAuthStateGenerationCurrent(generation) else { return }
             print("⚠️ Profile load timed out — using cached data")
-            if let cachedUser = self.loadCachedUser() {
+            if let cachedUser = self.loadCachedUser(), cachedUser.id == userId {
                 self.currentUser = cachedUser
                 self.isAuthenticated = true
             }
         }
         
-        if isAuthenticated && currentUser != nil {
+        if isAuthStateGenerationCurrent(generation), isAuthenticated && currentUser != nil {
             UserDefaults.standard.set(true, forKey: "hasCompletedOnboarding")
         }
     }
@@ -198,14 +201,54 @@ final class AuthService: ObservableObject {
             return
         }
 
+        authStateGeneration += 1
         currentUser = nil
         isAuthenticated = false
         if deleteCachedUser {
             KeychainStore.delete(account: keychainUserAccount)
         }
         
-        // Clear active workout state (draft, widget, live activity)
-        WorkoutViewModel.clearAllActiveWorkoutState()
+        // Clear user-scoped local state so a later account cannot see stale private data.
+        OfflineCacheService.clearAll()
+        ChallengeService.shared.clearSessionState()
+        clearUserProfileDefaults()
+
+        // Clear local user-owned stores that are keyed globally on this device.
+        WorkoutViewModel.clearAllUserDataForSignOut()
+        WeightViewModel.shared.clearAllUserDataForSignOut()
+        FoodLogViewModel.shared.clearAllUserDataForSignOut()
+        ComprehensiveMetricsStore.shared.clearAllUserDataForSignOut()
+        TransformationPhotoViewModel.shared.clearAllUserDataForSignOut()
+    }
+
+    private func beginAuthStateGeneration() -> Int {
+        authStateGeneration += 1
+        return authStateGeneration
+    }
+
+    private func isAuthStateGenerationCurrent(_ generation: Int) -> Bool {
+        generation == authStateGeneration
+    }
+
+    private func clearUserProfileDefaults() {
+        [
+            "userHeight",
+            "userWeight",
+            "user_weight",
+            "dailyStepGoal",
+            "daily_calorie_goal",
+            "daily_protein_goal_g",
+            "calorie_goal_is_manual",
+            "user_age",
+            "user_biological_sex",
+            "user_activity_level",
+            "user_weight_goal",
+            "user_goal_aggressiveness",
+            "calorie_workout_days_per_week",
+            "selectedAvatarURL",
+            "selectedAvatarPhotoData",
+            "selectedAvatarEmoji"
+        ].forEach { UserDefaults.standard.removeObject(forKey: $0) }
     }
     
     /// Refreshes the session when a 401 is received.
@@ -221,13 +264,17 @@ final class AuthService: ObservableObject {
         
         let task = Task { @MainActor [weak self] () -> Bool in
             guard let self else { return false }
+            let generation = self.authStateGeneration
             do {
                 print("🔄 Attempting to refresh session after 401...")
                 let refreshedSession = try await supabase.auth.refreshSession()
                 print("✅ Session refreshed successfully")
                 
                 // Reload profile with new session
-                await self.loadUserProfile(userId: refreshedSession.user.id.uuidString)
+                await self.loadUserProfile(
+                    userId: refreshedSession.user.id.uuidString,
+                    generation: generation
+                )
                 return true
             } catch {
                 // Refresh failed - session is truly invalid
@@ -253,13 +300,26 @@ final class AuthService: ObservableObject {
         #if canImport(Supabase)
         do {
             try await supabase.auth.signOut()
-            print("🚪 Force logout requested - waiting for signed-out event")
+            print("🚪 Force logout requested")
+            applySignedOutState(
+                deleteCachedUser: true,
+                reason: "force logout",
+                allowDuringStartupCheck: true
+            )
         } catch {
             print("⚠️ Force logout signOut failed, clearing local auth state: \(error.localizedDescription)")
-            applySignedOutState(deleteCachedUser: true)
+            applySignedOutState(
+                deleteCachedUser: true,
+                reason: "failed force logout",
+                allowDuringStartupCheck: true
+            )
         }
         #else
-        applySignedOutState(deleteCachedUser: true)
+        applySignedOutState(
+            deleteCachedUser: true,
+            reason: "force logout without Supabase",
+            allowDuringStartupCheck: true
+        )
         #endif
     }
     
@@ -470,7 +530,8 @@ final class AuthService: ObservableObject {
             }
             
             // Load user profile to ensure currentUser is set correctly
-            await loadUserProfile(userId: userId)
+            let generation = beginAuthStateGeneration()
+            await loadUserProfile(userId: userId, generation: generation)
             
             // Verify currentUser was set
             guard currentUser != nil else {
@@ -577,9 +638,25 @@ final class AuthService: ObservableObject {
         #if canImport(Supabase)
         if useSupabase {
             // This clears the session from Supabase's internal storage.
-            // Local cleanup is handled by the signed-out auth state event.
-            try await supabase.auth.signOut()
-            print("✅ Supabase sign out requested - awaiting signed-out event")
+            // Local cleanup also runs immediately so stale private data cannot survive
+            // a delayed/missed signed-out auth state event.
+            do {
+                try await supabase.auth.signOut()
+                print("✅ Supabase sign out requested")
+                applySignedOutState(
+                    deleteCachedUser: true,
+                    reason: "user signOut request",
+                    allowDuringStartupCheck: true
+                )
+            } catch {
+                print("⚠️ Supabase sign out failed, clearing local private data: \(error.localizedDescription)")
+                applySignedOutState(
+                    deleteCachedUser: true,
+                    reason: "failed user signOut request",
+                    allowDuringStartupCheck: true
+                )
+                throw error
+            }
             return
         }
         #endif
@@ -641,7 +718,8 @@ final class AuthService: ObservableObject {
                 throw AuthError.invalidResponse
             }
             
-            await loadUserProfile(userId: userId)
+            let generation = beginAuthStateGeneration()
+            await loadUserProfile(userId: userId, generation: generation)
         } catch {
             print("❌ Supabase sign-in error: \(error.localizedDescription)")
             print("❌ Error details: \(error)")
@@ -800,7 +878,8 @@ final class AuthService: ObservableObject {
             isAuthenticated = true
             saveUser()
             
-            await loadUserProfile(userId: userId)
+            let generation = beginAuthStateGeneration()
+            await loadUserProfile(userId: userId, generation: generation)
         } catch {
             // Handle sign-up errors
             let errorString = error.localizedDescription.lowercased()
@@ -820,7 +899,7 @@ final class AuthService: ObservableObject {
         }
     }
     
-    private func loadUserProfile(userId: String) async {
+    private func loadUserProfile(userId: String, generation: Int) async {
         do {
             // PERMANENT LOGIN: Load profile directly from database using userId
             // Don't require a valid session - the profile has all the info we need
@@ -844,6 +923,11 @@ final class AuthService: ObservableObject {
                 .single()
                 .execute()
                 .value
+
+            guard isAuthStateGenerationCurrent(generation) else {
+                print("ℹ️ Ignoring stale profile load for signed-out or superseded session")
+                return
+            }
             
             // Convert to app User model
             // Use firstName and lastName from profile, fallback to empty strings
@@ -875,9 +959,13 @@ final class AuthService: ObservableObject {
             // Store height and weight in UserDefaults for ProfileViewModel to access
             if let height = profile.height {
                 UserDefaults.standard.set(height, forKey: "userHeight")
+            } else {
+                UserDefaults.standard.removeObject(forKey: "userHeight")
             }
             if let weight = profile.weight {
                 UserDefaults.standard.set(weight, forKey: "userWeight")
+            } else {
+                UserDefaults.standard.removeObject(forKey: "userWeight")
             }
             // Store daily step goal in UserDefaults
             if let dailyStepGoal = profile.dailyStepGoal {
@@ -893,11 +981,15 @@ final class AuthService: ObservableObject {
                 print("ℹ️ Profile load task cancelled")
                 return
             }
+            guard isAuthStateGenerationCurrent(generation) else {
+                print("ℹ️ Ignoring stale profile fallback for signed-out or superseded session")
+                return
+            }
             print("⚠️ Error loading user profile: \(error.localizedDescription)")
             
             // If we can't load from database, try to use locally cached user
             // This handles offline scenarios
-            if let cachedUser = loadCachedUser() {
+            if let cachedUser = loadCachedUser(), cachedUser.id == userId {
                 print("ℹ️ Using cached user data for offline access")
                 currentUser = cachedUser
                 isAuthenticated = true

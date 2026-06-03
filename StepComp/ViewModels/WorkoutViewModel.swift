@@ -243,8 +243,10 @@ class WorkoutViewModel: ObservableObject {
         
         // Sync to Supabase in the background (fire-and-forget)
         let sessionToSync = completedSession
+        let syncUserId = AuthService.shared.currentUser?.id
         Task.detached(priority: .utility) {
-            await MetricsService.shared.syncWorkoutSession(sessionToSync)
+            guard let syncUserId else { return }
+            await MetricsService.shared.syncWorkoutSession(sessionToSync, expectedUserId: syncUserId)
         }
         
         // Update the workout's last completed date
@@ -1027,10 +1029,23 @@ class WorkoutViewModel: ObservableObject {
     /// Clears all active workout state (draft, widget, live activity)
     static func clearAllActiveWorkoutState() {
         let vm = WorkoutViewModel.shared
-        vm.clearActiveWorkoutDraft()
-        WorkoutWidgetStore.clear()
-        WorkoutLiveActivityManager.end()
+        vm.cancelWorkout()
+        vm.finishedSession = nil
         print("🧹 All active workout state cleared")
+    }
+
+    static func clearAllUserDataForSignOut() {
+        let vm = WorkoutViewModel.shared
+        vm.cancelWorkout()
+        vm.finishedSession = nil
+        vm.workouts = []
+        vm.completedSessions = []
+        vm.workoutTargetDate = nil
+        UserDefaults.standard.removeObject(forKey: "saved_workouts")
+        UserDefaults.standard.removeObject(forKey: "completed_workout_sessions")
+        UserDefaults.standard.removeObject(forKey: "weights_migrated_to_kg_v1")
+        UserDefaults.standard.removeObject(forKey: "set_weight_mode_per_side_backfill_v1")
+        print("🧹 Workout user data cleared for sign-out")
     }
     
     // MARK: - Data Migration

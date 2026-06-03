@@ -79,6 +79,21 @@ final class FoodLogViewModel: ObservableObject {
             .map { $0 }
     }
 
+    func clearAllUserDataForSignOut() {
+        entries.forEach { entry in
+            if let photoFileName = entry.photoFileName {
+                deletePhoto(named: photoFileName)
+            }
+        }
+        entries = []
+        cachedFoods = []
+        searchResults = []
+        errorMessage = nil
+        scanStatus = .idle
+        UserDefaults.standard.removeObject(forKey: storageKey)
+        UserDefaults.standard.removeObject(forKey: cachedFoodsKey)
+    }
+
     // MARK: - API Lookup
 
     func searchFood(query: String) async {
@@ -338,6 +353,7 @@ final class FoodLogViewModel: ObservableObject {
     }
 
     private func syncEntryToSupabaseMetrics(_ entry: FoodLogEntry) {
+        guard let userId = AuthService.shared.currentUser?.id else { return }
         let log = NutritionLog(
             id: entry.id,
             loggedAt: entry.loggedAt,
@@ -348,7 +364,7 @@ final class FoodLogViewModel: ObservableObject {
             waterMl: 0
         )
         Task.detached(priority: .utility) {
-            await MetricsService.shared.syncNutritionLog(log)
+            await MetricsService.shared.syncNutritionLog(log, expectedUserId: userId)
         }
     }
 }
