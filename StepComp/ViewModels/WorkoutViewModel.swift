@@ -1031,6 +1031,20 @@ class WorkoutViewModel: ObservableObject {
         vm.finishedSession = nil
         print("🧹 All active workout state cleared")
     }
+
+    static func clearAllUserDataForSignOut() {
+        let vm = WorkoutViewModel.shared
+        vm.cancelWorkout()
+        vm.finishedSession = nil
+        vm.workouts = []
+        vm.completedSessions = []
+        vm.workoutTargetDate = nil
+        UserDefaults.standard.removeObject(forKey: "saved_workouts")
+        UserDefaults.standard.removeObject(forKey: "completed_workout_sessions")
+        UserDefaults.standard.removeObject(forKey: "weights_migrated_to_kg_v1")
+        UserDefaults.standard.removeObject(forKey: "set_weight_mode_per_side_backfill_v1")
+        print("🧹 Workout user data cleared for sign-out")
+    }
     
     // MARK: - Data Migration
     

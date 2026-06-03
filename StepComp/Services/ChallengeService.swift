@@ -581,6 +581,7 @@ final class ChallengeService: ObservableObject {
     
     #if canImport(Supabase)
     private func getDailyLeaderboardFromSupabase(challengeId: String) async -> [LeaderboardEntry] {
+        guard let userId = AuthService.shared.currentUser?.id else { return [] }
         do {
             let serverEntries: [ServerLeaderboardEntry] = try await SupabaseRequestExecutor.executeWithAuthRetry(context: "get_daily_leaderboard") {
                 try await supabase
@@ -588,6 +589,7 @@ final class ChallengeService: ObservableObject {
                     .execute()
                     .value
             }
+            guard AuthService.shared.currentUser?.id == userId else { return [] }
             
             // Convert to client model
             let entries = serverEntries.map { $0.toLeaderboardEntry(challengeId: challengeId) }
@@ -602,6 +604,7 @@ final class ChallengeService: ObservableObject {
     }
     
     private func getWeeklyLeaderboardFromSupabase(challengeId: String) async -> [LeaderboardEntry] {
+        guard let userId = AuthService.shared.currentUser?.id else { return [] }
         do {
             let calendar = Calendar.current
             let now = Date()
@@ -642,6 +645,7 @@ final class ChallengeService: ObservableObject {
                 .in("id", values: userIds)
                 .execute()
                 .value
+            guard AuthService.shared.currentUser?.id == userId else { return [] }
             
             // Create leaderboard entries
             var entries: [LeaderboardEntry] = []
@@ -677,6 +681,7 @@ final class ChallengeService: ObservableObject {
     }
     
     private func loadChallengesFromSupabase() async {
+        var requestedUserId: String?
         do {
             // Check if user is authenticated before trying to load challenges
             do {
@@ -690,6 +695,7 @@ final class ChallengeService: ObservableObject {
             // Get current user ID from session
             let session = try await supabase.auth.session
             let userId = session.user.id.uuidString
+            requestedUserId = userId
             
             let pageSize = 200
             // Load challenges where user is creator
@@ -793,6 +799,11 @@ final class ChallengeService: ObservableObject {
                 
                 loadedChallenges.append(challenge)
             }
+
+            guard AuthService.shared.currentUser?.id == userId else {
+                print("ℹ️ Ignoring stale challenge load for signed-out or superseded session")
+                return
+            }
             
             challenges = loadedChallenges
             print("✅ Loaded \(challenges.count) challenges from Supabase")
@@ -804,6 +815,14 @@ final class ChallengeService: ObservableObject {
             print("⚠️ Error loading challenges from Supabase: \(error.localizedDescription)")
             lastErrorMessage = error.localizedDescription
             // Fallback to local storage
+            guard let requestedUserId else {
+                print("ℹ️ Skipping local challenge fallback without an authenticated user scope")
+                return
+            }
+            if AuthService.shared.currentUser?.id != requestedUserId {
+                print("ℹ️ Skipping stale local challenge fallback for signed-out or superseded session")
+                return
+            }
             loadChallenges()
         }
     }

@@ -79,6 +79,21 @@ final class FoodLogViewModel: ObservableObject {
             .map { $0 }
     }
 
+    func clearAllUserDataForSignOut() {
+        entries.forEach { entry in
+            if let photoFileName = entry.photoFileName {
+                deletePhoto(named: photoFileName)
+            }
+        }
+        entries = []
+        cachedFoods = []
+        searchResults = []
+        errorMessage = nil
+        scanStatus = .idle
+        UserDefaults.standard.removeObject(forKey: storageKey)
+        UserDefaults.standard.removeObject(forKey: cachedFoodsKey)
+    }
+
     // MARK: - API Lookup
 
     func searchFood(query: String) async {

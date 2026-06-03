@@ -61,6 +61,12 @@ class TransformationPhotoViewModel: ObservableObject {
                 try backData.write(to: backURL)
 
                 await MainActor.run {
+                    guard AuthService.shared.currentUser != nil else {
+                        try? FileManager.default.removeItem(at: frontURL)
+                        try? FileManager.default.removeItem(at: sideURL)
+                        try? FileManager.default.removeItem(at: backURL)
+                        return
+                    }
                     let photo = TransformationPhoto(
                         date: date,
                         frontFilename: frontFilename,
@@ -120,6 +126,14 @@ class TransformationPhotoViewModel: ObservableObject {
             return nil
         }
         return image
+    }
+
+    func clearAllUserDataForSignOut() {
+        try? FileManager.default.removeItem(at: photoDirectory)
+        photos = []
+        latestPhoto = nil
+        UserDefaults.standard.removeObject(forKey: userDefaultsKey)
+        createPhotoDirectoryIfNeeded()
     }
     
     // MARK: - Private Methods

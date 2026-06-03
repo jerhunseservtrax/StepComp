@@ -28,8 +28,16 @@ final class MetricsService: ObservableObject {
     /// Converts a local CompletedWorkoutSession to a JSON payload and syncs to Supabase.
     func syncWorkoutSession(_ session: CompletedWorkoutSession) async {
         #if canImport(Supabase)
+        guard let userId = AuthService.shared.currentUser?.id else {
+            print("⚠️ [MetricsService] No current user, skipping workout sync")
+            return
+        }
         do {
-            _ = try await supabase.auth.session
+            let authSession = try await supabase.auth.session
+            guard authSession.user.id.uuidString == userId else {
+                print("⚠️ [MetricsService] Auth user changed, skipping workout sync")
+                return
+            }
         } catch {
             print("⚠️ [MetricsService] No session, skipping workout sync")
             return
@@ -38,6 +46,10 @@ final class MetricsService: ObservableObject {
         let sessionPayload = sessionPayload(for: session)
 
         do {
+            guard AuthService.shared.currentUser?.id == userId else {
+                print("⚠️ [MetricsService] User changed before workout sync started")
+                return
+            }
             _ = try await SupabaseRequestExecutor.executeWithAuthRetry(context: "sync_workout_session") {
                 try await supabase
                     .rpc("sync_workout_session", params: [
@@ -46,7 +58,11 @@ final class MetricsService: ObservableObject {
                     .execute()
             }
 
-            markSessionSynced(session.id)
+            guard AuthService.shared.currentUser?.id == userId else {
+                print("⚠️ [MetricsService] User changed before workout sync completed")
+                return
+            }
+            markSessionSynced(session.id, userId: userId)
             print("✅ [MetricsService] Synced workout session: \(session.workoutName)")
         } catch {
             print("❌ [MetricsService] Failed to sync workout session: \(error.localizedDescription)")
@@ -59,8 +75,16 @@ final class MetricsService: ObservableObject {
     /// Syncs a single weight entry to Supabase via the sync_weight_entry RPC.
     func syncWeightEntry(_ entry: WeightEntry) async {
         #if canImport(Supabase)
+        guard let userId = AuthService.shared.currentUser?.id else {
+            print("⚠️ [MetricsService] No current user, skipping weight sync")
+            return
+        }
         do {
-            _ = try await supabase.auth.session
+            let authSession = try await supabase.auth.session
+            guard authSession.user.id.uuidString == userId else {
+                print("⚠️ [MetricsService] Auth user changed, skipping weight sync")
+                return
+            }
         } catch {
             print("⚠️ [MetricsService] No session, skipping weight sync")
             return
@@ -71,6 +95,10 @@ final class MetricsService: ObservableObject {
         let dateString = dateFormatter.string(from: entry.date)
 
         do {
+            guard AuthService.shared.currentUser?.id == userId else {
+                print("⚠️ [MetricsService] User changed before weight sync started")
+                return
+            }
             _ = try await SupabaseRequestExecutor.executeWithAuthRetry(context: "sync_weight_entry") {
                 try await supabase
                     .rpc("sync_weight_entry", params: [
@@ -81,7 +109,11 @@ final class MetricsService: ObservableObject {
                     .execute()
             }
 
-            markWeightEntrySynced(entry.id)
+            guard AuthService.shared.currentUser?.id == userId else {
+                print("⚠️ [MetricsService] User changed before weight sync completed")
+                return
+            }
+            markWeightEntrySynced(entry.id, userId: userId)
             print("✅ [MetricsService] Synced weight entry: \(entry.weightKg) kg on \(dateString)")
         } catch {
             print("❌ [MetricsService] Failed to sync weight entry: \(error.localizedDescription)")
@@ -95,8 +127,16 @@ final class MetricsService: ObservableObject {
     /// Call this on app launch to recover from any missed syncs.
     func syncAllLocalData() async {
         #if canImport(Supabase)
+        guard let userId = AuthService.shared.currentUser?.id else {
+            print("⚠️ [MetricsService] No current user, skipping bulk sync")
+            return
+        }
         do {
-            _ = try await supabase.auth.session
+            let authSession = try await supabase.auth.session
+            guard authSession.user.id.uuidString == userId else {
+                print("⚠️ [MetricsService] Auth user changed, skipping bulk sync")
+                return
+            }
         } catch {
             print("⚠️ [MetricsService] No session, skipping bulk sync")
             return
@@ -107,19 +147,27 @@ final class MetricsService: ObservableObject {
         let workoutVM = WorkoutViewModel.shared
         let weightVM = WeightViewModel.shared
 
-        let syncedSessionIds = getSyncedSessionIds()
+        let syncedSessionIds = getSyncedSessionIds(userId: userId)
         let unsyncedSessions = workoutVM.completedSessions.filter { !syncedSessionIds.contains($0.id.uuidString) }
 
         if !unsyncedSessions.isEmpty {
             print("🔄 [MetricsService] Syncing \(unsyncedSessions.count) unsynced workout sessions...")
             let batchPayload = unsyncedSessions.map { AnyJSON.object(sessionPayload(for: $0)) }
             do {
+                guard AuthService.shared.currentUser?.id == userId else {
+                    print("⚠️ [MetricsService] User changed before batch workout sync started")
+                    return
+                }
                 _ = try await SupabaseRequestExecutor.executeWithAuthRetry(context: "sync_workout_sessions_batch") {
                     try await supabase
                         .rpc("sync_workout_sessions_batch", params: ["p_sessions": .array(batchPayload)] as [String: AnyJSON])
                         .execute()
                 }
-                unsyncedSessions.forEach { markSessionSynced($0.id) }
+                guard AuthService.shared.currentUser?.id == userId else {
+                    print("⚠️ [MetricsService] User changed before batch workout sync completed")
+                    return
+                }
+                unsyncedSessions.forEach { markSessionSynced($0.id, userId: userId) }
             } catch {
                 for session in unsyncedSessions {
                     await syncWorkoutSession(session)
@@ -127,7 +175,7 @@ final class MetricsService: ObservableObject {
             }
         }
 
-        let syncedWeightIds = getSyncedWeightEntryIds()
+        let syncedWeightIds = getSyncedWeightEntryIds(userId: userId)
         let unsyncedEntries = weightVM.entries.filter { !syncedWeightIds.contains($0.id.uuidString) }
 
         if !unsyncedEntries.isEmpty {
@@ -142,12 +190,20 @@ final class MetricsService: ObservableObject {
                 ])
             }
             do {
+                guard AuthService.shared.currentUser?.id == userId else {
+                    print("⚠️ [MetricsService] User changed before batch weight sync started")
+                    return
+                }
                 _ = try await SupabaseRequestExecutor.executeWithAuthRetry(context: "sync_weight_entries_batch") {
                     try await supabase
                         .rpc("sync_weight_entries_batch", params: ["p_entries": .array(batchPayload)] as [String: AnyJSON])
                         .execute()
                 }
-                unsyncedEntries.forEach { markWeightEntrySynced($0.id) }
+                guard AuthService.shared.currentUser?.id == userId else {
+                    print("⚠️ [MetricsService] User changed before batch weight sync completed")
+                    return
+                }
+                unsyncedEntries.forEach { markWeightEntrySynced($0.id, userId: userId) }
             } catch {
                 for entry in unsyncedEntries {
                     await syncWeightEntry(entry)
@@ -410,35 +466,41 @@ final class MetricsService: ObservableObject {
         ]
     }
 
-    private func getSyncedSessionIds() -> Set<String> {
-        Set(UserDefaults.standard.stringArray(forKey: syncedSessionsKey) ?? [])
+    private func scopedSyncKey(_ key: String, userId: String) -> String {
+        "user_\(userId)_\(key)"
+    }
+
+    private func getSyncedSessionIds(userId: String) -> Set<String> {
+        Set(UserDefaults.standard.stringArray(forKey: scopedSyncKey(syncedSessionsKey, userId: userId)) ?? [])
     }
 
     private let maxTrackedSyncIds = 500
 
-    private func markSessionSynced(_ id: UUID) {
-        var ids = UserDefaults.standard.stringArray(forKey: syncedSessionsKey) ?? []
+    private func markSessionSynced(_ id: UUID, userId: String) {
+        let key = scopedSyncKey(syncedSessionsKey, userId: userId)
+        var ids = UserDefaults.standard.stringArray(forKey: key) ?? []
         let idString = id.uuidString
         guard !ids.contains(idString) else { return }
         ids.append(idString)
         if ids.count > maxTrackedSyncIds {
             ids = Array(ids.suffix(maxTrackedSyncIds))
         }
-        UserDefaults.standard.set(ids, forKey: syncedSessionsKey)
+        UserDefaults.standard.set(ids, forKey: key)
     }
 
-    private func getSyncedWeightEntryIds() -> Set<String> {
-        Set(UserDefaults.standard.stringArray(forKey: syncedWeightEntriesKey) ?? [])
+    private func getSyncedWeightEntryIds(userId: String) -> Set<String> {
+        Set(UserDefaults.standard.stringArray(forKey: scopedSyncKey(syncedWeightEntriesKey, userId: userId)) ?? [])
     }
 
-    private func markWeightEntrySynced(_ id: UUID) {
-        var ids = UserDefaults.standard.stringArray(forKey: syncedWeightEntriesKey) ?? []
+    private func markWeightEntrySynced(_ id: UUID, userId: String) {
+        let key = scopedSyncKey(syncedWeightEntriesKey, userId: userId)
+        var ids = UserDefaults.standard.stringArray(forKey: key) ?? []
         let idString = id.uuidString
         guard !ids.contains(idString) else { return }
         ids.append(idString)
         if ids.count > maxTrackedSyncIds {
             ids = Array(ids.suffix(maxTrackedSyncIds))
         }
-        UserDefaults.standard.set(ids, forKey: syncedWeightEntriesKey)
+        UserDefaults.standard.set(ids, forKey: key)
     }
 }

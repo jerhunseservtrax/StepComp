@@ -211,9 +211,14 @@ final class AuthService: ObservableObject {
         // Clear user-scoped local state so a later account cannot see stale private data.
         OfflineCacheService.clearAll()
         ChallengeService.shared.clearSessionState()
+        clearUserProfileDefaults()
 
-        // Clear active workout state (in-memory session, draft, widget, live activity)
-        WorkoutViewModel.clearAllActiveWorkoutState()
+        // Clear local user-owned stores that are keyed globally on this device.
+        WorkoutViewModel.clearAllUserDataForSignOut()
+        WeightViewModel.shared.clearAllUserDataForSignOut()
+        FoodLogViewModel.shared.clearAllUserDataForSignOut()
+        ComprehensiveMetricsStore.shared.clearAllUserDataForSignOut()
+        TransformationPhotoViewModel.shared.clearAllUserDataForSignOut()
     }
 
     private func beginAuthStateGeneration() -> Int {
@@ -223,6 +228,27 @@ final class AuthService: ObservableObject {
 
     private func isAuthStateGenerationCurrent(_ generation: Int) -> Bool {
         generation == authStateGeneration
+    }
+
+    private func clearUserProfileDefaults() {
+        [
+            "userHeight",
+            "userWeight",
+            "user_weight",
+            "dailyStepGoal",
+            "daily_calorie_goal",
+            "daily_protein_goal_g",
+            "calorie_goal_is_manual",
+            "user_age",
+            "user_biological_sex",
+            "user_activity_level",
+            "user_weight_goal",
+            "user_goal_aggressiveness",
+            "calorie_workout_days_per_week",
+            "selectedAvatarURL",
+            "selectedAvatarPhotoData",
+            "selectedAvatarEmoji"
+        ].forEach { UserDefaults.standard.removeObject(forKey: $0) }
     }
     
     /// Refreshes the session when a 401 is received.
@@ -282,10 +308,18 @@ final class AuthService: ObservableObject {
             )
         } catch {
             print("⚠️ Force logout signOut failed, clearing local auth state: \(error.localizedDescription)")
-            applySignedOutState(deleteCachedUser: true)
+            applySignedOutState(
+                deleteCachedUser: true,
+                reason: "failed force logout",
+                allowDuringStartupCheck: true
+            )
         }
         #else
-        applySignedOutState(deleteCachedUser: true)
+        applySignedOutState(
+            deleteCachedUser: true,
+            reason: "force logout without Supabase",
+            allowDuringStartupCheck: true
+        )
         #endif
     }
     
@@ -925,9 +959,13 @@ final class AuthService: ObservableObject {
             // Store height and weight in UserDefaults for ProfileViewModel to access
             if let height = profile.height {
                 UserDefaults.standard.set(height, forKey: "userHeight")
+            } else {
+                UserDefaults.standard.removeObject(forKey: "userHeight")
             }
             if let weight = profile.weight {
                 UserDefaults.standard.set(weight, forKey: "userWeight")
+            } else {
+                UserDefaults.standard.removeObject(forKey: "userWeight")
             }
             // Store daily step goal in UserDefaults
             if let dailyStepGoal = profile.dailyStepGoal {
