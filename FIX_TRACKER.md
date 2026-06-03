@@ -89,7 +89,7 @@
 - **Status:** Fixed (2026-06-03)
 - **Symptom:** On a shared device, User B could see User A's cached metrics or leaderboard data when a network fetch failed after account switch. Active workout state could also survive sign-out in memory and be re-saved by lifecycle reconciliation.
 - **Root Cause:** `OfflineCacheService` used unscoped cache keys and was not cleared on sign-out. `WorkoutViewModel.clearAllActiveWorkoutState()` cleared only persisted/widget/live-activity state, not the in-memory `currentSession`.
-- **Fix:** Added user-scoped cache APIs and moved metrics/leaderboard fallbacks onto current-user keys. Sign-out now clears offline cache and challenge session state. Active workout cleanup now cancels the in-memory session as well as persisted/widget/live-activity state.
+- **Fix:** Added user-scoped cache APIs and moved metrics/leaderboard fallbacks onto current-user keys. Sign-out now clears offline cache plus in-memory and persisted challenge fallback state immediately, even if the Supabase signed-out event is delayed or sign-out fails locally. Active workout cleanup now cancels the in-memory session as well as persisted/widget/live-activity state.
 - **Files:** `OfflineCacheService.swift`, `MetricsService.swift`, `ChallengeService.swift`, `AuthService.swift`, `WorkoutViewModel.swift`, `OfflineCacheServiceTests.swift`
 - **Prevention:** Any cache containing user-owned data must include the authenticated user ID in the key and must be cleared on sign-out. Sign-out cleanup must clear both persisted and in-memory state.
 
