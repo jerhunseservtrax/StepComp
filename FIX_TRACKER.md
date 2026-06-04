@@ -1,7 +1,7 @@
 # FitComp Fix Tracker
 
 > Log of all bugs encountered and fixes implemented to prevent recurrence.
-> Last updated: 2026-04-13 (v6)
+> Last updated: 2026-06-04 (v7)
 
 ---
 
@@ -26,6 +26,16 @@
 ---
 
 ## Critical Fixes
+
+### 0. Shared-Device Privacy Leak Through Offline Cache and Active Workout Memory
+- **Commit:** This PR
+- **Symptom:** On a shared device, after User A signed out and User B signed in, User B could see User A's cached metrics/weight/workout history on offline fetch fallback, locally persisted workout/weight data, and active workout state held by singleton view models.
+- **Root Cause:** `OfflineCacheService`, workout persistence, and weight persistence used global local-storage keys. Logout cleanup waited for remote Supabase sign-out and cleared only the active workout draft/widget/live activity, not all in-memory user-owned workout and weight state.
+- **Fix:** Scoped offline cache and local workout/weight persistence by authenticated user, captured cache scope at async fetch start, guarded legacy local-data migration to already-cached users only, cleared cache scope plus singleton challenge/workout/weight memory during explicit/forced sign-out before awaiting Supabase, and routed active workout cleanup through `cancelWorkout()` so in-memory session state is reset.
+- **Files:** `OfflineCacheService.swift`, `AuthService.swift`, `WorkoutViewModel.swift`, `WeightViewModel.swift`, `ChallengeService.swift`, `OfflineCacheServiceTests.swift`, `WorkoutViewModelLogoutCleanupTests.swift`, `WeightViewModelLogoutCleanupTests.swift`
+- **Prevention:** Any disk or singleton-held user data must either be user-scoped or cleared synchronously on logout; async cache writes must preserve the user scope captured at request start.
+
+---
 
 ### 1. Workout State Data Loss After Long Sessions
 - **Commit:** `6b21b36`
