@@ -34,6 +34,7 @@ final class AuthService: ObservableObject {
     #if canImport(Supabase)
     private var authStateListenerTask: Task<Void, Never>?
     #endif
+    private var authStateGeneration = 0
     
     private init() {
         if useSupabase {
@@ -200,12 +201,39 @@ final class AuthService: ObservableObject {
 
         currentUser = nil
         isAuthenticated = false
+        authStateGeneration += 1
         if deleteCachedUser {
             KeychainStore.delete(account: keychainUserAccount)
         }
-        
-        // Clear active workout state (draft, widget, live activity)
-        WorkoutViewModel.clearAllActiveWorkoutState()
+
+        clearSensitiveLocalState()
+
+    }
+
+    private func clearSensitiveLocalState() {
+        WorkoutViewModel.clearAllLocalUserState()
+        WeightViewModel.clearAllLocalUserState()
+        ChallengeService.shared.clearAllLocalUserState()
+        clearGlobalProfileDefaults()
+        OfflineCacheService.setUserScope(userId: nil)
+    }
+
+    private func clearGlobalProfileDefaults() {
+        [
+            "userHeight",
+            "userWeight",
+            "dailyStepGoal",
+            "user_weight"
+        ].forEach { UserDefaults.standard.removeObject(forKey: $0) }
+    }
+
+    private func configureLocalUserScope(for user: User, migratingLegacyLocalData: Bool = false) {
+        let didChangeScope = OfflineCacheService.setUserScope(userId: user.id)
+        if didChangeScope {
+            authStateGeneration += 1
+            WorkoutViewModel.reloadForCurrentUserScope(migratingLegacyData: migratingLegacyLocalData)
+            WeightViewModel.reloadForCurrentUserScope(migratingLegacyData: migratingLegacyLocalData)
+        }
     }
     
     /// Refreshes the session when a 401 is received.
@@ -251,12 +279,16 @@ final class AuthService: ObservableObject {
     @MainActor
     private func forceLogout() async {
         #if canImport(Supabase)
+        applySignedOutState(
+            deleteCachedUser: true,
+            reason: "force logout",
+            allowDuringStartupCheck: true
+        )
         do {
             try await supabase.auth.signOut()
-            print("🚪 Force logout requested - waiting for signed-out event")
+            print("🚪 Force logout requested after local state cleared")
         } catch {
-            print("⚠️ Force logout signOut failed, clearing local auth state: \(error.localizedDescription)")
-            applySignedOutState(deleteCachedUser: true)
+            print("⚠️ Force logout signOut failed after local state cleared: \(error.localizedDescription)")
         }
         #else
         applySignedOutState(deleteCachedUser: true)
@@ -576,10 +608,18 @@ final class AuthService: ObservableObject {
         
         #if canImport(Supabase)
         if useSupabase {
-            // This clears the session from Supabase's internal storage.
-            // Local cleanup is handled by the signed-out auth state event.
-            try await supabase.auth.signOut()
-            print("✅ Supabase sign out requested - awaiting signed-out event")
+            applySignedOutState(
+                deleteCachedUser: true,
+                reason: "user initiated logout",
+                allowDuringStartupCheck: true
+            )
+            do {
+                // This clears the session from Supabase's internal storage.
+                try await supabase.auth.signOut()
+            } catch {
+                throw error
+            }
+            print("✅ Local state cleared and Supabase sign out requested")
             return
         }
         #endif
@@ -821,6 +861,7 @@ final class AuthService: ObservableObject {
     }
     
     private func loadUserProfile(userId: String) async {
+        let profileLoadGeneration = authStateGeneration
         do {
             // PERMANENT LOGIN: Load profile directly from database using userId
             // Don't require a valid session - the profile has all the info we need
@@ -855,6 +896,11 @@ final class AuthService: ObservableObject {
             
             // Use email from session if available, otherwise from profile
             let email = sessionEmail ?? profile.email ?? ""
+
+            guard await shouldApplyProfileLoad(for: userId, generation: profileLoadGeneration) else {
+                print("ℹ️ Ignoring stale profile load for signed-out or switched user")
+                return
+            }
             
             let user = User(
                 id: profile.id,
@@ -894,6 +940,11 @@ final class AuthService: ObservableObject {
                 return
             }
             print("⚠️ Error loading user profile: \(error.localizedDescription)")
+
+            guard await shouldApplyProfileLoad(for: userId, generation: profileLoadGeneration) else {
+                print("ℹ️ Ignoring stale profile fallback for signed-out or switched user")
+                return
+            }
             
             // If we can't load from database, try to use locally cached user
             // This handles offline scenarios
@@ -924,6 +975,23 @@ final class AuthService: ObservableObject {
         }
     }
 
+    private func shouldApplyProfileLoad(for userId: String, generation: Int) async -> Bool {
+        guard authStateGeneration == generation else {
+            return false
+        }
+
+        if currentUser?.id == userId || decodeCachedUser()?.id == userId {
+            return true
+        }
+
+        do {
+            let session = try await supabase.auth.session
+            return session.user.id.uuidString == userId
+        } catch {
+            return false
+        }
+    }
+
     @MainActor
     private func waitForProfileLoad(
         _ profileLoadTask: Task<Void, Never>,
@@ -950,10 +1018,9 @@ final class AuthService: ObservableObject {
     
     /// Load cached user from UserDefaults (for offline access)
     private func loadCachedUser() -> User? {
-        guard let data = KeychainStore.load(account: keychainUserAccount) else {
-            return nil
-        }
-        return try? JSONDecoder().decode(User.self, from: data)
+        guard let user = decodeCachedUser() else { return nil }
+        configureLocalUserScope(for: user, migratingLegacyLocalData: true)
+        return user
     }
     
     private func updateUserProfile(user: User) async {
@@ -1159,18 +1226,28 @@ final class AuthService: ObservableObject {
     private func saveUser() {
         if let user = currentUser,
            let encoded = try? JSONEncoder().encode(user) {
+            let shouldMigrateLegacyLocalData = decodeCachedUser()?.id == user.id
             KeychainStore.save(encoded, account: keychainUserAccount)
+            configureLocalUserScope(
+                for: user,
+                migratingLegacyLocalData: shouldMigrateLegacyLocalData
+            )
         }
     }
     
     private func loadUser() {
-        guard let data = KeychainStore.load(account: keychainUserAccount),
-              let user = try? JSONDecoder().decode(User.self, from: data) else {
-            return
-        }
+        guard let user = decodeCachedUser() else { return }
         
         currentUser = user
         isAuthenticated = true
+        configureLocalUserScope(for: user, migratingLegacyLocalData: true)
+    }
+
+    private func decodeCachedUser() -> User? {
+        guard let data = KeychainStore.load(account: keychainUserAccount) else {
+            return nil
+        }
+        return try? JSONDecoder().decode(User.self, from: data)
     }
 }
 

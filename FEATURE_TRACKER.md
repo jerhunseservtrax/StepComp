@@ -1,7 +1,7 @@
 # FitComp Feature Tracker
 
 > Comprehensive catalog of all features in the FitComp fitness competition app (formerly StepComp).
-> Last updated: 2026-04-13 (v5)
+> Last updated: 2026-06-04 (v6)
 
 ---
 
@@ -109,7 +109,7 @@
 | Rest Timer Alerts | `RestTimerManager.swift` | Visual, haptic, sound, and push notification alerts |
 | Smart Rest Suggestions | `WorkoutAnalyticsEngine.swift` | Auto-suggest rest duration based on exercise intensity and set exertion |
 | Progressive Overload | `WorkoutAnalyticsEngine.swift` | Trend detection (progressing/plateau/regressing), 1RM estimation, overload recommendations |
-| Workout Persistence | `WorkoutViewModel.swift` | Save/restore active workout state across app lifecycle |
+| Workout Persistence | `WorkoutViewModel.swift` | User-scoped save/restore for workout lists, completed sessions, and active workout state across app lifecycle |
 | Workout Summary | `WorkoutSummaryView.swift` | Post-workout stats (duration, exercises, sets, calories) |
 | Session History | `CompletedSessionDetailView.swift` | View past workout details |
 | Edit Sessions | `EditCompletedSessionView.swift` | Modify completed session data |
@@ -121,7 +121,7 @@
 |---------|---------|-------------|
 | Log Weight | `WeightEntryView.swift` | Daily weight entries |
 | Weight Graph | `WeightTrackingCard.swift` | Weight history visualization |
-| Weight Progress | `WeightViewModel.swift` | Trend tracking over time |
+| Weight Progress | `WeightViewModel.swift` | User-scoped weight history and trend tracking over time |
 
 ### Transformation Photos
 
@@ -266,7 +266,7 @@
 | Unit Preference | `SettingsPreferencesCard.swift`, `UnitPreferenceManager.swift` | Metric/imperial system |
 | HealthKit Toggle | `SettingsConnectivityCard.swift` | Enable/disable HealthKit integration |
 | Notification Prefs | `SettingsNotificationsCard.swift` | Daily recap, leaderboard alerts, motivational nudges |
-| Sign Out | `SettingsView.swift`, `SettingsMainContent.swift`, `SessionViewModel.swift` | Logout with proper cleanup |
+| Sign Out | `SettingsView.swift`, `SettingsMainContent.swift`, `SessionViewModel.swift`, `AuthService.swift`, `ChallengeService.swift`, `WorkoutViewModel.swift`, `WeightViewModel.swift` | Logout with immediate sensitive local cleanup for cache, challenge, workout, and weight state |
 | Delete Account | `DeleteAccountConfirmationView.swift`, `SettingsView.swift`, `SettingsViewModifiers.swift` | Account deletion with confirmation |
 | Streak Display | `SettingsView.swift`, `SettingsLayoutViews.swift` | Current step streak (30-day lookback) |
 
@@ -357,7 +357,7 @@
 | Haptic Manager | `HapticManager.swift` | Haptic feedback patterns |
 | Keychain Store | `KeychainStore.swift` | Secure credential storage with kSecAttrService scoping and OSStatus error handling |
 | Retry Utility | `RetryUtility.swift` | Exponential backoff retry logic |
-| Offline Cache | `OfflineCacheService.swift` | Generic disk-backed Codable cache with fetch-with-fallback for offline resilience |
+| Offline Cache | `OfflineCacheService.swift` | User-scoped disk-backed Codable cache with fetch-with-fallback for offline resilience |
 | Cached Async Image | `CachedAsyncImage.swift` | Image caching for remote images (used in ProfileView, etc.) |
 | Reaction Effects | `ReactionEffectManager.swift` | Celebration/reaction animations |
 | Avatar View | `AvatarView.swift` | Reusable avatar component |

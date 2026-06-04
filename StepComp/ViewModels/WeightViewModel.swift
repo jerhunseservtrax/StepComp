@@ -19,6 +19,9 @@ class WeightViewModel: ObservableObject {
     @Published var latestWeight: Double?
     
     private let userDefaultsKey = "weight_entries"
+    private var scopedUserDefaultsKey: String {
+        OfflineCacheService.scopedPersistenceKey(userDefaultsKey)
+    }
     private let healthKitService: HealthKitService
     
     private init() {
@@ -65,10 +68,25 @@ class WeightViewModel: ObservableObject {
         let cutoffDate = calendar.date(byAdding: .day, value: -days, to: Date()) ?? Date()
         return entries.filter { $0.date >= cutoffDate }.sorted { $0.date < $1.date }
     }
+
+    static func clearAllLocalUserState() {
+        let vm = WeightViewModel.shared
+        vm.entries = []
+        vm.latestWeight = nil
+    }
+
+    static func reloadForCurrentUserScope(migratingLegacyData: Bool = false) {
+        let vm = WeightViewModel.shared
+        if migratingLegacyData {
+            vm.migrateLegacyEntriesToCurrentScopeIfNeeded()
+        }
+        vm.loadEntries()
+    }
     
     // MARK: - HealthKit Integration
     
     func syncWithHealthKit() async {
+        let syncScope = OfflineCacheService.currentScopeToken()
         guard healthKitService.isAuthorized else {
             print("⚠️ HealthKit not authorized, skipping sync")
             return
@@ -76,6 +94,8 @@ class WeightViewModel: ObservableObject {
         
         do {
             if let healthKitWeight = try await healthKitService.getWeight() {
+                guard OfflineCacheService.currentScopeToken() == syncScope else { return }
+
                 // Check if we need to add this as a new entry
                 let today = Calendar.current.startOfDay(for: Date())
                 let hasEntryToday = entries.contains { entry in
@@ -118,16 +138,26 @@ class WeightViewModel: ObservableObject {
     
     private func saveEntries() {
         if let encoded = try? JSONEncoder().encode(entries) {
-            UserDefaults.standard.set(encoded, forKey: userDefaultsKey)
+            UserDefaults.standard.set(encoded, forKey: scopedUserDefaultsKey)
         }
     }
     
     private func loadEntries() {
-        if let data = UserDefaults.standard.data(forKey: userDefaultsKey),
+        entries = []
+        latestWeight = nil
+        if let data = UserDefaults.standard.data(forKey: scopedUserDefaultsKey),
            let decoded = try? JSONDecoder().decode([WeightEntry].self, from: data) {
             entries = decoded.sorted { $0.date > $1.date }
             updateLatestWeight()
         }
+    }
+
+    private func migrateLegacyEntriesToCurrentScopeIfNeeded() {
+        guard UserDefaults.standard.data(forKey: scopedUserDefaultsKey) == nil,
+              let legacyData = UserDefaults.standard.data(forKey: userDefaultsKey) else {
+            return
+        }
+        UserDefaults.standard.set(legacyData, forKey: scopedUserDefaultsKey)
     }
     
     private func updateLatestWeight() {

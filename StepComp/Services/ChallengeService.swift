@@ -34,6 +34,12 @@ final class ChallengeService: ObservableObject {
         loadLeaderboards()
         #endif
     }
+
+    func clearAllLocalUserState() {
+        challenges = []
+        leaderboardEntries = [:]
+        lastErrorMessage = nil
+    }
     
     // MARK: - Challenges
     
@@ -515,6 +521,7 @@ final class ChallengeService: ObservableObject {
     #if canImport(Supabase)
     private func getLeaderboardFromSupabase(challengeId: String) async -> [LeaderboardEntry] {
         let cacheKey = "leaderboard_\(challengeId)"
+        let cacheScope = OfflineCacheService.currentScopeToken()
         do {
             let serverEntries: [ServerLeaderboardEntry] = try await SupabaseRequestExecutor.executeWithAuthRetry(context: "get_leaderboard") {
                 try await supabase
@@ -524,11 +531,13 @@ final class ChallengeService: ObservableObject {
             }
 
             let entries = serverEntries.map { $0.toLeaderboardEntry(challengeId: challengeId) }
+            guard OfflineCacheService.currentScopeToken() == cacheScope else { return [] }
+            OfflineCacheService.save(entries, key: cacheKey, scopeToken: cacheScope)
             leaderboardEntries[challengeId] = entries
-            OfflineCacheService.save(entries, key: cacheKey)
             return entries
         } catch {
-            if let cached = OfflineCacheService.load([LeaderboardEntry].self, key: cacheKey) {
+            guard OfflineCacheService.currentScopeToken() == cacheScope else { return [] }
+            if let cached = OfflineCacheService.load([LeaderboardEntry].self, key: cacheKey, scopeToken: cacheScope) {
                 leaderboardEntries[challengeId] = cached
                 return cached
             }
@@ -659,6 +668,7 @@ final class ChallengeService: ObservableObject {
     }
     
     private func loadChallengesFromSupabase() async {
+        let loadScope = OfflineCacheService.currentScopeToken()
         do {
             // Check if user is authenticated before trying to load challenges
             do {
@@ -776,6 +786,7 @@ final class ChallengeService: ObservableObject {
                 loadedChallenges.append(challenge)
             }
             
+            guard OfflineCacheService.currentScopeToken() == loadScope else { return }
             challenges = loadedChallenges
             print("✅ Loaded \(challenges.count) challenges from Supabase")
             // Log challenge details for debugging
@@ -783,10 +794,9 @@ final class ChallengeService: ObservableObject {
                 print("  - Challenge: \(challenge.name) (ID: \(challenge.id), Creator: \(challenge.creatorId), Participants: \(challenge.participantIds.count), Start: \(challenge.startDate), End: \(challenge.endDate))")
             }
         } catch {
+            guard OfflineCacheService.currentScopeToken() == loadScope else { return }
             print("⚠️ Error loading challenges from Supabase: \(error.localizedDescription)")
             lastErrorMessage = error.localizedDescription
-            // Fallback to local storage
-            loadChallenges()
         }
     }
     #endif
