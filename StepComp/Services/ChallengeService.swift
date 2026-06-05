@@ -21,7 +21,8 @@ final class ChallengeService: ObservableObject {
     private let challengesKey = "challenges"
     private let leaderboardKey = "leaderboard"
     private let useSupabase: Bool
-    
+    private var leaderboardEntriesOwnerId: String?
+
     init(useSupabase: Bool = true) {
         self.useSupabase = useSupabase
         #if canImport(Supabase)
@@ -33,6 +34,13 @@ final class ChallengeService: ObservableObject {
         loadChallenges()
         loadLeaderboards()
         #endif
+    }
+
+    func clearAccountScopedState() {
+        challenges.removeAll()
+        leaderboardEntries.removeAll()
+        leaderboardEntriesOwnerId = nil
+        lastErrorMessage = nil
     }
     
     // MARK: - Challenges
@@ -515,6 +523,10 @@ final class ChallengeService: ObservableObject {
     #if canImport(Supabase)
     private func getLeaderboardFromSupabase(challengeId: String) async -> [LeaderboardEntry] {
         let cacheKey = "leaderboard_\(challengeId)"
+        let cacheOwnerId = await currentSessionUserId()
+        let userScopedCacheKey = cacheOwnerId.map {
+            OfflineCacheService.userScopedKey(cacheKey, userId: $0)
+        }
         do {
             let serverEntries: [ServerLeaderboardEntry] = try await SupabaseRequestExecutor.executeWithAuthRetry(context: "get_leaderboard") {
                 try await supabase
@@ -524,15 +536,42 @@ final class ChallengeService: ObservableObject {
             }
 
             let entries = serverEntries.map { $0.toLeaderboardEntry(challengeId: challengeId) }
+            guard let cacheOwnerId, cacheOwnerId == await currentSessionUserId() else {
+                return []
+            }
+
+            leaderboardEntriesOwnerId = cacheOwnerId
             leaderboardEntries[challengeId] = entries
-            OfflineCacheService.save(entries, key: cacheKey)
+            if let userScopedCacheKey {
+                OfflineCacheService.save(entries, key: userScopedCacheKey)
+            }
             return entries
         } catch {
-            if let cached = OfflineCacheService.load([LeaderboardEntry].self, key: cacheKey) {
+            guard let cacheOwnerId,
+                  cacheOwnerId == await currentSessionUserId(),
+                  let userScopedCacheKey else {
+                return []
+            }
+
+            if let cached = OfflineCacheService.load([LeaderboardEntry].self, key: userScopedCacheKey) {
+                leaderboardEntriesOwnerId = cacheOwnerId
                 leaderboardEntries[challengeId] = cached
                 return cached
             }
+            guard leaderboardEntriesOwnerId == cacheOwnerId else {
+                return []
+            }
             return leaderboardEntries[challengeId] ?? []
+        }
+    }
+    #endif
+
+    #if canImport(Supabase)
+    private func currentSessionUserId() async -> String? {
+        do {
+            return try await supabase.auth.session.user.id.uuidString
+        } catch {
+            return nil
         }
     }
     #endif

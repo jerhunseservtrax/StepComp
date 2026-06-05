@@ -194,6 +194,7 @@
 | Feature | File(s) | Description |
 |---------|---------|-------------|
 | Challenge Chat | `ChallengeChatView.swift`, `ChallengeChatViewModel.swift` | Real-time group messaging via Supabase postgresChange streams with polling fallback |
+| Paginated Chat Reconciliation | `ChallengeChatViewModel.swift` | Realtime/send refreshes reconcile the newest page without dropping older pages the user loaded |
 | Chat List | `ChatListView.swift`, `ChatListViewModel.swift` | Overview of all chat conversations |
 | Message Actions | `ChallengeChatViewModel.swift` | Send, delete, auto-scroll |
 
@@ -333,7 +334,7 @@
 | Step Sync | `StepSyncService.swift` | Sync steps to server with fraud detection, RPC fallback |
 | Challenge Service | `ChallengeService.swift` | CRUD for challenges, invites, leaderboards |
 | Friends Service | `FriendsService.swift` | Friendship management, profile search |
-| Metrics Service | `MetricsService.swift` | Sync workouts, weight, nutrition to server |
+| Metrics Service | `MetricsService.swift` | Sync workouts, weight, nutrition to server with user-scoped offline fallback for metrics history |
 | HealthKit Service | `HealthKitService.swift` | Steps, distance, calories, weight, and expanded health data |
 | Resting Heart Rate | `HealthKitService.swift` | Recovery indicator from HealthKit |
 | Heart Rate Variability | `HealthKitService.swift` | HRV (SDNN) analysis for recovery tracking |
@@ -357,7 +358,7 @@
 | Haptic Manager | `HapticManager.swift` | Haptic feedback patterns |
 | Keychain Store | `KeychainStore.swift` | Secure credential storage with kSecAttrService scoping and OSStatus error handling |
 | Retry Utility | `RetryUtility.swift` | Exponential backoff retry logic |
-| Offline Cache | `OfflineCacheService.swift` | Generic disk-backed Codable cache with fetch-with-fallback for offline resilience |
+| Offline Cache | `OfflineCacheService.swift` | Generic disk-backed Codable cache with fetch-with-fallback for offline resilience and user-scoped keys for account data |
 | Cached Async Image | `CachedAsyncImage.swift` | Image caching for remote images (used in ProfileView, etc.) |
 | Reaction Effects | `ReactionEffectManager.swift` | Celebration/reaction animations |
 | Avatar View | `AvatarView.swift` | Reusable avatar component |

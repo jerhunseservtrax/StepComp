@@ -85,6 +85,22 @@
 - **Files:** `RootView.swift`, `MainTabView.swift`, `SessionViewModel.swift`
 - **Prevention:** Use `@ObservedObject` for shared view models during view transitions. Use `.id()` to force clean recreation.
 
+### 6a. Chat History Truncated After Realtime Refresh
+- **Status:** Fixed
+- **Symptom:** In challenge chats with more than one loaded page, sending a message or receiving a realtime update collapsed the visible history back to only the newest 40 messages.
+- **Root Cause:** `sendMessage()` and realtime refresh replaced the full in-memory message array with `fetchLatestMessages(limit: pageSize)`, discarding older pages the user had already loaded.
+- **Fix:** Added message reconciliation that replaces the newest fetched window while preserving older loaded messages outside that window. Latest-page refresh still fully replaces the list when all messages fit in one page so deletes/edits in the newest window stay accurate.
+- **Files:** `ChallengeChatViewModel.swift`, `CriticalRegressionTests.swift`
+- **Prevention:** Never replace a paginated in-memory collection with a single refreshed page unless explicitly resetting pagination state.
+
+### 6b. Offline Metrics Cache Leaked Across Accounts
+- **Status:** Fixed
+- **Symptom:** On a shared device, User B could see User A's cached metrics or leaderboard data when the network failed after account switch.
+- **Root Cause:** `OfflineCacheService` used global cache keys such as `metrics_summary_30`, `weight_history_90`, and `leaderboard_<challengeId>` without user scoping; sign-out did not clear the offline cache.
+- **Fix:** Added user-scoped cache keys, wired metrics and leaderboard caches to the current authenticated user id, skipped disk fallback when no user id is available, and clear offline plus in-memory account-scoped caches on sign-out or authenticated user change.
+- **Files:** `OfflineCacheService.swift`, `MetricsService.swift`, `ChallengeService.swift`, `AuthService.swift`, `CriticalRegressionTests.swift`
+- **Prevention:** All disk-backed caches containing user data must include user identity in the cache key and must be cleared on logout/account switches.
+
 ---
 
 ## Authentication & Session
