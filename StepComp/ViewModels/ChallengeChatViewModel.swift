@@ -53,10 +53,8 @@ final class ChallengeChatViewModel: ObservableObject {
         
         #if canImport(Supabase)
         do {
-            let latest = try await fetchLatestMessages(limit: pageSize)
-            messages = latest
-            oldestLoadedDate = latest.first?.createdAt
-            hasMoreMessages = latest.count >= pageSize
+            let latestPage = try await fetchLatestMessagePage(displayLimit: pageSize)
+            applyLatestMessages(latestPage.messages, latestPageHasMore: latestPage.hasMore)
             // Subscribe to realtime after loading
             subscribeToRealtime()
             
@@ -116,10 +114,8 @@ final class ChallengeChatViewModel: ObservableObject {
             
             print("✅ Message sent successfully")
             
-            let latest = try await fetchLatestMessages(limit: pageSize)
-            messages = latest
-            oldestLoadedDate = latest.first?.createdAt
-            hasMoreMessages = latest.count >= pageSize
+            let latestPage = try await fetchLatestMessagePage(displayLimit: messages.count + 1)
+            applyLatestMessages(latestPage.messages, latestPageHasMore: latestPage.hasMore)
             
             // Post notification to update chat badge in dashboard header
             NotificationCenter.default.post(name: .chatMessageReceived, object: nil)
@@ -303,19 +299,22 @@ final class ChallengeChatViewModel: ObservableObject {
                 group.addTask { [weak self] in
                     for await _ in insertStream {
                         guard let self, !Task.isCancelled else { return }
-                        await self.refreshMessages()
+                        let currentCount = await self.messages.count
+                        await self.refreshMessages(displayLimit: currentCount + 1)
                     }
                 }
                 group.addTask { [weak self] in
                     for await _ in updateStream {
                         guard let self, !Task.isCancelled else { return }
-                        await self.refreshMessages()
+                        let currentCount = await self.messages.count
+                        await self.refreshMessages(displayLimit: currentCount, preserveLoadedOlderMessages: false)
                     }
                 }
                 group.addTask { [weak self] in
                     for await _ in deleteStream {
                         guard let self, !Task.isCancelled else { return }
-                        await self.refreshMessages()
+                        let currentCount = await self.messages.count
+                        await self.refreshMessages(displayLimit: currentCount, preserveLoadedOlderMessages: false)
                     }
                 }
             }
@@ -336,13 +335,22 @@ final class ChallengeChatViewModel: ObservableObject {
     }
 
     #if canImport(Supabase)
-    private func refreshMessages() async {
+    private func refreshMessages(
+        displayLimit: Int? = nil,
+        preserveLoadedOlderMessages: Bool = true
+    ) async {
         do {
-            let latest = try await fetchLatestMessages(limit: pageSize)
-            if latest.last?.id != messages.last?.id || latest.count != messages.count {
-                messages = latest
-                oldestLoadedDate = latest.first?.createdAt
-                hasMoreMessages = latest.count >= pageSize
+            let latestPage = try await fetchLatestMessagePage(
+                displayLimit: max(pageSize, displayLimit ?? pageSize)
+            )
+            let previousMessages = messages
+            let previousHasMoreMessages = hasMoreMessages
+            if preserveLoadedOlderMessages {
+                applyLatestMessages(latestPage.messages, latestPageHasMore: latestPage.hasMore)
+            } else {
+                replaceWithLatestMessages(latestPage.messages, latestPageHasMore: latestPage.hasMore)
+            }
+            if messages != previousMessages || hasMoreMessages != previousHasMoreMessages {
                 NotificationCenter.default.post(name: .chatMessageReceived, object: nil)
             }
         } catch {
@@ -355,12 +363,71 @@ final class ChallengeChatViewModel: ObservableObject {
     private func fallbackPolling() async {
         while !Task.isCancelled {
             try? await Task.sleep(nanoseconds: 3_000_000_000)
-            await refreshMessages()
+            await refreshMessages(displayLimit: messages.count + pageSize)
         }
     }
     #endif
 
+    private func applyLatestMessages(_ latest: [ChallengeMessage], latestPageHasMore: Bool) {
+        let hadLoadedOlderMessages = Self.hasLoadedOlderMessages(existing: messages, latest: latest)
+        messages = Self.reconciledMessages(
+            existing: messages,
+            latest: latest,
+            latestPageHasMore: latestPageHasMore
+        )
+        oldestLoadedDate = messages.first?.createdAt
+
+        if !latestPageHasMore {
+            hasMoreMessages = false
+        } else if !hadLoadedOlderMessages {
+            hasMoreMessages = true
+        }
+    }
+
+    private func replaceWithLatestMessages(_ latest: [ChallengeMessage], latestPageHasMore: Bool) {
+        messages = latest
+        oldestLoadedDate = latest.first?.createdAt
+        hasMoreMessages = latestPageHasMore
+    }
+
+    nonisolated static func reconciledMessages(
+        existing: [ChallengeMessage],
+        latest: [ChallengeMessage],
+        latestPageHasMore: Bool
+    ) -> [ChallengeMessage] {
+        guard let oldestLatestDate = latest.first?.createdAt else {
+            return latest
+        }
+
+        guard latestPageHasMore else {
+            return latest
+        }
+
+        let olderLoadedMessages = existing.filter { $0.createdAt < oldestLatestDate }
+        return (olderLoadedMessages + latest)
+            .uniquedById()
+            .sorted { $0.createdAt < $1.createdAt }
+    }
+
+    nonisolated private static func hasLoadedOlderMessages(
+        existing: [ChallengeMessage],
+        latest: [ChallengeMessage]
+    ) -> Bool {
+        guard let oldestExistingDate = existing.first?.createdAt,
+              let oldestLatestDate = latest.first?.createdAt else {
+            return false
+        }
+        return oldestExistingDate < oldestLatestDate
+    }
+
     #if canImport(Supabase)
+    private func fetchLatestMessagePage(displayLimit: Int) async throws -> (messages: [ChallengeMessage], hasMore: Bool) {
+        let fetched = try await fetchLatestMessages(limit: displayLimit + 1)
+        let hasMore = fetched.count > displayLimit
+        let messages = hasMore ? Array(fetched.suffix(displayLimit)) : fetched
+        return (messages, hasMore)
+    }
+
     private func fetchLatestMessages(limit: Int) async throws -> [ChallengeMessage] {
         let response: [ServerChallengeMessage] = try await supabase
             .from("challenge_messages")

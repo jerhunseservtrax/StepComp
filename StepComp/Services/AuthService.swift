@@ -95,10 +95,9 @@ final class AuthService: ObservableObject {
                 print("🔐 Initial session found for user: \(session.user.id)")
                 await applyAuthenticatedSession(session)
             } else {
-                if let cachedUser = loadCachedUser() {
+                if let cachedUser = await loadCachedUserMatchingCurrentSession() {
                     print("ℹ️ No initial session from Supabase, restoring cached user while auth recovers")
-                    currentUser = cachedUser
-                    isAuthenticated = true
+                    setAuthenticatedUser(cachedUser, persist: false)
                 } else {
                     print("ℹ️ No initial session and no cached user - showing login screen")
                     applySignedOutState(
@@ -119,12 +118,11 @@ final class AuthService: ObservableObject {
             }
         case .signedOut:
             print("🚪 Auth signed out event received")
-            if isCheckingSession, let cachedUser = loadCachedUser() {
+            if isCheckingSession, let cachedUser = await loadCachedUserMatchingCurrentSession() {
                 // Startup races can emit signedOut before session recovery completes.
                 // Keep local user state and let the manual fallback re-check Supabase.
                 print("ℹ️ Ignoring signed-out event during startup because cached user exists")
-                currentUser = cachedUser
-                isAuthenticated = true
+                setAuthenticatedUser(cachedUser, persist: false)
             } else {
                 applySignedOutState(
                     deleteCachedUser: true,
@@ -145,9 +143,39 @@ final class AuthService: ObservableObject {
             break
         }
     }
+
+    private func loadCachedUserMatchingCurrentSession() async -> User? {
+        guard let cachedUser = loadCachedUser() else {
+            return nil
+        }
+
+        guard let sessionUserId = await currentSessionUserId() else {
+            return nil
+        }
+
+        guard cachedUser.id == sessionUserId else {
+            OfflineCacheService.clearAll()
+            ChallengeService.shared.clearAccountScopedState()
+            return nil
+        }
+        return cachedUser
+    }
+
+    private func isActiveSessionUser(_ userId: String) async -> Bool {
+        await currentSessionUserId() == userId
+    }
+
+    private func currentSessionUserId() async -> String? {
+        do {
+            return try await supabase.auth.session.user.id.uuidString
+        } catch {
+            return nil
+        }
+    }
     
     private func applyAuthenticatedSession(_ session: Session) async {
         let userId = session.user.id.uuidString
+        clearAccountScopedStateIfNeeded(for: userId)
         
         // Keep profile loading in a standalone task so timeout does not cancel it.
         // If timeout wins, we use cached data immediately and let profile update when it finishes.
@@ -157,9 +185,13 @@ final class AuthService: ObservableObject {
         let completedBeforeTimeout = await waitForProfileLoad(profileLoadTask, timeoutNanoseconds: 8_000_000_000)
         if !completedBeforeTimeout {
             print("⚠️ Profile load timed out — using cached data")
-            if let cachedUser = self.loadCachedUser() {
-                self.currentUser = cachedUser
-                self.isAuthenticated = true
+            guard await isActiveSessionUser(userId) else {
+                return
+            }
+            if let cachedUser = self.loadCachedUser(), cachedUser.id == userId {
+                self.setAuthenticatedUser(cachedUser, persist: false)
+            } else {
+                self.setAuthenticatedUser(self.minimalUser(for: userId))
             }
         }
         
@@ -206,6 +238,26 @@ final class AuthService: ObservableObject {
         
         // Clear active workout state (draft, widget, live activity)
         WorkoutViewModel.clearAllActiveWorkoutState()
+        OfflineCacheService.clearAll()
+        ChallengeService.shared.clearAccountScopedState()
+    }
+
+    private func clearAccountScopedStateIfNeeded(for newUserId: String) {
+        guard let previousUserId = currentUser?.id, previousUserId != newUserId else {
+            return
+        }
+
+        OfflineCacheService.clearAll()
+        ChallengeService.shared.clearAccountScopedState()
+    }
+
+    private func setAuthenticatedUser(_ user: User, persist: Bool = true) {
+        clearAccountScopedStateIfNeeded(for: user.id)
+        currentUser = user
+        isAuthenticated = true
+        if persist {
+            saveUser()
+        }
     }
     
     /// Refreshes the session when a 401 is received.
@@ -369,9 +421,7 @@ final class AuthService: ObservableObject {
                 totalSteps: 0,
                 totalChallenges: 0
             )
-            currentUser = user
-            isAuthenticated = true
-            saveUser()
+            setAuthenticatedUser(user)
             return
         }
         
@@ -496,9 +546,7 @@ final class AuthService: ObservableObject {
             totalSteps: 0,
             totalChallenges: 0
         )
-        currentUser = user
-        isAuthenticated = true
-        saveUser()
+        setAuthenticatedUser(user)
         #endif
     }
     
@@ -515,9 +563,7 @@ final class AuthService: ObservableObject {
                 totalSteps: 0,
                 totalChallenges: 0
             )
-            currentUser = user
-            isAuthenticated = true
-            saveUser()
+            setAuthenticatedUser(user)
             return URL(string: "https://example.com")!
         }
         
@@ -561,9 +607,7 @@ final class AuthService: ObservableObject {
             totalSteps: 0,
             totalChallenges: 0
         )
-        currentUser = user
-        isAuthenticated = true
-        saveUser()
+        setAuthenticatedUser(user)
         return URL(string: "https://example.com")!
         #endif
     }
@@ -611,7 +655,7 @@ final class AuthService: ObservableObject {
             UserDefaults.standard.removeObject(forKey: "selectedAvatarURL")
         }
         
-        currentUser = updatedUser
+        setAuthenticatedUser(updatedUser, persist: false)
         
         #if canImport(Supabase)
         if useSupabase {
@@ -796,9 +840,10 @@ final class AuthService: ObservableObject {
                 totalSteps: 0,
                 totalChallenges: 0
             )
-            currentUser = appUser
-            isAuthenticated = true
-            saveUser()
+            guard await isActiveSessionUser(userId) else {
+                return
+            }
+            setAuthenticatedUser(appUser)
             
             await loadUserProfile(userId: userId)
         } catch {
@@ -868,9 +913,10 @@ final class AuthService: ObservableObject {
                 totalChallenges: 0
             )
             
-            currentUser = user
-            isAuthenticated = true
-            saveUser()
+            guard await isActiveSessionUser(user.id) else {
+                return
+            }
+            setAuthenticatedUser(user)
             
             // Store height and weight in UserDefaults for ProfileViewModel to access
             if let height = profile.height {
@@ -897,31 +943,35 @@ final class AuthService: ObservableObject {
             
             // If we can't load from database, try to use locally cached user
             // This handles offline scenarios
-            if let cachedUser = loadCachedUser() {
+            if let cachedUser = loadCachedUser(), cachedUser.id == userId {
                 print("ℹ️ Using cached user data for offline access")
-                currentUser = cachedUser
-                isAuthenticated = true
+                guard await isActiveSessionUser(cachedUser.id) else {
+                    return
+                }
+                setAuthenticatedUser(cachedUser, persist: false)
             } else {
                 // No cached user - create a minimal profile to keep them logged in
                 // They'll get full data when network is available
-                let email: String? = nil
-                
-                let user = User(
-                    id: userId,
-                    username: "user_\(userId.prefix(8))",
-                    firstName: "User",
-                    lastName: "",
-                    email: email,
-                    publicProfile: true,
-                    totalSteps: 0,
-                    totalChallenges: 0
-                )
-                currentUser = user
-                isAuthenticated = true
-                saveUser()
+                guard await isActiveSessionUser(userId) else {
+                    return
+                }
+                setAuthenticatedUser(minimalUser(for: userId))
                 print("⚠️ Created minimal user profile - will sync when online")
             }
         }
+    }
+
+    private func minimalUser(for userId: String) -> User {
+        User(
+            id: userId,
+            username: "user_\(userId.prefix(8))",
+            firstName: "User",
+            lastName: "",
+            email: nil,
+            publicProfile: true,
+            totalSteps: 0,
+            totalChallenges: 0
+        )
     }
 
     @MainActor
@@ -1131,9 +1181,7 @@ final class AuthService: ObservableObject {
             )
         }
         
-        currentUser = user
-        isAuthenticated = true
-        saveUser()
+        setAuthenticatedUser(user)
     }
     
     private func signUpMock(email: String, password: String, username: String, firstName: String, lastName: String, height: Int?, weight: Int?) async throws {
@@ -1149,9 +1197,7 @@ final class AuthService: ObservableObject {
             totalChallenges: 0
         )
         
-        currentUser = user
-        isAuthenticated = true
-        saveUser()
+        setAuthenticatedUser(user)
     }
     
     // MARK: - Persistence
@@ -1169,8 +1215,7 @@ final class AuthService: ObservableObject {
             return
         }
         
-        currentUser = user
-        isAuthenticated = true
+        setAuthenticatedUser(user, persist: false)
     }
 }
 
