@@ -17,6 +17,7 @@ final class ChallengeService: ObservableObject {
     @Published var challenges: [Challenge] = []
     @Published var leaderboardEntries: [String: [LeaderboardEntry]] = [:] // challengeId: entries
     @Published var lastErrorMessage: String?
+    private var leaderboardEntriesOwnerIds: [String: String] = [:]
     
     private let challengesKey = "challenges"
     private let leaderboardKey = "leaderboard"
@@ -33,6 +34,13 @@ final class ChallengeService: ObservableObject {
         loadChallenges()
         loadLeaderboards()
         #endif
+    }
+
+    func clearUserScopedState() {
+        challenges = []
+        leaderboardEntries = [:]
+        leaderboardEntriesOwnerIds = [:]
+        lastErrorMessage = nil
     }
     
     // MARK: - Challenges
@@ -515,6 +523,9 @@ final class ChallengeService: ObservableObject {
     #if canImport(Supabase)
     private func getLeaderboardFromSupabase(challengeId: String) async -> [LeaderboardEntry] {
         let cacheKey = "leaderboard_\(challengeId)"
+        guard let userId = try? await supabase.auth.session.user.id.uuidString else {
+            return []
+        }
         do {
             let serverEntries: [ServerLeaderboardEntry] = try await SupabaseRequestExecutor.executeWithAuthRetry(context: "get_leaderboard") {
                 try await supabase
@@ -525,14 +536,19 @@ final class ChallengeService: ObservableObject {
 
             let entries = serverEntries.map { $0.toLeaderboardEntry(challengeId: challengeId) }
             leaderboardEntries[challengeId] = entries
-            OfflineCacheService.save(entries, key: cacheKey)
+            leaderboardEntriesOwnerIds[challengeId] = userId
+            OfflineCacheService.save(entries, key: cacheKey, userId: userId)
             return entries
         } catch {
-            if let cached = OfflineCacheService.load([LeaderboardEntry].self, key: cacheKey) {
+            if let cached = OfflineCacheService.load([LeaderboardEntry].self, key: cacheKey, userId: userId) {
                 leaderboardEntries[challengeId] = cached
+                leaderboardEntriesOwnerIds[challengeId] = userId
                 return cached
             }
-            return leaderboardEntries[challengeId] ?? []
+            if leaderboardEntriesOwnerIds[challengeId] == userId {
+                return leaderboardEntries[challengeId] ?? []
+            }
+            return []
         }
     }
     #endif
