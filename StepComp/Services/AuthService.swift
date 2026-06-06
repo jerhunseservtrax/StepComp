@@ -31,6 +31,7 @@ final class AuthService: ObservableObject {
     private let testAccountDisplayName = "Test User"
     #endif
     private var refreshSessionTask: Task<Bool, Never>?
+    private var activeUserScopedStateUserId: String?
     #if canImport(Supabase)
     private var authStateListenerTask: Task<Void, Never>?
     #endif
@@ -148,6 +149,7 @@ final class AuthService: ObservableObject {
     
     private func applyAuthenticatedSession(_ session: Session) async {
         let userId = session.user.id.uuidString
+        prepareUserScopedState(for: userId)
         
         // Keep profile loading in a standalone task so timeout does not cancel it.
         // If timeout wins, we use cached data immediately and let profile update when it finishes.
@@ -200,12 +202,23 @@ final class AuthService: ObservableObject {
 
         currentUser = nil
         isAuthenticated = false
+        activeUserScopedStateUserId = nil
         if deleteCachedUser {
             KeychainStore.delete(account: keychainUserAccount)
         }
+        OfflineCacheService.clearAll()
+        ChallengeService.shared.clearUserScopedState()
         
         // Clear active workout state (draft, widget, live activity)
         WorkoutViewModel.clearAllActiveWorkoutState()
+    }
+
+    private func prepareUserScopedState(for userId: String) {
+        if let activeUserScopedStateUserId, activeUserScopedStateUserId != userId {
+            OfflineCacheService.clearAll()
+            ChallengeService.shared.clearUserScopedState()
+        }
+        activeUserScopedStateUserId = userId
     }
     
     /// Refreshes the session when a 401 is received.

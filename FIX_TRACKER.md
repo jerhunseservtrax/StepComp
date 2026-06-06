@@ -1,7 +1,7 @@
 # FitComp Fix Tracker
 
 > Log of all bugs encountered and fixes implemented to prevent recurrence.
-> Last updated: 2026-04-13 (v6)
+> Last updated: 2026-06-06 (v7)
 
 ---
 
@@ -587,6 +587,14 @@
 - **Fix:** Restored a dedicated Workouts tab in a 5-tab layout and updated tab-index routing in workout start flow and tab manager helper.
 - **Files:** `MainTabView.swift`, `WorkoutDetailView.swift`
 - **Prevention:** Keep central tab index mapping documented and update all programmatic tab switches whenever tab order changes.
+
+### 62. Offline Cache and Metrics Sync Cross-Account Data Bleed
+- **Status:** Fixed (uncommitted)
+- **Symptom:** On shared devices, a second signed-in user could receive the previous user's cached metrics/leaderboards after a network failure, and global metrics sync tracking could mix sync state across accounts.
+- **Root Cause:** `OfflineCacheService` used device-global cache keys, `MetricsService` stored synced workout/weight IDs under device-global UserDefaults keys, and `ChallengeService` could retain in-memory leaderboard fallback state across sign-out. Sign-out cleanup did not clear the offline cache.
+- **Fix:** Added user-scoped persistence keys for offline cache and metrics sync tracking, required an authenticated Supabase user ID before using server-backed cache/sync state, scoped leaderboard disk and per-challenge in-memory fallback by user, and cleared offline cache plus challenge service state on sign-out or authenticated user change.
+- **Files:** `OfflineCacheService.swift`, `MetricsService.swift`, `ChallengeService.swift`, `AuthService.swift`
+- **Prevention:** Any persisted server-backed data must include the authenticated user ID in its storage key and must be invalidated on sign-out.
 
 ## New Features
 
