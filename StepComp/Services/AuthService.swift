@@ -203,6 +203,7 @@ final class AuthService: ObservableObject {
         if deleteCachedUser {
             KeychainStore.delete(account: keychainUserAccount)
         }
+        OfflineCacheService.clearAll()
         
         // Clear active workout state (draft, widget, live activity)
         WorkoutViewModel.clearAllActiveWorkoutState()
@@ -253,7 +254,12 @@ final class AuthService: ObservableObject {
         #if canImport(Supabase)
         do {
             try await supabase.auth.signOut()
-            print("🚪 Force logout requested - waiting for signed-out event")
+            applySignedOutState(
+                deleteCachedUser: true,
+                reason: "force logout",
+                allowDuringStartupCheck: true
+            )
+            print("🚪 Force logout completed")
         } catch {
             print("⚠️ Force logout signOut failed, clearing local auth state: \(error.localizedDescription)")
             applySignedOutState(deleteCachedUser: true)
@@ -577,9 +583,24 @@ final class AuthService: ObservableObject {
         #if canImport(Supabase)
         if useSupabase {
             // This clears the session from Supabase's internal storage.
-            // Local cleanup is handled by the signed-out auth state event.
-            try await supabase.auth.signOut()
-            print("✅ Supabase sign out requested - awaiting signed-out event")
+            // Local cleanup is applied synchronously so stale cached data cannot
+            // resurrect the session if the app is killed before the auth event.
+            do {
+                try await supabase.auth.signOut()
+                print("✅ Supabase sign out completed")
+            } catch {
+                applySignedOutState(
+                    deleteCachedUser: true,
+                    reason: "local cleanup after sign out failure",
+                    allowDuringStartupCheck: true
+                )
+                throw error
+            }
+            applySignedOutState(
+                deleteCachedUser: true,
+                reason: "user initiated logout",
+                allowDuringStartupCheck: true
+            )
             return
         }
         #endif

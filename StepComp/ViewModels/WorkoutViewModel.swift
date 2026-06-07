@@ -113,7 +113,13 @@ class WorkoutViewModel: ObservableObject {
     
     // MARK: - Workout Session Management
     
-    func startWorkout(_ workout: Workout, targetDate: Date = Date()) {
+    @discardableResult
+    func startWorkout(_ workout: Workout, targetDate: Date = Date()) -> Bool {
+        guard currentSession == nil else {
+            print("⚠️ Ignoring startWorkout while another workout is active")
+            return false
+        }
+
         workoutTargetDate = targetDate
         
         // Find the last completed session for this workout
@@ -185,6 +191,7 @@ class WorkoutViewModel: ObservableObject {
         startTimer()
         saveActiveWorkoutDraft()
         pushWidgetState()
+        return true
     }
     
     func pauseWorkout() {
@@ -277,7 +284,10 @@ class WorkoutViewModel: ObservableObject {
         sessionStartTime = nil
         elapsedTime = 0
         totalPausedTime = 0
+        pauseStartTime = nil
         isPaused = false
+        workoutTargetDate = nil
+        finishedSession = nil
         clearActiveWorkoutDraft()
         WorkoutLiveActivityManager.end()
         WorkoutWidgetStore.clear()
@@ -1027,6 +1037,18 @@ class WorkoutViewModel: ObservableObject {
     /// Clears all active workout state (draft, widget, live activity)
     static func clearAllActiveWorkoutState() {
         let vm = WorkoutViewModel.shared
+        vm.autoFinishTask?.cancel()
+        vm.autoFinishTask = nil
+        vm.isAutoFinishing = false
+        vm.stopTimer()
+        vm.currentSession = nil
+        vm.sessionStartTime = nil
+        vm.elapsedTime = 0
+        vm.totalPausedTime = 0
+        vm.pauseStartTime = nil
+        vm.isPaused = false
+        vm.workoutTargetDate = nil
+        vm.finishedSession = nil
         vm.clearActiveWorkoutDraft()
         WorkoutWidgetStore.clear()
         WorkoutLiveActivityManager.end()

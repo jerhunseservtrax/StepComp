@@ -447,7 +447,7 @@ extension SignInOnboardingView {
                 print("❌ [H7] Error domain: \((error as NSError).domain)")
             }
             if let callbackURL = callbackURL {
-                print("✅ [H7] Callback URL received: \(callbackURL.absoluteString)")
+                print("✅ [H7] OAuth callback URL received")
             } else {
                 print("⚠️ [H7] No callback URL received")
             }
@@ -499,11 +499,17 @@ extension SignInOnboardingView {
     
     func handleOAuthCallback(url: URL) async {
         #if canImport(Supabase)
-        print("🔵 OAuth callback received: \(url)")
+        print("🔵 OAuth callback received")
         
-        // Process the OAuth callback URL with Supabase
-        // Extract tokens from the callback URL
-        // Supabase OAuth callbacks contain tokens in the URL fragment or query parameters
+        // Process the OAuth callback URL with Supabase before reading session state.
+        do {
+            _ = try await supabase.auth.session(from: url)
+        } catch {
+            print("⚠️ Failed to establish OAuth session from callback: \(error.localizedDescription)")
+            errorMessage = "Google Sign In completed but no session was established. Please try again."
+            return
+        }
+
         let components = URLComponents(url: url, resolvingAgainstBaseURL: false)
         
         // Check if this is a valid OAuth callback
@@ -515,8 +521,6 @@ extension SignInOnboardingView {
             print("🔵 Found OAuth tokens in URL query")
         }
         
-        // Supabase SDK should handle the callback automatically
-        // Try to get the current session
         do {
             let session = try await supabase.auth.session
             print("✅ OAuth session established: \(session.user.id)")

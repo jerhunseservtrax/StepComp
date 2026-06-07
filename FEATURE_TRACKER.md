@@ -109,7 +109,8 @@
 | Rest Timer Alerts | `RestTimerManager.swift` | Visual, haptic, sound, and push notification alerts |
 | Smart Rest Suggestions | `WorkoutAnalyticsEngine.swift` | Auto-suggest rest duration based on exercise intensity and set exertion |
 | Progressive Overload | `WorkoutAnalyticsEngine.swift` | Trend detection (progressing/plateau/regressing), 1RM estimation, overload recommendations |
-| Workout Persistence | `WorkoutViewModel.swift` | Save/restore active workout state across app lifecycle |
+| Workout Persistence | `WorkoutViewModel.swift` | Save/restore active workout state across app lifecycle; auth invalidation fully clears in-memory and persisted active-session state |
+| Active Workout Overwrite Protection | `WorkoutViewModel.swift` | Prevents a second workout start from silently replacing an in-progress session |
 | Workout Summary | `WorkoutSummaryView.swift` | Post-workout stats (duration, exercises, sets, calories) |
 | Session History | `CompletedSessionDetailView.swift` | View past workout details |
 | Edit Sessions | `EditCompletedSessionView.swift` | Modify completed session data |
@@ -326,6 +327,7 @@
 |---------|---------|-------------|
 | Supabase Auth | `AuthService.swift` | Singleton auth with Keychain persistence, Apple Sign In, auth state listener |
 | Auth State Listener | `AuthService.swift` | Real-time auth state monitoring via Supabase events with automatic session recovery |
+| Synchronous Auth Teardown | `AuthService.swift`, `WorkoutViewModel.swift`, `OfflineCacheService.swift` | Logout and force-logout immediately clear cached user data, offline cache, and active workout state before relying on auth events |
 | Auth Recovery | `RootView.swift` | Debounced periodic auth state recovery checks on foreground transitions |
 | Automatic Metrics Sync | `RootView.swift` | One-shot metrics sync on foreground/auth changes with dedup flag |
 | Singleton Services | `HealthKitService.swift`, `ChallengeService.swift` | Shared singleton instances to prevent state desync |
@@ -344,6 +346,7 @@
 | Challenge Notifications | `ChallengeNotificationService.swift` | Challenge-specific alerts |
 | Step Goal Notifications | `StepGoalNotificationService.swift` | Local milestone alerts at 50% and 100% of daily step goal |
 | Edge Functions | `EdgeFunctionService.swift` | Secure backend operations via Supabase Edge Functions |
+| OAuth & Password Reset Deep Links | `SignInOnboardingView+Auth.swift`, `ForgotPasswordSheet.swift`, `PasswordResetView.swift`, `Info.plist`, `project.pbxproj` | Registered `fitcomp://` callback handling for Google OAuth and password reset recovery links |
 | Unsplash Service | `UnsplashService.swift` | Challenge background images |
 
 ---
@@ -357,7 +360,9 @@
 | Haptic Manager | `HapticManager.swift` | Haptic feedback patterns |
 | Keychain Store | `KeychainStore.swift` | Secure credential storage with kSecAttrService scoping and OSStatus error handling |
 | Retry Utility | `RetryUtility.swift` | Exponential backoff retry logic |
-| Offline Cache | `OfflineCacheService.swift` | Generic disk-backed Codable cache with fetch-with-fallback for offline resilience |
+| Offline Cache | `OfflineCacheService.swift` | User-scoped disk-backed Codable cache with fetch-with-fallback for offline resilience |
+| Supabase Auth Retry Executor | `SupabaseRequestExecutor.swift` | Retries only concrete auth failures such as 401/JWT errors without treating invite-token business errors as auth failures |
+| Unit Test Target | `StepCompTests/`, `StepComp.xcodeproj`, `StepComp.xcscheme` | Shared XCTest target/scheme covering keychain, deep links, unit preferences, retry classification, offline cache scoping, and active-workout session safety |
 | Cached Async Image | `CachedAsyncImage.swift` | Image caching for remote images (used in ProfileView, etc.) |
 | Reaction Effects | `ReactionEffectManager.swift` | Celebration/reaction animations |
 | Avatar View | `AvatarView.swift` | Reusable avatar component |

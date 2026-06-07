@@ -9,7 +9,7 @@ enum SupabaseRequestExecutor {
         do {
             return try await operation()
         } catch {
-            guard shouldRetryAfter401(error) else {
+            guard isAuthRetryableError(error) else {
                 throw error
             }
 
@@ -22,11 +22,12 @@ enum SupabaseRequestExecutor {
         }
     }
 
-    private static func shouldRetryAfter401(_ error: Error) -> Bool {
+    static func isAuthRetryableError(_ error: Error) -> Bool {
         let message = error.localizedDescription.lowercased()
         return message.contains("401")
-            || message.contains("jwt")
-            || message.contains("token")
+            || message.contains("jwt expired")
+            || message.contains("invalid jwt")
+            || message.contains("jwt is expired")
             || message.contains("unauthorized")
     }
 }

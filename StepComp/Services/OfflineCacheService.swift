@@ -32,10 +32,20 @@ enum OfflineCacheService {
         }
     }
 
+    static func save<T: Encodable>(_ value: T, key: String, userId: String?) {
+        guard let scopedKey = userScopedKey(key, userId: userId) else { return }
+        save(value, key: scopedKey)
+    }
+
     static func load<T: Decodable>(_ type: T.Type, key: String) -> T? {
         let url = cacheDirectory.appendingPathComponent(safeName(key) + ".json")
         guard let data = try? Data(contentsOf: url) else { return nil }
         return try? JSONDecoder().decode(type, from: data)
+    }
+
+    static func load<T: Decodable>(_ type: T.Type, key: String, userId: String?) -> T? {
+        guard let scopedKey = userScopedKey(key, userId: userId) else { return nil }
+        return load(type, key: scopedKey)
     }
 
     static func remove(key: String) {
@@ -64,6 +74,17 @@ enum OfflineCacheService {
         }
     }
 
+    static func fetchWithFallback<T: Codable>(
+        key: String,
+        userId: String?,
+        fetch: () async throws -> T
+    ) async -> T? {
+        guard let scopedKey = userScopedKey(key, userId: userId) else {
+            return try? await fetch()
+        }
+        return await fetchWithFallback(key: scopedKey, fetch: fetch)
+    }
+
     /// Fetch an array from the network; on success cache, on failure return cached copy or empty.
     static func fetchArrayWithFallback<T: Codable>(
         key: String,
@@ -79,6 +100,22 @@ enum OfflineCacheService {
             #endif
             return load([T].self, key: key) ?? []
         }
+    }
+
+    static func fetchArrayWithFallback<T: Codable>(
+        key: String,
+        userId: String?,
+        fetch: () async throws -> [T]
+    ) async -> [T] {
+        guard let scopedKey = userScopedKey(key, userId: userId) else {
+            return (try? await fetch()) ?? []
+        }
+        return await fetchArrayWithFallback(key: scopedKey, fetch: fetch)
+    }
+
+    private static func userScopedKey(_ key: String, userId: String?) -> String? {
+        guard let userId, !userId.isEmpty else { return nil }
+        return "user_\(userId)_\(key)"
     }
 
     private static func safeName(_ key: String) -> String {
