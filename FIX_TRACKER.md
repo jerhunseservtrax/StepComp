@@ -588,6 +588,46 @@
 - **Files:** `MainTabView.swift`, `WorkoutDetailView.swift`
 - **Prevention:** Keep central tab index mapping documented and update all programmatic tab switches whenever tab order changes.
 
+### 62. Logout Could Resurrect Stale User and Workout State
+- **Status:** Fixed (2026-06-07)
+- **Symptom:** If the app was killed immediately after logout, cached user data could restore on next launch. In-memory active workout state also survived auth invalidation and could re-save a cleared draft.
+- **Root Cause:** `AuthService.signOut()` waited for a delayed Supabase `.signedOut` event before local cleanup, and `WorkoutViewModel.clearAllActiveWorkoutState()` cleared only disk/widget/live-activity state, not the active in-memory session/timer.
+- **Fix:** Apply signed-out cleanup synchronously after logout/force-logout, clear offline cache on auth teardown, and fully reset active workout session/timer/auto-finish state.
+- **Files:** `AuthService.swift`, `WorkoutViewModel.swift`, `WorkoutViewModelSessionTests.swift`
+- **Prevention:** Explicit logout and auth invalidation must synchronously clear all local auth, cache, and in-progress user data before returning.
+
+### 63. Offline Cache Leaked Data Across Accounts
+- **Status:** Fixed (2026-06-07)
+- **Symptom:** Metrics or leaderboard fetch failures could show a previous user's cached data after another user signed in on the same device.
+- **Root Cause:** `OfflineCacheService` used global cache keys such as `metrics_summary_30` and `leaderboard_<challengeId>` with no user scoping.
+- **Fix:** Added user-scoped cache APIs, wired metrics and leaderboard caches to `AuthService.shared.currentUser?.id`, and clear all offline cache on auth teardown.
+- **Files:** `OfflineCacheService.swift`, `MetricsService.swift`, `ChallengeService.swift`, `OfflineCacheServiceTests.swift`, `StepComp.xcodeproj`
+- **Prevention:** Any disk cache containing user data must be keyed by user id and cleared on logout/auth invalidation.
+
+### 64. Invite Token Business Errors Triggered Auth Retry / Logout
+- **Status:** Fixed (2026-06-07)
+- **Symptom:** Invalid or expired invite tokens could be treated as auth failures, triggering token refresh and potentially force-logging out the user.
+- **Root Cause:** `SupabaseRequestExecutor` retried on any error containing the word `token`, matching business errors like "Invalid invite token".
+- **Fix:** Restricted retry classification to explicit auth failures (`401`, `unauthorized`, and JWT-specific messages) and added regression coverage.
+- **Files:** `SupabaseRequestExecutor.swift`, `SupabaseRequestExecutorTests.swift`, `StepComp.xcodeproj`
+- **Prevention:** Auth retry helpers must match concrete auth errors, not broad substrings that also appear in business-domain errors.
+
+### 65. OAuth and Password Reset Deep Links Failed
+- **Status:** Fixed (2026-06-07)
+- **Symptom:** Password reset emails used an unregistered `je.fitcomp://` scheme, Google OAuth callbacks did not establish a Supabase session, and Xcode build settings omitted the `fitcomp` URL scheme.
+- **Root Cause:** Redirect URLs, callback handling, and build-time URL scheme configuration were inconsistent.
+- **Fix:** Switched reset email redirects to `fitcomp://`, process Google OAuth callbacks with `supabase.auth.session(from:)`, avoid logging token-bearing callback URLs, support reset links via current/session-from-URL handling, and register `fitcomp` in Debug/Release build settings.
+- **Files:** `ForgotPasswordSheet.swift`, `PasswordResetView.swift`, `SignInOnboardingView+Auth.swift`, `StepComp.xcodeproj/project.pbxproj`
+- **Prevention:** Keep app redirect URLs, Xcode URL scheme configuration, and Supabase callback handling in sync; never log full auth callback URLs.
+
+### 66. Starting a Workout Overwrote Active Workout
+- **Status:** Fixed (2026-06-07)
+- **Symptom:** Starting another workout while one was active silently replaced the in-progress session and lost entered sets/reps/time.
+- **Root Cause:** `WorkoutViewModel.startWorkout()` did not guard against `currentSession != nil`.
+- **Fix:** Made `startWorkout()` return success/failure and ignore new start requests while an active session exists.
+- **Files:** `WorkoutViewModel.swift`, `WorkoutViewModelSessionTests.swift`, `StepComp.xcodeproj`
+- **Prevention:** Any action that replaces in-progress user-entered work must require explicit finish/cancel confirmation first.
+
 ## New Features
 
 ### Auto-Complete Workout on All Sets Done
@@ -621,6 +661,10 @@
 | Hardcoded unit display (miles, lbs) | Wrong values for metric users | Always use `UnitPreferenceManager` formatters |
 | Capping progress at 100% in display | Misleading achievement info | Cap the visual ring, not the number |
 | Only checking recurring workout days | One-time workouts invisible | Query both `assignedDays` and `oneTimeDate` |
+| Global offline cache keys | Cross-user data leaks | Scope disk cache keys by authenticated user id and clear on logout |
+| Waiting for delayed auth events on logout | Stale sessions/data resurrect after relaunch | Apply local auth/cache/workout cleanup synchronously |
+| Broad auth retry substring matching | Business errors trigger logout/retry | Match explicit auth/JWT failures only |
+| Starting a replacement session without confirmation | In-progress workout data loss | Guard active sessions and require finish/cancel first |
 
 ---
 

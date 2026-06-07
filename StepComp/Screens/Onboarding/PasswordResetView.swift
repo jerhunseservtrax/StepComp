@@ -235,51 +235,57 @@ struct PasswordResetView: View {
         
         do {
             #if canImport(Supabase)
-            // Supabase password reset URLs contain tokens in the fragment
-            // Parse the URL to extract tokens
-            let components = URLComponents(url: resetURL, resolvingAgainstBaseURL: false)
-            var accessToken: String?
-            var refreshToken: String?
-            
-            // Extract tokens from URL fragment (common format)
-            if let fragment = components?.fragment {
-                let params = fragment.components(separatedBy: "&")
-                for param in params {
-                    let parts = param.components(separatedBy: "=")
-                    if parts.count == 2 {
-                        if parts[0] == "access_token" {
-                            accessToken = parts[1].removingPercentEncoding
-                        } else if parts[0] == "refresh_token" {
-                            refreshToken = parts[1].removingPercentEncoding
+            var establishedResetSession = false
+
+            do {
+                _ = try await supabase.auth.session(from: resetURL)
+                establishedResetSession = true
+            } catch {
+                // Legacy hash-token links include both tokens; support them as a fallback.
+                let components = URLComponents(url: resetURL, resolvingAgainstBaseURL: false)
+                var accessToken: String?
+                var refreshToken: String?
+
+                if let fragment = components?.fragment {
+                    let params = fragment.components(separatedBy: "&")
+                    for param in params {
+                        let parts = param.components(separatedBy: "=")
+                        if parts.count == 2 {
+                            if parts[0] == "access_token" {
+                                accessToken = parts[1].removingPercentEncoding
+                            } else if parts[0] == "refresh_token" {
+                                refreshToken = parts[1].removingPercentEncoding
+                            }
                         }
                     }
                 }
-            }
-            
-            // Extract from query parameters (alternative format)
-            if accessToken == nil, let queryItems = components?.queryItems {
-                for item in queryItems {
-                    if item.name == "access_token" {
-                        accessToken = item.value
-                    } else if item.name == "refresh_token" {
-                        refreshToken = item.value
+
+                if accessToken == nil, let queryItems = components?.queryItems {
+                    for item in queryItems {
+                        if item.name == "access_token" {
+                            accessToken = item.value
+                        } else if item.name == "refresh_token" {
+                            refreshToken = item.value
+                        }
                     }
                 }
+
+                if let accessToken = accessToken, let refreshToken = refreshToken {
+                    try await supabase.auth.setSession(
+                        accessToken: accessToken,
+                        refreshToken: refreshToken
+                    )
+                    establishedResetSession = true
+                }
             }
-            
-            guard let accessToken = accessToken, let refreshToken = refreshToken else {
+
+            guard establishedResetSession else {
                 errorMessage = "Invalid reset link. Please request a new password reset email."
                 isLoading = false
                 return
             }
-            
-            // Set the session with tokens from reset URL
-            try await supabase.auth.setSession(
-                accessToken: accessToken,
-                refreshToken: refreshToken
-            )
-            
-            // Wait a moment for session to be established
+
+            // Wait a moment for auth state observers to settle.
             try? await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
             
             // Update the password
