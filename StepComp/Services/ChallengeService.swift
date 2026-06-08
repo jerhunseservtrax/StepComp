@@ -14,12 +14,15 @@ import Supabase
 @MainActor
 final class ChallengeService: ObservableObject {
     static let shared = ChallengeService()
+    static let challengesStorageKey = "challenges"
+    static let leaderboardStorageKey = "leaderboard"
+
     @Published var challenges: [Challenge] = []
     @Published var leaderboardEntries: [String: [LeaderboardEntry]] = [:] // challengeId: entries
     @Published var lastErrorMessage: String?
     
-    private let challengesKey = "challenges"
-    private let leaderboardKey = "leaderboard"
+    private let challengesKey = Self.challengesStorageKey
+    private let leaderboardKey = Self.leaderboardStorageKey
     private let useSupabase: Bool
     
     init(useSupabase: Bool = true) {
@@ -819,6 +822,14 @@ final class ChallengeService: ObservableObject {
             return
         }
         leaderboardEntries = decoded
+    }
+
+    func clearPrivateLocalDataForSignedOutUser() {
+        challenges = []
+        leaderboardEntries = [:]
+        lastErrorMessage = nil
+        UserDefaults.standard.removeObject(forKey: Self.challengesStorageKey)
+        UserDefaults.standard.removeObject(forKey: Self.leaderboardStorageKey)
     }
     
     // MARK: - Challenge Snapshots

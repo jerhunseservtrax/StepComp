@@ -1,7 +1,7 @@
 # FitComp Fix Tracker
 
 > Log of all bugs encountered and fixes implemented to prevent recurrence.
-> Last updated: 2026-04-13 (v6)
+> Last updated: 2026-06-08 (v7)
 
 ---
 
@@ -26,6 +26,14 @@
 ---
 
 ## Critical Fixes
+
+### 0. Cross-Account Local Fitness Data Cleanup on Sign-Out
+- **Commit:** pending
+- **Symptom:** On shared devices, User B could inherit User A's locally cached workouts, completed sessions, weight entries, food logs, photos, challenge cache, and metrics after User A signed out. Startup bulk sync could upload User A's unsynced workout/weight data under User B's authenticated Supabase session.
+- **Root Cause:** Private app data was stored in device-global `UserDefaults` keys and only the auth user plus active workout draft were cleared on sign-out. In-memory singleton view models also retained private state across the auth transition.
+- **Fix:** Added `LocalUserDataStore` and per-service reset hooks. Explicit/forced sign-out now clears private UserDefaults keys, meal/transformation photo files, sync tracking IDs, challenge fallback caches, and in-memory workout/weight/food/metrics state. Active workout cleanup now also nils the live session/timer state.
+- **Files:** `LocalUserDataStore.swift`, `AuthService.swift`, `WorkoutViewModel.swift`, `WeightViewModel.swift`, `FoodLogViewModel.swift`, `TransformationPhotoViewModel.swift`, `ComprehensiveMetricsStore.swift`, `MetricsService.swift`, `ChallengeService.swift`
+- **Prevention:** Any user-specific local cache must either be scoped by authenticated user ID or registered with sign-out cleanup before it can be used by a singleton service.
 
 ### 1. Workout State Data Loss After Long Sessions
 - **Commit:** `6b21b36`
