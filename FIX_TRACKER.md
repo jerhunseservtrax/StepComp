@@ -28,7 +28,7 @@
 ## Critical Fixes
 
 ### 0. Cross-Account Local Fitness Data Cleanup on Sign-Out
-- **Commit:** pending
+- **Commit:** `e2b6bb7`
 - **Symptom:** On shared devices, User B could inherit User A's locally cached workouts, completed sessions, weight entries, food logs, photos, challenge cache, and metrics after User A signed out. Startup bulk sync could upload User A's unsynced workout/weight data under User B's authenticated Supabase session.
 - **Root Cause:** Private app data was stored in device-global `UserDefaults` keys and only the auth user plus active workout draft were cleared on sign-out. In-memory singleton view models also retained private state across the auth transition.
 - **Fix:** Added `LocalUserDataStore` and per-service reset hooks. Explicit/forced sign-out now clears private UserDefaults keys, meal/transformation photo files, sync tracking IDs, challenge fallback caches, and in-memory workout/weight/food/metrics state. Active workout cleanup now also nils the live session/timer state.
