@@ -204,8 +204,7 @@ final class AuthService: ObservableObject {
             KeychainStore.delete(account: keychainUserAccount)
         }
         
-        // Clear active workout state (draft, widget, live activity)
-        WorkoutViewModel.clearAllActiveWorkoutState()
+        LocalUserDataStore.clearPrivateLocalDataForSignedOutUser()
     }
     
     /// Refreshes the session when a 401 is received.
@@ -253,10 +252,19 @@ final class AuthService: ObservableObject {
         #if canImport(Supabase)
         do {
             try await supabase.auth.signOut()
-            print("🚪 Force logout requested - waiting for signed-out event")
+            print("🚪 Force logout requested")
+            applySignedOutState(
+                deleteCachedUser: true,
+                reason: "force logout",
+                allowDuringStartupCheck: true
+            )
         } catch {
             print("⚠️ Force logout signOut failed, clearing local auth state: \(error.localizedDescription)")
-            applySignedOutState(deleteCachedUser: true)
+            applySignedOutState(
+                deleteCachedUser: true,
+                reason: "force logout signOut failed",
+                allowDuringStartupCheck: true
+            )
         }
         #else
         applySignedOutState(deleteCachedUser: true)
@@ -577,9 +585,22 @@ final class AuthService: ObservableObject {
         #if canImport(Supabase)
         if useSupabase {
             // This clears the session from Supabase's internal storage.
-            // Local cleanup is handled by the signed-out auth state event.
-            try await supabase.auth.signOut()
-            print("✅ Supabase sign out requested - awaiting signed-out event")
+            do {
+                try await supabase.auth.signOut()
+                print("✅ Supabase sign out requested")
+            } catch {
+                applySignedOutState(
+                    deleteCachedUser: true,
+                    reason: "Supabase sign out failed",
+                    allowDuringStartupCheck: true
+                )
+                throw error
+            }
+            applySignedOutState(
+                deleteCachedUser: true,
+                reason: "user initiated logout",
+                allowDuringStartupCheck: true
+            )
             return
         }
         #endif

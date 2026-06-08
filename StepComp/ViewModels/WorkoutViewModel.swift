@@ -22,6 +22,9 @@ private struct ActiveWorkoutDraft: Codable {
 @MainActor
 class WorkoutViewModel: ObservableObject {
     static let shared = WorkoutViewModel()
+    static let workoutsStorageKey = "saved_workouts"
+    static let completedSessionsStorageKey = "completed_workout_sessions"
+    static let activeWorkoutDraftStorageKey = "active_workout_draft"
 
     struct WeeklyWorkoutProgress {
         let scheduledCount: Int
@@ -243,8 +246,10 @@ class WorkoutViewModel: ObservableObject {
         
         // Sync to Supabase in the background (fire-and-forget)
         let sessionToSync = completedSession
+        let syncUserId = AuthService.shared.currentUser?.id
         Task.detached(priority: .utility) {
-            await MetricsService.shared.syncWorkoutSession(sessionToSync)
+            guard let syncUserId else { return }
+            await MetricsService.shared.syncWorkoutSession(sessionToSync, expectedUserId: syncUserId)
         }
         
         // Update the workout's last completed date
@@ -269,18 +274,7 @@ class WorkoutViewModel: ObservableObject {
     }
     
     func cancelWorkout() {
-        autoFinishTask?.cancel()
-        autoFinishTask = nil
-        isAutoFinishing = false
-        stopTimer()
-        currentSession = nil
-        sessionStartTime = nil
-        elapsedTime = 0
-        totalPausedTime = 0
-        isPaused = false
-        clearActiveWorkoutDraft()
-        WorkoutLiveActivityManager.end()
-        WorkoutWidgetStore.clear()
+        resetActiveWorkoutState()
     }
     
     // MARK: - Set Management
@@ -904,12 +898,12 @@ class WorkoutViewModel: ObservableObject {
     
     private func saveWorkouts() {
         if let encoded = try? JSONEncoder().encode(workouts) {
-            UserDefaults.standard.set(encoded, forKey: "saved_workouts")
+            UserDefaults.standard.set(encoded, forKey: Self.workoutsStorageKey)
         }
     }
     
     private func loadWorkouts() {
-        if let data = UserDefaults.standard.data(forKey: "saved_workouts"),
+        if let data = UserDefaults.standard.data(forKey: Self.workoutsStorageKey),
            let decoded = try? JSONDecoder().decode([Workout].self, from: data) {
             workouts = decoded
         }
@@ -917,12 +911,12 @@ class WorkoutViewModel: ObservableObject {
     
     func saveCompletedSessions() {
         if let encoded = try? JSONEncoder().encode(completedSessions) {
-            UserDefaults.standard.set(encoded, forKey: "completed_workout_sessions")
+            UserDefaults.standard.set(encoded, forKey: Self.completedSessionsStorageKey)
         }
     }
     
     private func loadCompletedSessions() {
-        if let data = UserDefaults.standard.data(forKey: "completed_workout_sessions"),
+        if let data = UserDefaults.standard.data(forKey: Self.completedSessionsStorageKey),
            let decoded = try? JSONDecoder().decode([CompletedWorkoutSession].self, from: data) {
             completedSessions = decoded
         }
@@ -948,14 +942,14 @@ class WorkoutViewModel: ObservableObject {
         )
         
         if let encoded = try? JSONEncoder().encode(draft) {
-            UserDefaults.standard.set(encoded, forKey: "active_workout_draft")
+            UserDefaults.standard.set(encoded, forKey: Self.activeWorkoutDraftStorageKey)
             print("💾 Active workout draft saved")
         }
     }
     
     /// Loads and restores an active workout draft if one exists
     private func loadActiveWorkoutDraftIfAny() {
-        guard let data = UserDefaults.standard.data(forKey: "active_workout_draft"),
+        guard let data = UserDefaults.standard.data(forKey: Self.activeWorkoutDraftStorageKey),
               let draft = try? JSONDecoder().decode(ActiveWorkoutDraft.self, from: data) else {
             print("ℹ️ No active workout draft found")
             return
@@ -987,7 +981,7 @@ class WorkoutViewModel: ObservableObject {
     
     /// Clears the active workout draft from persistence
     private func clearActiveWorkoutDraft() {
-        UserDefaults.standard.removeObject(forKey: "active_workout_draft")
+        UserDefaults.standard.removeObject(forKey: Self.activeWorkoutDraftStorageKey)
         print("🧹 Active workout draft cleared")
     }
     
@@ -1027,10 +1021,34 @@ class WorkoutViewModel: ObservableObject {
     /// Clears all active workout state (draft, widget, live activity)
     static func clearAllActiveWorkoutState() {
         let vm = WorkoutViewModel.shared
-        vm.clearActiveWorkoutDraft()
-        WorkoutWidgetStore.clear()
-        WorkoutLiveActivityManager.end()
+        vm.resetActiveWorkoutState()
         print("🧹 All active workout state cleared")
+    }
+
+    func clearPrivateLocalDataForSignedOutUser() {
+        workouts = []
+        completedSessions = []
+        finishedSession = nil
+        resetActiveWorkoutState()
+        UserDefaults.standard.removeObject(forKey: Self.workoutsStorageKey)
+        UserDefaults.standard.removeObject(forKey: Self.completedSessionsStorageKey)
+    }
+
+    private func resetActiveWorkoutState() {
+        autoFinishTask?.cancel()
+        autoFinishTask = nil
+        isAutoFinishing = false
+        stopTimer()
+        currentSession = nil
+        sessionStartTime = nil
+        elapsedTime = 0
+        totalPausedTime = 0
+        isPaused = false
+        pauseStartTime = nil
+        workoutTargetDate = nil
+        clearActiveWorkoutDraft()
+        WorkoutLiveActivityManager.end()
+        WorkoutWidgetStore.clear()
     }
     
     // MARK: - Data Migration

@@ -12,6 +12,8 @@ import UIKit
 @MainActor
 final class FoodLogViewModel: ObservableObject {
     static let shared = FoodLogViewModel()
+    static let entriesStorageKey = "food_log_entries"
+    static let cachedFoodsStorageKey = "food_log_cached_foods"
 
     @Published private(set) var entries: [FoodLogEntry] = []
     @Published private(set) var cachedFoods: [FoodItem] = []
@@ -27,8 +29,8 @@ final class FoodLogViewModel: ObservableObject {
         case noTextDetected
     }
 
-    private let storageKey = "food_log_entries"
-    private let cachedFoodsKey = "food_log_cached_foods"
+    private let storageKey = Self.entriesStorageKey
+    private let cachedFoodsKey = Self.cachedFoodsStorageKey
     private let maxCachedFoods = 30
     private let fatSecretService = FatSecretFoodService.shared
     private let usdaService = USDAFoodService.shared
@@ -347,8 +349,22 @@ final class FoodLogViewModel: ObservableObject {
             fatG: Int(entry.totalFatG.rounded()),
             waterMl: 0
         )
+        let syncUserId = AuthService.shared.currentUser?.id
         Task.detached(priority: .utility) {
-            await MetricsService.shared.syncNutritionLog(log)
+            guard let syncUserId else { return }
+            await MetricsService.shared.syncNutritionLog(log, expectedUserId: syncUserId)
         }
+    }
+
+    func clearPrivateLocalDataForSignedOutUser() {
+        entries = []
+        cachedFoods = []
+        searchResults = []
+        errorMessage = nil
+        scanStatus = .idle
+        UserDefaults.standard.removeObject(forKey: Self.entriesStorageKey)
+        UserDefaults.standard.removeObject(forKey: Self.cachedFoodsStorageKey)
+        try? FileManager.default.removeItem(at: photoDirectory)
+        syncNutritionLogsToMetrics()
     }
 }

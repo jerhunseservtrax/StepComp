@@ -123,15 +123,19 @@ final class MetricsViewModel: ObservableObject {
             fatG: fatG,
             waterMl: waterMl
         )
+        let syncUserId = AuthService.shared.currentUser?.id
         Task.detached(priority: .utility) {
-            await MetricsService.shared.syncNutritionLog(log)
+            guard let syncUserId else { return }
+            await MetricsService.shared.syncNutritionLog(log, expectedUserId: syncUserId)
         }
     }
 
     func addBodyMetric(bodyFatPercent: Double?, waistCm: Double?) {
         comprehensiveStore.addBodyMetric(bodyFatPercent: bodyFatPercent, waistCm: waistCm)
+        let syncUserId = AuthService.shared.currentUser?.id
         Task.detached(priority: .utility) {
-            await MetricsService.shared.syncBodyMetric(bodyFatPercent: bodyFatPercent, waistCm: waistCm)
+            guard let syncUserId else { return }
+            await MetricsService.shared.syncBodyMetric(bodyFatPercent: bodyFatPercent, waistCm: waistCm, expectedUserId: syncUserId)
         }
     }
 

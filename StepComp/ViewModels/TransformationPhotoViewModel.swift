@@ -12,11 +12,12 @@ import Combine
 @MainActor
 class TransformationPhotoViewModel: ObservableObject {
     static let shared = TransformationPhotoViewModel()
+    static let photosStorageKey = "transformation_photos"
     
     @Published var photos: [TransformationPhoto] = []
     @Published var latestPhoto: UIImage?
     
-    private let userDefaultsKey = "transformation_photos"
+    private let userDefaultsKey = Self.photosStorageKey
     private let photoDirectoryName = "transformation_photos"
     
     private var photoDirectory: URL {
@@ -34,6 +35,7 @@ class TransformationPhotoViewModel: ObservableObject {
     
     func addPhotoSet(frontImage: UIImage, sideImage: UIImage, backImage: UIImage, date: Date = Date(), note: String? = nil) {
         let directory = photoDirectory
+        let ownerUserId = AuthService.shared.currentUser?.id
         Task.detached(priority: .utility) { [weak self] in
             guard let self else { return }
 
@@ -61,6 +63,14 @@ class TransformationPhotoViewModel: ObservableObject {
                 try backData.write(to: backURL)
 
                 await MainActor.run {
+                    guard let ownerUserId,
+                          AuthService.shared.currentUser?.id == ownerUserId else {
+                        try? FileManager.default.removeItem(at: frontURL)
+                        try? FileManager.default.removeItem(at: sideURL)
+                        try? FileManager.default.removeItem(at: backURL)
+                        return
+                    }
+
                     let photo = TransformationPhoto(
                         date: date,
                         frontFilename: frontFilename,
@@ -167,5 +177,13 @@ class TransformationPhotoViewModel: ObservableObject {
             return
         }
         latestPhoto = loadImage(for: latest, angle: .front)
+    }
+
+    func clearPrivateLocalDataForSignedOutUser() {
+        photos = []
+        latestPhoto = nil
+        UserDefaults.standard.removeObject(forKey: Self.photosStorageKey)
+        try? FileManager.default.removeItem(at: photoDirectory)
+        createPhotoDirectoryIfNeeded()
     }
 }

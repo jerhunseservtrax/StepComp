@@ -14,20 +14,22 @@ import HealthKit
 @MainActor
 class WeightViewModel: ObservableObject {
     static let shared = WeightViewModel()
+    static let entriesStorageKey = "weight_entries"
     
     @Published var entries: [WeightEntry] = []
     @Published var latestWeight: Double?
     
-    private let userDefaultsKey = "weight_entries"
+    private let userDefaultsKey = Self.entriesStorageKey
     private let healthKitService: HealthKitService
+    private var healthKitSyncTask: Task<Void, Never>?
     
     private init() {
         self.healthKitService = HealthKitService.shared
         loadEntries()
         
         // Sync with HealthKit on init
-        Task {
-            await syncWithHealthKit()
+        healthKitSyncTask = Task { [weak self] in
+            await self?.syncWithHealthKit()
         }
     }
     
@@ -49,8 +51,10 @@ class WeightViewModel: ObservableObject {
         
         // Sync to Supabase in the background
         let entryToSync = entry
+        let syncUserId = AuthService.shared.currentUser?.id
         Task.detached(priority: .utility) {
-            await MetricsService.shared.syncWeightEntry(entryToSync)
+            guard let syncUserId else { return }
+            await MetricsService.shared.syncWeightEntry(entryToSync, expectedUserId: syncUserId)
         }
     }
     
@@ -69,6 +73,7 @@ class WeightViewModel: ObservableObject {
     // MARK: - HealthKit Integration
     
     func syncWithHealthKit() async {
+        guard !Task.isCancelled else { return }
         guard healthKitService.isAuthorized else {
             print("⚠️ HealthKit not authorized, skipping sync")
             return
@@ -76,6 +81,9 @@ class WeightViewModel: ObservableObject {
         
         do {
             if let healthKitWeight = try await healthKitService.getWeight() {
+                guard !Task.isCancelled else { return }
+                guard AuthService.shared.isAuthenticated else { return }
+
                 // Check if we need to add this as a new entry
                 let today = Calendar.current.startOfDay(for: Date())
                 let hasEntryToday = entries.contains { entry in
@@ -132,5 +140,13 @@ class WeightViewModel: ObservableObject {
     
     private func updateLatestWeight() {
         latestWeight = entries.first?.weightKg
+    }
+
+    func clearPrivateLocalDataForSignedOutUser() {
+        healthKitSyncTask?.cancel()
+        healthKitSyncTask = nil
+        entries = []
+        latestWeight = nil
+        UserDefaults.standard.removeObject(forKey: Self.entriesStorageKey)
     }
 }

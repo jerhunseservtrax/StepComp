@@ -9,12 +9,14 @@ import Combine
 @MainActor
 final class ComprehensiveMetricsStore: ObservableObject {
     static let shared = ComprehensiveMetricsStore()
+    static let bodyMetricsStorageKey = "comprehensive_body_metrics"
+    static let nutritionLogsStorageKey = "comprehensive_nutrition_logs"
 
     @Published private(set) var bodyMetrics: [BodyMetricEntry] = []
     @Published private(set) var nutritionLogs: [NutritionLog] = []
 
-    private let bodyMetricsKey = "comprehensive_body_metrics"
-    private let nutritionLogsKey = "comprehensive_nutrition_logs"
+    private let bodyMetricsKey = Self.bodyMetricsStorageKey
+    private let nutritionLogsKey = Self.nutritionLogsStorageKey
 
     private init() {
         load()
@@ -725,6 +727,13 @@ final class ComprehensiveMetricsStore: ObservableObject {
            let decoded = try? JSONDecoder().decode([NutritionLog].self, from: data) {
             nutritionLogs = decoded
         }
+    }
+
+    func clearPrivateLocalDataForSignedOutUser() {
+        bodyMetrics = []
+        nutritionLogs = []
+        UserDefaults.standard.removeObject(forKey: Self.bodyMetricsStorageKey)
+        UserDefaults.standard.removeObject(forKey: Self.nutritionLogsStorageKey)
     }
 
     private func updateRecord(map: inout [String: [PersonalRecordType: PersonalRecord]], candidate: PersonalRecord) {
