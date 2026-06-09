@@ -446,11 +446,13 @@ extension SignInOnboardingView {
                 print("❌ [H7] Error code: \((error as NSError).code)")
                 print("❌ [H7] Error domain: \((error as NSError).domain)")
             }
-            if let callbackURL = callbackURL {
-                print("✅ [H7] Callback URL received: \(callbackURL.absoluteString)")
+            #if DEBUG
+            if callbackURL != nil {
+                print("✅ [H7] Callback URL received")
             } else {
                 print("⚠️ [H7] No callback URL received")
             }
+            #endif
             
             Task { @MainActor in
                 isLoading = false
@@ -499,7 +501,9 @@ extension SignInOnboardingView {
     
     func handleOAuthCallback(url: URL) async {
         #if canImport(Supabase)
-        print("🔵 OAuth callback received: \(url)")
+        #if DEBUG
+        print("🔵 OAuth callback received")
+        #endif
         
         // Process the OAuth callback URL with Supabase
         // Extract tokens from the callback URL
@@ -509,16 +513,20 @@ extension SignInOnboardingView {
         // Check if this is a valid OAuth callback
         if let fragment = components?.fragment, fragment.contains("access_token") {
             // Parse the fragment to extract tokens
+            #if DEBUG
             print("🔵 Found OAuth tokens in URL fragment")
+            #endif
         } else if let queryItems = components?.queryItems, queryItems.contains(where: { $0.name == "code" || $0.name == "access_token" }) {
             // Parse query parameters
+            #if DEBUG
             print("🔵 Found OAuth tokens in URL query")
+            #endif
         }
         
-        // Supabase SDK should handle the callback automatically
-        // Try to get the current session
+        // ASWebAuthenticationSession delivers the callback here rather than through .onOpenURL.
+        // Await Supabase's session extraction before checking local auth/profile state.
         do {
-            let session = try await supabase.auth.session
+            let session = try await supabase.auth.session(from: url)
             print("✅ OAuth session established: \(session.user.id)")
             
             // Load user profile

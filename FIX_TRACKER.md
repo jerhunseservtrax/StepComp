@@ -1,7 +1,7 @@
 # FitComp Fix Tracker
 
 > Log of all bugs encountered and fixes implemented to prevent recurrence.
-> Last updated: 2026-04-13 (v6)
+> Last updated: 2026-06-09 (v7)
 
 ---
 
@@ -26,6 +26,22 @@
 ---
 
 ## Critical Fixes
+
+### 62. Password Reset and Google OAuth Callback Breakage
+- **Status:** Fixed
+- **Symptom:** Password reset email links did not open the app, and Google OAuth sign-in completed in the browser but failed to establish an app session.
+- **Root Cause:** Forgot-password emails used the unregistered `je.fitcomp://` URL scheme while `Info.plist` only registered `fitcomp://`. The Google `ASWebAuthenticationSession` callback path read `supabase.auth.session` without first awaiting Supabase's callback URL session extraction, and logged full callback URLs containing tokens.
+- **Fix:** Changed reset redirect URLs to `fitcomp://reset-password`, await `supabase.auth.session(from: url)` in the web-auth callback before profile checks, and removed production logging of token-bearing callback URLs.
+- **Files:** `ForgotPasswordSheet.swift`, `SignInOnboardingView+Auth.swift`, `tests/test_critical_regressions.py`
+- **Prevention:** Auth callback URLs must use a registered scheme, custom web-auth callback handlers must await Supabase session extraction before reading auth/profile state, and token-bearing URLs must never be logged outside debug-only sanitized messages.
+
+### 63. Cross-Account Metrics Offline Cache Bleed
+- **Status:** Fixed
+- **Symptom:** After account switching on the same device, Metrics could display the previous user's cached summary, weight history, or workout history when the current user's network fetch failed.
+- **Root Cause:** Metrics offline cache keys were only scoped by metric type and day range (`metrics_summary_30`, etc.), not by authenticated user id. The offline cache was also not cleared during sign-out.
+- **Fix:** Added authenticated-user-scoped cache keys for Metrics fetches and clear the offline cache on sign-out.
+- **Files:** `MetricsService.swift`, `AuthService.swift`, `tests/test_critical_regressions.py`
+- **Prevention:** Any disk cache containing user data must include the authenticated user id in its key or be cleared on account boundary changes.
 
 ### 1. Workout State Data Loss After Long Sessions
 - **Commit:** `6b21b36`
