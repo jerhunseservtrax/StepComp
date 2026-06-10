@@ -31,6 +31,8 @@ final class AuthService: ObservableObject {
     private let testAccountDisplayName = "Test User"
     #endif
     private var refreshSessionTask: Task<Bool, Never>?
+    private var profileLoadTask: Task<Void, Never>?
+    private var authInvalidationVersion = 0
     #if canImport(Supabase)
     private var authStateListenerTask: Task<Void, Never>?
     #endif
@@ -148,13 +150,22 @@ final class AuthService: ObservableObject {
     
     private func applyAuthenticatedSession(_ session: Session) async {
         let userId = session.user.id.uuidString
+        let profileLoadVersion = authInvalidationVersion
         
         // Keep profile loading in a standalone task so timeout does not cancel it.
         // If timeout wins, we use cached data immediately and let profile update when it finishes.
-        let profileLoadTask = Task { @MainActor [weak self] in
-            _ = await self?.loadUserProfile(userId: userId)
+        profileLoadTask?.cancel()
+        let task = Task { @MainActor [weak self] in
+            await self?.loadUserProfile(userId: userId, authInvalidationVersion: profileLoadVersion)
         }
-        let completedBeforeTimeout = await waitForProfileLoad(profileLoadTask, timeoutNanoseconds: 8_000_000_000)
+        profileLoadTask = task
+        let completedBeforeTimeout = await waitForProfileLoad(task, timeoutNanoseconds: 8_000_000_000)
+        guard isCurrentAuthLoad(profileLoadVersion) else {
+            return
+        }
+        if completedBeforeTimeout {
+            profileLoadTask = nil
+        }
         if !completedBeforeTimeout {
             print("⚠️ Profile load timed out — using cached data")
             if let cachedUser = self.loadCachedUser() {
@@ -198,14 +209,18 @@ final class AuthService: ObservableObject {
             return
         }
 
+        authInvalidationVersion += 1
+        profileLoadTask?.cancel()
+        profileLoadTask = nil
         currentUser = nil
         isAuthenticated = false
         if deleteCachedUser {
             KeychainStore.delete(account: keychainUserAccount)
         }
         
-        // Clear active workout state (draft, widget, live activity)
-        WorkoutViewModel.clearAllActiveWorkoutState()
+        // Clear all account-scoped state so the next signed-in user cannot
+        // see or sync the previous user's local health/workout data.
+        LocalUserDataStore.clearAll()
     }
     
     /// Refreshes the session when a 401 is received.
@@ -227,7 +242,10 @@ final class AuthService: ObservableObject {
                 print("✅ Session refreshed successfully")
                 
                 // Reload profile with new session
-                await self.loadUserProfile(userId: refreshedSession.user.id.uuidString)
+                await self.loadUserProfile(
+                    userId: refreshedSession.user.id.uuidString,
+                    authInvalidationVersion: self.authInvalidationVersion
+                )
                 return true
             } catch {
                 // Refresh failed - session is truly invalid
@@ -470,7 +488,7 @@ final class AuthService: ObservableObject {
             }
             
             // Load user profile to ensure currentUser is set correctly
-            await loadUserProfile(userId: userId)
+            await loadUserProfile(userId: userId, authInvalidationVersion: authInvalidationVersion)
             
             // Verify currentUser was set
             guard currentUser != nil else {
@@ -641,7 +659,7 @@ final class AuthService: ObservableObject {
                 throw AuthError.invalidResponse
             }
             
-            await loadUserProfile(userId: userId)
+            await loadUserProfile(userId: userId, authInvalidationVersion: authInvalidationVersion)
         } catch {
             print("❌ Supabase sign-in error: \(error.localizedDescription)")
             print("❌ Error details: \(error)")
@@ -800,7 +818,7 @@ final class AuthService: ObservableObject {
             isAuthenticated = true
             saveUser()
             
-            await loadUserProfile(userId: userId)
+            await loadUserProfile(userId: userId, authInvalidationVersion: authInvalidationVersion)
         } catch {
             // Handle sign-up errors
             let errorString = error.localizedDescription.lowercased()
@@ -820,8 +838,13 @@ final class AuthService: ObservableObject {
         }
     }
     
-    private func loadUserProfile(userId: String) async {
+    private func loadUserProfile(userId: String, authInvalidationVersion expectedVersion: Int) async {
         do {
+            guard isCurrentAuthLoad(expectedVersion) else {
+                print("ℹ️ Ignoring stale profile load before request")
+                return
+            }
+
             // PERMANENT LOGIN: Load profile directly from database using userId
             // Don't require a valid session - the profile has all the info we need
             // This allows users to stay logged in even if session is being refreshed
@@ -844,6 +867,11 @@ final class AuthService: ObservableObject {
                 .single()
                 .execute()
                 .value
+
+            guard isCurrentAuthLoad(expectedVersion) else {
+                print("ℹ️ Ignoring stale profile load after request")
+                return
+            }
             
             // Convert to app User model
             // Use firstName and lastName from profile, fallback to empty strings
@@ -889,7 +917,7 @@ final class AuthService: ObservableObject {
             
             print("✅ User profile loaded successfully - user is authenticated")
         } catch {
-            if Task.isCancelled {
+            if !isCurrentAuthLoad(expectedVersion) {
                 print("ℹ️ Profile load task cancelled")
                 return
             }
@@ -922,6 +950,10 @@ final class AuthService: ObservableObject {
                 print("⚠️ Created minimal user profile - will sync when online")
             }
         }
+    }
+
+    private func isCurrentAuthLoad(_ expectedVersion: Int) -> Bool {
+        !Task.isCancelled && authInvalidationVersion == expectedVersion
     }
 
     @MainActor

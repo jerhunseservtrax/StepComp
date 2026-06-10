@@ -49,8 +49,10 @@ class WeightViewModel: ObservableObject {
         
         // Sync to Supabase in the background
         let entryToSync = entry
-        Task.detached(priority: .utility) {
-            await MetricsService.shared.syncWeightEntry(entryToSync)
+        if let expectedUserId = AuthService.shared.currentUser?.id {
+            Task.detached(priority: .utility) {
+                await MetricsService.shared.syncWeightEntry(entryToSync, expectedUserId: expectedUserId)
+            }
         }
     }
     
@@ -58,6 +60,12 @@ class WeightViewModel: ObservableObject {
         entries.removeAll { $0.id == id }
         updateLatestWeight()
         saveEntries()
+    }
+
+    func clearLocalUserData() {
+        entries = []
+        latestWeight = nil
+        UserDefaults.standard.removeObject(forKey: userDefaultsKey)
     }
     
     func getEntriesForGraph(days: Int = 90) -> [WeightEntry] {
@@ -69,6 +77,11 @@ class WeightViewModel: ObservableObject {
     // MARK: - HealthKit Integration
     
     func syncWithHealthKit() async {
+        guard AuthService.shared.isAuthenticated else {
+            print("⚠️ User is signed out, skipping weight sync")
+            return
+        }
+
         guard healthKitService.isAuthorized else {
             print("⚠️ HealthKit not authorized, skipping sync")
             return

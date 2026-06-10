@@ -1,7 +1,7 @@
 # FitComp Fix Tracker
 
 > Log of all bugs encountered and fixes implemented to prevent recurrence.
-> Last updated: 2026-04-13 (v6)
+> Last updated: 2026-06-10 (v7)
 
 ---
 
@@ -84,6 +84,14 @@
 - **Fix:** Changed to `@ObservedObject`. Wrapped state updates in `MainActor.run`. Added `.id()` modifier for clean view recreation.
 - **Files:** `RootView.swift`, `MainTabView.swift`, `SessionViewModel.swift`
 - **Prevention:** Use `@ObservedObject` for shared view models during view transitions. Use `.id()` to force clean recreation.
+
+### 7. Cross-Account Local Data Leak on Sign-Out
+- **Commit:** Current fix branch
+- **Symptom:** On a shared device, User B could see User A's cached metrics/workout/weight/nutrition/challenge data after User A signed out. If User A had unsynced or in-flight local workout, weight, body metric, or nutrition writes, the next authenticated session could sync them under User B.
+- **Root Cause:** Account-scoped data was stored in global UserDefaults keys, document folders, and singleton arrays. Sign-out only cleared the cached auth user and active workout draft/widget/live activity, leaving offline cache, sync trackers, completed workouts, weight entries, food logs, transformation photos, challenge cache, and metrics store data behind. Detached sync tasks also checked only for "some" active session at execution time, and timed-out profile loads could mutate auth/profile defaults after sign-out.
+- **Fix:** Added `LocalUserDataStore.clearAll()` and wired it into `AuthService.applySignedOutState()`. The purge clears account-scoped UserDefaults keys, offline cache, document photo folders, sync trackers, and in-memory singleton state for workouts, weights, food logs, transformation photos, metrics, and challenge caches. Profile loads are invalidated/cancelled on sign-out, and background metrics syncs now validate the originating user ID against the active Supabase session before RPC writes.
+- **Files:** `LocalUserDataStore.swift`, `AuthService.swift`, `WorkoutViewModel.swift`, `WeightViewModel.swift`, `FoodLogViewModel.swift`, `TransformationPhotoViewModel.swift`, `MetricsViewModel.swift`, `ComprehensiveMetricsStore.swift`, `ChallengeService.swift`, `MetricsService.swift`
+- **Prevention:** Any data derived from an authenticated user must either be user-scoped by key/path or cleared from both disk and in-memory stores during sign-out. Any detached account-data sync must carry the originating user ID and abort if the active auth user changes.
 
 ---
 

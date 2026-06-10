@@ -247,6 +247,19 @@ final class FoodLogViewModel: ObservableObject {
         syncNutritionLogsToMetrics()
     }
 
+    func clearLocalUserData() {
+        entries = []
+        cachedFoods = []
+        isSearching = false
+        searchResults = []
+        errorMessage = nil
+        scanStatus = .idle
+        UserDefaults.standard.removeObject(forKey: storageKey)
+        UserDefaults.standard.removeObject(forKey: cachedFoodsKey)
+        try? FileManager.default.removeItem(at: photoDirectory)
+        metricsStore.replaceNutritionLogs([])
+    }
+
     // MARK: - Photo Storage
 
     #if canImport(UIKit)
@@ -347,8 +360,10 @@ final class FoodLogViewModel: ObservableObject {
             fatG: Int(entry.totalFatG.rounded()),
             waterMl: 0
         )
-        Task.detached(priority: .utility) {
-            await MetricsService.shared.syncNutritionLog(log)
+        if let expectedUserId = AuthService.shared.currentUser?.id {
+            Task.detached(priority: .utility) {
+                await MetricsService.shared.syncNutritionLog(log, expectedUserId: expectedUserId)
+            }
         }
     }
 }

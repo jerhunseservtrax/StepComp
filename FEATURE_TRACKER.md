@@ -1,7 +1,7 @@
 # FitComp Feature Tracker
 
 > Comprehensive catalog of all features in the FitComp fitness competition app (formerly StepComp).
-> Last updated: 2026-04-13 (v5)
+> Last updated: 2026-06-10 (v6)
 
 ---
 
@@ -267,6 +267,7 @@
 | HealthKit Toggle | `SettingsConnectivityCard.swift` | Enable/disable HealthKit integration |
 | Notification Prefs | `SettingsNotificationsCard.swift` | Daily recap, leaderboard alerts, motivational nudges |
 | Sign Out | `SettingsView.swift`, `SettingsMainContent.swift`, `SessionViewModel.swift` | Logout with proper cleanup |
+| Account Data Purge on Sign-Out | `AuthService.swift`, `LocalUserDataStore.swift` | Clears account-scoped local stores, caches, sync trackers, and in-memory singleton state so shared devices do not leak one user's data into the next session |
 | Delete Account | `DeleteAccountConfirmationView.swift`, `SettingsView.swift`, `SettingsViewModifiers.swift` | Account deletion with confirmation |
 | Streak Display | `SettingsView.swift`, `SettingsLayoutViews.swift` | Current step streak (30-day lookback) |
 
@@ -358,6 +359,7 @@
 | Keychain Store | `KeychainStore.swift` | Secure credential storage with kSecAttrService scoping and OSStatus error handling |
 | Retry Utility | `RetryUtility.swift` | Exponential backoff retry logic |
 | Offline Cache | `OfflineCacheService.swift` | Generic disk-backed Codable cache with fetch-with-fallback for offline resilience |
+| Local User Data Store | `LocalUserDataStore.swift` | Centralized purge of authenticated-user local data across UserDefaults, document folders, offline cache, and singleton stores |
 | Cached Async Image | `CachedAsyncImage.swift` | Image caching for remote images (used in ProfileView, etc.) |
 | Reaction Effects | `ReactionEffectManager.swift` | Celebration/reaction animations |
 | Avatar View | `AvatarView.swift` | Reusable avatar component |
