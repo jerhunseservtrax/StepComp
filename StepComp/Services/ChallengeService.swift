@@ -820,6 +820,14 @@ final class ChallengeService: ObservableObject {
         }
         leaderboardEntries = decoded
     }
+
+    func clearLocalUserData() {
+        challenges = []
+        leaderboardEntries = [:]
+        lastErrorMessage = nil
+        UserDefaults.standard.removeObject(forKey: challengesKey)
+        UserDefaults.standard.removeObject(forKey: leaderboardKey)
+    }
     
     // MARK: - Challenge Snapshots
     

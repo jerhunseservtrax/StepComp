@@ -102,6 +102,13 @@ class TransformationPhotoViewModel: ObservableObject {
         
         print("✅ Deleted transformation photo set")
     }
+
+    func clearLocalUserData() {
+        photos = []
+        latestPhoto = nil
+        UserDefaults.standard.removeObject(forKey: userDefaultsKey)
+        try? FileManager.default.removeItem(at: photoDirectory)
+    }
     
     func loadImage(for photo: TransformationPhoto, angle: PhotoAngle) -> UIImage? {
         let filename: String

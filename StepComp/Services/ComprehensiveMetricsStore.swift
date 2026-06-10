@@ -61,6 +61,13 @@ final class ComprehensiveMetricsStore: ObservableObject {
         save()
     }
 
+    func clearLocalUserData() {
+        bodyMetrics = []
+        nutritionLogs = []
+        UserDefaults.standard.removeObject(forKey: bodyMetricsKey)
+        UserDefaults.standard.removeObject(forKey: nutritionLogsKey)
+    }
+
     func computeStrengthSnapshot(sessions: [CompletedWorkoutSession]) -> StrengthMetricSnapshot {
         var recordMap: [String: [PersonalRecordType: PersonalRecord]] = [:]
         var muscleVolume: [String: Double] = [:]
