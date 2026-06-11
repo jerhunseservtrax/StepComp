@@ -9,7 +9,7 @@ import XCTest
 final class RetryUtilityTests: XCTestCase {
     func testSucceedsWithoutRetry() async throws {
         var attempts = 0
-        let result: Int = try await RetryUtility.withExponentialBackoff(maxRetries: 3) {
+        let result: Int = try await RetryUtility.withExponentialBackoff(maxAttempts: 3) {
             attempts += 1
             return 42
         }
@@ -19,7 +19,7 @@ final class RetryUtilityTests: XCTestCase {
 
     func testRetriesOnFailureThenSucceeds() async throws {
         var attempts = 0
-        let result: String = try await RetryUtility.withExponentialBackoff(maxRetries: 3) {
+        let result: String = try await RetryUtility.withExponentialBackoff(maxAttempts: 3) {
             attempts += 1
             if attempts < 3 {
                 throw NSError(domain: "test", code: 500)

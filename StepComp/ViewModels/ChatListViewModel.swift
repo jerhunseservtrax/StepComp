@@ -125,36 +125,20 @@ final class ChatListViewModel: ObservableObject {
             return []
         }
         
-        // Get challenge info - check if challenges actually exist AND haven't ended
+        // Get challenge info. Ended challenges are filtered from the chat list below,
+        // but membership rows must remain for archives/history.
         let challenges: [SimpleChallengeInfo] = try await supabase
             .from("challenges")
-            .select("id, name")
+            .select("id, name, end_date")
             .in("id", values: challengeIds)
-            .gte("end_date", value: ISO8601DateFormatter().string(from: Date()))
             .execute()
             .value
         
-        // Find orphaned challenge_members (member record exists but challenge doesn't or has ended)
-        let foundChallengeIds = Set(challenges.map { $0.id })
-        let orphanedIds = Set(challengeIds).subtracting(foundChallengeIds)
-        
-        // Clean up orphaned records
-        if !orphanedIds.isEmpty {
-            for orphanedId in orphanedIds {
-                do {
-                    try await supabase
-                        .from("challenge_members")
-                        .delete()
-                        .eq("user_id", value: userId)
-                        .eq("challenge_id", value: orphanedId)
-                        .execute()
-                } catch {
-                    print("⚠️ Failed to clean up orphaned record: \(error.localizedDescription)")
-                }
-            }
-        }
-        
-        return challenges
+        return Self.visibleChatChallenges(from: challenges)
+    }
+
+    static func visibleChatChallenges(from challenges: [SimpleChallengeInfo], now: Date = Date()) -> [SimpleChallengeInfo] {
+        challenges.filter { $0.endDate >= now }
     }
     
     nonisolated private static func fetchUnreadCount(challengeId: String) async throws -> Int {
@@ -207,6 +191,13 @@ final class ChatListViewModel: ObservableObject {
 struct SimpleChallengeInfo: Codable {
     let id: String
     let name: String
+    let endDate: Date
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case name
+        case endDate = "end_date"
+    }
 }
 
 struct LastMessageInfo: Codable {
