@@ -202,6 +202,7 @@ final class AuthService: ObservableObject {
         isAuthenticated = false
         if deleteCachedUser {
             KeychainStore.delete(account: keychainUserAccount)
+            OfflineCacheService.clearAll()
         }
         
         // Clear active workout state (draft, widget, live activity)
@@ -253,7 +254,8 @@ final class AuthService: ObservableObject {
         #if canImport(Supabase)
         do {
             try await supabase.auth.signOut()
-            print("🚪 Force logout requested - waiting for signed-out event")
+            applySignedOutState(deleteCachedUser: true)
+            print("🚪 Force logout completed - local auth state cleared")
         } catch {
             print("⚠️ Force logout signOut failed, clearing local auth state: \(error.localizedDescription)")
             applySignedOutState(deleteCachedUser: true)
@@ -577,9 +579,14 @@ final class AuthService: ObservableObject {
         #if canImport(Supabase)
         if useSupabase {
             // This clears the session from Supabase's internal storage.
-            // Local cleanup is handled by the signed-out auth state event.
-            try await supabase.auth.signOut()
-            print("✅ Supabase sign out requested - awaiting signed-out event")
+            do {
+                try await supabase.auth.signOut()
+                print("✅ Supabase sign out completed")
+            } catch {
+                print("⚠️ Supabase sign out failed, clearing local auth state: \(error.localizedDescription)")
+            }
+            applySignedOutState(deleteCachedUser: true)
+            print("🚪 Local auth state cleared")
             return
         }
         #endif

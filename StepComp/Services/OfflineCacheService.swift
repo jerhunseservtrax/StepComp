@@ -47,6 +47,10 @@ enum OfflineCacheService {
         try? fileManager.removeItem(at: cacheDirectory)
     }
 
+    nonisolated static func userScopedKey(_ key: String, userId: String) -> String {
+        "user_\(safeName(userId))__\(key)"
+    }
+
     /// Fetch from the network; on success cache the result, on failure return cached data.
     static func fetchWithFallback<T: Codable>(
         key: String,
@@ -81,7 +85,7 @@ enum OfflineCacheService {
         }
     }
 
-    private static func safeName(_ key: String) -> String {
+    nonisolated private static func safeName(_ key: String) -> String {
         key.replacingOccurrences(of: "/", with: "_")
             .replacingOccurrences(of: ":", with: "_")
     }

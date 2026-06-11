@@ -1,7 +1,7 @@
 # FitComp Feature Tracker
 
 > Comprehensive catalog of all features in the FitComp fitness competition app (formerly StepComp).
-> Last updated: 2026-04-13 (v5)
+> Last updated: 2026-06-11 (v6)
 
 ---
 
@@ -194,7 +194,7 @@
 | Feature | File(s) | Description |
 |---------|---------|-------------|
 | Challenge Chat | `ChallengeChatView.swift`, `ChallengeChatViewModel.swift` | Real-time group messaging via Supabase postgresChange streams with polling fallback |
-| Chat List | `ChatListView.swift`, `ChatListViewModel.swift` | Overview of all chat conversations |
+| Chat List | `ChatListView.swift`, `ChatListViewModel.swift` | Overview of all active chat conversations without mutating archived challenge memberships |
 | Message Actions | `ChallengeChatViewModel.swift` | Send, delete, auto-scroll |
 
 ### Leaderboard
@@ -324,7 +324,7 @@
 
 | Feature | File(s) | Description |
 |---------|---------|-------------|
-| Supabase Auth | `AuthService.swift` | Singleton auth with Keychain persistence, Apple Sign In, auth state listener |
+| Supabase Auth | `AuthService.swift` | Singleton auth with Keychain persistence, Apple Sign In, auth state listener, and private offline-cache clearing on sign-out |
 | Auth State Listener | `AuthService.swift` | Real-time auth state monitoring via Supabase events with automatic session recovery |
 | Auth Recovery | `RootView.swift` | Debounced periodic auth state recovery checks on foreground transitions |
 | Automatic Metrics Sync | `RootView.swift` | One-shot metrics sync on foreground/auth changes with dedup flag |
@@ -333,7 +333,7 @@
 | Step Sync | `StepSyncService.swift` | Sync steps to server with fraud detection, RPC fallback |
 | Challenge Service | `ChallengeService.swift` | CRUD for challenges, invites, leaderboards |
 | Friends Service | `FriendsService.swift` | Friendship management, profile search |
-| Metrics Service | `MetricsService.swift` | Sync workouts, weight, nutrition to server |
+| Metrics Service | `MetricsService.swift` | Sync workouts, weight, nutrition to server with user-scoped offline metric cache keys |
 | HealthKit Service | `HealthKitService.swift` | Steps, distance, calories, weight, and expanded health data |
 | Resting Heart Rate | `HealthKitService.swift` | Recovery indicator from HealthKit |
 | Heart Rate Variability | `HealthKitService.swift` | HRV (SDNN) analysis for recovery tracking |
@@ -357,7 +357,8 @@
 | Haptic Manager | `HapticManager.swift` | Haptic feedback patterns |
 | Keychain Store | `KeychainStore.swift` | Secure credential storage with kSecAttrService scoping and OSStatus error handling |
 | Retry Utility | `RetryUtility.swift` | Exponential backoff retry logic |
-| Offline Cache | `OfflineCacheService.swift` | Generic disk-backed Codable cache with fetch-with-fallback for offline resilience |
+| Offline Cache | `OfflineCacheService.swift` | Generic disk-backed Codable cache with fetch-with-fallback, user-scoped private data keys, and sign-out clearing |
+| Unit Test Target | `StepComp.xcodeproj`, `StepCompTests/` | XCTest target for regression tests covering cache scoping, routing, keychain, retry, and unit preferences |
 | Cached Async Image | `CachedAsyncImage.swift` | Image caching for remote images (used in ProfileView, etc.) |
 | Reaction Effects | `ReactionEffectManager.swift` | Celebration/reaction animations |
 | Avatar View | `AvatarView.swift` | Reusable avatar component |

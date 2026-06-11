@@ -1,7 +1,7 @@
 # FitComp Fix Tracker
 
 > Log of all bugs encountered and fixes implemented to prevent recurrence.
-> Last updated: 2026-04-13 (v6)
+> Last updated: 2026-06-11 (v7)
 
 ---
 
@@ -84,6 +84,16 @@
 - **Fix:** Changed to `@ObservedObject`. Wrapped state updates in `MainActor.run`. Added `.id()` modifier for clean view recreation.
 - **Files:** `RootView.swift`, `MainTabView.swift`, `SessionViewModel.swift`
 - **Prevention:** Use `@ObservedObject` for shared view models during view transitions. Use `.id()` to force clean recreation.
+
+---
+
+### 2026-06-11 - Chat Membership Data Loss and Offline Cache Privacy Leak
+- **Commit:** Current critical bug investigation branch
+- **Symptom:** Opening the chat list could delete `challenge_members` rows for ended challenges, and metrics offline fallback could show one signed-in user's cached health data to another user on the same device.
+- **Root Cause:** `ChatListViewModel.getUserChallenges()` treated ended challenges as orphaned memberships and deleted them from Supabase during a read path. `MetricsService` used global offline cache keys such as `metrics_summary_30`, `weight_history_90`, and `workout_history_90` without scoping them to the authenticated user.
+- **Fix:** Removed client-side membership deletion from chat loading, fetch challenge end dates, and filter ended challenges only for active chat display. Added user-scoped metrics cache keys, require an authenticated session user before serving cached metrics, and clear offline caches during sign-out. Added regression tests and wired the existing `StepCompTests` folder into a unit-test target.
+- **Files:** `ChatListViewModel.swift`, `MetricsService.swift`, `OfflineCacheService.swift`, `SessionViewModel.swift`, `AuthService.swift`, `StepComp.xcodeproj`, `StepCompTests/ChatListViewModelTests.swift`, `StepCompTests/OfflineCacheServiceTests.swift`, `StepCompTests/RetryUtilityTests.swift`
+- **Prevention:** Read-only UI loaders must never delete server membership/history rows. Any offline cache containing private user data must include the authenticated user ID in the key and be cleared on sign-out.
 
 ---
 
