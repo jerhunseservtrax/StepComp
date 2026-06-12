@@ -21,7 +21,7 @@ enum OfflineCacheService {
     }
 
     static func userScopedKey(_ key: String, userId: String) -> String {
-        "user:\(userId):\(key)"
+        "user:\(userId.lowercased()):\(key)"
     }
 
     static func save<T: Encodable>(_ value: T, key: String) {

@@ -148,8 +148,8 @@ final class AuthService: ObservableObject {
     
     private func applyAuthenticatedSession(_ session: Session) async {
         let userId = session.user.id.uuidString
-        let previousUserId = currentUser?.id ?? loadCachedUser()?.id
-        if let previousUserId, previousUserId != userId {
+        let previousUserId = (currentUser?.id ?? loadCachedUser()?.id)?.lowercased()
+        if let previousUserId, previousUserId != userId.lowercased() {
             OfflineCacheService.clearAll()
             ChallengeService.shared.clearRuntimeCache()
         }

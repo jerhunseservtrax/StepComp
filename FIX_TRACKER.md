@@ -32,7 +32,7 @@
 - **Symptom:** On shared devices, a second signed-in user could see the previous user's cached metrics, weight history, workout history, or challenge leaderboard when the network request failed/offline fallback ran.
 - **Root Cause:** `OfflineCacheService` used global cache keys such as `metrics_summary_30`, `weight_history_90`, and `leaderboard_<id>` without a user namespace, and sign-out did not purge offline/runtime challenge caches.
 - **Fix:** Added user-scoped offline cache keys, changed metrics and leaderboard fetches to require the active Supabase session before using fallback data, and cleared offline/challenge runtime caches during signed-out cleanup or authenticated user changes.
-- **Files:** `OfflineCacheService.swift`, `MetricsService.swift`, `ChallengeService.swift`, `AuthService.swift`, `OfflineCacheServiceTests.swift`
+- **Files:** `OfflineCacheService.swift`, `MetricsService.swift`, `ChallengeService.swift`, `AuthService.swift`, `OfflineCacheServiceTests.swift`, `scripts/verify_offline_cache_isolation.py`
 - **Prevention:** Any disk or singleton cache containing user data must be namespaced by authenticated user ID and purged when auth state transitions to signed out.
 
 ---
