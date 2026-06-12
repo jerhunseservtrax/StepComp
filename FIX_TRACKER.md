@@ -1,7 +1,7 @@
 # FitComp Fix Tracker
 
 > Log of all bugs encountered and fixes implemented to prevent recurrence.
-> Last updated: 2026-04-13 (v6)
+> Last updated: 2026-06-12 (v7)
 
 ---
 
@@ -26,6 +26,16 @@
 ---
 
 ## Critical Fixes
+
+### 62. Cross-Account Offline Cache Privacy Leak
+- **Status:** Fixed (`cursor/critical-bug-inspection-272a`)
+- **Symptom:** On shared devices, a second signed-in user could see the previous user's cached metrics, weight history, workout history, or challenge leaderboard when the network request failed/offline fallback ran.
+- **Root Cause:** `OfflineCacheService` used global cache keys such as `metrics_summary_30`, `weight_history_90`, and `leaderboard_<id>` without a user namespace, and sign-out did not purge offline/runtime challenge caches.
+- **Fix:** Added user-scoped offline cache keys, changed metrics and leaderboard fetches to require the active Supabase session before using fallback data, and cleared offline/challenge runtime caches during signed-out cleanup or authenticated user changes.
+- **Files:** `OfflineCacheService.swift`, `MetricsService.swift`, `ChallengeService.swift`, `AuthService.swift`, `OfflineCacheServiceTests.swift`, `scripts/verify_offline_cache_isolation.py`
+- **Prevention:** Any disk or singleton cache containing user data must be namespaced by authenticated user ID and purged when auth state transitions to signed out.
+
+---
 
 ### 1. Workout State Data Loss After Long Sessions
 - **Commit:** `6b21b36`
