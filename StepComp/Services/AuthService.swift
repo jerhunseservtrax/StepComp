@@ -148,6 +148,11 @@ final class AuthService: ObservableObject {
     
     private func applyAuthenticatedSession(_ session: Session) async {
         let userId = session.user.id.uuidString
+        let previousUserId = currentUser?.id ?? loadCachedUser()?.id
+        if let previousUserId, previousUserId != userId {
+            OfflineCacheService.clearAll()
+            ChallengeService.shared.clearRuntimeCache()
+        }
         
         // Keep profile loading in a standalone task so timeout does not cancel it.
         // If timeout wins, we use cached data immediately and let profile update when it finishes.
@@ -203,6 +208,8 @@ final class AuthService: ObservableObject {
         if deleteCachedUser {
             KeychainStore.delete(account: keychainUserAccount)
         }
+        OfflineCacheService.clearAll()
+        ChallengeService.shared.clearRuntimeCache()
         
         // Clear active workout state (draft, widget, live activity)
         WorkoutViewModel.clearAllActiveWorkoutState()
