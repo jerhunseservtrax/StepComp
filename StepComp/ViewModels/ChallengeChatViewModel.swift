@@ -117,8 +117,8 @@ final class ChallengeChatViewModel: ObservableObject {
             print("✅ Message sent successfully")
             
             let latest = try await fetchLatestMessages(limit: pageSize)
-            messages = latest
-            oldestLoadedDate = latest.first?.createdAt
+            messages = messages.mergedWithLatestWindow(latest)
+            oldestLoadedDate = messages.first?.createdAt
             hasMoreMessages = latest.count >= pageSize
             
             // Post notification to update chat badge in dashboard header
@@ -307,15 +307,15 @@ final class ChallengeChatViewModel: ObservableObject {
                     }
                 }
                 group.addTask { [weak self] in
-                    for await _ in updateStream {
+                    for await update in updateStream {
                         guard let self, !Task.isCancelled else { return }
-                        await self.refreshMessages()
+                        await self.handleUpdatedMessage(update)
                     }
                 }
                 group.addTask { [weak self] in
-                    for await _ in deleteStream {
+                    for await deletion in deleteStream {
                         guard let self, !Task.isCancelled else { return }
-                        await self.refreshMessages()
+                        await self.handleDeletedMessage(deletion)
                     }
                 }
             }
@@ -336,12 +336,62 @@ final class ChallengeChatViewModel: ObservableObject {
     }
 
     #if canImport(Supabase)
+    private func handleUpdatedMessage(_ update: UpdateAction) async {
+        guard let payload = try? update.decodeRecord(as: RealtimeMessagePayload.self, decoder: JSONDecoder()) else {
+            await refreshMessages()
+            return
+        }
+
+        if payload.isDeleted == true {
+            messages.removeAll { $0.id == payload.id }
+            NotificationCenter.default.post(name: .chatMessageReceived, object: nil)
+            return
+        }
+
+        guard messages.contains(where: { $0.id == payload.id }) else {
+            await refreshMessages()
+            return
+        }
+
+        do {
+            if let updatedMessage = try await fetchMessage(id: payload.id) {
+                replaceLocalMessage(updatedMessage)
+            } else {
+                messages.removeAll { $0.id == payload.id }
+            }
+            NotificationCenter.default.post(name: .chatMessageReceived, object: nil)
+        } catch {
+            await refreshMessages()
+        }
+    }
+
+    private func handleDeletedMessage(_ deletion: DeleteAction) async {
+        guard let payload = try? deletion.decodeOldRecord(as: RealtimeMessagePayload.self, decoder: JSONDecoder()) else {
+            await refreshMessages()
+            return
+        }
+
+        messages.removeAll { $0.id == payload.id }
+        NotificationCenter.default.post(name: .chatMessageReceived, object: nil)
+    }
+
+    private func replaceLocalMessage(_ message: ChallengeMessage) {
+        guard let index = messages.firstIndex(where: { $0.id == message.id }) else {
+            messages = messages.mergedWithLatestWindow([message])
+            oldestLoadedDate = messages.first?.createdAt
+            return
+        }
+
+        messages[index] = message
+        messages.sort { $0.createdAt < $1.createdAt }
+    }
+
     private func refreshMessages() async {
         do {
             let latest = try await fetchLatestMessages(limit: pageSize)
-            if latest.last?.id != messages.last?.id || latest.count != messages.count {
-                messages = latest
-                oldestLoadedDate = latest.first?.createdAt
+            if !messages.latestWindowMatches(latest) {
+                messages = messages.mergedWithLatestWindow(latest)
+                oldestLoadedDate = messages.first?.createdAt
                 hasMoreMessages = latest.count >= pageSize
                 NotificationCenter.default.post(name: .chatMessageReceived, object: nil)
             }
@@ -400,8 +450,37 @@ final class ChallengeChatViewModel: ObservableObject {
             .map { $0.toChallengeMessage() }
             .sorted { $0.createdAt < $1.createdAt }
     }
+
+    private func fetchMessage(id: String) async throws -> ChallengeMessage? {
+        let response: [ServerChallengeMessage] = try await supabase
+            .from("challenge_messages")
+            .select("""
+                *,
+                profiles(username, display_name, avatar_url)
+            """)
+            .eq("id", value: id)
+            .eq("challenge_id", value: challengeId)
+            .eq("is_deleted", value: false)
+            .limit(1)
+            .execute()
+            .value
+
+        return response.first?.toChallengeMessage()
+    }
     #endif
 }
+
+#if canImport(Supabase)
+private struct RealtimeMessagePayload: Decodable {
+    let id: String
+    let isDeleted: Bool?
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case isDeleted = "is_deleted"
+    }
+}
+#endif
 
 private extension Array where Element == ChallengeMessage {
     func uniquedById() -> [ChallengeMessage] {
@@ -409,6 +488,29 @@ private extension Array where Element == ChallengeMessage {
         return filter {
             seen.insert($0.id).inserted
         }
+    }
+
+    func mergedWithLatestWindow(_ latest: [ChallengeMessage]) -> [ChallengeMessage] {
+        guard let latestWindowStart = latest.first?.createdAt else {
+            return []
+        }
+
+        let latestIds = Set(latest.map(\.id))
+        let olderMessages = filter { message in
+            message.createdAt < latestWindowStart || latestIds.contains(message.id)
+        }
+
+        var messagesById = Dictionary(uniqueKeysWithValues: olderMessages.map { ($0.id, $0) })
+        for message in latest {
+            messagesById[message.id] = message
+        }
+
+        return messagesById.values.sorted { $0.createdAt < $1.createdAt }
+    }
+
+    func latestWindowMatches(_ latest: [ChallengeMessage]) -> Bool {
+        guard !latest.isEmpty else { return isEmpty }
+        return Array(suffix(latest.count)) == latest
     }
 }
 

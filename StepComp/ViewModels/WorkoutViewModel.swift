@@ -114,6 +114,12 @@ class WorkoutViewModel: ObservableObject {
     // MARK: - Workout Session Management
     
     func startWorkout(_ workout: Workout, targetDate: Date = Date()) {
+        guard currentSession == nil else {
+            print("⚠️ Ignoring startWorkout while another workout is active")
+            return
+        }
+
+        stopTimer()
         workoutTargetDate = targetDate
         
         // Find the last completed session for this workout
@@ -182,6 +188,7 @@ class WorkoutViewModel: ObservableObject {
         sessionStartTime = Date()
         totalPausedTime = 0
         isPaused = false
+        pauseStartTime = nil
         startTimer()
         saveActiveWorkoutDraft()
         pushWidgetState()
@@ -1017,8 +1024,9 @@ class WorkoutViewModel: ObservableObject {
             refreshElapsedTime()
             saveActiveWorkoutDraft()
         } else {
-            // No active session, ensure draft and widget are cleared
-            clearActiveWorkoutDraft()
+            // No active in-memory session. Do not delete any persisted draft here:
+            // decode failures or schema drift can leave the draft as the only recoverable copy.
+            // Explicit finish/cancel/sign-out paths clear the draft when user intent is known.
             WorkoutWidgetStore.clear()
             WorkoutLiveActivityManager.end()
         }
@@ -1027,6 +1035,18 @@ class WorkoutViewModel: ObservableObject {
     /// Clears all active workout state (draft, widget, live activity)
     static func clearAllActiveWorkoutState() {
         let vm = WorkoutViewModel.shared
+        vm.autoFinishTask?.cancel()
+        vm.autoFinishTask = nil
+        vm.isAutoFinishing = false
+        vm.stopTimer()
+        vm.currentSession = nil
+        vm.finishedSession = nil
+        vm.sessionStartTime = nil
+        vm.elapsedTime = 0
+        vm.totalPausedTime = 0
+        vm.isPaused = false
+        vm.pauseStartTime = nil
+        vm.workoutTargetDate = nil
         vm.clearActiveWorkoutDraft()
         WorkoutWidgetStore.clear()
         WorkoutLiveActivityManager.end()

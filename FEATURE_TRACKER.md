@@ -1,7 +1,7 @@
 # FitComp Feature Tracker
 
 > Comprehensive catalog of all features in the FitComp fitness competition app (formerly StepComp).
-> Last updated: 2026-04-13 (v5)
+> Last updated: 2026-06-13 (v6)
 
 ---
 
@@ -39,7 +39,7 @@
 | Feature | File(s) | Description |
 |---------|---------|-------------|
 | 5-Tab Navigation | `MainTabView.swift` | Home, Workouts, Challenges, Metrics, Settings |
-| Deep Link Routing | `DeepLinkRouter.swift`, `AppRoute.swift` | Route handling for leaderboard, profile, create/join challenge, OAuth callbacks |
+| Deep Link Routing | `DeepLinkRouter.swift`, `AppRoute.swift`, `AuthDeepLinkConfiguration.swift` | Route handling for leaderboard, profile, create/join challenge, OAuth callbacks, and registered auth/reset URL schemes |
 | Invite Token Validation | `DeepLinkRouter.swift` | Validates invite tokens (8-128 chars, alphanumeric) before processing |
 | Haptic Tab Switching | `HapticManager.swift` | Tactile feedback on tab changes |
 
@@ -109,7 +109,7 @@
 | Rest Timer Alerts | `RestTimerManager.swift` | Visual, haptic, sound, and push notification alerts |
 | Smart Rest Suggestions | `WorkoutAnalyticsEngine.swift` | Auto-suggest rest duration based on exercise intensity and set exertion |
 | Progressive Overload | `WorkoutAnalyticsEngine.swift` | Trend detection (progressing/plateau/regressing), 1RM estimation, overload recommendations |
-| Workout Persistence | `WorkoutViewModel.swift` | Save/restore active workout state across app lifecycle |
+| Workout Persistence | `WorkoutViewModel.swift` | Save/restore active workout state across app lifecycle with active-session overwrite protection and full sign-out state clearing |
 | Workout Summary | `WorkoutSummaryView.swift` | Post-workout stats (duration, exercises, sets, calories) |
 | Session History | `CompletedSessionDetailView.swift` | View past workout details |
 | Edit Sessions | `EditCompletedSessionView.swift` | Modify completed session data |
@@ -193,8 +193,8 @@
 
 | Feature | File(s) | Description |
 |---------|---------|-------------|
-| Challenge Chat | `ChallengeChatView.swift`, `ChallengeChatViewModel.swift` | Real-time group messaging via Supabase postgresChange streams with polling fallback |
-| Chat List | `ChatListView.swift`, `ChatListViewModel.swift` | Overview of all chat conversations |
+| Challenge Chat | `ChallengeChatView.swift`, `ChallengeChatViewModel.swift` | Real-time group messaging via Supabase postgresChange streams with polling fallback, latest-window merge that preserves loaded history, and update/delete handling for loaded older messages |
+| Chat List | `ChatListView.swift`, `ChatListViewModel.swift` | Overview of active chat conversations without deleting archived challenge memberships |
 | Message Actions | `ChallengeChatViewModel.swift` | Send, delete, auto-scroll |
 
 ### Leaderboard
@@ -299,7 +299,7 @@
 | Goal Setting | `GoalSettingView.swift` | Daily step goal configuration |
 | Avatar Selection | `AvatarSelectionView.swift` | Profile picture/avatar choice |
 | First Win | `FirstWinView.swift` | First achievement celebration |
-| Sign In | `SignInView.swift`, `SignInOnboardingLandingView.swift`, `SignInOnboardingView+Auth.swift`, `EmailAuthSheet.swift`, `OnboardingSignUpView.swift`, `EmailSignInFormView.swift`, `ForgotPasswordSheet.swift`, `PasswordResetView.swift`, `AppleSignInDelegate.swift` | Apple Sign In, email sign-up/sign-in, forgot/reset password (split into focused files; coordinator in `SignInView.swift`) |
+| Sign In | `SignInView.swift`, `SignInOnboardingLandingView.swift`, `SignInOnboardingView+Auth.swift`, `EmailAuthSheet.swift`, `OnboardingSignUpView.swift`, `EmailSignInFormView.swift`, `ForgotPasswordSheet.swift`, `PasswordResetView.swift`, `AppleSignInDelegate.swift`, `AuthDeepLinkConfiguration.swift` | Apple Sign In, email sign-up/sign-in, awaited Google OAuth callback handling, forgot/reset password (split into focused files; coordinator in `SignInView.swift`) |
 | Onboarding Flow | `OnboardingFlowView.swift` | 6-step sequential flow |
 
 ---
@@ -357,6 +357,7 @@
 | Haptic Manager | `HapticManager.swift` | Haptic feedback patterns |
 | Keychain Store | `KeychainStore.swift` | Secure credential storage with kSecAttrService scoping and OSStatus error handling |
 | Retry Utility | `RetryUtility.swift` | Exponential backoff retry logic |
+| Auth Deep Link Configuration | `AuthDeepLinkConfiguration.swift` | Shared registered URL scheme constants for OAuth and password reset callbacks |
 | Offline Cache | `OfflineCacheService.swift` | Generic disk-backed Codable cache with fetch-with-fallback for offline resilience |
 | Cached Async Image | `CachedAsyncImage.swift` | Image caching for remote images (used in ProfileView, etc.) |
 | Reaction Effects | `ReactionEffectManager.swift` | Celebration/reaction animations |
