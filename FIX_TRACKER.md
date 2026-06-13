@@ -1,7 +1,7 @@
 # FitComp Fix Tracker
 
 > Log of all bugs encountered and fixes implemented to prevent recurrence.
-> Last updated: 2026-04-13 (v6)
+> Last updated: 2026-06-13 (v7)
 
 ---
 
@@ -84,6 +84,36 @@
 - **Fix:** Changed to `@ObservedObject`. Wrapped state updates in `MainActor.run`. Added `.id()` modifier for clean view recreation.
 - **Files:** `RootView.swift`, `MainTabView.swift`, `SessionViewModel.swift`
 - **Prevention:** Use `@ObservedObject` for shared view models during view transitions. Use `.id()` to force clean recreation.
+
+---
+
+### 2026-06-13. Active Workout Overwrite and Cross-User State Leak
+- **Symptom:** Starting a second workout from another surface could overwrite an in-progress session; sign-out cleared persisted/widget state but left the singleton's in-memory active session available to the next account on the device.
+- **Root Cause:** `WorkoutViewModel.startWorkout()` did not guard against an existing `currentSession`, and `clearAllActiveWorkoutState()` only removed persisted/external state without resetting runtime fields.
+- **Fix:** Added an active-session guard before starting workouts, invalidated stale timers before new sessions, fully reset in-memory active workout runtime/summary state during global clearing, and stopped passive lifecycle reconciliation from deleting an undecodable draft.
+- **Files:** `WorkoutViewModel.swift`, `WorkoutViewModelStateTests.swift`
+- **Prevention:** All global logout/account-switch cleanup paths must reset singleton memory, persisted state, widgets, and Live Activities together. Do not overwrite user-entered in-progress workout state without explicit finish/cancel intent.
+
+### 2026-06-13. Archived Challenge Membership Deletion from Chat List
+- **Symptom:** Opening the chat list after a challenge ended could delete the user's `challenge_members` row, removing non-creator participants from archived challenge history.
+- **Root Cause:** `ChatListViewModel.getUserChallenges()` filtered to active challenges, treated ended memberships as orphaned, and deleted them.
+- **Fix:** Removed destructive cleanup from chat loading; chat list now filters active conversations without deleting membership history.
+- **Files:** `ChatListViewModel.swift`
+- **Prevention:** Read paths and UI filters must not perform destructive cleanup of records that are also used as historical/audit data.
+
+### 2026-06-13. Auth Deep Link and OAuth Callback Breakage
+- **Symptom:** Password reset links used an unregistered `je.fitcomp://` scheme, Google OAuth web-auth callbacks could complete without establishing a Supabase session, and raw callback URLs could be printed in production logs.
+- **Root Cause:** Auth redirect schemes were hard-coded in multiple files, `ASWebAuthenticationSession` callbacks were not handed to `supabase.auth.handle(url)`, and token-bearing URL logging was not fully debug-gated.
+- **Fix:** Added `AuthDeepLinkConfiguration`, switched password reset redirects and OAuth callback scheme to the registered `fitcomp` scheme, let `PasswordResetView` own recovery-link session/code exchange to avoid PKCE code consumption, awaited Supabase session extraction before session-dependent work, and sanitized/gated callback logging.
+- **Files:** `AuthDeepLinkConfiguration.swift`, `ForgotPasswordSheet.swift`, `SignInOnboardingView+Auth.swift`, `PasswordResetView.swift`, `AuthDeepLinkConfigurationTests.swift`
+- **Prevention:** Auth URL schemes must be shared constants matching `Info.plist`. Never log auth callback query/fragment contents outside debug builds.
+
+### 2026-06-13. Loaded Chat History Truncated on Realtime Refresh
+- **Symptom:** After loading older chat messages, sending a message or receiving a realtime update replaced the full in-memory list with only the latest page.
+- **Root Cause:** `sendMessage()` and realtime refresh assigned `messages = latest`, discarding previously loaded pages.
+- **Fix:** Added latest-window merge logic that refreshes recent messages while preserving older loaded history, avoids repeated refresh churn when the latest window is unchanged, and updates/removes loaded older messages from realtime update/delete payloads.
+- **Files:** `ChallengeChatViewModel.swift`
+- **Prevention:** Pagination refresh paths must merge windowed results into already-loaded state unless the user explicitly reloads from scratch.
 
 ---
 

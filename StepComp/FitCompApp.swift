@@ -43,13 +43,25 @@ struct FitCompApp: App {
                     print("============================================================")
                     
                     #if canImport(Supabase)
-                    // Supabase must handle OAuth/password-reset deep links to persist sessions correctly.
-                    supabase.auth.handle(url)
+                    // Password reset links are handled by PasswordResetView so PKCE codes are
+                    // not consumed before the user submits a new password.
+                    if !isPasswordResetURL(url) {
+                        supabase.auth.handle(url)
+                    }
                     #endif
                     
                     // Handle deep links (friend invites, OAuth, etc.)
                     DeepLinkRouter.shared.handle(url: url)
                 }
         }
+    }
+
+    private func isPasswordResetURL(_ url: URL) -> Bool {
+        if (url.scheme == AuthDeepLinkConfiguration.oauthCallbackScheme || url.scheme == "je.fitcomp"),
+           url.host == "reset-password" {
+            return true
+        }
+
+        return url.pathComponents.contains("reset-password")
     }
 }

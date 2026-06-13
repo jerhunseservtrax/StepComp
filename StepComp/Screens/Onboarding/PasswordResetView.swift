@@ -235,9 +235,39 @@ struct PasswordResetView: View {
         
         do {
             #if canImport(Supabase)
+            let components = URLComponents(url: resetURL, resolvingAgainstBaseURL: false)
+            guard containsRecoveryCredentials(in: components) else {
+                errorMessage = "Invalid reset link. Please request a new password reset email."
+                isLoading = false
+                return
+            }
+
+            do {
+                _ = try await supabase.auth.session(from: resetURL)
+                try await updateSupabasePassword(to: newPassword)
+                isLoading = false
+                return
+            } catch {
+                #if DEBUG
+                print("⚠️ Password reset via callback session failed, trying token fallback: \(error.localizedDescription)")
+                #endif
+            }
+
+            if let authCode = recoveryCredential(named: "code", in: components) {
+                do {
+                    _ = try await supabase.auth.exchangeCodeForSession(authCode: authCode)
+                    try await updateSupabasePassword(to: newPassword)
+                    isLoading = false
+                    return
+                } catch {
+                    #if DEBUG
+                    print("⚠️ Password reset via code exchange failed, trying token fallback: \(error.localizedDescription)")
+                    #endif
+                }
+            }
+
             // Supabase password reset URLs contain tokens in the fragment
             // Parse the URL to extract tokens
-            let components = URLComponents(url: resetURL, resolvingAgainstBaseURL: false)
             var accessToken: String?
             var refreshToken: String?
             
@@ -282,22 +312,7 @@ struct PasswordResetView: View {
             // Wait a moment for session to be established
             try? await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
             
-            // Update the password
-            try await supabase.auth.update(
-                user: UserAttributes(password: newPassword)
-            )
-            
-            successMessage = "Password updated successfully! You can now sign in with your new password."
-            
-            // ✅ Security Best Practice: Invalidate old sessions after password reset
-            // Supabase automatically invalidates old sessions when password is updated
-            
-            // Wait to show success message
-            try? await Task.sleep(nanoseconds: 2_000_000_000) // 2 seconds
-            
-            await MainActor.run {
-                onComplete()
-            }
+            try await updateSupabasePassword(to: newPassword)
             #else
             errorMessage = "Password reset is not available in mock mode"
             #endif
@@ -317,4 +332,56 @@ struct PasswordResetView: View {
         
         isLoading = false
     }
+
+    #if canImport(Supabase)
+    private func updateSupabasePassword(to newPassword: String) async throws {
+        try await supabase.auth.update(
+            user: UserAttributes(password: newPassword)
+        )
+
+        successMessage = "Password updated successfully! You can now sign in with your new password."
+
+        // ✅ Security Best Practice: Invalidate old sessions after password reset
+        // Supabase automatically invalidates old sessions when password is updated
+
+        // Wait to show success message
+        try? await Task.sleep(nanoseconds: 2_000_000_000) // 2 seconds
+
+        await MainActor.run {
+            onComplete()
+        }
+    }
+
+    private func containsRecoveryCredentials(in components: URLComponents?) -> Bool {
+        !recoveryParameterItems(in: components).isEmpty
+    }
+
+    private func recoveryCredential(named targetName: String, in components: URLComponents?) -> String? {
+        recoveryParameterItems(in: components).first { item in
+            let (name, _) = item
+            return name == targetName
+        }?.1.removingPercentEncoding
+    }
+
+    private func recoveryParameterItems(in components: URLComponents?) -> [(String, String)] {
+        let fragmentItems = components?.fragment?
+            .components(separatedBy: "&")
+            .compactMap { item -> (String, String)? in
+                let parts = item.components(separatedBy: "=")
+                guard parts.count == 2 else { return nil }
+                return (parts[0], parts[1])
+            } ?? []
+
+        let queryItems = components?.queryItems?.map { ($0.name, $0.value ?? "") } ?? []
+        let allItems = fragmentItems + queryItems
+
+        return allItems.filter { item in
+            let (name, _) = item
+            return name == "access_token" ||
+            name == "refresh_token" ||
+            name == "token_hash" ||
+            name == "code"
+        }
+    }
+    #endif
 }

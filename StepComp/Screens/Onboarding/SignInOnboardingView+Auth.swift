@@ -429,7 +429,7 @@ extension SignInOnboardingView {
             print("❌ [H5] No URL types found in Info.plist")
         }
         
-        let callbackURLScheme = "fitcomp" // Must match Info.plist URL scheme
+        let callbackURLScheme = AuthDeepLinkConfiguration.oauthCallbackScheme // Must match Info.plist URL scheme
         
         // Cancel any existing session first
         if let existingSession = webAuthSession {
@@ -446,8 +446,10 @@ extension SignInOnboardingView {
                 print("❌ [H7] Error code: \((error as NSError).code)")
                 print("❌ [H7] Error domain: \((error as NSError).domain)")
             }
-            if let callbackURL = callbackURL {
-                print("✅ [H7] Callback URL received: \(callbackURL.absoluteString)")
+            if callbackURL != nil {
+                #if DEBUG
+                print("✅ [H7] Callback URL received")
+                #endif
             } else {
                 print("⚠️ [H7] No callback URL received")
             }
@@ -499,20 +501,33 @@ extension SignInOnboardingView {
     
     func handleOAuthCallback(url: URL) async {
         #if canImport(Supabase)
-        print("🔵 OAuth callback received: \(url)")
+        #if DEBUG
+        print("🔵 OAuth callback received: \(url.scheme ?? "unknown")://\(url.host ?? "")\(url.path)")
+        #endif
         
-        // Process the OAuth callback URL with Supabase
-        // Extract tokens from the callback URL
-        // Supabase OAuth callbacks contain tokens in the URL fragment or query parameters
+        // ASWebAuthenticationSession receives the callback directly, so hand it to Supabase here
+        // before asking for the persisted session.
+        do {
+            _ = try await supabase.auth.session(from: url)
+        } catch {
+            print("⚠️ Failed to establish OAuth session from callback: \(error.localizedDescription)")
+            errorMessage = "Google Sign In completed but no session was established. Please try again."
+            return
+        }
+
         let components = URLComponents(url: url, resolvingAgainstBaseURL: false)
         
         // Check if this is a valid OAuth callback
         if let fragment = components?.fragment, fragment.contains("access_token") {
             // Parse the fragment to extract tokens
+            #if DEBUG
             print("🔵 Found OAuth tokens in URL fragment")
+            #endif
         } else if let queryItems = components?.queryItems, queryItems.contains(where: { $0.name == "code" || $0.name == "access_token" }) {
             // Parse query parameters
+            #if DEBUG
             print("🔵 Found OAuth tokens in URL query")
+            #endif
         }
         
         // Supabase SDK should handle the callback automatically
