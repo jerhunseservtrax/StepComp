@@ -1,7 +1,7 @@
 # FitComp Feature Tracker
 
 > Comprehensive catalog of all features in the FitComp fitness competition app (formerly StepComp).
-> Last updated: 2026-04-13 (v5)
+> Last updated: 2026-06-14 (v6)
 
 ---
 
@@ -114,6 +114,7 @@
 | Session History | `CompletedSessionDetailView.swift` | View past workout details |
 | Edit Sessions | `EditCompletedSessionView.swift` | Modify completed session data |
 | Workout Progress | `WorkoutProgressView.swift` | Track progress over time |
+| Explicit Per-Side Weight Logging | `ActiveWorkoutView.swift`, `WorkoutViewModel.swift`, `Exercise.swift` | Users can explicitly choose total vs. per-side weight entry for active sets; legacy completed sessions without saved mode remain total-weight entries to preserve historical metrics |
 
 ### Weight Tracking
 
