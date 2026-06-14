@@ -53,7 +53,6 @@ class WorkoutViewModel: ObservableObject {
     private init() {
         loadWorkouts()
         loadCompletedSessions()
-        backfillPerSideWeightInputModeIfNeeded()
         migrateWeightsToKgIfNeeded()
         loadActiveWorkoutDraftIfAny()
     }
@@ -1122,55 +1121,6 @@ class WorkoutViewModel: ObservableObject {
         
         // Mark migration as complete
         UserDefaults.standard.set(true, forKey: migrationKey)
-    }
-
-    /// Best-effort migration for legacy set data that was likely entered as per-side load.
-    /// Applies only once and only to high-confidence dumbbell naming patterns.
-    private func backfillPerSideWeightInputModeIfNeeded() {
-        let migrationKey = "set_weight_mode_per_side_backfill_v1"
-        guard !UserDefaults.standard.bool(forKey: migrationKey) else { return }
-
-        var didMigrate = false
-
-        completedSessions = completedSessions.map { session in
-            let migratedExercises = session.exercises.map { exercise in
-                guard shouldDefaultToPerSide(exerciseName: exercise.exercise.name) else {
-                    return exercise
-                }
-                let migratedSets = exercise.sets.map { set -> WorkoutSet in
-                    guard set.weightInputMode == .total else { return set }
-                    var updated = set
-                    updated.weightInputMode = .perSide
-                    didMigrate = true
-                    return updated
-                }
-                return WorkoutExercise(id: exercise.id, exercise: exercise.exercise, sets: migratedSets)
-            }
-            return CompletedWorkoutSession(
-                id: session.id,
-                workoutId: session.workoutId,
-                workoutName: session.workoutName,
-                startTime: session.startTime,
-                endTime: session.endTime,
-                exercises: migratedExercises
-            )
-        }
-
-        if didMigrate {
-            saveCompletedSessions()
-            print("✅ Backfilled per-side logging mode for legacy dumbbell sets")
-        }
-
-        UserDefaults.standard.set(true, forKey: migrationKey)
-    }
-
-    private func shouldDefaultToPerSide(exerciseName: String) -> Bool {
-        let name = exerciseName.lowercased()
-        return name.contains("dumbbell")
-            || name.contains(" db ")
-            || name.hasPrefix("db ")
-            || name.contains("(db")
-            || name.contains("arnold press")
     }
 
     private func startOfWeek(for date: Date, weekStartsOnMonday: Bool = true) -> Date {

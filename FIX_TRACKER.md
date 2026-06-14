@@ -1,7 +1,7 @@
 # FitComp Fix Tracker
 
 > Log of all bugs encountered and fixes implemented to prevent recurrence.
-> Last updated: 2026-04-13 (v6)
+> Last updated: 2026-06-14 (v7)
 
 ---
 
@@ -587,6 +587,14 @@
 - **Fix:** Restored a dedicated Workouts tab in a 5-tab layout and updated tab-index routing in workout start flow and tab manager helper.
 - **Files:** `MainTabView.swift`, `WorkoutDetailView.swift`
 - **Prevention:** Keep central tab index mapping documented and update all programmatic tab switches whenever tab order changes.
+
+### 62. Legacy Dumbbell Workout History Volume Inflation
+- **Status:** Fixed (uncommitted)
+- **Symptom:** Historical dumbbell workout sessions could have local volume, max weight, and synced metrics doubled after app launch.
+- **Root Cause:** A one-time name-based migration rewrote legacy completed-session sets from `.total` to `.perSide`; legacy decoded sets already default to `.total`, so later `effectiveWeightForVolume` calculations multiplied historical total weights by two.
+- **Fix:** Removed the unsafe automatic per-side backfill and added a regression test proving legacy dumbbell sessions without `weightInputMode` stay in total-weight mode.
+- **Files:** `WorkoutViewModel.swift`, `WorkoutWeightInputModeTests.swift`
+- **Prevention:** Never infer historical unit/input semantics from exercise names alone; only explicit user selections should change stored weight input mode.
 
 ## New Features
 
