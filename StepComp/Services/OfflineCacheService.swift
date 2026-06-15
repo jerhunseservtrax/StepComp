@@ -32,15 +32,27 @@ enum OfflineCacheService {
         }
     }
 
+    static func save<T: Encodable>(_ value: T, key: String, userId: String) {
+        save(value, key: userScopedKey(key, userId: userId))
+    }
+
     static func load<T: Decodable>(_ type: T.Type, key: String) -> T? {
         let url = cacheDirectory.appendingPathComponent(safeName(key) + ".json")
         guard let data = try? Data(contentsOf: url) else { return nil }
         return try? JSONDecoder().decode(type, from: data)
     }
 
+    static func load<T: Decodable>(_ type: T.Type, key: String, userId: String) -> T? {
+        load(type, key: userScopedKey(key, userId: userId))
+    }
+
     static func remove(key: String) {
         let url = cacheDirectory.appendingPathComponent(safeName(key) + ".json")
         try? fileManager.removeItem(at: url)
+    }
+
+    static func remove(key: String, userId: String) {
+        remove(key: userScopedKey(key, userId: userId))
     }
 
     static func clearAll() {
@@ -64,6 +76,14 @@ enum OfflineCacheService {
         }
     }
 
+    static func fetchWithFallback<T: Codable>(
+        key: String,
+        userId: String,
+        fetch: () async throws -> T
+    ) async -> T? {
+        await fetchWithFallback(key: userScopedKey(key, userId: userId), fetch: fetch)
+    }
+
     /// Fetch an array from the network; on success cache, on failure return cached copy or empty.
     static func fetchArrayWithFallback<T: Codable>(
         key: String,
@@ -81,8 +101,20 @@ enum OfflineCacheService {
         }
     }
 
+    static func fetchArrayWithFallback<T: Codable>(
+        key: String,
+        userId: String,
+        fetch: () async throws -> [T]
+    ) async -> [T] {
+        await fetchArrayWithFallback(key: userScopedKey(key, userId: userId), fetch: fetch)
+    }
+
     private static func safeName(_ key: String) -> String {
         key.replacingOccurrences(of: "/", with: "_")
             .replacingOccurrences(of: ":", with: "_")
+    }
+
+    private static func userScopedKey(_ key: String, userId: String) -> String {
+        "user_\(safeName(userId))__\(key)"
     }
 }

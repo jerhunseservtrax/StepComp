@@ -30,9 +30,7 @@ final class OfflineCacheServiceTests: XCTestCase {
         }
 
         XCTAssertNil(userBFallback)
-        XCTAssertEqual(
-            OfflineCacheService.load(String.self, key: personalMetricsKey, userId: "user-a"),
-            "user-a-private-metrics"
-        )
+        let userAFallback = OfflineCacheService.load(String.self, key: personalMetricsKey, userId: "user-a")
+        XCTAssertEqual(userAFallback, "user-a-private-metrics")
     }
 }
