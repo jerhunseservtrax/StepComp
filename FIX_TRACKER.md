@@ -1,7 +1,7 @@
 # FitComp Fix Tracker
 
 > Log of all bugs encountered and fixes implemented to prevent recurrence.
-> Last updated: 2026-04-13 (v6)
+> Last updated: 2026-06-15 (v7)
 
 ---
 
@@ -26,6 +26,16 @@
 ---
 
 ## Critical Fixes
+
+### 62. Cross-Account Personal Metrics Cache Leak
+- **Status:** Fixed
+- **Symptom:** A second user on the same device could see the previous user's cached metrics, weight history, or workout history if the metrics fetch failed while offline or during an auth error.
+- **Root Cause:** `OfflineCacheService` used stable cache keys such as `metrics_summary_30`, `weight_history_90`, and `workout_history_90` without scoping them to the authenticated user. Signed-out cleanup also left disk cache files in place.
+- **Fix:** Added user-scoped offline cache APIs, routed personal metrics fetches through the current user's cache namespace, and clear offline caches whenever local auth state is signed out.
+- **Files:** `OfflineCacheService.swift`, `MetricsService.swift`, `AuthService.swift`, `OfflineCacheServiceTests.swift`
+- **Prevention:** Any cache containing private user data must include an owner scope in the cache key and must be cleared during auth teardown.
+
+---
 
 ### 1. Workout State Data Loss After Long Sessions
 - **Commit:** `6b21b36`

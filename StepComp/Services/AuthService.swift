@@ -203,6 +203,10 @@ final class AuthService: ObservableObject {
         if deleteCachedUser {
             KeychainStore.delete(account: keychainUserAccount)
         }
+
+        // Personal offline caches include health and workout metrics; remove them
+        // whenever local auth state is cleared so the next account cannot see them.
+        OfflineCacheService.clearAll()
         
         // Clear active workout state (draft, widget, live activity)
         WorkoutViewModel.clearAllActiveWorkoutState()

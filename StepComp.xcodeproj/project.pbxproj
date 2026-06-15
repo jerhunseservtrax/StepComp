@@ -22,6 +22,13 @@
 			remoteGlobalIDString = 550CB3422EFC76E500CCB9B0;
 			remoteInfo = StepCompWorkoutWidgetExtension;
 		};
+		AA2000072F4F000100000001 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 5560672D2EFC76E5008EDA16 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 556067342EFC76E5008EDA16;
+			remoteInfo = StepComp;
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -41,6 +48,7 @@
 /* Begin PBXFileReference section */
 		550CB3412EFC76E500CCB9B0 /* StepCompWorkoutWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = StepCompWorkoutWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		556067352EFC76E5008EDA16 /* StepComp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = StepComp.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		AA2000012F4F000100000001 /* StepCompTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = StepCompTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -85,6 +93,11 @@
 			path = StepComp;
 			sourceTree = "<group>";
 		};
+		AA2000022F4F000100000001 /* StepCompTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = StepCompTests;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -106,6 +119,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		AA2000032F4F000100000001 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -114,6 +134,7 @@
 			children = (
 				556067372EFC76E5008EDA16 /* StepComp */,
 				550CB3402EFC76E500CCB9B0 /* StepCompWorkoutWidget */,
+				AA2000022F4F000100000001 /* StepCompTests */,
 				556067362EFC76E5008EDA16 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -123,6 +144,7 @@
 			children = (
 				556067352EFC76E5008EDA16 /* StepComp.app */,
 				550CB3412EFC76E500CCB9B0 /* StepCompWorkoutWidgetExtension.appex */,
+				AA2000012F4F000100000001 /* StepCompTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -178,6 +200,27 @@
 			productReference = 556067352EFC76E5008EDA16 /* StepComp.app */;
 			productType = "com.apple.product-type.application";
 		};
+		AA2000062F4F000100000001 /* StepCompTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = AA20000B2F4F000100000001 /* Build configuration list for PBXNativeTarget "StepCompTests" */;
+			buildPhases = (
+				AA2000042F4F000100000001 /* Sources */,
+				AA2000032F4F000100000001 /* Frameworks */,
+				AA2000052F4F000100000001 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				AA2000082F4F000100000001 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				AA2000022F4F000100000001 /* StepCompTests */,
+			);
+			name = StepCompTests;
+			productName = StepCompTests;
+			productReference = AA2000012F4F000100000001 /* StepCompTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -193,6 +236,10 @@
 					};
 					556067342EFC76E5008EDA16 = {
 						CreatedOnToolsVersion = 26.0.1;
+					};
+					AA2000062F4F000100000001 = {
+						CreatedOnToolsVersion = 26.0.1;
+						TestTargetID = 556067342EFC76E5008EDA16;
 					};
 				};
 			};
@@ -217,6 +264,7 @@
 			targets = (
 				556067342EFC76E5008EDA16 /* StepComp */,
 				550CB3422EFC76E500CCB9B0 /* StepCompWorkoutWidgetExtension */,
+				AA2000062F4F000100000001 /* StepCompTests */,
 			);
 		};
 /* End PBXProject section */
@@ -230,6 +278,13 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		556067332EFC76E5008EDA16 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AA2000052F4F000100000001 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -253,6 +308,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		AA2000042F4F000100000001 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -260,6 +322,11 @@
 			isa = PBXTargetDependency;
 			target = 550CB3422EFC76E500CCB9B0 /* StepCompWorkoutWidgetExtension */;
 			targetProxy = 550CB3492EFC76E500CCB9B0 /* PBXContainerItemProxy */;
+		};
+		AA2000082F4F000100000001 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 556067342EFC76E5008EDA16 /* StepComp */;
+			targetProxy = AA2000072F4F000100000001 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -532,6 +599,60 @@
 			};
 			name = Release;
 		};
+		AA2000092F4F000100000001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 8HSMVL4J99;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = JE.StepCompTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = auto;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/StepComp.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/StepComp";
+			};
+			name = Debug;
+		};
+		AA20000A2F4F000100000001 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 8HSMVL4J99;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = JE.StepCompTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = auto;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/StepComp.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/StepComp";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -558,6 +679,15 @@
 			buildConfigurations = (
 				556067412EFC76E6008EDA16 /* Debug */,
 				556067422EFC76E6008EDA16 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		AA20000B2F4F000100000001 /* Build configuration list for PBXNativeTarget "StepCompTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AA2000092F4F000100000001 /* Debug */,
+				AA20000A2F4F000100000001 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
