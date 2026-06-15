@@ -357,6 +357,7 @@
 | Haptic Manager | `HapticManager.swift` | Haptic feedback patterns |
 | Keychain Store | `KeychainStore.swift` | Secure credential storage with kSecAttrService scoping and OSStatus error handling |
 | Retry Utility | `RetryUtility.swift` | Exponential backoff retry logic |
+| Unit Test Target | `StepComp.xcodeproj`, `StepCompTests/` | Xcode unit-test bundle wired to the app target for regression tests |
 | Offline Cache | `OfflineCacheService.swift`, `MetricsService.swift`, `AuthService.swift` | Generic disk-backed Codable cache with fetch-with-fallback for offline resilience; personal metrics caches are user-scoped and purged on sign-out |
 | Cached Async Image | `CachedAsyncImage.swift` | Image caching for remote images (used in ProfileView, etc.) |
 | Reaction Effects | `ReactionEffectManager.swift` | Celebration/reaction animations |
