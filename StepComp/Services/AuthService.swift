@@ -167,6 +167,10 @@ final class AuthService: ObservableObject {
             UserDefaults.standard.set(true, forKey: "hasCompletedOnboarding")
         }
     }
+
+    func applyImportedOAuthSession(_ session: Session) async {
+        await applyAuthenticatedSession(session)
+    }
     
     private func refreshAuthStateFromCurrentSession(markCheckingComplete: Bool = false) async {
         do {
@@ -202,6 +206,7 @@ final class AuthService: ObservableObject {
         isAuthenticated = false
         if deleteCachedUser {
             KeychainStore.delete(account: keychainUserAccount)
+            OfflineCacheService.clearAll()
         }
         
         // Clear active workout state (draft, widget, live activity)

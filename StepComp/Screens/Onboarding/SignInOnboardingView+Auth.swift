@@ -515,20 +515,20 @@ extension SignInOnboardingView {
             print("🔵 Found OAuth tokens in URL query")
         }
         
-        // Supabase SDK should handle the callback automatically
+        // ASWebAuthenticationSession delivers the callback here, bypassing the
+        // app-level onOpenURL handler, so import the session before reading it.
+
         // Try to get the current session
         do {
-            let session = try await supabase.auth.session
+            let session = try await supabase.auth.session(from: url)
             print("✅ OAuth session established: \(session.user.id)")
             
-            // Load user profile
-            await sessionViewModel.checkSession()
-            
-            // Wait for state to update
-            try? await Task.sleep(nanoseconds: 1000_000_000) // 1 second
-            
+            // Load user profile through the same hydrated auth path used by auth-state events.
+            await sessionViewModel.authServiceAccess.applyImportedOAuthSession(session)
+
             // Check if we're now authenticated
-            if sessionViewModel.isAuthenticated, sessionViewModel.currentUser != nil {
+            if sessionViewModel.authServiceAccess.isAuthenticated,
+               sessionViewModel.authServiceAccess.currentUser != nil {
                 print("✅ User authenticated successfully")
                 
                 // Update daily step goal from UserDefaults (set during onboarding)
@@ -539,7 +539,7 @@ extension SignInOnboardingView {
                 }
                 
                 // Apply avatar if selected during onboarding
-                if var user = sessionViewModel.currentUser,
+                if var user = sessionViewModel.authServiceAccess.currentUser,
                    let avatarURL = UserDefaults.standard.string(forKey: "selectedAvatarURL") {
                     user.avatarURL = avatarURL
                     sessionViewModel.updateUser(user)
