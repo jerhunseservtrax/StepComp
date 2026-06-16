@@ -1,7 +1,7 @@
 # FitComp Fix Tracker
 
 > Log of all bugs encountered and fixes implemented to prevent recurrence.
-> Last updated: 2026-04-13 (v6)
+> Last updated: 2026-06-16 (v7)
 
 ---
 
@@ -84,6 +84,28 @@
 - **Fix:** Changed to `@ObservedObject`. Wrapped state updates in `MainActor.run`. Added `.id()` modifier for clean view recreation.
 - **Files:** `RootView.swift`, `MainTabView.swift`, `SessionViewModel.swift`
 - **Prevention:** Use `@ObservedObject` for shared view models during view transitions. Use `.id()` to force clean recreation.
+
+---
+
+### 2026-06-16 Critical Bug Sweep
+- **Commit:** This PR
+- **Symptoms:**
+  - Google OAuth completed in the browser but returned to the app without establishing a Supabase session.
+  - A second account on the same device could see prior-account cached metrics or leaderboard data if the network fallback path fired after sign-out.
+  - Tapping an existing workout weight/reps cell and pressing Done or tapping away erased the value and persisted the empty set field.
+  - Signing out while a workout was active cleared the draft/widget state but left the in-memory singleton workout session available until app relaunch.
+- **Root Causes:**
+  - `ASWebAuthenticationSession` callbacks bypassed the app-level `.onOpenURL` Supabase handler.
+  - `OfflineCacheService` used unscoped disk keys and was not cleared when auth state was purged.
+  - The workout number pad cleared `editBuffer` on focus, then `commitAndDismiss()` treated the untouched empty buffer as an explicit clear.
+  - `WorkoutViewModel.clearAllActiveWorkoutState()` only deleted persisted side effects, not process-local session/timer state.
+- **Fix:**
+  - Import OAuth callback URLs with `supabase.auth.handle(url)` before reading the Supabase session.
+  - Clear offline caches with cached user credentials on sign-out.
+  - Only commit workout number-pad dismissals when the user entered a non-empty value.
+  - Reuse `cancelWorkout()` for all active workout sign-out cleanup.
+- **Files:** `SignInOnboardingView+Auth.swift`, `AuthService.swift`, `ActiveWorkoutView.swift`, `WorkoutViewModel.swift`
+- **Prevention:** OAuth callbacks delivered outside `.onOpenURL` must still be handed to Supabase; all user-scoped disk caches and singleton in-memory state must be purged on sign-out; focus-only edits must not be treated as destructive writes.
 
 ---
 

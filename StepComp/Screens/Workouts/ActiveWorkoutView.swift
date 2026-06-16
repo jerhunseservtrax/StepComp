@@ -280,7 +280,7 @@ struct ActiveWorkoutView: View {
     }
 
     private func commitAndDismiss() {
-        if let field = activeField {
+        if let field = activeField, !editBuffer.isEmpty {
             commitValue(field: field, text: editBuffer)
         }
         withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) {
