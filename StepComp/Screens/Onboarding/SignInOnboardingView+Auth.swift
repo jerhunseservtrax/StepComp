@@ -518,7 +518,7 @@ extension SignInOnboardingView {
         // ASWebAuthenticationSession delivers the callback here, bypassing the
         // app-level onOpenURL handler, so import the session before reading it.
         supabase.auth.handle(url)
-        
+
         // Try to get the current session
         do {
             let session = try await supabase.auth.session
