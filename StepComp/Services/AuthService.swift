@@ -167,6 +167,10 @@ final class AuthService: ObservableObject {
             UserDefaults.standard.set(true, forKey: "hasCompletedOnboarding")
         }
     }
+
+    func applyImportedOAuthSession(_ session: Session) async {
+        await applyAuthenticatedSession(session)
+    }
     
     private func refreshAuthStateFromCurrentSession(markCheckingComplete: Bool = false) async {
         do {

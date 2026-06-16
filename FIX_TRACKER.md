@@ -100,7 +100,7 @@
   - The workout number pad cleared `editBuffer` on focus, then `commitAndDismiss()` treated the untouched empty buffer as an explicit clear.
   - `WorkoutViewModel.clearAllActiveWorkoutState()` only deleted persisted side effects, not process-local session/timer state.
 - **Fix:**
-  - Import OAuth callback URLs with the awaitable `supabase.auth.session(from:)` API before continuing onboarding.
+  - Import OAuth callback URLs with the awaitable `supabase.auth.session(from:)` API and apply the returned session through the hydrated auth/profile path before continuing onboarding.
   - Clear offline caches with cached user credentials on sign-out.
   - Only commit workout number-pad dismissals when the user entered a non-empty value.
   - Reuse `cancelWorkout()` for all active workout sign-out cleanup.
