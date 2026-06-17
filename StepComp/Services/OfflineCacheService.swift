@@ -20,8 +20,9 @@ enum OfflineCacheService {
         return dir
     }
 
-    static func save<T: Encodable>(_ value: T, key: String) {
-        let url = cacheDirectory.appendingPathComponent(safeName(key) + ".json")
+    static func save<T: Encodable>(_ value: T, key: String, userId: String?) {
+        guard let scopedKey = scopedKey(key, userId: userId) else { return }
+        let url = cacheDirectory.appendingPathComponent(safeName(scopedKey) + ".json")
         do {
             let data = try JSONEncoder().encode(value)
             try data.write(to: url, options: .atomic)
@@ -32,14 +33,16 @@ enum OfflineCacheService {
         }
     }
 
-    static func load<T: Decodable>(_ type: T.Type, key: String) -> T? {
-        let url = cacheDirectory.appendingPathComponent(safeName(key) + ".json")
+    static func load<T: Decodable>(_ type: T.Type, key: String, userId: String?) -> T? {
+        guard let scopedKey = scopedKey(key, userId: userId) else { return nil }
+        let url = cacheDirectory.appendingPathComponent(safeName(scopedKey) + ".json")
         guard let data = try? Data(contentsOf: url) else { return nil }
         return try? JSONDecoder().decode(type, from: data)
     }
 
-    static func remove(key: String) {
-        let url = cacheDirectory.appendingPathComponent(safeName(key) + ".json")
+    static func remove(key: String, userId: String?) {
+        guard let scopedKey = scopedKey(key, userId: userId) else { return }
+        let url = cacheDirectory.appendingPathComponent(safeName(scopedKey) + ".json")
         try? fileManager.removeItem(at: url)
     }
 
@@ -50,35 +53,48 @@ enum OfflineCacheService {
     /// Fetch from the network; on success cache the result, on failure return cached data.
     static func fetchWithFallback<T: Codable>(
         key: String,
+        userId: String?,
+        isUserStillActive: () async -> Bool,
         fetch: () async throws -> T
     ) async -> T? {
         do {
             let value = try await fetch()
-            save(value, key: key)
+            guard await isUserStillActive() else { return nil }
+            save(value, key: key, userId: userId)
             return value
         } catch {
             #if DEBUG
             print("⚠️ OfflineCache network failed for \(key), using cached data")
             #endif
-            return load(T.self, key: key)
+            guard await isUserStillActive() else { return nil }
+            return load(T.self, key: key, userId: userId)
         }
     }
 
     /// Fetch an array from the network; on success cache, on failure return cached copy or empty.
     static func fetchArrayWithFallback<T: Codable>(
         key: String,
+        userId: String?,
+        isUserStillActive: () async -> Bool,
         fetch: () async throws -> [T]
     ) async -> [T] {
         do {
             let value = try await fetch()
-            save(value, key: key)
+            guard await isUserStillActive() else { return [] }
+            save(value, key: key, userId: userId)
             return value
         } catch {
             #if DEBUG
             print("⚠️ OfflineCache network failed for \(key), using cached data")
             #endif
-            return load([T].self, key: key) ?? []
+            guard await isUserStillActive() else { return [] }
+            return load([T].self, key: key, userId: userId) ?? []
         }
+    }
+
+    private static func scopedKey(_ key: String, userId: String?) -> String? {
+        guard let userId, !userId.isEmpty else { return nil }
+        return "\(userId)/\(key)"
     }
 
     private static func safeName(_ key: String) -> String {
