@@ -88,7 +88,7 @@
 ---
 
 ### 2026-06-17 - Offline Cache Cross-Account Data Leak
-- **Commit:** pending
+- **Commit:** `5ca3ec4`
 - **Symptom:** On a shared device, User B could see User A's cached metrics or challenge leaderboard data after User A signed out if the next network fetch failed.
 - **Root Cause:** `OfflineCacheService` used global keys such as `metrics_summary_30` and `leaderboard_<id>` for per-user Supabase data, and sign-out did not purge the offline cache or session-scoped challenge state.
 - **Fix:** Made offline cache reads/writes require a session-user-scoped key, passed the active Supabase session user ID into metrics and leaderboard caches, and cleared offline plus in-memory/persisted challenge state on sign-out or account switch.
