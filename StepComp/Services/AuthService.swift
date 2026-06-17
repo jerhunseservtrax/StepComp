@@ -31,6 +31,7 @@ final class AuthService: ObservableObject {
     private let testAccountDisplayName = "Test User"
     #endif
     private var refreshSessionTask: Task<Bool, Never>?
+    private var authStateGeneration = 0
     #if canImport(Supabase)
     private var authStateListenerTask: Task<Void, Never>?
     #endif
@@ -97,6 +98,7 @@ final class AuthService: ObservableObject {
             } else {
                 if let cachedUser = loadCachedUser() {
                     print("ℹ️ No initial session from Supabase, restoring cached user while auth recovers")
+                    clearSessionScopedCaches()
                     currentUser = cachedUser
                     isAuthenticated = true
                 } else {
@@ -123,6 +125,7 @@ final class AuthService: ObservableObject {
                 // Startup races can emit signedOut before session recovery completes.
                 // Keep local user state and let the manual fallback re-check Supabase.
                 print("ℹ️ Ignoring signed-out event during startup because cached user exists")
+                clearSessionScopedCaches()
                 currentUser = cachedUser
                 isAuthenticated = true
             } else {
@@ -148,16 +151,20 @@ final class AuthService: ObservableObject {
     
     private func applyAuthenticatedSession(_ session: Session) async {
         let userId = session.user.id.uuidString
+        prepareForAuthenticatedUser(userId)
+        let generation = authStateGeneration
         
         // Keep profile loading in a standalone task so timeout does not cancel it.
         // If timeout wins, we use cached data immediately and let profile update when it finishes.
         let profileLoadTask = Task { @MainActor [weak self] in
-            _ = await self?.loadUserProfile(userId: userId)
+            _ = await self?.loadUserProfile(userId: userId, generation: generation)
         }
         let completedBeforeTimeout = await waitForProfileLoad(profileLoadTask, timeoutNanoseconds: 8_000_000_000)
         if !completedBeforeTimeout {
             print("⚠️ Profile load timed out — using cached data")
-            if let cachedUser = self.loadCachedUser() {
+            if generation == authStateGeneration,
+               await isActiveSupabaseSessionUser(userId),
+               let cachedUser = self.loadCachedUser(matching: userId) {
                 self.currentUser = cachedUser
                 self.isAuthenticated = true
             }
@@ -198,14 +205,38 @@ final class AuthService: ObservableObject {
             return
         }
 
+        authStateGeneration += 1
         currentUser = nil
         isAuthenticated = false
         if deleteCachedUser {
             KeychainStore.delete(account: keychainUserAccount)
         }
+
+        clearSessionScopedCaches()
         
         // Clear active workout state (draft, widget, live activity)
         WorkoutViewModel.clearAllActiveWorkoutState()
+    }
+
+    private func prepareForAuthenticatedUser(_ userId: String) {
+        let knownUserId = currentUser?.id ?? loadCachedUser()?.id
+        guard let knownUserId, knownUserId != userId else { return }
+        authStateGeneration += 1
+        clearSessionScopedCaches()
+    }
+
+    private func isActiveSupabaseSessionUser(_ userId: String) async -> Bool {
+        #if canImport(Supabase)
+        guard useSupabase else { return true }
+        return (try? await supabase.auth.session)?.user.id.uuidString == userId
+        #else
+        return true
+        #endif
+    }
+
+    private func clearSessionScopedCaches() {
+        OfflineCacheService.clearAll()
+        ChallengeService.shared.clearSessionScopedData()
     }
     
     /// Refreshes the session when a 401 is received.
@@ -227,7 +258,9 @@ final class AuthService: ObservableObject {
                 print("✅ Session refreshed successfully")
                 
                 // Reload profile with new session
-                await self.loadUserProfile(userId: refreshedSession.user.id.uuidString)
+                let refreshedUserId = refreshedSession.user.id.uuidString
+                self.prepareForAuthenticatedUser(refreshedUserId)
+                await self.loadUserProfile(userId: refreshedUserId)
                 return true
             } catch {
                 // Refresh failed - session is truly invalid
@@ -254,9 +287,18 @@ final class AuthService: ObservableObject {
         do {
             try await supabase.auth.signOut()
             print("🚪 Force logout requested - waiting for signed-out event")
+            applySignedOutState(
+                deleteCachedUser: true,
+                reason: "forceLogout",
+                allowDuringStartupCheck: true
+            )
         } catch {
             print("⚠️ Force logout signOut failed, clearing local auth state: \(error.localizedDescription)")
-            applySignedOutState(deleteCachedUser: true)
+            applySignedOutState(
+                deleteCachedUser: true,
+                reason: "forceLogout signOut failed",
+                allowDuringStartupCheck: true
+            )
         }
         #else
         applySignedOutState(deleteCachedUser: true)
@@ -393,6 +435,7 @@ final class AuthService: ObservableObject {
                 print("❌ Failed to get user ID from response")
                 throw AuthError.invalidResponse
             }
+            prepareForAuthenticatedUser(userId)
             
             // Wait a moment for session to be established
             try? await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
@@ -578,9 +621,23 @@ final class AuthService: ObservableObject {
         if useSupabase {
             // This clears the session from Supabase's internal storage.
             // Local cleanup is handled by the signed-out auth state event.
-            try await supabase.auth.signOut()
-            print("✅ Supabase sign out requested - awaiting signed-out event")
-            return
+            do {
+                try await supabase.auth.signOut()
+                print("✅ Supabase sign out requested - awaiting signed-out event")
+                applySignedOutState(
+                    deleteCachedUser: true,
+                    reason: "explicit signOut",
+                    allowDuringStartupCheck: true
+                )
+                return
+            } catch {
+                applySignedOutState(
+                    deleteCachedUser: true,
+                    reason: "explicit signOut failed",
+                    allowDuringStartupCheck: true
+                )
+                throw error
+            }
         }
         #endif
         
@@ -640,6 +697,7 @@ final class AuthService: ObservableObject {
                 print("❌ Failed to get user ID from response")
                 throw AuthError.invalidResponse
             }
+            prepareForAuthenticatedUser(userId)
             
             await loadUserProfile(userId: userId)
         } catch {
@@ -690,6 +748,7 @@ final class AuthService: ObservableObject {
                 print("❌ Failed to get user ID from response")
                 throw AuthError.invalidResponse
             }
+            prepareForAuthenticatedUser(userId)
         
             // Note: Profile creation is now handled by database trigger
             // The trigger on auth.users will automatically create a profile
@@ -820,7 +879,8 @@ final class AuthService: ObservableObject {
         }
     }
     
-    private func loadUserProfile(userId: String) async {
+    private func loadUserProfile(userId: String, generation: Int? = nil) async {
+        let expectedGeneration = generation ?? authStateGeneration
         do {
             // PERMANENT LOGIN: Load profile directly from database using userId
             // Don't require a valid session - the profile has all the info we need
@@ -867,6 +927,12 @@ final class AuthService: ObservableObject {
                 totalSteps: profile.totalSteps ?? 0,
                 totalChallenges: 0
             )
+
+            guard expectedGeneration == authStateGeneration,
+                  await isActiveSupabaseSessionUser(userId) else {
+                print("ℹ️ Ignoring stale profile load for user: \(userId)")
+                return
+            }
             
             currentUser = user
             isAuthenticated = true
@@ -897,7 +963,13 @@ final class AuthService: ObservableObject {
             
             // If we can't load from database, try to use locally cached user
             // This handles offline scenarios
-            if let cachedUser = loadCachedUser() {
+            guard expectedGeneration == authStateGeneration,
+                  await isActiveSupabaseSessionUser(userId) else {
+                print("ℹ️ Ignoring stale cached profile fallback for user: \(userId)")
+                return
+            }
+
+            if let cachedUser = loadCachedUser(matching: userId) {
                 print("ℹ️ Using cached user data for offline access")
                 currentUser = cachedUser
                 isAuthenticated = true
@@ -949,11 +1021,20 @@ final class AuthService: ObservableObject {
     }
     
     /// Load cached user from UserDefaults (for offline access)
-    private func loadCachedUser() -> User? {
+    private func loadCachedUser(matching userId: String? = nil) -> User? {
         guard let data = KeychainStore.load(account: keychainUserAccount) else {
             return nil
         }
-        return try? JSONDecoder().decode(User.self, from: data)
+
+        guard let user = try? JSONDecoder().decode(User.self, from: data) else {
+            return nil
+        }
+
+        if let userId, user.id != userId {
+            return nil
+        }
+
+        return user
     }
     
     private func updateUserProfile(user: User) async {
