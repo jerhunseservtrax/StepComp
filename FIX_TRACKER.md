@@ -1,7 +1,7 @@
 # FitComp Fix Tracker
 
 > Log of all bugs encountered and fixes implemented to prevent recurrence.
-> Last updated: 2026-04-13 (v6)
+> Last updated: 2026-06-18 (v7)
 
 ---
 
@@ -84,6 +84,14 @@
 - **Fix:** Changed to `@ObservedObject`. Wrapped state updates in `MainActor.run`. Added `.id()` modifier for clean view recreation.
 - **Files:** `RootView.swift`, `MainTabView.swift`, `SessionViewModel.swift`
 - **Prevention:** Use `@ObservedObject` for shared view models during view transitions. Use `.id()` to force clean recreation.
+
+### 62. Cross-Account Cache Exposure and Chat Data Loss
+- **Status:** Fixed (2026-06-18)
+- **Symptom:** A second user on the same device could see the previous user's cached metrics/leaderboards after a network failure; opening chat/home could delete archived challenge memberships; realtime chat refreshes could drop older loaded messages from the UI.
+- **Root Cause:** Offline cache keys were global and never cleared on auth cleanup; `ChatListViewModel` treated ended challenges as orphaned memberships and deleted `challenge_members`; `ChallengeChatViewModel` replaced the entire loaded message list with only the latest page after send/realtime refresh.
+- **Fix:** Scoped offline cache entries by authenticated user, clear cache and session-scoped preferences on signed-out cleanup, reject cached profiles for mismatched session users, stop deleting membership rows during chat loading, and merge latest chat pages into already-loaded history.
+- **Files:** `OfflineCacheService.swift`, `AuthService.swift`, `ChallengeService.swift`, `ChatListViewModel.swift`, `ChallengeChatViewModel.swift`, `OfflineCacheServiceTests.swift`, `ChallengeChatMessageMergeTests.swift`
+- **Prevention:** All disk caches containing user data must be user-scoped or cleared on auth transitions. UI queries must not perform destructive cleanup unless they can distinguish truly deleted records from intentionally filtered records. Realtime pagination refreshes must merge/deduplicate instead of replacing loaded history.
 
 ---
 

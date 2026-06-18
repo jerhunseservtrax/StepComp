@@ -134,26 +134,8 @@ final class ChatListViewModel: ObservableObject {
             .execute()
             .value
         
-        // Find orphaned challenge_members (member record exists but challenge doesn't or has ended)
-        let foundChallengeIds = Set(challenges.map { $0.id })
-        let orphanedIds = Set(challengeIds).subtracting(foundChallengeIds)
-        
-        // Clean up orphaned records
-        if !orphanedIds.isEmpty {
-            for orphanedId in orphanedIds {
-                do {
-                    try await supabase
-                        .from("challenge_members")
-                        .delete()
-                        .eq("user_id", value: userId)
-                        .eq("challenge_id", value: orphanedId)
-                        .execute()
-                } catch {
-                    print("⚠️ Failed to clean up orphaned record: \(error.localizedDescription)")
-                }
-            }
-        }
-        
+        // Ended challenges are intentionally filtered out of the chat list, but their
+        // membership rows must remain for archived challenge history.
         return challenges
     }
     

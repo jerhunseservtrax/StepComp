@@ -10,6 +10,7 @@ import Foundation
 
 enum OfflineCacheService {
     private static let fileManager = FileManager.default
+    private static var userScope: String?
 
     private static var cacheDirectory: URL {
         let dir = fileManager.urls(for: .cachesDirectory, in: .userDomainMask)[0]
@@ -20,8 +21,22 @@ enum OfflineCacheService {
         return dir
     }
 
+    static func setUserScope(_ userId: String) {
+        userScope = userId
+    }
+
+    static func clearUserScope() {
+        userScope = nil
+    }
+
     static func save<T: Encodable>(_ value: T, key: String) {
-        let url = cacheDirectory.appendingPathComponent(safeName(key) + ".json")
+        save(value, key: key, scope: userScope)
+    }
+
+    private static func save<T: Encodable>(_ value: T, key: String, scope: String?) {
+        guard scope == userScope else { return }
+        guard let fileName = scopedSafeName(key, scope: scope) else { return }
+        let url = cacheDirectory.appendingPathComponent(fileName + ".json")
         do {
             let data = try JSONEncoder().encode(value)
             try data.write(to: url, options: .atomic)
@@ -33,13 +48,21 @@ enum OfflineCacheService {
     }
 
     static func load<T: Decodable>(_ type: T.Type, key: String) -> T? {
-        let url = cacheDirectory.appendingPathComponent(safeName(key) + ".json")
+        load(type, key: key, scope: userScope)
+    }
+
+    private static func load<T: Decodable>(_ type: T.Type, key: String, scope: String?) -> T? {
+        guard scope == userScope else { return nil }
+        guard let fileName = scopedSafeName(key, scope: scope) else { return nil }
+        let url = cacheDirectory.appendingPathComponent(fileName + ".json")
         guard let data = try? Data(contentsOf: url) else { return nil }
         return try? JSONDecoder().decode(type, from: data)
     }
 
     static func remove(key: String) {
-        let url = cacheDirectory.appendingPathComponent(safeName(key) + ".json")
+        let scope = userScope
+        guard let fileName = scopedSafeName(key, scope: scope) else { return }
+        let url = cacheDirectory.appendingPathComponent(fileName + ".json")
         try? fileManager.removeItem(at: url)
     }
 
@@ -52,15 +75,18 @@ enum OfflineCacheService {
         key: String,
         fetch: () async throws -> T
     ) async -> T? {
+        let scope = userScope
         do {
             let value = try await fetch()
-            save(value, key: key)
+            guard scope == userScope else { return nil }
+            save(value, key: key, scope: scope)
             return value
         } catch {
+            guard scope == userScope else { return nil }
             #if DEBUG
             print("⚠️ OfflineCache network failed for \(key), using cached data")
             #endif
-            return load(T.self, key: key)
+            return load(T.self, key: key, scope: scope)
         }
     }
 
@@ -69,20 +95,33 @@ enum OfflineCacheService {
         key: String,
         fetch: () async throws -> [T]
     ) async -> [T] {
+        let scope = userScope
         do {
             let value = try await fetch()
-            save(value, key: key)
+            guard scope == userScope else { return [] }
+            save(value, key: key, scope: scope)
             return value
         } catch {
+            guard scope == userScope else { return [] }
             #if DEBUG
             print("⚠️ OfflineCache network failed for \(key), using cached data")
             #endif
-            return load([T].self, key: key) ?? []
+            return load([T].self, key: key, scope: scope) ?? []
         }
     }
 
     private static func safeName(_ key: String) -> String {
         key.replacingOccurrences(of: "/", with: "_")
             .replacingOccurrences(of: ":", with: "_")
+    }
+
+    private static func scopedSafeName(_ key: String, scope: String?) -> String? {
+        guard let scope, !scope.isEmpty else {
+            #if DEBUG
+            print("⚠️ OfflineCache skipped unscoped access for \(key)")
+            #endif
+            return nil
+        }
+        return safeName("user_\(scope)_\(key)")
     }
 }

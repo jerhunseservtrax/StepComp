@@ -117,9 +117,7 @@ final class ChallengeChatViewModel: ObservableObject {
             print("✅ Message sent successfully")
             
             let latest = try await fetchLatestMessages(limit: pageSize)
-            messages = latest
-            oldestLoadedDate = latest.first?.createdAt
-            hasMoreMessages = latest.count >= pageSize
+            applyLatestPage(latest)
             
             // Post notification to update chat badge in dashboard header
             NotificationCenter.default.post(name: .chatMessageReceived, object: nil)
@@ -303,19 +301,19 @@ final class ChallengeChatViewModel: ObservableObject {
                 group.addTask { [weak self] in
                     for await _ in insertStream {
                         guard let self, !Task.isCancelled else { return }
-                        await self.refreshMessages()
+                        await self.refreshMessages(preservingLoadedHistory: true)
                     }
                 }
                 group.addTask { [weak self] in
                     for await _ in updateStream {
                         guard let self, !Task.isCancelled else { return }
-                        await self.refreshMessages()
+                        await self.refreshMessages(preservingLoadedHistory: false)
                     }
                 }
                 group.addTask { [weak self] in
                     for await _ in deleteStream {
                         guard let self, !Task.isCancelled else { return }
-                        await self.refreshMessages()
+                        await self.refreshMessages(preservingLoadedHistory: false)
                     }
                 }
             }
@@ -336,13 +334,17 @@ final class ChallengeChatViewModel: ObservableObject {
     }
 
     #if canImport(Supabase)
-    private func refreshMessages() async {
+    private func refreshMessages(preservingLoadedHistory: Bool = true) async {
         do {
-            let latest = try await fetchLatestMessages(limit: pageSize)
-            if latest.last?.id != messages.last?.id || latest.count != messages.count {
-                messages = latest
-                oldestLoadedDate = latest.first?.createdAt
-                hasMoreMessages = latest.count >= pageSize
+            let latest = try await fetchLatestMessages(
+                limit: preservingLoadedHistory ? pageSize : max(pageSize, messages.count)
+            )
+            let refreshed = latestPageAppliedToCurrentMessages(
+                latest,
+                preservingLoadedHistory: preservingLoadedHistory
+            )
+            if refreshed != messages {
+                applyLatestPage(latest, preservingLoadedHistory: preservingLoadedHistory)
                 NotificationCenter.default.post(name: .chatMessageReceived, object: nil)
             }
         } catch {
@@ -350,6 +352,27 @@ final class ChallengeChatViewModel: ObservableObject {
             print("⚠️ Refresh after realtime event failed: \(error.localizedDescription)")
             #endif
         }
+    }
+
+    private func applyLatestPage(_ latest: [ChallengeMessage], preservingLoadedHistory: Bool = true) {
+        messages = latestPageAppliedToCurrentMessages(
+            latest,
+            preservingLoadedHistory: preservingLoadedHistory
+        )
+        oldestLoadedDate = messages.first?.createdAt
+        if messages.count <= pageSize {
+            hasMoreMessages = latest.count >= pageSize
+        }
+    }
+
+    private func latestPageAppliedToCurrentMessages(
+        _ latest: [ChallengeMessage],
+        preservingLoadedHistory: Bool = true
+    ) -> [ChallengeMessage] {
+        guard preservingLoadedHistory, messages.count > pageSize else {
+            return latest
+        }
+        return messages.mergingLatestPagePreservingHistory(latest)
     }
 
     private func fallbackPolling() async {
@@ -403,12 +426,20 @@ final class ChallengeChatViewModel: ObservableObject {
     #endif
 }
 
-private extension Array where Element == ChallengeMessage {
+extension Array where Element == ChallengeMessage {
     func uniquedById() -> [ChallengeMessage] {
         var seen = Set<String>()
         return filter {
             seen.insert($0.id).inserted
         }
+    }
+
+    func mergingLatestPagePreservingHistory(_ latestPage: [ChallengeMessage]) -> [ChallengeMessage] {
+        let latestIds = Set(latestPage.map(\.id))
+        let olderLoadedMessages = filter { !latestIds.contains($0.id) }
+        return (olderLoadedMessages + latestPage)
+            .sorted { $0.createdAt < $1.createdAt }
+            .uniquedById()
     }
 }
 
