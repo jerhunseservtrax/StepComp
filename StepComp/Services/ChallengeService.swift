@@ -34,6 +34,12 @@ final class ChallengeService: ObservableObject {
         loadLeaderboards()
         #endif
     }
+
+    func clearSessionState() {
+        challenges = []
+        leaderboardEntries = [:]
+        lastErrorMessage = nil
+    }
     
     // MARK: - Challenges
     
@@ -515,7 +521,7 @@ final class ChallengeService: ObservableObject {
     #if canImport(Supabase)
     private func getLeaderboardFromSupabase(challengeId: String) async -> [LeaderboardEntry] {
         let cacheKey = "leaderboard_\(challengeId)"
-        do {
+        let fetchedEntries: [LeaderboardEntry]? = await OfflineCacheService.fetchWithFallback(key: cacheKey, fetch: {
             let serverEntries: [ServerLeaderboardEntry] = try await SupabaseRequestExecutor.executeWithAuthRetry(context: "get_leaderboard") {
                 try await supabase
                     .rpc("get_challenge_leaderboard", params: ["p_challenge_id": challengeId])
@@ -523,17 +529,13 @@ final class ChallengeService: ObservableObject {
                     .value
             }
 
-            let entries = serverEntries.map { $0.toLeaderboardEntry(challengeId: challengeId) }
+            return serverEntries.map { $0.toLeaderboardEntry(challengeId: challengeId) }
+        })
+        if let entries = fetchedEntries {
             leaderboardEntries[challengeId] = entries
-            OfflineCacheService.save(entries, key: cacheKey)
             return entries
-        } catch {
-            if let cached = OfflineCacheService.load([LeaderboardEntry].self, key: cacheKey) {
-                leaderboardEntries[challengeId] = cached
-                return cached
-            }
-            return leaderboardEntries[challengeId] ?? []
         }
+        return leaderboardEntries[challengeId] ?? []
     }
     #endif
     

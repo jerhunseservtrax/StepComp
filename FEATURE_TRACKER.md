@@ -1,7 +1,7 @@
 # FitComp Feature Tracker
 
 > Comprehensive catalog of all features in the FitComp fitness competition app (formerly StepComp).
-> Last updated: 2026-04-13 (v5)
+> Last updated: 2026-06-18 (v6)
 
 ---
 
@@ -196,6 +196,7 @@
 | Challenge Chat | `ChallengeChatView.swift`, `ChallengeChatViewModel.swift` | Real-time group messaging via Supabase postgresChange streams with polling fallback |
 | Chat List | `ChatListView.swift`, `ChatListViewModel.swift` | Overview of all chat conversations |
 | Message Actions | `ChallengeChatViewModel.swift` | Send, delete, auto-scroll |
+| Paginated Chat History Preservation | `ChallengeChatViewModel.swift` | Realtime/send refreshes merge latest messages into already-loaded history instead of dropping older pages |
 
 ### Leaderboard
 
@@ -357,7 +358,7 @@
 | Haptic Manager | `HapticManager.swift` | Haptic feedback patterns |
 | Keychain Store | `KeychainStore.swift` | Secure credential storage with kSecAttrService scoping and OSStatus error handling |
 | Retry Utility | `RetryUtility.swift` | Exponential backoff retry logic |
-| Offline Cache | `OfflineCacheService.swift` | Generic disk-backed Codable cache with fetch-with-fallback for offline resilience |
+| Offline Cache | `OfflineCacheService.swift`, `AuthService.swift`, `ChallengeService.swift` | User-scoped disk-backed Codable cache with fetch-with-fallback for offline resilience, scope-change protection, and auth-transition cleanup |
 | Cached Async Image | `CachedAsyncImage.swift` | Image caching for remote images (used in ProfileView, etc.) |
 | Reaction Effects | `ReactionEffectManager.swift` | Celebration/reaction animations |
 | Avatar View | `AvatarView.swift` | Reusable avatar component |

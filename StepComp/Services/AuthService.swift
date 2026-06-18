@@ -95,18 +95,12 @@ final class AuthService: ObservableObject {
                 print("🔐 Initial session found for user: \(session.user.id)")
                 await applyAuthenticatedSession(session)
             } else {
-                if let cachedUser = loadCachedUser() {
-                    print("ℹ️ No initial session from Supabase, restoring cached user while auth recovers")
-                    currentUser = cachedUser
-                    isAuthenticated = true
-                } else {
-                    print("ℹ️ No initial session and no cached user - showing login screen")
-                    applySignedOutState(
-                        deleteCachedUser: false,
-                        reason: "initialSession nil with no cached user",
-                        allowDuringStartupCheck: true
-                    )
-                }
+                print("ℹ️ No initial session from Supabase - showing login screen")
+                applySignedOutState(
+                    deleteCachedUser: true,
+                    reason: "initialSession nil",
+                    allowDuringStartupCheck: true
+                )
             }
             isCheckingSession = false
             print("✅ Initial auth session check complete")
@@ -119,19 +113,11 @@ final class AuthService: ObservableObject {
             }
         case .signedOut:
             print("🚪 Auth signed out event received")
-            if isCheckingSession, let cachedUser = loadCachedUser() {
-                // Startup races can emit signedOut before session recovery completes.
-                // Keep local user state and let the manual fallback re-check Supabase.
-                print("ℹ️ Ignoring signed-out event during startup because cached user exists")
-                currentUser = cachedUser
-                isAuthenticated = true
-            } else {
-                applySignedOutState(
-                    deleteCachedUser: true,
-                    reason: "signedOut auth event",
-                    allowDuringStartupCheck: true
-                )
-            }
+            applySignedOutState(
+                deleteCachedUser: true,
+                reason: "signedOut auth event",
+                allowDuringStartupCheck: true
+            )
             if isCheckingSession {
                 isCheckingSession = false
             }
@@ -148,6 +134,10 @@ final class AuthService: ObservableObject {
     
     private func applyAuthenticatedSession(_ session: Session) async {
         let userId = session.user.id.uuidString
+        if let currentUser, currentUser.id != userId {
+            ChallengeService.shared.clearSessionState()
+        }
+        OfflineCacheService.setUserScope(userId)
         
         // Keep profile loading in a standalone task so timeout does not cancel it.
         // If timeout wins, we use cached data immediately and let profile update when it finishes.
@@ -156,10 +146,17 @@ final class AuthService: ObservableObject {
         }
         let completedBeforeTimeout = await waitForProfileLoad(profileLoadTask, timeoutNanoseconds: 8_000_000_000)
         if !completedBeforeTimeout {
+            guard await isCurrentAuthSession(userId: userId) else {
+                print("ℹ️ Profile load timed out for stale session \(userId); ignoring cached fallback")
+                return
+            }
             print("⚠️ Profile load timed out — using cached data")
-            if let cachedUser = self.loadCachedUser() {
+            if let cachedUser = self.loadCachedUser(), cachedUser.id == userId {
+                OfflineCacheService.setUserScope(cachedUser.id)
                 self.currentUser = cachedUser
                 self.isAuthenticated = true
+            } else {
+                self.createMinimalUserProfile(userId: userId)
             }
         }
         
@@ -178,8 +175,12 @@ final class AuthService: ObservableObject {
                 print("✅ Startup manual auth session check complete")
             }
         } catch {
-            // Avoid forcing logout here. INITIAL_SESSION/SIGNED_OUT events are source of truth.
             print("⚠️ Unable to refresh current session state: \(error.localizedDescription)")
+            applySignedOutState(
+                deleteCachedUser: true,
+                reason: "current session refresh failed",
+                allowDuringStartupCheck: true
+            )
             if markCheckingComplete && isCheckingSession {
                 isCheckingSession = false
                 print("✅ Startup manual auth session check complete (no valid session)")
@@ -202,10 +203,22 @@ final class AuthService: ObservableObject {
         isAuthenticated = false
         if deleteCachedUser {
             KeychainStore.delete(account: keychainUserAccount)
+            clearSessionScopedPreferences()
         }
+        OfflineCacheService.clearAll()
+        OfflineCacheService.clearUserScope()
+        ChallengeService.shared.clearSessionState()
         
         // Clear active workout state (draft, widget, live activity)
         WorkoutViewModel.clearAllActiveWorkoutState()
+    }
+
+    private func clearSessionScopedPreferences() {
+        UserDefaults.standard.removeObject(forKey: "hasCompletedOnboarding")
+        UserDefaults.standard.removeObject(forKey: "dailyStepGoal")
+        UserDefaults.standard.removeObject(forKey: "selectedAvatarURL")
+        UserDefaults.standard.removeObject(forKey: "userHeight")
+        UserDefaults.standard.removeObject(forKey: "userWeight")
     }
     
     /// Refreshes the session when a 401 is received.
@@ -253,10 +266,19 @@ final class AuthService: ObservableObject {
         #if canImport(Supabase)
         do {
             try await supabase.auth.signOut()
-            print("🚪 Force logout requested - waiting for signed-out event")
+            applySignedOutState(
+                deleteCachedUser: true,
+                reason: "force logout",
+                allowDuringStartupCheck: true
+            )
+            print("🚪 Force logout completed")
         } catch {
             print("⚠️ Force logout signOut failed, clearing local auth state: \(error.localizedDescription)")
-            applySignedOutState(deleteCachedUser: true)
+            applySignedOutState(
+                deleteCachedUser: true,
+                reason: "force logout signOut failed",
+                allowDuringStartupCheck: true
+            )
         }
         #else
         applySignedOutState(deleteCachedUser: true)
@@ -577,9 +599,22 @@ final class AuthService: ObservableObject {
         #if canImport(Supabase)
         if useSupabase {
             // This clears the session from Supabase's internal storage.
-            // Local cleanup is handled by the signed-out auth state event.
-            try await supabase.auth.signOut()
-            print("✅ Supabase sign out requested - awaiting signed-out event")
+            do {
+                try await supabase.auth.signOut()
+            } catch {
+                applySignedOutState(
+                    deleteCachedUser: true,
+                    reason: "explicit sign out failed",
+                    allowDuringStartupCheck: true
+                )
+                throw error
+            }
+            applySignedOutState(
+                deleteCachedUser: true,
+                reason: "explicit sign out",
+                allowDuringStartupCheck: true
+            )
+            print("✅ Supabase sign out completed")
             return
         }
         #endif
@@ -822,9 +857,8 @@ final class AuthService: ObservableObject {
     
     private func loadUserProfile(userId: String) async {
         do {
-            // PERMANENT LOGIN: Load profile directly from database using userId
-            // Don't require a valid session - the profile has all the info we need
-            // This allows users to stay logged in even if session is being refreshed
+            // Profile loads can outlive auth transitions, so verify the active
+            // Supabase session still matches before applying any result.
             
             // Try to get email from session (optional - won't fail if not available)
             var sessionEmail: String? = nil
@@ -845,6 +879,11 @@ final class AuthService: ObservableObject {
                 .execute()
                 .value
             
+            guard await isCurrentAuthSession(userId: userId) else {
+                print("ℹ️ Ignoring profile load for stale session: \(userId)")
+                return
+            }
+
             // Convert to app User model
             // Use firstName and lastName from profile, fallback to empty strings
             let firstName = profile.firstName ?? ""
@@ -868,6 +907,7 @@ final class AuthService: ObservableObject {
                 totalChallenges: 0
             )
             
+            OfflineCacheService.setUserScope(user.id)
             currentUser = user
             isAuthenticated = true
             saveUser()
@@ -894,33 +934,55 @@ final class AuthService: ObservableObject {
                 return
             }
             print("⚠️ Error loading user profile: \(error.localizedDescription)")
+            guard await isCurrentAuthSession(userId: userId) else {
+                print("ℹ️ Ignoring cached profile fallback for stale session: \(userId)")
+                return
+            }
             
             // If we can't load from database, try to use locally cached user
             // This handles offline scenarios
             if let cachedUser = loadCachedUser() {
-                print("ℹ️ Using cached user data for offline access")
-                currentUser = cachedUser
-                isAuthenticated = true
+                if cachedUser.id == userId {
+                    print("ℹ️ Using cached user data for offline access")
+                    OfflineCacheService.setUserScope(cachedUser.id)
+                    currentUser = cachedUser
+                    isAuthenticated = true
+                } else {
+                    print("⚠️ Ignoring cached user data for \(cachedUser.id) while loading \(userId)")
+                    createMinimalUserProfile(userId: userId)
+                }
             } else {
                 // No cached user - create a minimal profile to keep them logged in
                 // They'll get full data when network is available
-                let email: String? = nil
-                
-                let user = User(
-                    id: userId,
-                    username: "user_\(userId.prefix(8))",
-                    firstName: "User",
-                    lastName: "",
-                    email: email,
-                    publicProfile: true,
-                    totalSteps: 0,
-                    totalChallenges: 0
-                )
-                currentUser = user
-                isAuthenticated = true
-                saveUser()
-                print("⚠️ Created minimal user profile - will sync when online")
+                createMinimalUserProfile(userId: userId)
             }
+        }
+    }
+
+    private func createMinimalUserProfile(userId: String) {
+        let user = User(
+            id: userId,
+            username: "user_\(userId.prefix(8))",
+            firstName: "User",
+            lastName: "",
+            email: nil,
+            publicProfile: true,
+            totalSteps: 0,
+            totalChallenges: 0
+        )
+        OfflineCacheService.setUserScope(userId)
+        currentUser = user
+        isAuthenticated = true
+        saveUser()
+        print("⚠️ Created minimal user profile - will sync when online")
+    }
+
+    private func isCurrentAuthSession(userId: String) async -> Bool {
+        do {
+            let session = try await supabase.auth.session
+            return session.user.id.uuidString == userId
+        } catch {
+            return false
         }
     }
 
@@ -940,10 +1002,7 @@ final class AuthService: ObservableObject {
             }
             
             let completedBeforeTimeout = await group.next() ?? false
-            if completedBeforeTimeout {
-                // Cancel timeout task when profile load finishes first.
-                group.cancelAll()
-            }
+            group.cancelAll()
             return completedBeforeTimeout
         }
     }
@@ -1159,6 +1218,7 @@ final class AuthService: ObservableObject {
     private func saveUser() {
         if let user = currentUser,
            let encoded = try? JSONEncoder().encode(user) {
+            OfflineCacheService.setUserScope(user.id)
             KeychainStore.save(encoded, account: keychainUserAccount)
         }
     }
@@ -1169,6 +1229,7 @@ final class AuthService: ObservableObject {
             return
         }
         
+        OfflineCacheService.setUserScope(user.id)
         currentUser = user
         isAuthenticated = true
     }
