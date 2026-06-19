@@ -117,9 +117,11 @@ final class ChallengeChatViewModel: ObservableObject {
             print("✅ Message sent successfully")
             
             let latest = try await fetchLatestMessages(limit: pageSize)
-            messages = latest
-            oldestLoadedDate = latest.first?.createdAt
-            hasMoreMessages = latest.count >= pageSize
+            messages = messages.mergedWithLatestChallengeMessages(
+                latest,
+                latestPageIsCompleteHistory: latest.count < pageSize
+            )
+            oldestLoadedDate = messages.first?.createdAt
             
             // Post notification to update chat badge in dashboard header
             NotificationCenter.default.post(name: .chatMessageReceived, object: nil)
@@ -339,10 +341,13 @@ final class ChallengeChatViewModel: ObservableObject {
     private func refreshMessages() async {
         do {
             let latest = try await fetchLatestMessages(limit: pageSize)
-            if latest.last?.id != messages.last?.id || latest.count != messages.count {
-                messages = latest
-                oldestLoadedDate = latest.first?.createdAt
-                hasMoreMessages = latest.count >= pageSize
+            let merged = messages.mergedWithLatestChallengeMessages(
+                latest,
+                latestPageIsCompleteHistory: latest.count < pageSize
+            )
+            if merged != messages {
+                messages = merged
+                oldestLoadedDate = merged.first?.createdAt
                 NotificationCenter.default.post(name: .chatMessageReceived, object: nil)
             }
         } catch {
@@ -403,7 +408,30 @@ final class ChallengeChatViewModel: ObservableObject {
     #endif
 }
 
-private extension Array where Element == ChallengeMessage {
+extension Array where Element == ChallengeMessage {
+    func mergedWithLatestChallengeMessages(
+        _ latest: [ChallengeMessage],
+        latestPageIsCompleteHistory: Bool = false
+    ) -> [ChallengeMessage] {
+        let latestIds = Set(latest.map(\.id))
+        let latestWindowStart = latest.first?.createdAt
+        var messagesById: [String: ChallengeMessage] = [:]
+        for message in self {
+            if latestPageIsCompleteHistory || latestIds.contains(message.id) {
+                continue
+            }
+            if let latestWindowStart, message.createdAt >= latestWindowStart {
+                continue
+            }
+            messagesById[message.id] = message
+        }
+        for message in latest {
+            messagesById[message.id] = message
+        }
+
+        return messagesById.values.sorted { $0.createdAt < $1.createdAt }
+    }
+
     func uniquedById() -> [ChallengeMessage] {
         var seen = Set<String>()
         return filter {
