@@ -1,7 +1,7 @@
 # FitComp Feature Tracker
 
 > Comprehensive catalog of all features in the FitComp fitness competition app (formerly StepComp).
-> Last updated: 2026-04-13 (v5)
+> Last updated: 2026-06-19 (v6)
 
 ---
 
@@ -40,6 +40,7 @@
 |---------|---------|-------------|
 | 5-Tab Navigation | `MainTabView.swift` | Home, Workouts, Challenges, Metrics, Settings |
 | Deep Link Routing | `DeepLinkRouter.swift`, `AppRoute.swift` | Route handling for leaderboard, profile, create/join challenge, OAuth callbacks |
+| Password Reset Redirect | `ForgotPasswordSheet.swift`, `PasswordResetRedirect.swift`, `DeepLinkRouter.swift` | Password reset emails use the registered `fitcomp://reset-password` deep link |
 | Invite Token Validation | `DeepLinkRouter.swift` | Validates invite tokens (8-128 chars, alphanumeric) before processing |
 | Haptic Tab Switching | `HapticManager.swift` | Tactile feedback on tab changes |
 
@@ -109,7 +110,7 @@
 | Rest Timer Alerts | `RestTimerManager.swift` | Visual, haptic, sound, and push notification alerts |
 | Smart Rest Suggestions | `WorkoutAnalyticsEngine.swift` | Auto-suggest rest duration based on exercise intensity and set exertion |
 | Progressive Overload | `WorkoutAnalyticsEngine.swift` | Trend detection (progressing/plateau/regressing), 1RM estimation, overload recommendations |
-| Workout Persistence | `WorkoutViewModel.swift` | Save/restore active workout state across app lifecycle |
+| Workout Persistence | `WorkoutViewModel.swift` | Save/restore active workout state across app lifecycle with full persisted/in-memory cleanup on logout |
 | Workout Summary | `WorkoutSummaryView.swift` | Post-workout stats (duration, exercises, sets, calories) |
 | Session History | `CompletedSessionDetailView.swift` | View past workout details |
 | Edit Sessions | `EditCompletedSessionView.swift` | Modify completed session data |
@@ -157,7 +158,7 @@
 | Challenge Images | `ChallengeImageBackground.swift` | Unsplash-powered background images |
 | Invite Codes | `CreateChallengeViewModel.swift` | 8-char shareable codes for private challenges |
 | Active Challenges Tab | `ActiveChallengesTab.swift` | Current challenges list with progress |
-| Discover Tab | `DiscoverChallengesTab.swift` | Browse/search public challenges |
+| Discover Tab | `DiscoverChallengesTab.swift`, `ChallengesViewModel.swift` | Browse/search public challenges with retry-safe pagination |
 | Archived Tab | `ArchivedChallengesTab.swift` | Historical completed challenges |
 | Join Challenge | `JoinChallengeView.swift`, `JoinChallengeViewModel.swift` | Join via code or discover |
 | Group Preview | `GroupPreviewCard.swift` | Challenge preview before joining |
@@ -193,7 +194,7 @@
 
 | Feature | File(s) | Description |
 |---------|---------|-------------|
-| Challenge Chat | `ChallengeChatView.swift`, `ChallengeChatViewModel.swift` | Real-time group messaging via Supabase postgresChange streams with polling fallback |
+| Challenge Chat | `ChallengeChatView.swift`, `ChallengeChatViewModel.swift` | Real-time group messaging via Supabase postgresChange streams with polling fallback and history-preserving refresh merges |
 | Chat List | `ChatListView.swift`, `ChatListViewModel.swift` | Overview of all chat conversations |
 | Message Actions | `ChallengeChatViewModel.swift` | Send, delete, auto-scroll |
 

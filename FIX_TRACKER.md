@@ -1,7 +1,7 @@
 # FitComp Fix Tracker
 
 > Log of all bugs encountered and fixes implemented to prevent recurrence.
-> Last updated: 2026-04-13 (v6)
+> Last updated: 2026-06-19 (v7)
 
 ---
 
@@ -26,6 +26,31 @@
 ---
 
 ## Critical Fixes
+
+### Recent Commit Regression Fixes (2026-06-19)
+- **Symptom:** Loading older challenge chat messages, then sending/receiving a message or falling back to polling, silently dropped previously loaded history from the UI.
+- **Root Cause:** Realtime/poll/send refresh paths replaced the full in-memory chat array with only the latest page.
+- **Fix:** Merge latest-page refresh results into existing loaded messages by ID, preserving older pages while updating edited/new messages.
+- **Files:** `ChallengeChatViewModel.swift`, `ChallengeChatViewModelTests.swift`
+- **Prevention:** Paginated histories must merge tail refreshes into loaded state; only initial loads should replace the full list.
+
+- **Symptom:** A failed "load more" request in public challenge discovery skipped that page on retry or could disable future retries.
+- **Root Cause:** `publicChallengesOffset` and `hasMorePublicChallenges` were updated before the Supabase fetch/conversion fully succeeded.
+- **Fix:** Calculate pagination state locally and commit offset/has-more only after successful append.
+- **Files:** `ChallengesViewModel.swift`
+- **Prevention:** Pagination cursors/offsets must be advanced only after durable success, or rolled back on failure.
+
+- **Symptom:** Sign-out/forced logout could clear persisted active workout state while leaving an in-memory singleton workout session alive.
+- **Root Cause:** `clearAllActiveWorkoutState()` removed draft/widget/live activity state without resetting `currentSession`, timers, elapsed time, or pause state.
+- **Fix:** Delegate cleanup to `cancelWorkout()` so all active workout state is reset consistently.
+- **Files:** `WorkoutViewModel.swift`
+- **Prevention:** Logout cleanup must clear both persisted and in-memory singleton state.
+
+- **Symptom:** Password reset emails used `je.fitcomp://reset-password`, a URL scheme not registered by the app.
+- **Root Cause:** The sender URL diverged from `Info.plist`, which registers only `fitcomp`.
+- **Fix:** Centralized password reset redirect URL on `fitcomp://reset-password` and covered it with a regression test.
+- **Files:** `ForgotPasswordSheet.swift`, `PasswordResetRedirect.swift`, `PasswordResetRedirectTests.swift`
+- **Prevention:** Deep-link senders should share constants with router/registration tests so schemes cannot drift.
 
 ### 1. Workout State Data Loss After Long Sessions
 - **Commit:** `6b21b36`
