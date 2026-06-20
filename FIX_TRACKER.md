@@ -1,7 +1,7 @@
 # FitComp Fix Tracker
 
 > Log of all bugs encountered and fixes implemented to prevent recurrence.
-> Last updated: 2026-04-13 (v6)
+> Last updated: 2026-06-20 (v7)
 
 ---
 
@@ -587,6 +587,30 @@
 - **Fix:** Restored a dedicated Workouts tab in a 5-tab layout and updated tab-index routing in workout start flow and tab manager helper.
 - **Files:** `MainTabView.swift`, `WorkoutDetailView.swift`
 - **Prevention:** Keep central tab index mapping documented and update all programmatic tab switches whenever tab order changes.
+
+### 62. Cross-Account Offline Cache Leakage
+- **Status:** Fixed (2026-06-20)
+- **Symptom:** After one user signed out and another user signed in on the same device, metrics or leaderboard fallback data could show the previous user's cached values when network/auth requests failed.
+- **Root Cause:** `OfflineCacheService` wrote global cache keys such as `metrics_summary_30`, `weight_history_90`, and `leaderboard_<challengeId>`; sign-out did not clear offline caches.
+- **Fix:** Added optional cache scoping, keyed sensitive metrics/leaderboard caches by the current Supabase user ID, and clear offline/challenge caches on sign-out.
+- **Files:** `OfflineCacheService.swift`, `MetricsService.swift`, `ChallengeService.swift`, `AuthService.swift`, `OfflineCacheServiceTests.swift`
+- **Prevention:** Any cache containing user data must be scoped by stable user ID and cleared on explicit sign-out.
+
+### 63. Chat List Deleted Ended Challenge Memberships
+- **Status:** Fixed (2026-06-20)
+- **Symptom:** Opening the chat list could delete `challenge_members` rows for ended challenges, causing archived challenges to disappear for non-creator participants.
+- **Root Cause:** `ChatListViewModel.getUserChallenges()` filtered chat previews to active challenges, then treated all non-active memberships as orphaned and deleted them during a read path.
+- **Fix:** Removed destructive cleanup from chat loading and added a pure active-chat candidate filter that leaves ended memberships intact for archive/history.
+- **Files:** `ChatListViewModel.swift`, `ChatListViewModelTests.swift`
+- **Prevention:** Read/list views must never perform destructive cleanup of relational membership data. Cleanup jobs must distinguish truly missing parents from ended/archived records.
+
+### 64. Password Reset Links Used Unregistered Scheme
+- **Status:** Fixed (2026-06-20)
+- **Symptom:** Password reset emails generated `je.fitcomp://reset-password` links that iOS would not deliver to the app because only `fitcomp` is registered in `Info.plist`.
+- **Root Cause:** FitComp deep-link migration left `ForgotPasswordSheet` using a legacy/unregistered custom scheme.
+- **Fix:** Changed password reset redirect to `fitcomp://reset-password`, matching `Info.plist` and `DeepLinkRouter`.
+- **Files:** `ForgotPasswordSheet.swift`, `DeepLinkRouterTests.swift`
+- **Prevention:** Any auth redirect URL must use a scheme registered in `Info.plist` and covered by deep-link tests.
 
 ## New Features
 
