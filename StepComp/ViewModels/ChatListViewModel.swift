@@ -134,27 +134,21 @@ final class ChatListViewModel: ObservableObject {
             .execute()
             .value
         
-        // Find orphaned challenge_members (member record exists but challenge doesn't or has ended)
-        let foundChallengeIds = Set(challenges.map { $0.id })
-        let orphanedIds = Set(challengeIds).subtracting(foundChallengeIds)
-        
-        // Clean up orphaned records
-        if !orphanedIds.isEmpty {
-            for orphanedId in orphanedIds {
-                do {
-                    try await supabase
-                        .from("challenge_members")
-                        .delete()
-                        .eq("user_id", value: userId)
-                        .eq("challenge_id", value: orphanedId)
-                        .execute()
-                } catch {
-                    print("⚠️ Failed to clean up orphaned record: \(error.localizedDescription)")
-                }
-            }
-        }
-        
-        return challenges
+        let activeIds = Self.activeChatCandidates(
+            memberChallengeIds: challengeIds,
+            activeChallengeIds: challenges.map(\.id)
+        )
+        let activeIdSet = Set(activeIds)
+
+        return challenges.filter { activeIdSet.contains($0.id) }
+    }
+
+    nonisolated static func activeChatCandidates(
+        memberChallengeIds: [String],
+        activeChallengeIds: [String]
+    ) -> [String] {
+        let activeIdSet = Set(activeChallengeIds)
+        return memberChallengeIds.filter { activeIdSet.contains($0) }
     }
     
     nonisolated private static func fetchUnreadCount(challengeId: String) async throws -> Int {

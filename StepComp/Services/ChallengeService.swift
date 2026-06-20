@@ -34,6 +34,14 @@ final class ChallengeService: ObservableObject {
         loadLeaderboards()
         #endif
     }
+
+    func clearUserScopedCache() {
+        challenges = []
+        leaderboardEntries = [:]
+        lastErrorMessage = nil
+        UserDefaults.standard.removeObject(forKey: challengesKey)
+        UserDefaults.standard.removeObject(forKey: leaderboardKey)
+    }
     
     // MARK: - Challenges
     
@@ -515,6 +523,9 @@ final class ChallengeService: ObservableObject {
     #if canImport(Supabase)
     private func getLeaderboardFromSupabase(challengeId: String) async -> [LeaderboardEntry] {
         let cacheKey = "leaderboard_\(challengeId)"
+        guard let cacheScope = await currentCacheScope() else {
+            return leaderboardEntries[challengeId] ?? []
+        }
         do {
             let serverEntries: [ServerLeaderboardEntry] = try await SupabaseRequestExecutor.executeWithAuthRetry(context: "get_leaderboard") {
                 try await supabase
@@ -525,15 +536,23 @@ final class ChallengeService: ObservableObject {
 
             let entries = serverEntries.map { $0.toLeaderboardEntry(challengeId: challengeId) }
             leaderboardEntries[challengeId] = entries
-            OfflineCacheService.save(entries, key: cacheKey)
+            OfflineCacheService.save(entries, key: cacheKey, scope: cacheScope)
             return entries
         } catch {
-            if let cached = OfflineCacheService.load([LeaderboardEntry].self, key: cacheKey) {
+            if let cached = OfflineCacheService.load([LeaderboardEntry].self, key: cacheKey, scope: cacheScope) {
                 leaderboardEntries[challengeId] = cached
                 return cached
             }
             return leaderboardEntries[challengeId] ?? []
         }
+    }
+
+    private func currentCacheScope() async -> String? {
+        if let session = try? await supabase.auth.session {
+            return session.user.id.uuidString
+        }
+
+        return AuthService.shared.currentUser?.id
     }
     #endif
     
