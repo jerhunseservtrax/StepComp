@@ -1,7 +1,7 @@
 # FitComp Fix Tracker
 
 > Log of all bugs encountered and fixes implemented to prevent recurrence.
-> Last updated: 2026-04-13 (v6)
+> Last updated: 2026-06-21 (v7)
 
 ---
 
@@ -84,6 +84,14 @@
 - **Fix:** Changed to `@ObservedObject`. Wrapped state updates in `MainActor.run`. Added `.id()` modifier for clean view recreation.
 - **Files:** `RootView.swift`, `MainTabView.swift`, `SessionViewModel.swift`
 - **Prevention:** Use `@ObservedObject` for shared view models during view transitions. Use `.id()` to force clean recreation.
+
+### 7. Auth Cache False-Positive and Password Reset Deep Link Failure
+- **Commit:** pending
+- **Symptom:** Cached profiles could route users into the app without a valid Supabase session; password reset emails used `je.fitcomp://reset-password` even though only `fitcomp` is registered; forced auth loss could wipe an active workout draft.
+- **Root Cause:** Startup auth fallback set `isAuthenticated = true` from cached profile data alone, reset redirect scheme drifted during the FitComp rebrand, and auth cleanup always cleared workout persistence regardless of whether sign-out was user-initiated.
+- **Fix:** Validate cached startup profiles against Supabase before marking authenticated, use `fitcomp://reset-password`, migrate legacy cached profiles from UserDefaults to Keychain, and clear active workout state only for explicit user sign-out.
+- **Files:** `AuthService.swift`, `ForgotPasswordSheet.swift`, `scripts/critical_auth_regression_tests.py`
+- **Prevention:** Cached profile data is display/offline data, not proof of an authenticated session. Auth redirects must match registered URL schemes, and forced auth recovery paths must not destroy in-progress user work.
 
 ---
 

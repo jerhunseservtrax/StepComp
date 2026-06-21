@@ -31,6 +31,7 @@ final class AuthService: ObservableObject {
     private let testAccountDisplayName = "Test User"
     #endif
     private var refreshSessionTask: Task<Bool, Never>?
+    private var clearActiveWorkoutStateOnNextSignOut = false
     #if canImport(Supabase)
     private var authStateListenerTask: Task<Void, Never>?
     #endif
@@ -96,9 +97,10 @@ final class AuthService: ObservableObject {
                 await applyAuthenticatedSession(session)
             } else {
                 if let cachedUser = loadCachedUser() {
-                    print("ℹ️ No initial session from Supabase, restoring cached user while auth recovers")
+                    print("ℹ️ No initial session from Supabase, validating cached user before restoring auth")
                     currentUser = cachedUser
-                    isAuthenticated = true
+                    isAuthenticated = false
+                    await refreshAuthStateFromCurrentSession(markCheckingComplete: true)
                 } else {
                     print("ℹ️ No initial session and no cached user - showing login screen")
                     applySignedOutState(
@@ -121,15 +123,20 @@ final class AuthService: ObservableObject {
             print("🚪 Auth signed out event received")
             if isCheckingSession, let cachedUser = loadCachedUser() {
                 // Startup races can emit signedOut before session recovery completes.
-                // Keep local user state and let the manual fallback re-check Supabase.
-                print("ℹ️ Ignoring signed-out event during startup because cached user exists")
+                // Keep cached profile data for display, but do not mark the session
+                // authenticated until Supabase confirms a valid session.
+                print("ℹ️ Signed-out event during startup with cached user; validating Supabase session")
                 currentUser = cachedUser
-                isAuthenticated = true
+                isAuthenticated = false
+                await refreshAuthStateFromCurrentSession(markCheckingComplete: true)
             } else {
+                let clearWorkoutState = clearActiveWorkoutStateOnNextSignOut
+                clearActiveWorkoutStateOnNextSignOut = false
                 applySignedOutState(
                     deleteCachedUser: true,
                     reason: "signedOut auth event",
-                    allowDuringStartupCheck: true
+                    allowDuringStartupCheck: true,
+                    clearActiveWorkoutState: clearWorkoutState
                 )
             }
             if isCheckingSession {
@@ -191,7 +198,8 @@ final class AuthService: ObservableObject {
     private func applySignedOutState(
         deleteCachedUser: Bool,
         reason: String = "auth state update",
-        allowDuringStartupCheck: Bool = false
+        allowDuringStartupCheck: Bool = false,
+        clearActiveWorkoutState: Bool = false
     ) {
         if isCheckingSession && !allowDuringStartupCheck {
             print("ℹ️ Skipping signed-out state during startup check (\(reason))")
@@ -202,10 +210,12 @@ final class AuthService: ObservableObject {
         isAuthenticated = false
         if deleteCachedUser {
             KeychainStore.delete(account: keychainUserAccount)
+            UserDefaults.standard.removeObject(forKey: userDefaultsKey)
         }
         
-        // Clear active workout state (draft, widget, live activity)
-        WorkoutViewModel.clearAllActiveWorkoutState()
+        if clearActiveWorkoutState {
+            WorkoutViewModel.clearAllActiveWorkoutState()
+        }
     }
     
     /// Refreshes the session when a 401 is received.
@@ -256,10 +266,10 @@ final class AuthService: ObservableObject {
             print("🚪 Force logout requested - waiting for signed-out event")
         } catch {
             print("⚠️ Force logout signOut failed, clearing local auth state: \(error.localizedDescription)")
-            applySignedOutState(deleteCachedUser: true)
+            applySignedOutState(deleteCachedUser: true, clearActiveWorkoutState: false)
         }
         #else
-        applySignedOutState(deleteCachedUser: true)
+        applySignedOutState(deleteCachedUser: true, clearActiveWorkoutState: false)
         #endif
     }
     
@@ -578,13 +588,20 @@ final class AuthService: ObservableObject {
         if useSupabase {
             // This clears the session from Supabase's internal storage.
             // Local cleanup is handled by the signed-out auth state event.
-            try await supabase.auth.signOut()
+            clearActiveWorkoutStateOnNextSignOut = true
+            do {
+                try await supabase.auth.signOut()
+            } catch {
+                clearActiveWorkoutStateOnNextSignOut = false
+                applySignedOutState(deleteCachedUser: true, clearActiveWorkoutState: true)
+                throw error
+            }
             print("✅ Supabase sign out requested - awaiting signed-out event")
             return
         }
         #endif
         
-        applySignedOutState(deleteCachedUser: true)
+        applySignedOutState(deleteCachedUser: true, clearActiveWorkoutState: true)
         print("🚪 User logged out - will show login screen")
     }
     
@@ -948,12 +965,24 @@ final class AuthService: ObservableObject {
         }
     }
     
-    /// Load cached user from UserDefaults (for offline access)
+    /// Load cached user from secure storage, migrating legacy UserDefaults data if present.
     private func loadCachedUser() -> User? {
-        guard let data = KeychainStore.load(account: keychainUserAccount) else {
+        if let data = KeychainStore.load(account: keychainUserAccount),
+           let user = try? JSONDecoder().decode(User.self, from: data) {
+            return user
+        }
+
+        guard let legacyData = UserDefaults.standard.data(forKey: userDefaultsKey),
+              let legacyUser = try? JSONDecoder().decode(User.self, from: legacyData) else {
             return nil
         }
-        return try? JSONDecoder().decode(User.self, from: data)
+
+        if let encoded = try? JSONEncoder().encode(legacyUser) {
+            KeychainStore.save(encoded, account: keychainUserAccount)
+        }
+        UserDefaults.standard.removeObject(forKey: userDefaultsKey)
+        print("✅ Migrated cached user from UserDefaults to Keychain")
+        return legacyUser
     }
     
     private func updateUserProfile(user: User) async {
