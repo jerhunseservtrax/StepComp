@@ -86,7 +86,7 @@
 - **Prevention:** Use `@ObservedObject` for shared view models during view transitions. Use `.id()` to force clean recreation.
 
 ### 7. Auth Cache False-Positive and Password Reset Deep Link Failure
-- **Commit:** pending
+- **Commit:** `b877f4b`
 - **Symptom:** Cached profiles could route users into the app without a valid Supabase session; password reset emails used `je.fitcomp://reset-password` even though only `fitcomp` is registered; forced auth loss could wipe an active workout draft.
 - **Root Cause:** Startup auth fallback set `isAuthenticated = true` from cached profile data alone, reset redirect scheme drifted during the FitComp rebrand, and auth cleanup always cleared workout persistence regardless of whether sign-out was user-initiated.
 - **Fix:** Validate cached startup profiles against Supabase before marking authenticated, use `fitcomp://reset-password`, migrate legacy cached profiles from UserDefaults to Keychain, and clear active workout state only for explicit user sign-out.
