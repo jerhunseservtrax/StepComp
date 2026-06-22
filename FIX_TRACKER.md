@@ -28,7 +28,7 @@
 ## Critical Fixes
 
 ### 2026-06-22 - Challenge Invite Collision Retry Build Failure
-- **Commit:** pending
+- **Commit:** `98f4e2c`
 - **Symptom:** App build fails after `SupabaseChallenge` gained required `category` and `imageUrl` fields.
 - **Root Cause:** The invite-code collision retry path in `ChallengeService.createChallengeInSupabase` rebuilt `SupabaseChallenge` with the regenerated invite code but omitted the new required fields.
 - **Fix:** Preserve `category` and `imageUrl` from the original payload when constructing the retry payload.
