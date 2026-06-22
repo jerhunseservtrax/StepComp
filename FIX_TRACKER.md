@@ -27,6 +27,14 @@
 
 ## Critical Fixes
 
+### 2026-06-22 - Challenge Invite Collision Retry Build Failure
+- **Commit:** pending
+- **Symptom:** App build fails after `SupabaseChallenge` gained required `category` and `imageUrl` fields.
+- **Root Cause:** The invite-code collision retry path in `ChallengeService.createChallengeInSupabase` rebuilt `SupabaseChallenge` with the regenerated invite code but omitted the new required fields.
+- **Fix:** Preserve `category` and `imageUrl` from the original payload when constructing the retry payload.
+- **Files:** `ChallengeService.swift`
+- **Prevention:** When adding stored model fields, update every memberwise initializer call path, including rare retry/error branches.
+
 ### 1. Workout State Data Loss After Long Sessions
 - **Commit:** `6b21b36`
 - **Symptom:** Users lost in-progress workout data (sets/reps) after long sessions or app suspension. Widget continued tracking while app lost in-memory state.
@@ -621,6 +629,7 @@
 | Hardcoded unit display (miles, lbs) | Wrong values for metric users | Always use `UnitPreferenceManager` formatters |
 | Capping progress at 100% in display | Misleading achievement info | Cap the visual ring, not the number |
 | Only checking recurring workout days | One-time workouts invisible | Query both `assignedDays` and `oneTimeDate` |
+| Adding required model fields without updating rare branches | Compile failure in release builds | Search all memberwise initializers, including retry/error paths |
 
 ---
 
