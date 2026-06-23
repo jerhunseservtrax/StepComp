@@ -43,6 +43,10 @@ enum OfflineCacheService {
         try? fileManager.removeItem(at: url)
     }
 
+    static func scopedKey(_ key: String, userId: String) -> String {
+        "user_\(safeName(userId))_\(key)"
+    }
+
     static func clearAll() {
         try? fileManager.removeItem(at: cacheDirectory)
     }

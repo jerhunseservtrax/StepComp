@@ -51,6 +51,8 @@ struct RootView: View {
     @State private var showingPasswordReset = false
     @State private var passwordResetURL: URL?
     @State private var hasTriggeredMetricsStartupSync = false
+    @State private var isMetricsStartupSyncInFlight = false
+    @State private var metricsStartupSyncRetryCount = 0
     @State private var lastAuthRecoveryCheckAt: Date = .distantPast
     
     init() {
@@ -127,6 +129,7 @@ struct RootView: View {
         .onChange(of: sessionViewModel.isAuthenticated) { _, isAuthenticated in
             if !isAuthenticated {
                 hasTriggeredMetricsStartupSync = false
+                metricsStartupSyncRetryCount = 0
                 return
             }
             triggerMetricsSyncIfReady()
@@ -173,12 +176,36 @@ struct RootView: View {
     
     private func triggerMetricsSyncIfReady() {
         guard !hasTriggeredMetricsStartupSync else { return }
+        guard !isMetricsStartupSyncInFlight else { return }
         guard !sessionViewModel.isCheckingSession else { return }
         guard sessionViewModel.isAuthenticated else { return }
         
-        hasTriggeredMetricsStartupSync = true
+        isMetricsStartupSyncInFlight = true
         Task(priority: .utility) {
-            await MetricsService.shared.syncAllLocalData()
+            let didSync = await MetricsService.shared.syncAllLocalData()
+            await MainActor.run {
+                isMetricsStartupSyncInFlight = false
+                hasTriggeredMetricsStartupSync = didSync
+                if didSync {
+                    metricsStartupSyncRetryCount = 0
+                } else {
+                    scheduleMetricsStartupSyncRetryIfNeeded()
+                }
+            }
+        }
+    }
+
+    private func scheduleMetricsStartupSyncRetryIfNeeded() {
+        guard sessionViewModel.isAuthenticated else { return }
+        guard metricsStartupSyncRetryCount < 3 else { return }
+
+        metricsStartupSyncRetryCount += 1
+        let retryDelaySeconds = UInt64(metricsStartupSyncRetryCount * 2)
+        Task {
+            try? await Task.sleep(nanoseconds: retryDelaySeconds * 1_000_000_000)
+            await MainActor.run {
+                triggerMetricsSyncIfReady()
+            }
         }
     }
 

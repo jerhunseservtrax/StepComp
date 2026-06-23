@@ -20,14 +20,17 @@ class WeightViewModel: ObservableObject {
     
     private let userDefaultsKey = "weight_entries"
     private let healthKitService: HealthKitService
+    private var healthKitSyncTask: Task<Void, Never>?
+    private var localDataGeneration = UUID()
     
     private init() {
         self.healthKitService = HealthKitService.shared
         loadEntries()
         
         // Sync with HealthKit on init
-        Task {
-            await syncWithHealthKit()
+        let initialGeneration = localDataGeneration
+        healthKitSyncTask = Task {
+            await syncWithHealthKit(expectedGeneration: initialGeneration)
         }
     }
     
@@ -49,8 +52,9 @@ class WeightViewModel: ObservableObject {
         
         // Sync to Supabase in the background
         let entryToSync = entry
+        let syncScope = MetricsService.shared.currentSyncScope()
         Task.detached(priority: .utility) {
-            await MetricsService.shared.syncWeightEntry(entryToSync)
+            await MetricsService.shared.syncWeightEntry(entryToSync, syncScope: syncScope)
         }
     }
     
@@ -58,6 +62,16 @@ class WeightViewModel: ObservableObject {
         entries.removeAll { $0.id == id }
         updateLatestWeight()
         saveEntries()
+    }
+
+    static func clearUserScopedWeightDataForSignOut() {
+        let vm = WeightViewModel.shared
+        vm.localDataGeneration = UUID()
+        vm.healthKitSyncTask?.cancel()
+        vm.healthKitSyncTask = nil
+        vm.entries = []
+        vm.latestWeight = nil
+        UserDefaults.standard.removeObject(forKey: vm.userDefaultsKey)
     }
     
     func getEntriesForGraph(days: Int = 90) -> [WeightEntry] {
@@ -69,6 +83,14 @@ class WeightViewModel: ObservableObject {
     // MARK: - HealthKit Integration
     
     func syncWithHealthKit() async {
+        await syncWithHealthKit(expectedGeneration: nil)
+    }
+
+    private func syncWithHealthKit(expectedGeneration: UUID?) async {
+        if let expectedGeneration, expectedGeneration != localDataGeneration {
+            return
+        }
+        guard !Task.isCancelled else { return }
         guard healthKitService.isAuthorized else {
             print("⚠️ HealthKit not authorized, skipping sync")
             return
@@ -76,6 +98,11 @@ class WeightViewModel: ObservableObject {
         
         do {
             if let healthKitWeight = try await healthKitService.getWeight() {
+                if let expectedGeneration, expectedGeneration != localDataGeneration {
+                    return
+                }
+                guard !Task.isCancelled else { return }
+
                 // Check if we need to add this as a new entry
                 let today = Calendar.current.startOfDay(for: Date())
                 let hasEntryToday = entries.contains { entry in

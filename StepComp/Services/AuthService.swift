@@ -121,7 +121,7 @@ final class AuthService: ObservableObject {
             print("🚪 Auth signed out event received")
             if isCheckingSession, let cachedUser = loadCachedUser() {
                 // Startup races can emit signedOut before session recovery completes.
-                // Keep local user state and let the manual fallback re-check Supabase.
+                // Explicit sign-out paths clear local state immediately before this event.
                 print("ℹ️ Ignoring signed-out event during startup because cached user exists")
                 currentUser = cachedUser
                 isAuthenticated = true
@@ -204,8 +204,15 @@ final class AuthService: ObservableObject {
             KeychainStore.delete(account: keychainUserAccount)
         }
         
-        // Clear active workout state (draft, widget, live activity)
-        WorkoutViewModel.clearAllActiveWorkoutState()
+        clearUserScopedLocalStateForSignOut()
+    }
+
+    private func clearUserScopedLocalStateForSignOut() {
+        WorkoutViewModel.clearUserScopedWorkoutDataForSignOut()
+        WeightViewModel.clearUserScopedWeightDataForSignOut()
+        MetricsService.shared.clearUserScopedSyncStateForSignOut()
+        ChallengeService.shared.clearUserScopedDataForSignOut()
+        OfflineCacheService.clearAll()
     }
     
     /// Refreshes the session when a 401 is received.
@@ -254,6 +261,11 @@ final class AuthService: ObservableObject {
         do {
             try await supabase.auth.signOut()
             print("🚪 Force logout requested - waiting for signed-out event")
+            applySignedOutState(
+                deleteCachedUser: true,
+                reason: "forceLogout completed",
+                allowDuringStartupCheck: true
+            )
         } catch {
             print("⚠️ Force logout signOut failed, clearing local auth state: \(error.localizedDescription)")
             applySignedOutState(deleteCachedUser: true)
@@ -578,8 +590,19 @@ final class AuthService: ObservableObject {
         if useSupabase {
             // This clears the session from Supabase's internal storage.
             // Local cleanup is handled by the signed-out auth state event.
-            try await supabase.auth.signOut()
-            print("✅ Supabase sign out requested - awaiting signed-out event")
+            do {
+                try await supabase.auth.signOut()
+                print("✅ Supabase sign out requested - awaiting signed-out event")
+                applySignedOutState(
+                    deleteCachedUser: true,
+                    reason: "explicit signOut completed",
+                    allowDuringStartupCheck: true
+                )
+            } catch {
+                print("⚠️ Supabase sign out failed, clearing local auth state: \(error.localizedDescription)")
+                applySignedOutState(deleteCachedUser: true)
+                throw error
+            }
             return
         }
         #endif

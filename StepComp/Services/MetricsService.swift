@@ -13,6 +13,19 @@ import Combine
 import Supabase
 #endif
 
+struct MetricsSyncScope: Equatable {
+    let userId: String?
+    let generation: UUID
+}
+
+private enum MetricsSyncScopeError: LocalizedError {
+    case staleScope
+
+    var errorDescription: String? {
+        "Metrics sync scope no longer matches the active user"
+    }
+}
+
 @MainActor
 final class MetricsService: ObservableObject {
     static let shared = MetricsService()
@@ -20,25 +33,35 @@ final class MetricsService: ObservableObject {
     private let syncedSessionsKey = "metrics_synced_session_ids"
     private let syncedWeightEntriesKey = "metrics_synced_weight_entry_ids"
     private var nutritionLogTableUnavailable = false
+    private var syncGeneration = UUID()
 
     private init() {}
+
+    func currentSyncScope() -> MetricsSyncScope {
+        MetricsSyncScope(userId: AuthService.shared.currentUser?.id.lowercased(), generation: syncGeneration)
+    }
 
     // MARK: - Sync: Workout Session
 
     /// Converts a local CompletedWorkoutSession to a JSON payload and syncs to Supabase.
-    func syncWorkoutSession(_ session: CompletedWorkoutSession) async {
+    @discardableResult
+    func syncWorkoutSession(_ session: CompletedWorkoutSession, syncScope: MetricsSyncScope? = nil) async -> Bool {
         #if canImport(Supabase)
+        let activeUserId: String
         do {
-            _ = try await supabase.auth.session
+            activeUserId = try await currentSupabaseUserId()
+            try validateSyncScope(syncScope, activeUserId: activeUserId)
         } catch {
             print("⚠️ [MetricsService] No session, skipping workout sync")
-            return
+            return false
         }
 
         let sessionPayload = sessionPayload(for: session)
 
         do {
             _ = try await SupabaseRequestExecutor.executeWithAuthRetry(context: "sync_workout_session") {
+                let activeUserId = try await self.currentSupabaseUserId()
+                try self.validateSyncScope(syncScope, activeUserId: activeUserId)
                 try await supabase
                     .rpc("sync_workout_session", params: [
                         "p_session": .object(sessionPayload)
@@ -46,24 +69,33 @@ final class MetricsService: ObservableObject {
                     .execute()
             }
 
+            let activeUserId = try await currentSupabaseUserId()
+            try validateSyncScope(syncScope, activeUserId: activeUserId)
             markSessionSynced(session.id)
             print("✅ [MetricsService] Synced workout session: \(session.workoutName)")
+            return true
         } catch {
             print("❌ [MetricsService] Failed to sync workout session: \(error.localizedDescription)")
+            return false
         }
+        #else
+        return false
         #endif
     }
 
     // MARK: - Sync: Weight Entry
 
     /// Syncs a single weight entry to Supabase via the sync_weight_entry RPC.
-    func syncWeightEntry(_ entry: WeightEntry) async {
+    @discardableResult
+    func syncWeightEntry(_ entry: WeightEntry, syncScope: MetricsSyncScope? = nil) async -> Bool {
         #if canImport(Supabase)
+        let activeUserId: String
         do {
-            _ = try await supabase.auth.session
+            activeUserId = try await currentSupabaseUserId()
+            try validateSyncScope(syncScope, activeUserId: activeUserId)
         } catch {
             print("⚠️ [MetricsService] No session, skipping weight sync")
-            return
+            return false
         }
 
         let dateFormatter = DateFormatter()
@@ -72,6 +104,8 @@ final class MetricsService: ObservableObject {
 
         do {
             _ = try await SupabaseRequestExecutor.executeWithAuthRetry(context: "sync_weight_entry") {
+                let activeUserId = try await self.currentSupabaseUserId()
+                try self.validateSyncScope(syncScope, activeUserId: activeUserId)
                 try await supabase
                     .rpc("sync_weight_entry", params: [
                         "p_date": dateString,
@@ -81,11 +115,17 @@ final class MetricsService: ObservableObject {
                     .execute()
             }
 
+            let activeUserId = try await currentSupabaseUserId()
+            try validateSyncScope(syncScope, activeUserId: activeUserId)
             markWeightEntrySynced(entry.id)
             print("✅ [MetricsService] Synced weight entry: \(entry.weightKg) kg on \(dateString)")
+            return true
         } catch {
             print("❌ [MetricsService] Failed to sync weight entry: \(error.localizedDescription)")
+            return false
         }
+        #else
+        return false
         #endif
     }
 
@@ -93,14 +133,17 @@ final class MetricsService: ObservableObject {
 
     /// Syncs all local workout sessions and weight entries that haven't been synced yet.
     /// Call this on app launch to recover from any missed syncs.
-    func syncAllLocalData() async {
+    @discardableResult
+    func syncAllLocalData() async -> Bool {
         #if canImport(Supabase)
+        let activeUserId: String
         do {
-            _ = try await supabase.auth.session
+            activeUserId = try await currentSupabaseUserId()
         } catch {
             print("⚠️ [MetricsService] No session, skipping bulk sync")
-            return
+            return false
         }
+        let syncScope = MetricsSyncScope(userId: activeUserId, generation: syncGeneration)
 
         print("🔄 [MetricsService] Starting bulk sync of local data...")
 
@@ -109,20 +152,26 @@ final class MetricsService: ObservableObject {
 
         let syncedSessionIds = getSyncedSessionIds()
         let unsyncedSessions = workoutVM.completedSessions.filter { !syncedSessionIds.contains($0.id.uuidString) }
+        var didCompleteAllSyncs = true
 
         if !unsyncedSessions.isEmpty {
             print("🔄 [MetricsService] Syncing \(unsyncedSessions.count) unsynced workout sessions...")
             let batchPayload = unsyncedSessions.map { AnyJSON.object(sessionPayload(for: $0)) }
             do {
                 _ = try await SupabaseRequestExecutor.executeWithAuthRetry(context: "sync_workout_sessions_batch") {
+                    let activeUserId = try await self.currentSupabaseUserId()
+                    try self.validateSyncScope(syncScope, activeUserId: activeUserId)
                     try await supabase
                         .rpc("sync_workout_sessions_batch", params: ["p_sessions": .array(batchPayload)] as [String: AnyJSON])
                         .execute()
                 }
+                let activeUserId = try await currentSupabaseUserId()
+                try validateSyncScope(syncScope, activeUserId: activeUserId)
                 unsyncedSessions.forEach { markSessionSynced($0.id) }
             } catch {
                 for session in unsyncedSessions {
-                    await syncWorkoutSession(session)
+                    let didSync = await syncWorkoutSession(session, syncScope: syncScope)
+                    didCompleteAllSyncs = didCompleteAllSyncs && didSync
                 }
             }
         }
@@ -143,14 +192,19 @@ final class MetricsService: ObservableObject {
             }
             do {
                 _ = try await SupabaseRequestExecutor.executeWithAuthRetry(context: "sync_weight_entries_batch") {
+                    let activeUserId = try await self.currentSupabaseUserId()
+                    try self.validateSyncScope(syncScope, activeUserId: activeUserId)
                     try await supabase
                         .rpc("sync_weight_entries_batch", params: ["p_entries": .array(batchPayload)] as [String: AnyJSON])
                         .execute()
                 }
+                let activeUserId = try await currentSupabaseUserId()
+                try validateSyncScope(syncScope, activeUserId: activeUserId)
                 unsyncedEntries.forEach { markWeightEntrySynced($0.id) }
             } catch {
                 for entry in unsyncedEntries {
-                    await syncWeightEntry(entry)
+                    let didSync = await syncWeightEntry(entry, syncScope: syncScope)
+                    didCompleteAllSyncs = didCompleteAllSyncs && didSync
                 }
             }
         }
@@ -160,6 +214,9 @@ final class MetricsService: ObservableObject {
         } else {
             print("✅ [MetricsService] Bulk sync complete")
         }
+        return didCompleteAllSyncs
+        #else
+        return false
         #endif
     }
 
@@ -167,8 +224,13 @@ final class MetricsService: ObservableObject {
 
     func fetchMetricsSummary(days: Int = 30) async -> MetricsSummary? {
         #if canImport(Supabase)
-        return await OfflineCacheService.fetchWithFallback(key: "metrics_summary_\(days)") {
+        guard let cacheKey = try? await userScopedCacheKey("metrics_summary_\(days)") else {
+            return nil
+        }
+        return await OfflineCacheService.fetchWithFallback(key: cacheKey.key) {
             try await SupabaseRequestExecutor.executeWithAuthRetry(context: "fetch_metrics_summary") {
+                let activeUserId = try await self.currentSupabaseUserId()
+                guard activeUserId == cacheKey.userId else { throw MetricsSyncScopeError.staleScope }
                 try await supabase
                     .rpc("get_user_metrics_summary", params: ["p_days": String(days)])
                     .execute()
@@ -318,8 +380,13 @@ final class MetricsService: ObservableObject {
 
     func fetchWeightHistory(days: Int = 90) async -> [WeightHistoryPoint] {
         #if canImport(Supabase)
-        return await OfflineCacheService.fetchArrayWithFallback(key: "weight_history_\(days)") {
+        guard let cacheKey = try? await userScopedCacheKey("weight_history_\(days)") else {
+            return []
+        }
+        return await OfflineCacheService.fetchArrayWithFallback(key: cacheKey.key) {
             try await SupabaseRequestExecutor.executeWithAuthRetry(context: "fetch_weight_history") {
+                let activeUserId = try await self.currentSupabaseUserId()
+                guard activeUserId == cacheKey.userId else { throw MetricsSyncScopeError.staleScope }
                 try await supabase
                     .rpc("get_weight_history", params: ["p_days": String(days)])
                     .execute()
@@ -335,8 +402,13 @@ final class MetricsService: ObservableObject {
 
     func fetchWorkoutHistory(days: Int = 90) async -> [WorkoutHistoryPoint] {
         #if canImport(Supabase)
-        return await OfflineCacheService.fetchArrayWithFallback(key: "workout_history_\(days)") {
+        guard let cacheKey = try? await userScopedCacheKey("workout_history_\(days)") else {
+            return []
+        }
+        return await OfflineCacheService.fetchArrayWithFallback(key: cacheKey.key) {
             try await SupabaseRequestExecutor.executeWithAuthRetry(context: "fetch_workout_history") {
+                let activeUserId = try await self.currentSupabaseUserId()
+                guard activeUserId == cacheKey.userId else { throw MetricsSyncScopeError.staleScope }
                 try await supabase
                     .rpc("get_workout_history", params: ["p_days": String(days)])
                     .execute()
@@ -381,6 +453,12 @@ final class MetricsService: ObservableObject {
         Set(UserDefaults.standard.stringArray(forKey: syncedSessionsKey) ?? [])
     }
 
+    func clearUserScopedSyncStateForSignOut() {
+        syncGeneration = UUID()
+        UserDefaults.standard.removeObject(forKey: syncedSessionsKey)
+        UserDefaults.standard.removeObject(forKey: syncedWeightEntriesKey)
+    }
+
     private let maxTrackedSyncIds = 500
 
     private func markSessionSynced(_ id: UUID) {
@@ -407,5 +485,26 @@ final class MetricsService: ObservableObject {
             ids = Array(ids.suffix(maxTrackedSyncIds))
         }
         UserDefaults.standard.set(ids, forKey: syncedWeightEntriesKey)
+    }
+
+    #if canImport(Supabase)
+    private func currentSupabaseUserId() async throws -> String {
+        let session = try await supabase.auth.session
+        return session.user.id.uuidString.lowercased()
+    }
+
+    private func userScopedCacheKey(_ key: String) async throws -> (key: String, userId: String) {
+        let userId = try await currentSupabaseUserId()
+        return (OfflineCacheService.scopedKey(key, userId: userId), userId)
+    }
+    #endif
+
+    private func validateSyncScope(_ syncScope: MetricsSyncScope?, activeUserId: String) throws {
+        guard let syncScope else { return }
+        guard syncScope.generation == syncGeneration,
+              let expectedUserId = syncScope.userId,
+              expectedUserId == activeUserId else {
+            throw MetricsSyncScopeError.staleScope
+        }
     }
 }
