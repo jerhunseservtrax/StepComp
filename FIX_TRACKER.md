@@ -1,7 +1,7 @@
 # FitComp Fix Tracker
 
 > Log of all bugs encountered and fixes implemented to prevent recurrence.
-> Last updated: 2026-04-13 (v6)
+> Last updated: 2026-06-23 (v7)
 
 ---
 
@@ -84,6 +84,22 @@
 - **Fix:** Changed to `@ObservedObject`. Wrapped state updates in `MainActor.run`. Added `.id()` modifier for clean view recreation.
 - **Files:** `RootView.swift`, `MainTabView.swift`, `SessionViewModel.swift`
 - **Prevention:** Use `@ObservedObject` for shared view models during view transitions. Use `.id()` to force clean recreation.
+
+### 2026-06-23 - Cross-Account Local Fitness Data Leak and Misattribution
+- **Status:** Fixed
+- **Symptom:** On shared devices, User B could inherit User A's locally stored workouts/weights/offline cache after User A signed out; startup metrics sync could upload User A's unsynced local records under User B's Supabase session.
+- **Root Cause:** Sign-out only cleared active workout draft/widget/live activity state. Completed workouts, workout templates, weight entries, metrics sync-id bookkeeping, and `OfflineCacheService` files used global local keys and remained in memory/disk across accounts.
+- **Fix:** Sign-out now clears user-scoped workout state, weight entries, challenge state, metrics sync state, and offline cache; explicit Supabase sign-out success/failure and signed-out events trigger local cleanup. Queued workout/weight syncs carry a user/generation fence, offline cache keys are user-scoped, challenge leaderboard writes are generation-fenced, and startup metrics sync retries later if it ran before a valid Supabase session existed.
+- **Files:** `AuthService.swift`, `WorkoutViewModel.swift`, `WeightViewModel.swift`, `MetricsService.swift`, `OfflineCacheService.swift`, `ChallengeService.swift`, `RootView.swift`
+- **Prevention:** Any local cache or persisted user data must be scoped to the authenticated user or cleared on sign-out before another account can load or sync it.
+
+### 2026-06-23 - Workout Number Pad Dismissal Cleared Existing Set Values
+- **Status:** Fixed
+- **Symptom:** Tapping a prefilled weight/reps field and dismissing the custom number pad without typing could persist `nil`, erasing the set. Switching directly between set fields could also commit the previous buffer through the newly tapped row and write to the wrong set.
+- **Root Cause:** `activateField` always reset `editBuffer` to an empty string, while dismiss commit treated empty text as an explicit clear. Row-local commit logic did not look up the active field's actual set before saving.
+- **Fix:** Seed the editor buffer from the existing stored set value on focus; route all row commits through the parent `ActiveWorkoutView.commitValue` lookup by `SetFieldIdentifier`.
+- **Files:** `ActiveWorkoutView.swift`
+- **Prevention:** Editable buffers for persisted values must distinguish "no edit" from "clear value", and shared edit state must commit by stable identifiers rather than the currently rendered row.
 
 ---
 

@@ -1,7 +1,7 @@
 # FitComp Feature Tracker
 
 > Comprehensive catalog of all features in the FitComp fitness competition app (formerly StepComp).
-> Last updated: 2026-04-13 (v5)
+> Last updated: 2026-06-23 (v6)
 
 ---
 
@@ -103,13 +103,13 @@
 |---------|---------|-------------|
 | Workout Timer | `ActiveWorkoutView.swift` | Real-time session duration tracking |
 | Set/Rep Tracking | `ActiveWorkoutView.swift` | Log sets, reps, and weight per exercise |
-| Custom Number Pad | `ActiveWorkoutView.swift` | Built-in number pad (replaces system keyboard) |
+| Custom Number Pad | `ActiveWorkoutView.swift` | Built-in number pad (replaces system keyboard) with existing-value buffer seeding and identifier-based commits |
 | Pause/Resume | `ActiveWorkoutView.swift` | Pause and continue workout |
 | Rest Timer | `RestTimerOverlayView.swift`, `RestTimerManager.swift` | Configurable rest intervals (30s–5min) with presets |
 | Rest Timer Alerts | `RestTimerManager.swift` | Visual, haptic, sound, and push notification alerts |
 | Smart Rest Suggestions | `WorkoutAnalyticsEngine.swift` | Auto-suggest rest duration based on exercise intensity and set exertion |
 | Progressive Overload | `WorkoutAnalyticsEngine.swift` | Trend detection (progressing/plateau/regressing), 1RM estimation, overload recommendations |
-| Workout Persistence | `WorkoutViewModel.swift` | Save/restore active workout state across app lifecycle |
+| Workout Persistence | `WorkoutViewModel.swift` | Save/restore active workout state across app lifecycle; clear user-scoped workout data on sign-out |
 | Workout Summary | `WorkoutSummaryView.swift` | Post-workout stats (duration, exercises, sets, calories) |
 | Session History | `CompletedSessionDetailView.swift` | View past workout details |
 | Edit Sessions | `EditCompletedSessionView.swift` | Modify completed session data |
@@ -121,7 +121,7 @@
 |---------|---------|-------------|
 | Log Weight | `WeightEntryView.swift` | Daily weight entries |
 | Weight Graph | `WeightTrackingCard.swift` | Weight history visualization |
-| Weight Progress | `WeightViewModel.swift` | Trend tracking over time |
+| Weight Progress | `WeightViewModel.swift` | Trend tracking over time with local entries cleared on sign-out |
 
 ### Transformation Photos
 
@@ -266,7 +266,7 @@
 | Unit Preference | `SettingsPreferencesCard.swift`, `UnitPreferenceManager.swift` | Metric/imperial system |
 | HealthKit Toggle | `SettingsConnectivityCard.swift` | Enable/disable HealthKit integration |
 | Notification Prefs | `SettingsNotificationsCard.swift` | Daily recap, leaderboard alerts, motivational nudges |
-| Sign Out | `SettingsView.swift`, `SettingsMainContent.swift`, `SessionViewModel.swift` | Logout with proper cleanup |
+| Sign Out | `SettingsView.swift`, `SettingsMainContent.swift`, `SessionViewModel.swift`, `AuthService.swift` | Logout with auth, local fitness/challenge data, sync bookkeeping, and offline cache cleanup |
 | Delete Account | `DeleteAccountConfirmationView.swift`, `SettingsView.swift`, `SettingsViewModifiers.swift` | Account deletion with confirmation |
 | Streak Display | `SettingsView.swift`, `SettingsLayoutViews.swift` | Current step streak (30-day lookback) |
 
@@ -327,7 +327,7 @@
 | Supabase Auth | `AuthService.swift` | Singleton auth with Keychain persistence, Apple Sign In, auth state listener |
 | Auth State Listener | `AuthService.swift` | Real-time auth state monitoring via Supabase events with automatic session recovery |
 | Auth Recovery | `RootView.swift` | Debounced periodic auth state recovery checks on foreground transitions |
-| Automatic Metrics Sync | `RootView.swift` | One-shot metrics sync on foreground/auth changes with dedup flag |
+| Automatic Metrics Sync | `RootView.swift`, `MetricsService.swift` | One-shot metrics sync on foreground/auth changes with in-flight deduping and retry when auth session is not ready |
 | Singleton Services | `HealthKitService.swift`, `ChallengeService.swift` | Shared singleton instances to prevent state desync |
 | Supabase Client | `SupabaseClient.swift` | Database client configuration |
 | Step Sync | `StepSyncService.swift` | Sync steps to server with fraud detection, RPC fallback |
@@ -357,7 +357,7 @@
 | Haptic Manager | `HapticManager.swift` | Haptic feedback patterns |
 | Keychain Store | `KeychainStore.swift` | Secure credential storage with kSecAttrService scoping and OSStatus error handling |
 | Retry Utility | `RetryUtility.swift` | Exponential backoff retry logic |
-| Offline Cache | `OfflineCacheService.swift` | Generic disk-backed Codable cache with fetch-with-fallback for offline resilience |
+| Offline Cache | `OfflineCacheService.swift`, `AuthService.swift`, `MetricsService.swift`, `ChallengeService.swift` | Generic disk-backed Codable cache with fetch-with-fallback for offline resilience; user-scoped keys and sign-out clearing prevent cross-account disclosure |
 | Cached Async Image | `CachedAsyncImage.swift` | Image caching for remote images (used in ProfileView, etc.) |
 | Reaction Effects | `ReactionEffectManager.swift` | Celebration/reaction animations |
 | Avatar View | `AvatarView.swift` | Reusable avatar component |

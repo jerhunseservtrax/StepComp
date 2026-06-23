@@ -19,6 +19,28 @@ struct SetFieldIdentifier: Hashable {
     let fieldType: SetFieldType
 }
 
+func workoutEditBufferText(
+    for set: WorkoutSet,
+    fieldType: SetFieldType,
+    unitManager: UnitPreferenceManager
+) -> String {
+    switch fieldType {
+    case .weight:
+        guard let weight = set.weight else { return "" }
+        let displayWeight = unitManager.convertWeightFromStorage(weight)
+        return formattedWorkoutWeight(displayWeight)
+    case .reps:
+        guard let reps = set.reps else { return "" }
+        return String(reps)
+    }
+}
+
+private func formattedWorkoutWeight(_ displayWeight: Double) -> String {
+    displayWeight.truncatingRemainder(dividingBy: 1) == 0
+        ? String(Int(displayWeight))
+        : String(format: "%.1f", displayWeight)
+}
+
 // MARK: - Custom Number Pad
 
 struct WorkoutNumberPad: View {
@@ -136,7 +158,8 @@ struct ActiveWorkoutView: View {
                                         activeField: $activeField,
                                         editBuffer: $editBuffer,
                                         collapsedExerciseIds: $collapsedExerciseIds,
-                                        restTimerManager: restTimerManager
+                                        restTimerManager: restTimerManager,
+                                        commitActiveField: commitValue
                                     )
                                 }
                             }
@@ -438,6 +461,7 @@ struct ExerciseCard: View {
     @Binding var editBuffer: String
     @Binding var collapsedExerciseIds: Set<UUID>
     @ObservedObject var restTimerManager: RestTimerManager
+    let commitActiveField: (SetFieldIdentifier, String) -> Void
     @State private var expandedSetId: UUID?
     @State private var overloadApplied = false
     @State private var originalSetValues: [UUID: (weight: Double?, reps: Int?)] = [:]
@@ -597,7 +621,8 @@ struct ExerciseCard: View {
                         collapsedExerciseIds: $collapsedExerciseIds,
                         restTimerManager: restTimerManager,
                         contextText: contextText,
-                        overloadApplied: overloadApplied
+                        overloadApplied: overloadApplied,
+                        commitActiveField: commitActiveField
                     )
                     .id(set.id)
                 }
@@ -842,6 +867,7 @@ struct SetRow: View {
     @ObservedObject var restTimerManager: RestTimerManager
     let contextText: String?
     let overloadApplied: Bool
+    let commitActiveField: (SetFieldIdentifier, String) -> Void
 
     @Environment(\.colorScheme) private var colorScheme
 
@@ -985,30 +1011,17 @@ struct SetRow: View {
     }
 
     private func activateField(_ fieldId: SetFieldIdentifier) {
+        guard activeField != fieldId else { return }
+
         // Commit any previous field first
         if let prev = activeField, prev != fieldId {
-            commitCurrentField(prev)
+            commitActiveField(prev, editBuffer)
         }
 
-        // Clear the buffer to allow fresh input
-        editBuffer = ""
+        editBuffer = workoutEditBufferText(for: set, fieldType: fieldId.fieldType, unitManager: unitManager)
 
         withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) {
             activeField = fieldId
-        }
-    }
-
-    private func commitCurrentField(_ field: SetFieldIdentifier) {
-        switch field.fieldType {
-        case .weight:
-            if let displayVal = Double(editBuffer), displayVal > 0 {
-                let storageWeight = unitManager.convertWeightToStorage(displayVal)
-                viewModel.updateSet(exerciseId: exerciseId, setId: set.id, weight: storageWeight, reps: set.reps)
-            }
-        case .reps:
-            if let reps = Int(editBuffer), reps > 0 {
-                viewModel.updateSet(exerciseId: exerciseId, setId: set.id, weight: set.weight, reps: reps)
-            }
         }
     }
 
@@ -1021,7 +1034,7 @@ struct SetRow: View {
 
     private func handleSetTap() {
         if let field = activeField {
-            commitCurrentField(field)
+            commitActiveField(field, editBuffer)
             activeField = nil
             editBuffer = ""
         }

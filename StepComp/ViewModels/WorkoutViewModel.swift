@@ -243,8 +243,9 @@ class WorkoutViewModel: ObservableObject {
         
         // Sync to Supabase in the background (fire-and-forget)
         let sessionToSync = completedSession
+        let syncScope = MetricsService.shared.currentSyncScope()
         Task.detached(priority: .utility) {
-            await MetricsService.shared.syncWorkoutSession(sessionToSync)
+            await MetricsService.shared.syncWorkoutSession(sessionToSync, syncScope: syncScope)
         }
         
         // Update the workout's last completed date
@@ -1031,6 +1032,32 @@ class WorkoutViewModel: ObservableObject {
         WorkoutWidgetStore.clear()
         WorkoutLiveActivityManager.end()
         print("🧹 All active workout state cleared")
+    }
+
+    /// Clears locally persisted workout data that belongs to the signed-out user.
+    static func clearUserScopedWorkoutDataForSignOut() {
+        let vm = WorkoutViewModel.shared
+        vm.stopTimer()
+        vm.autoFinishTask?.cancel()
+        vm.autoFinishTask = nil
+        vm.workouts = []
+        vm.currentSession = nil
+        vm.sessionStartTime = nil
+        vm.elapsedTime = 0
+        vm.isPaused = false
+        vm.pauseStartTime = nil
+        vm.totalPausedTime = 0
+        vm.completedSessions = []
+        vm.finishedSession = nil
+        vm.workoutTargetDate = nil
+        vm.isAutoFinishing = false
+
+        UserDefaults.standard.removeObject(forKey: "saved_workouts")
+        UserDefaults.standard.removeObject(forKey: "completed_workout_sessions")
+        vm.clearActiveWorkoutDraft()
+        WorkoutWidgetStore.clear()
+        WorkoutLiveActivityManager.end()
+        print("🧹 User-scoped workout data cleared")
     }
     
     // MARK: - Data Migration
