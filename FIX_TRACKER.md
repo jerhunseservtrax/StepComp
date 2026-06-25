@@ -1,7 +1,7 @@
 # FitComp Fix Tracker
 
 > Log of all bugs encountered and fixes implemented to prevent recurrence.
-> Last updated: 2026-04-13 (v6)
+> Last updated: 2026-06-25 (v7)
 
 ---
 
@@ -84,6 +84,16 @@
 - **Fix:** Changed to `@ObservedObject`. Wrapped state updates in `MainActor.run`. Added `.id()` modifier for clean view recreation.
 - **Files:** `RootView.swift`, `MainTabView.swift`, `SessionViewModel.swift`
 - **Prevention:** Use `@ObservedObject` for shared view models during view transitions. Use `.id()` to force clean recreation.
+
+---
+
+### 7. Workout Weight Corruption and Cross-Account Offline Cache Leak
+- **Status:** Fixed
+- **Symptom:** On first launch after the audit update, existing kg-stored workout weights could be divided by 2.20462 and dumbbell history could be relabeled as per-side load, silently corrupting historical volume/1RM metrics. On shared devices, a second signed-in user could also see a previous user's offline metrics/weight/workout fallback data after network failure.
+- **Root Cause:** Startup migrations assumed legacy workout weights were pounds and historical dumbbell entries were per-side, despite shipped save paths already storing kg and legacy decoded sets defaulting to total load. Sign-out cleanup removed only the workout draft/widget and did not clear the in-memory session or disk-backed offline cache.
+- **Fix:** Removed the destructive startup migrations, changed active workout cleanup to use `cancelWorkout()` so in-memory state is discarded, and clear `OfflineCacheService` whenever signed-out state is applied.
+- **Files:** `WorkoutViewModel.swift`, `AuthService.swift`, `WorkoutViewModelDataSafetyTests.swift`, `OfflineCacheServiceTests.swift`
+- **Prevention:** Never run one-shot data migrations without a reliable version/source marker and regression test. Any user-scoped offline fallback cache must be namespaced by user or purged whenever the app has no authenticated user.
 
 ---
 

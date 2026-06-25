@@ -53,8 +53,6 @@ class WorkoutViewModel: ObservableObject {
     private init() {
         loadWorkouts()
         loadCompletedSessions()
-        backfillPerSideWeightInputModeIfNeeded()
-        migrateWeightsToKgIfNeeded()
         loadActiveWorkoutDraftIfAny()
     }
     
@@ -1024,153 +1022,11 @@ class WorkoutViewModel: ObservableObject {
         }
     }
     
-    /// Clears all active workout state (draft, widget, live activity)
+    /// Clears all active workout state (memory, draft, widget, live activity)
     static func clearAllActiveWorkoutState() {
         let vm = WorkoutViewModel.shared
-        vm.clearActiveWorkoutDraft()
-        WorkoutWidgetStore.clear()
-        WorkoutLiveActivityManager.end()
+        vm.cancelWorkout()
         print("🧹 All active workout state cleared")
-    }
-    
-    // MARK: - Data Migration
-    
-    /// Migrates workout weights from lbs to kg storage format.
-    /// This runs once per installation to convert legacy data.
-    /// Assumes user was using imperial units (lbs) before the migration.
-    private func migrateWeightsToKgIfNeeded() {
-        let migrationKey = "weights_migrated_to_kg_v1"
-        
-        // Check if migration already completed
-        if UserDefaults.standard.bool(forKey: migrationKey) {
-            return
-        }
-        
-        print("🔄 Migrating workout weights from lbs to kg...")
-        
-        // Migrate completed sessions
-        var didMigrate = false
-        completedSessions = completedSessions.map { session in
-            let migratedExercises = session.exercises.map { exercise in
-                let migratedSets = exercise.sets.map { set in
-                    var newSet = set
-                    if let weight = set.weight {
-                        newSet.weight = weight / 2.20462
-                        didMigrate = true
-                    }
-                    if let prevWeight = set.previousWeight {
-                        newSet.previousWeight = prevWeight / 2.20462
-                        didMigrate = true
-                    }
-                    if let sugWeight = set.suggestedWeight {
-                        newSet.suggestedWeight = sugWeight / 2.20462
-                        didMigrate = true
-                    }
-                    return newSet
-                }
-                return WorkoutExercise(id: exercise.id, exercise: exercise.exercise, sets: migratedSets)
-            }
-            return CompletedWorkoutSession(
-                id: session.id,
-                workoutId: session.workoutId,
-                workoutName: session.workoutName,
-                startTime: session.startTime,
-                endTime: session.endTime,
-                exercises: migratedExercises
-            )
-        }
-        
-        // Migrate current session if active
-        if let session = currentSession {
-            let migratedExercises = session.exercises.map { exercise in
-                let migratedSets = exercise.sets.map { set in
-                    var newSet = set
-                    if let weight = set.weight {
-                        newSet.weight = weight / 2.20462
-                        didMigrate = true
-                    }
-                    if let prevWeight = set.previousWeight {
-                        newSet.previousWeight = prevWeight / 2.20462
-                        didMigrate = true
-                    }
-                    if let sugWeight = set.suggestedWeight {
-                        newSet.suggestedWeight = sugWeight / 2.20462
-                        didMigrate = true
-                    }
-                    return newSet
-                }
-                return WorkoutExercise(id: exercise.id, exercise: exercise.exercise, sets: migratedSets)
-            }
-            currentSession = WorkoutSession(
-                id: session.id,
-                workoutId: session.workoutId,
-                workoutName: session.workoutName,
-                startTime: session.startTime,
-                endTime: session.endTime,
-                exercises: migratedExercises,
-                isActive: session.isActive
-            )
-        }
-        
-        if didMigrate {
-            // Save migrated data
-            saveCompletedSessions()
-            print("✅ Migration complete: Workout weights converted to kg")
-        } else {
-            print("✅ No workout data to migrate")
-        }
-        
-        // Mark migration as complete
-        UserDefaults.standard.set(true, forKey: migrationKey)
-    }
-
-    /// Best-effort migration for legacy set data that was likely entered as per-side load.
-    /// Applies only once and only to high-confidence dumbbell naming patterns.
-    private func backfillPerSideWeightInputModeIfNeeded() {
-        let migrationKey = "set_weight_mode_per_side_backfill_v1"
-        guard !UserDefaults.standard.bool(forKey: migrationKey) else { return }
-
-        var didMigrate = false
-
-        completedSessions = completedSessions.map { session in
-            let migratedExercises = session.exercises.map { exercise in
-                guard shouldDefaultToPerSide(exerciseName: exercise.exercise.name) else {
-                    return exercise
-                }
-                let migratedSets = exercise.sets.map { set -> WorkoutSet in
-                    guard set.weightInputMode == .total else { return set }
-                    var updated = set
-                    updated.weightInputMode = .perSide
-                    didMigrate = true
-                    return updated
-                }
-                return WorkoutExercise(id: exercise.id, exercise: exercise.exercise, sets: migratedSets)
-            }
-            return CompletedWorkoutSession(
-                id: session.id,
-                workoutId: session.workoutId,
-                workoutName: session.workoutName,
-                startTime: session.startTime,
-                endTime: session.endTime,
-                exercises: migratedExercises
-            )
-        }
-
-        if didMigrate {
-            saveCompletedSessions()
-            print("✅ Backfilled per-side logging mode for legacy dumbbell sets")
-        }
-
-        UserDefaults.standard.set(true, forKey: migrationKey)
-    }
-
-    private func shouldDefaultToPerSide(exerciseName: String) -> Bool {
-        let name = exerciseName.lowercased()
-        return name.contains("dumbbell")
-            || name.contains(" db ")
-            || name.hasPrefix("db ")
-            || name.contains("(db")
-            || name.contains("arnold press")
     }
 
     private func startOfWeek(for date: Date, weekStartsOnMonday: Bool = true) -> Date {
