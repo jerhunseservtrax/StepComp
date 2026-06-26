@@ -604,11 +604,21 @@ final class ChallengeService: ObservableObject {
     #if canImport(Supabase)
     private func getDailyLeaderboardFromSupabase(challengeId: String) async -> [LeaderboardEntry] {
         do {
+            let session = try await supabase.auth.session
+            let userId = session.user.id.uuidString
             let serverEntries: [ServerLeaderboardEntry] = try await SupabaseRequestExecutor.executeWithAuthRetry(context: "get_daily_leaderboard") {
-                try await supabase
+                let retrySession = try await supabase.auth.session
+                guard retrySession.user.id.uuidString == userId else {
+                    throw ChallengeServiceError.authenticatedUserChanged
+                }
+                return try await supabase
                     .rpc("get_challenge_leaderboard_today", params: ["p_challenge_id": challengeId])
                     .execute()
                     .value
+            }
+            let currentSession = try await supabase.auth.session
+            guard currentSession.user.id.uuidString == userId else {
+                throw ChallengeServiceError.authenticatedUserChanged
             }
             
             // Convert to client model
@@ -616,6 +626,8 @@ final class ChallengeService: ObservableObject {
             
             print("✅ Loaded \(entries.count) daily leaderboard entries from RPC")
             return entries
+        } catch ChallengeServiceError.authenticatedUserChanged {
+            return []
         } catch {
             print("⚠️ Error loading daily leaderboard: \(error.localizedDescription)")
             // Fallback to all-time leaderboard (better than empty)
@@ -625,6 +637,8 @@ final class ChallengeService: ObservableObject {
     
     private func getWeeklyLeaderboardFromSupabase(challengeId: String) async -> [LeaderboardEntry] {
         do {
+            let session = try await supabase.auth.session
+            let userId = session.user.id.uuidString
             let calendar = Calendar.current
             let now = Date()
             let weekAgo = calendar.date(byAdding: .day, value: -7, to: now) ?? now
@@ -638,6 +652,9 @@ final class ChallengeService: ObservableObject {
                 .eq("challenge_id", value: challengeId)
                 .execute()
                 .value
+            guard AuthService.shared.currentUser?.id == userId else {
+                throw ChallengeServiceError.authenticatedUserChanged
+            }
             
             // Calculate weekly steps from daily_steps JSONB
             var weeklyEntries: [(userId: String, steps: Int)] = []
@@ -664,6 +681,9 @@ final class ChallengeService: ObservableObject {
                 .in("id", values: userIds)
                 .execute()
                 .value
+            guard AuthService.shared.currentUser?.id == userId else {
+                throw ChallengeServiceError.authenticatedUserChanged
+            }
             
             // Create leaderboard entries
             var entries: [LeaderboardEntry] = []
@@ -684,6 +704,8 @@ final class ChallengeService: ObservableObject {
             }
             
             return entries
+        } catch ChallengeServiceError.authenticatedUserChanged {
+            return []
         } catch {
             print("⚠️ Error loading weekly leaderboard: \(error.localizedDescription)")
             return []

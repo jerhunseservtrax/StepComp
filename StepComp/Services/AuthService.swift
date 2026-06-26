@@ -206,6 +206,7 @@ final class AuthService: ObservableObject {
         OfflineCacheService.clearAll()
         ChallengeService.shared.clearCachedChallengeData()
         MetricsService.shared.clearLocalSyncState()
+        FoodLogViewModel.shared.clearLocalData()
         ComprehensiveMetricsStore.shared.clearLocalData()
         WeightViewModel.shared.clearAllEntries()
         

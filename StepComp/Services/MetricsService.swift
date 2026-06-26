@@ -250,8 +250,11 @@ final class MetricsService: ObservableObject {
     func fetchExerciseHistory(exerciseName: String, days: Int = 90) async -> [ExerciseHistoryPoint] {
         #if canImport(Supabase)
         do {
+            let session = try await supabase.auth.session
+            let userId = session.user.id.uuidString
             let results: [ExerciseHistoryPoint] = try await SupabaseRequestExecutor.executeWithAuthRetry(context: "fetch_exercise_history") {
-                try await supabase
+                try await self.ensureAuthenticatedUser(userId)
+                return try await supabase
                     .rpc("get_exercise_history", params: [
                         "p_exercise_name": exerciseName,
                         "p_days": String(days)
@@ -259,7 +262,10 @@ final class MetricsService: ObservableObject {
                     .execute()
                     .value
             }
+            try await ensureAuthenticatedUser(userId)
             return results
+        } catch MetricsSyncError.authenticatedUserChanged {
+            return []
         } catch {
             print("❌ [MetricsService] Failed to fetch exercise history: \(error.localizedDescription)")
             return []
@@ -274,6 +280,8 @@ final class MetricsService: ObservableObject {
     func fetchPersonalRecords(exerciseName: String? = nil) async -> [PersonalRecord] {
         #if canImport(Supabase)
         do {
+            let session = try await supabase.auth.session
+            let userId = session.user.id.uuidString
             let query = supabase.from("personal_records").select().order("achieved_at", ascending: false).limit(100)
             struct PersonalRecordRow: Codable {
                 let id: UUID
@@ -283,8 +291,10 @@ final class MetricsService: ObservableObject {
                 let achieved_at: Date
             }
             let rows: [PersonalRecordRow] = try await SupabaseRequestExecutor.executeWithAuthRetry(context: "fetch_personal_records") {
-                try await query.execute().value
+                try await self.ensureAuthenticatedUser(userId)
+                return try await query.execute().value
             }
+            try await ensureAuthenticatedUser(userId)
             return rows.compactMap { row in
                 if let exerciseName, !exerciseName.isEmpty, row.exercise_name != exerciseName {
                     return nil
@@ -304,6 +314,8 @@ final class MetricsService: ObservableObject {
                     achievedAt: row.achieved_at
                 )
             }
+        } catch MetricsSyncError.authenticatedUserChanged {
+            return []
         } catch {
             print("❌ [MetricsService] Failed to fetch personal records: \(error.localizedDescription)")
             return []
@@ -315,11 +327,15 @@ final class MetricsService: ObservableObject {
 
     // MARK: - Sync: Body Metrics
 
-    func syncBodyMetric(bodyFatPercent: Double?, waistCm: Double?, date: Date = Date()) async {
+    func syncBodyMetric(bodyFatPercent: Double?, waistCm: Double?, date: Date = Date(), expectedUserId: String? = nil) async {
         #if canImport(Supabase)
+        let session: Session
         do {
-            _ = try await supabase.auth.session
+            session = try await supabase.auth.session
         } catch {
+            return
+        }
+        if let expectedUserId, session.user.id.uuidString != expectedUserId {
             return
         }
         let dateFormatter = DateFormatter()
@@ -331,7 +347,9 @@ final class MetricsService: ObservableObject {
             "source": .string("manual")
         ]
         do {
+            try await ensureAuthenticatedUser(expectedUserId ?? session.user.id.uuidString)
             _ = try await supabase.from("body_metrics").upsert(payload).execute()
+            try await ensureAuthenticatedUser(expectedUserId ?? session.user.id.uuidString)
         } catch {
             print("❌ [MetricsService] Failed to sync body metrics: \(error.localizedDescription)")
         }
@@ -340,11 +358,15 @@ final class MetricsService: ObservableObject {
 
     // MARK: - Sync: Nutrition Log
 
-    func syncNutritionLog(_ log: NutritionLog) async {
+    func syncNutritionLog(_ log: NutritionLog, expectedUserId: String? = nil) async {
         #if canImport(Supabase)
+        let session: Session
         do {
-            _ = try await supabase.auth.session
+            session = try await supabase.auth.session
         } catch {
+            return
+        }
+        if let expectedUserId, session.user.id.uuidString != expectedUserId {
             return
         }
 
@@ -362,7 +384,9 @@ final class MetricsService: ObservableObject {
             "water_ml": .integer(log.waterMl)
         ]
         do {
+            try await ensureAuthenticatedUser(expectedUserId ?? session.user.id.uuidString)
             _ = try await supabase.from("nutrition_log").insert(payload).execute()
+            try await ensureAuthenticatedUser(expectedUserId ?? session.user.id.uuidString)
         } catch {
             let lowercasedError = error.localizedDescription.lowercased()
             let isMissingNutritionLogTable =
