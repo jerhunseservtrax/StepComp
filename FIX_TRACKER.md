@@ -1,7 +1,7 @@
 # FitComp Fix Tracker
 
 > Log of all bugs encountered and fixes implemented to prevent recurrence.
-> Last updated: 2026-04-13 (v6)
+> Last updated: 2026-06-26 (v7)
 
 ---
 
@@ -27,7 +27,27 @@
 
 ## Critical Fixes
 
-### 1. Workout State Data Loss After Long Sessions
+### 1. Offline Cache Cross-Account Data Disclosure
+- **Status:** Fixed
+- **Symptom:** A second user on the same device could see the previous user's cached metrics, weight history, workout history, food logs/photos, body/nutrition metrics, profile measurements/goals, or private challenge leaderboard after sign-out if the live Supabase fetch failed. Unsynced local workout/weight/food/body/step records could also be uploaded under the next user's session.
+- **Root Cause:** `OfflineCacheService` used global cache keys such as `metrics_summary_30` and `workout_history_90`, challenge leaderboards also remained in memory by challenge ID, app-owned workout/weight/food/body/nutrition/profile stores and sync ID bookkeeping were global, and auth sign-out did not purge these caches. Several async fetch/sync paths also did not verify that the authenticated user was unchanged after awaits, fallbacks, or auth retries.
+- **Fix:** Added user-scoped offline cache keys for metrics and leaderboard data. Sign-out now clears existing offline cache files, challenge service in-memory/local caches, local workout/weight/food/body/nutrition/profile stores, and metrics sync bookkeeping so legacy unscoped entries cannot be replayed or synced into another account. In-flight challenge refresh, HealthKit imports, leaderboard/metrics fetches, fallback reads, and metrics/step sync tasks now discard work if the authenticated user changes before they read, write, cache, fallback, or retry.
+- **Files:** `OfflineCacheService.swift`, `MetricsService.swift`, `ChallengeService.swift`, `AuthService.swift`, `WorkoutViewModel.swift`, `WeightViewModel.swift`, `FoodLogViewModel.swift`, `ComprehensiveMetricsStore.swift`, `StepSyncService.swift`, `DashboardViewModel.swift`, `ChallengesViewModel.swift`, `MetricsViewModel.swift`, `RootView.swift`
+- **Prevention:** Any cache containing user data must include account identity in the cache key and be invalidated on auth transitions.
+
+---
+
+### 2. Legacy Dumbbell Workout History Reinterpreted as Per-Side Weight
+- **Status:** Fixed
+- **Symptom:** Existing dumbbell workout sessions could have volume, PRs, 1RM, and synced metrics doubled after launch.
+- **Root Cause:** A one-time heuristic migration changed stored sets for dumbbell-like exercise names from `.total` to `.perSide` without changing their stored weight value, altering the meaning of historical data.
+- **Fix:** Removed the automatic per-side backfill so legacy decoded sets remain `.total` unless a user explicitly changes a set's weight input mode.
+- **Files:** `WorkoutViewModel.swift`, `WorkoutSetTests.swift`
+- **Prevention:** Never infer persisted workout weight semantics from exercise names. Weight-mode migrations must preserve effective weight or require explicit user action.
+
+---
+
+### 3. Workout State Data Loss After Long Sessions
 - **Commit:** `6b21b36`
 - **Symptom:** Users lost in-progress workout data (sets/reps) after long sessions or app suspension. Widget continued tracking while app lost in-memory state.
 - **Root Cause:** Workout state was only held in memory — any app lifecycle event (suspension, termination) wiped it.

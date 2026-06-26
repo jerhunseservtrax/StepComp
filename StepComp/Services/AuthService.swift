@@ -203,9 +203,25 @@ final class AuthService: ObservableObject {
         if deleteCachedUser {
             KeychainStore.delete(account: keychainUserAccount)
         }
+        OfflineCacheService.clearAll()
+        ChallengeService.shared.clearCachedChallengeData()
+        MetricsService.shared.clearLocalSyncState()
+        FoodLogViewModel.shared.clearLocalData()
+        ComprehensiveMetricsStore.shared.clearLocalData()
+        WeightViewModel.shared.clearAllEntries()
+        [
+            "userHeight",
+            "userWeight",
+            "user_weight",
+            "user_weight_goal",
+            "dailyStepGoal",
+            "daily_calorie_goal",
+            "calorie_goal_is_manual",
+            "daily_protein_goal_g"
+        ].forEach { UserDefaults.standard.removeObject(forKey: $0) }
         
-        // Clear active workout state (draft, widget, live activity)
-        WorkoutViewModel.clearAllActiveWorkoutState()
+        // Clear account-local workout state and history.
+        WorkoutViewModel.clearAllPersistedWorkoutData()
     }
     
     /// Refreshes the session when a 401 is received.
@@ -577,9 +593,24 @@ final class AuthService: ObservableObject {
         #if canImport(Supabase)
         if useSupabase {
             // This clears the session from Supabase's internal storage.
-            // Local cleanup is handled by the signed-out auth state event.
-            try await supabase.auth.signOut()
-            print("✅ Supabase sign out requested - awaiting signed-out event")
+            // Also clean up locally here because the SDK call can throw before
+            // emitting a signed-out event.
+            do {
+                try await supabase.auth.signOut()
+                applySignedOutState(
+                    deleteCachedUser: true,
+                    reason: "user initiated Supabase signOut",
+                    allowDuringStartupCheck: true
+                )
+                print("✅ Supabase sign out complete")
+            } catch {
+                applySignedOutState(
+                    deleteCachedUser: true,
+                    reason: "failed Supabase signOut",
+                    allowDuringStartupCheck: true
+                )
+                throw error
+            }
             return
         }
         #endif

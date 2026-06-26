@@ -28,7 +28,7 @@ final class StepSyncService: ObservableObject {
     
     /// Sync today's steps from HealthKit to Supabase via Edge Function
     /// Edge Function handles: JWT validation, rate limiting, server-side validation
-    func syncTodayStepsToProfile() async {
+    func syncTodayStepsToProfile(expectedUserId: String? = nil) async {
         #if canImport(Supabase)
         guard !isSyncing else {
             print("ℹ️ Step sync already in progress, skipping duplicate request")
@@ -44,27 +44,38 @@ final class StepSyncService: ObservableObject {
         
         // Check if we have a valid session before trying to sync
         // This prevents 401 errors when session is still being restored
+        let syncUserId: String
         do {
             let session = try await supabase.auth.session
             guard !session.user.id.uuidString.isEmpty else {
                 print("⚠️ No valid session, skipping step sync")
                 return
             }
+            syncUserId = session.user.id.uuidString
         } catch {
             print("⚠️ Session not available, skipping step sync: \(error.localizedDescription)")
+            return
+        }
+        if let expectedUserId, syncUserId != expectedUserId {
+            print("⚠️ Auth user changed, skipping step sync")
             return
         }
         
         do {
             // Get today's steps from HealthKit
             let todaySteps = try await healthKitService.getSteps(for: Date())
+            guard AuthService.shared.currentUser?.id == syncUserId else {
+                print("⚠️ Auth user changed, discarding HealthKit steps")
+                return
+            }
             
             print("🔄 Syncing \(todaySteps) steps to backend")
             
             // Call Edge Function (server validates and stores)
             try await syncStepsViaEdgeFunction(
                 steps: todaySteps,
-                day: ISO8601DateFormatter().string(from: Date())
+                day: ISO8601DateFormatter().string(from: Date()),
+                expectedUserId: syncUserId
             )
             
             print("✅ Successfully synced \(todaySteps) steps")
@@ -94,7 +105,8 @@ final class StepSyncService: ObservableObject {
     /// This is the ONLY way steps should be written to the database
     private func syncStepsViaEdgeFunction(
         steps: Int,
-        day: String
+        day: String,
+        expectedUserId: String
     ) async throws {
         let deviceId = await getDeviceIdentifier()
         
@@ -118,8 +130,10 @@ final class StepSyncService: ObservableObject {
         // Call Edge Function and decode JSON response
         // Handle 401 errors by refreshing session and retrying (Instagram pattern)
         do {
+            try await ensureAuthenticatedUser(expectedUserId)
             let response: EdgeFunctionResponse = try await supabase.functions
                 .invoke("sync-steps", options: FunctionInvokeOptions(body: payload))
+            try await ensureAuthenticatedUser(expectedUserId)
             
             if response.success {
                 print("✅ Edge Function sync successful")
@@ -147,15 +161,17 @@ final class StepSyncService: ObservableObject {
                     print("🔄 Session refreshed, retrying sync...")
                     
                     do {
+                        try await ensureAuthenticatedUser(expectedUserId)
                         let retryResponse: EdgeFunctionResponse = try await supabase.functions
                             .invoke("sync-steps", options: FunctionInvokeOptions(body: payload))
+                        try await ensureAuthenticatedUser(expectedUserId)
                         if retryResponse.success {
                             print("✅ Edge Function sync successful after refresh")
                         }
                     } catch {
                         print("⚠️ Edge Function retry failed, using RPC fallback...")
                         // Fall back to RPC when Edge Function consistently fails
-                        try await syncStepsViaRPCFallback(steps: steps, day: day, deviceId: deviceId)
+                        try await syncStepsViaRPCFallback(steps: steps, day: day, deviceId: deviceId, expectedUserId: expectedUserId)
                     }
                 } else {
                     // Refresh failed - user will be logged out by AuthService
@@ -168,7 +184,7 @@ final class StepSyncService: ObservableObject {
             if errorDescription.contains("404") || errorDescription.contains("not found") {
                 print("⚠️ Edge Function 'sync-steps' not deployed. Steps will sync via RPC fallback.")
                 // Fallback: Call RPC directly (less secure but works)
-                try await syncStepsViaRPCFallback(steps: steps, day: day, deviceId: deviceId)
+                try await syncStepsViaRPCFallback(steps: steps, day: day, deviceId: deviceId, expectedUserId: expectedUserId)
             } else {
                 throw error
             }
@@ -185,10 +201,26 @@ final class StepSyncService: ObservableObject {
         return "unknown"
         #endif
     }
+
+    private enum StepSyncError: LocalizedError {
+        case authenticatedUserChanged
+
+        var errorDescription: String? {
+            "Authenticated user changed during step sync"
+        }
+    }
+
+    private func ensureAuthenticatedUser(_ expectedUserId: String) async throws {
+        let session = try await supabase.auth.session
+        guard session.user.id.uuidString == expectedUserId else {
+            throw StepSyncError.authenticatedUserChanged
+        }
+    }
     
     /// Fallback: Sync steps via RPC if Edge Function is not deployed
-    private func syncStepsViaRPCFallback(steps: Int, day: String, deviceId: String) async throws {
+    private func syncStepsViaRPCFallback(steps: Int, day: String, deviceId: String, expectedUserId: String) async throws {
         print("🔄 Using RPC fallback for step sync")
+        try await ensureAuthenticatedUser(expectedUserId)
         _ = try await supabase.rpc("sync_daily_steps", params: [
             "p_day": day,
             "p_steps": String(steps),
@@ -197,6 +229,7 @@ final class StepSyncService: ObservableObject {
             "p_ip": nil, // PostgreSQL inet type requires valid IP or NULL
             "p_user_agent": "iOS"
         ]).execute()
+        try await ensureAuthenticatedUser(expectedUserId)
         print("✅ Steps synced via RPC fallback")
     }
     #endif
@@ -211,8 +244,8 @@ final class StepSyncService: ObservableObject {
     }
     
     /// Full sync: profile + challenges
-    func syncAll(challengeService: ChallengeService) async {
-        await syncTodayStepsToProfile()
+    func syncAll(challengeService: ChallengeService, expectedUserId: String? = nil) async {
+        await syncTodayStepsToProfile(expectedUserId: expectedUserId)
         // Challenges are automatically updated by server
     }
 }

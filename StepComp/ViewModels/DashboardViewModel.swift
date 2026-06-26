@@ -105,6 +105,10 @@ final class DashboardViewModel: ObservableObject {
         #if canImport(Supabase)
         await challengeService.refreshChallenges()
         #endif
+        guard AuthService.shared.currentUser?.id == userId else {
+            print("⚠️ Auth user changed, discarding dashboard challenges")
+            return
+        }
         activeChallenges = challengeService.getActiveChallenges(userId: userId)
         print("📊 DashboardViewModel: Loaded \(activeChallenges.count) active challenges for user \(userId)")
         
@@ -124,6 +128,7 @@ final class DashboardViewModel: ObservableObject {
     
     private func loadStepData() async {
         guard let healthKitService else { return }
+        let expectedUserId = userId
         // Ensure HealthKit is initialized and check authorization
         _ = healthKitService.isHealthKitAvailable
         healthKitService.checkAuthorizationStatus()
@@ -144,6 +149,10 @@ final class DashboardViewModel: ObservableObject {
             print("🔄 Loading HealthKit data...")
             // Use getSteps(for: Date()) so today's steps match Home date picker and Workout page (same HealthKit query)
             let newSteps = try await healthKitService.getSteps(for: Date())
+            guard AuthService.shared.currentUser?.id == expectedUserId else {
+                print("⚠️ Auth user changed, discarding dashboard step data")
+                return
+            }
             let today = Date()
             let calendar = Calendar.current
             let _ = calendar.startOfDay(for: today)
@@ -181,6 +190,10 @@ final class DashboardViewModel: ObservableObject {
             let weekAgo = calendar.date(byAdding: .day, value: -7, to: now) ?? now
             
             let weeklyStats = try await healthKitService.getSteps(from: weekAgo, to: now)
+            guard AuthService.shared.currentUser?.id == expectedUserId else {
+                print("⚠️ Auth user changed, discarding dashboard weekly steps")
+                return
+            }
             weeklySteps = weeklyStats.reduce(0) { $0 + $1.steps }
             print("✅ Weekly steps: \(weeklySteps)")
             
@@ -198,7 +211,7 @@ final class DashboardViewModel: ObservableObject {
             if !userId.isEmpty,
                let stepSyncService = stepSyncService,
                let challengeService = challengeService {
-                await stepSyncService.syncAll(challengeService: challengeService)
+                await stepSyncService.syncAll(challengeService: challengeService, expectedUserId: expectedUserId)
             }
         } catch {
             print("⚠️ Error loading HealthKit data: \(error.localizedDescription)")

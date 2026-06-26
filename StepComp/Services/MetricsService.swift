@@ -23,22 +23,52 @@ final class MetricsService: ObservableObject {
 
     private init() {}
 
+    func clearLocalSyncState() {
+        nutritionLogTableUnavailable = false
+        UserDefaults.standard.removeObject(forKey: syncedSessionsKey)
+        UserDefaults.standard.removeObject(forKey: syncedWeightEntriesKey)
+    }
+
+    private enum MetricsSyncError: LocalizedError {
+        case authenticatedUserChanged
+
+        var errorDescription: String? {
+            "Authenticated user changed during metrics sync"
+        }
+    }
+
+    #if canImport(Supabase)
+    private func ensureAuthenticatedUser(_ expectedUserId: String) async throws {
+        let session = try await supabase.auth.session
+        guard session.user.id.uuidString == expectedUserId else {
+            throw MetricsSyncError.authenticatedUserChanged
+        }
+    }
+    #endif
+
     // MARK: - Sync: Workout Session
 
     /// Converts a local CompletedWorkoutSession to a JSON payload and syncs to Supabase.
-    func syncWorkoutSession(_ session: CompletedWorkoutSession) async {
+    func syncWorkoutSession(_ session: CompletedWorkoutSession, expectedUserId: String? = nil) async {
         #if canImport(Supabase)
+        let authSession: Session
         do {
-            _ = try await supabase.auth.session
+            authSession = try await supabase.auth.session
         } catch {
             print("⚠️ [MetricsService] No session, skipping workout sync")
             return
         }
+        if let expectedUserId, authSession.user.id.uuidString != expectedUserId {
+            print("⚠️ [MetricsService] Auth user changed, skipping workout sync")
+            return
+        }
+        let syncUserId = expectedUserId ?? authSession.user.id.uuidString
 
         let sessionPayload = sessionPayload(for: session)
 
         do {
             _ = try await SupabaseRequestExecutor.executeWithAuthRetry(context: "sync_workout_session") {
+                try await self.ensureAuthenticatedUser(syncUserId)
                 try await supabase
                     .rpc("sync_workout_session", params: [
                         "p_session": .object(sessionPayload)
@@ -46,6 +76,7 @@ final class MetricsService: ObservableObject {
                     .execute()
             }
 
+            try await ensureAuthenticatedUser(syncUserId)
             markSessionSynced(session.id)
             print("✅ [MetricsService] Synced workout session: \(session.workoutName)")
         } catch {
@@ -57,14 +88,20 @@ final class MetricsService: ObservableObject {
     // MARK: - Sync: Weight Entry
 
     /// Syncs a single weight entry to Supabase via the sync_weight_entry RPC.
-    func syncWeightEntry(_ entry: WeightEntry) async {
+    func syncWeightEntry(_ entry: WeightEntry, expectedUserId: String? = nil) async {
         #if canImport(Supabase)
+        let authSession: Session
         do {
-            _ = try await supabase.auth.session
+            authSession = try await supabase.auth.session
         } catch {
             print("⚠️ [MetricsService] No session, skipping weight sync")
             return
         }
+        if let expectedUserId, authSession.user.id.uuidString != expectedUserId {
+            print("⚠️ [MetricsService] Auth user changed, skipping weight sync")
+            return
+        }
+        let syncUserId = expectedUserId ?? authSession.user.id.uuidString
 
         let dateFormatter = DateFormatter()
         dateFormatter.dateFormat = "yyyy-MM-dd"
@@ -72,6 +109,7 @@ final class MetricsService: ObservableObject {
 
         do {
             _ = try await SupabaseRequestExecutor.executeWithAuthRetry(context: "sync_weight_entry") {
+                try await self.ensureAuthenticatedUser(syncUserId)
                 try await supabase
                     .rpc("sync_weight_entry", params: [
                         "p_date": dateString,
@@ -81,6 +119,7 @@ final class MetricsService: ObservableObject {
                     .execute()
             }
 
+            try await ensureAuthenticatedUser(syncUserId)
             markWeightEntrySynced(entry.id)
             print("✅ [MetricsService] Synced weight entry: \(entry.weightKg) kg on \(dateString)")
         } catch {
@@ -93,12 +132,18 @@ final class MetricsService: ObservableObject {
 
     /// Syncs all local workout sessions and weight entries that haven't been synced yet.
     /// Call this on app launch to recover from any missed syncs.
-    func syncAllLocalData() async {
+    func syncAllLocalData(expectedUserId: String? = nil) async {
         #if canImport(Supabase)
+        let authSession: Session
         do {
-            _ = try await supabase.auth.session
+            authSession = try await supabase.auth.session
         } catch {
             print("⚠️ [MetricsService] No session, skipping bulk sync")
+            return
+        }
+        let syncUserId = authSession.user.id.uuidString
+        if let expectedUserId, syncUserId != expectedUserId {
+            print("⚠️ [MetricsService] Auth user changed, skipping bulk sync")
             return
         }
 
@@ -115,14 +160,16 @@ final class MetricsService: ObservableObject {
             let batchPayload = unsyncedSessions.map { AnyJSON.object(sessionPayload(for: $0)) }
             do {
                 _ = try await SupabaseRequestExecutor.executeWithAuthRetry(context: "sync_workout_sessions_batch") {
+                    try await self.ensureAuthenticatedUser(syncUserId)
                     try await supabase
                         .rpc("sync_workout_sessions_batch", params: ["p_sessions": .array(batchPayload)] as [String: AnyJSON])
                         .execute()
                 }
+                try await ensureAuthenticatedUser(syncUserId)
                 unsyncedSessions.forEach { markSessionSynced($0.id) }
             } catch {
                 for session in unsyncedSessions {
-                    await syncWorkoutSession(session)
+                    await syncWorkoutSession(session, expectedUserId: syncUserId)
                 }
             }
         }
@@ -143,14 +190,16 @@ final class MetricsService: ObservableObject {
             }
             do {
                 _ = try await SupabaseRequestExecutor.executeWithAuthRetry(context: "sync_weight_entries_batch") {
+                    try await self.ensureAuthenticatedUser(syncUserId)
                     try await supabase
                         .rpc("sync_weight_entries_batch", params: ["p_entries": .array(batchPayload)] as [String: AnyJSON])
                         .execute()
                 }
+                try await ensureAuthenticatedUser(syncUserId)
                 unsyncedEntries.forEach { markWeightEntrySynced($0.id) }
             } catch {
                 for entry in unsyncedEntries {
-                    await syncWeightEntry(entry)
+                    await syncWeightEntry(entry, expectedUserId: syncUserId)
                 }
             }
         }
@@ -167,13 +216,34 @@ final class MetricsService: ObservableObject {
 
     func fetchMetricsSummary(days: Int = 30) async -> MetricsSummary? {
         #if canImport(Supabase)
-        return await OfflineCacheService.fetchWithFallback(key: "metrics_summary_\(days)") {
-            try await SupabaseRequestExecutor.executeWithAuthRetry(context: "fetch_metrics_summary") {
-                try await supabase
+        let session: Session
+        do {
+            session = try await supabase.auth.session
+        } catch {
+            return nil
+        }
+
+        let cacheKey = OfflineCacheService.userScopedKey("metrics_summary_\(days)", userId: session.user.id.uuidString)
+        do {
+            let value: MetricsSummary = try await SupabaseRequestExecutor.executeWithAuthRetry(context: "fetch_metrics_summary") {
+                try await self.ensureAuthenticatedUser(session.user.id.uuidString)
+                return try await supabase
                     .rpc("get_user_metrics_summary", params: ["p_days": String(days)])
                     .execute()
                     .value
             }
+            try await ensureAuthenticatedUser(session.user.id.uuidString)
+            OfflineCacheService.save(value, key: cacheKey)
+            return value
+        } catch MetricsSyncError.authenticatedUserChanged {
+            return nil
+        } catch {
+            do {
+                try await ensureAuthenticatedUser(session.user.id.uuidString)
+            } catch {
+                return nil
+            }
+            return OfflineCacheService.load(MetricsSummary.self, key: cacheKey)
         }
         #else
         return nil
@@ -185,8 +255,11 @@ final class MetricsService: ObservableObject {
     func fetchExerciseHistory(exerciseName: String, days: Int = 90) async -> [ExerciseHistoryPoint] {
         #if canImport(Supabase)
         do {
+            let session = try await supabase.auth.session
+            let userId = session.user.id.uuidString
             let results: [ExerciseHistoryPoint] = try await SupabaseRequestExecutor.executeWithAuthRetry(context: "fetch_exercise_history") {
-                try await supabase
+                try await self.ensureAuthenticatedUser(userId)
+                return try await supabase
                     .rpc("get_exercise_history", params: [
                         "p_exercise_name": exerciseName,
                         "p_days": String(days)
@@ -194,7 +267,10 @@ final class MetricsService: ObservableObject {
                     .execute()
                     .value
             }
+            try await ensureAuthenticatedUser(userId)
             return results
+        } catch MetricsSyncError.authenticatedUserChanged {
+            return []
         } catch {
             print("❌ [MetricsService] Failed to fetch exercise history: \(error.localizedDescription)")
             return []
@@ -209,6 +285,8 @@ final class MetricsService: ObservableObject {
     func fetchPersonalRecords(exerciseName: String? = nil) async -> [PersonalRecord] {
         #if canImport(Supabase)
         do {
+            let session = try await supabase.auth.session
+            let userId = session.user.id.uuidString
             let query = supabase.from("personal_records").select().order("achieved_at", ascending: false).limit(100)
             struct PersonalRecordRow: Codable {
                 let id: UUID
@@ -218,8 +296,10 @@ final class MetricsService: ObservableObject {
                 let achieved_at: Date
             }
             let rows: [PersonalRecordRow] = try await SupabaseRequestExecutor.executeWithAuthRetry(context: "fetch_personal_records") {
-                try await query.execute().value
+                try await self.ensureAuthenticatedUser(userId)
+                return try await query.execute().value
             }
+            try await ensureAuthenticatedUser(userId)
             return rows.compactMap { row in
                 if let exerciseName, !exerciseName.isEmpty, row.exercise_name != exerciseName {
                     return nil
@@ -239,6 +319,8 @@ final class MetricsService: ObservableObject {
                     achievedAt: row.achieved_at
                 )
             }
+        } catch MetricsSyncError.authenticatedUserChanged {
+            return []
         } catch {
             print("❌ [MetricsService] Failed to fetch personal records: \(error.localizedDescription)")
             return []
@@ -250,11 +332,15 @@ final class MetricsService: ObservableObject {
 
     // MARK: - Sync: Body Metrics
 
-    func syncBodyMetric(bodyFatPercent: Double?, waistCm: Double?, date: Date = Date()) async {
+    func syncBodyMetric(bodyFatPercent: Double?, waistCm: Double?, date: Date = Date(), expectedUserId: String? = nil) async {
         #if canImport(Supabase)
+        let session: Session
         do {
-            _ = try await supabase.auth.session
+            session = try await supabase.auth.session
         } catch {
+            return
+        }
+        if let expectedUserId, session.user.id.uuidString != expectedUserId {
             return
         }
         let dateFormatter = DateFormatter()
@@ -266,7 +352,9 @@ final class MetricsService: ObservableObject {
             "source": .string("manual")
         ]
         do {
+            try await ensureAuthenticatedUser(expectedUserId ?? session.user.id.uuidString)
             _ = try await supabase.from("body_metrics").upsert(payload).execute()
+            try await ensureAuthenticatedUser(expectedUserId ?? session.user.id.uuidString)
         } catch {
             print("❌ [MetricsService] Failed to sync body metrics: \(error.localizedDescription)")
         }
@@ -275,11 +363,15 @@ final class MetricsService: ObservableObject {
 
     // MARK: - Sync: Nutrition Log
 
-    func syncNutritionLog(_ log: NutritionLog) async {
+    func syncNutritionLog(_ log: NutritionLog, expectedUserId: String? = nil) async {
         #if canImport(Supabase)
+        let session: Session
         do {
-            _ = try await supabase.auth.session
+            session = try await supabase.auth.session
         } catch {
+            return
+        }
+        if let expectedUserId, session.user.id.uuidString != expectedUserId {
             return
         }
 
@@ -297,7 +389,9 @@ final class MetricsService: ObservableObject {
             "water_ml": .integer(log.waterMl)
         ]
         do {
+            try await ensureAuthenticatedUser(expectedUserId ?? session.user.id.uuidString)
             _ = try await supabase.from("nutrition_log").insert(payload).execute()
+            try await ensureAuthenticatedUser(expectedUserId ?? session.user.id.uuidString)
         } catch {
             let lowercasedError = error.localizedDescription.lowercased()
             let isMissingNutritionLogTable =
@@ -318,13 +412,34 @@ final class MetricsService: ObservableObject {
 
     func fetchWeightHistory(days: Int = 90) async -> [WeightHistoryPoint] {
         #if canImport(Supabase)
-        return await OfflineCacheService.fetchArrayWithFallback(key: "weight_history_\(days)") {
-            try await SupabaseRequestExecutor.executeWithAuthRetry(context: "fetch_weight_history") {
-                try await supabase
+        let session: Session
+        do {
+            session = try await supabase.auth.session
+        } catch {
+            return []
+        }
+
+        let cacheKey = OfflineCacheService.userScopedKey("weight_history_\(days)", userId: session.user.id.uuidString)
+        do {
+            let value: [WeightHistoryPoint] = try await SupabaseRequestExecutor.executeWithAuthRetry(context: "fetch_weight_history") {
+                try await self.ensureAuthenticatedUser(session.user.id.uuidString)
+                return try await supabase
                     .rpc("get_weight_history", params: ["p_days": String(days)])
                     .execute()
                     .value
             }
+            try await ensureAuthenticatedUser(session.user.id.uuidString)
+            OfflineCacheService.save(value, key: cacheKey)
+            return value
+        } catch MetricsSyncError.authenticatedUserChanged {
+            return []
+        } catch {
+            do {
+                try await ensureAuthenticatedUser(session.user.id.uuidString)
+            } catch {
+                return []
+            }
+            return OfflineCacheService.load([WeightHistoryPoint].self, key: cacheKey) ?? []
         }
         #else
         return []
@@ -335,13 +450,34 @@ final class MetricsService: ObservableObject {
 
     func fetchWorkoutHistory(days: Int = 90) async -> [WorkoutHistoryPoint] {
         #if canImport(Supabase)
-        return await OfflineCacheService.fetchArrayWithFallback(key: "workout_history_\(days)") {
-            try await SupabaseRequestExecutor.executeWithAuthRetry(context: "fetch_workout_history") {
-                try await supabase
+        let session: Session
+        do {
+            session = try await supabase.auth.session
+        } catch {
+            return []
+        }
+
+        let cacheKey = OfflineCacheService.userScopedKey("workout_history_\(days)", userId: session.user.id.uuidString)
+        do {
+            let value: [WorkoutHistoryPoint] = try await SupabaseRequestExecutor.executeWithAuthRetry(context: "fetch_workout_history") {
+                try await self.ensureAuthenticatedUser(session.user.id.uuidString)
+                return try await supabase
                     .rpc("get_workout_history", params: ["p_days": String(days)])
                     .execute()
                     .value
             }
+            try await ensureAuthenticatedUser(session.user.id.uuidString)
+            OfflineCacheService.save(value, key: cacheKey)
+            return value
+        } catch MetricsSyncError.authenticatedUserChanged {
+            return []
+        } catch {
+            do {
+                try await ensureAuthenticatedUser(session.user.id.uuidString)
+            } catch {
+                return []
+            }
+            return OfflineCacheService.load([WorkoutHistoryPoint].self, key: cacheKey) ?? []
         }
         #else
         return []
