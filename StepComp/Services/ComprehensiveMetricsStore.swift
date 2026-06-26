@@ -20,6 +20,13 @@ final class ComprehensiveMetricsStore: ObservableObject {
         load()
     }
 
+    func clearLocalData() {
+        bodyMetrics = []
+        nutritionLogs = []
+        UserDefaults.standard.removeObject(forKey: bodyMetricsKey)
+        UserDefaults.standard.removeObject(forKey: nutritionLogsKey)
+    }
+
     func addBodyMetric(bodyFatPercent: Double?, waistCm: Double?, date: Date = Date()) {
         bodyMetrics.append(
             BodyMetricEntry(

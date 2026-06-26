@@ -29,10 +29,10 @@
 
 ### 1. Offline Cache Cross-Account Data Disclosure
 - **Status:** Fixed
-- **Symptom:** A second user on the same device could see the previous user's cached metrics, weight history, workout history, or private challenge leaderboard after sign-out if the live Supabase fetch failed. Unsynced local workout/weight records could also be uploaded under the next user's session.
-- **Root Cause:** `OfflineCacheService` used global cache keys such as `metrics_summary_30` and `workout_history_90`, challenge leaderboards also remained in memory by challenge ID, app-owned workout/weight stores and sync ID bookkeeping were global, and auth sign-out did not purge these caches.
-- **Fix:** Added user-scoped offline cache keys for metrics and leaderboard data. Sign-out now clears existing offline cache files, challenge service in-memory/local caches, local workout/weight stores, and metrics sync bookkeeping so legacy unscoped entries cannot be replayed or synced into another account. In-flight challenge refresh, HealthKit import, and metrics sync tasks now discard work if the authenticated user changes before they write.
-- **Files:** `OfflineCacheService.swift`, `MetricsService.swift`, `ChallengeService.swift`, `AuthService.swift`, `WorkoutViewModel.swift`, `WeightViewModel.swift`, `RootView.swift`
+- **Symptom:** A second user on the same device could see the previous user's cached metrics, weight history, workout history, body/nutrition metrics, or private challenge leaderboard after sign-out if the live Supabase fetch failed. Unsynced local workout/weight records could also be uploaded under the next user's session.
+- **Root Cause:** `OfflineCacheService` used global cache keys such as `metrics_summary_30` and `workout_history_90`, challenge leaderboards also remained in memory by challenge ID, app-owned workout/weight/body/nutrition stores and sync ID bookkeeping were global, and auth sign-out did not purge these caches.
+- **Fix:** Added user-scoped offline cache keys for metrics and leaderboard data. Sign-out now clears existing offline cache files, challenge service in-memory/local caches, local workout/weight/body/nutrition stores, and metrics sync bookkeeping so legacy unscoped entries cannot be replayed or synced into another account. In-flight challenge refresh, HealthKit import, and metrics sync tasks now discard work if the authenticated user changes before they write.
+- **Files:** `OfflineCacheService.swift`, `MetricsService.swift`, `ChallengeService.swift`, `AuthService.swift`, `WorkoutViewModel.swift`, `WeightViewModel.swift`, `ComprehensiveMetricsStore.swift`, `RootView.swift`
 - **Prevention:** Any cache containing user data must include account identity in the cache key and be invalidated on auth transitions.
 
 ---
