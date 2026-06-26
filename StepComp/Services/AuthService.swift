@@ -579,9 +579,24 @@ final class AuthService: ObservableObject {
         #if canImport(Supabase)
         if useSupabase {
             // This clears the session from Supabase's internal storage.
-            // Local cleanup is handled by the signed-out auth state event.
-            try await supabase.auth.signOut()
-            print("✅ Supabase sign out requested - awaiting signed-out event")
+            // Also clean up locally here because the SDK call can throw before
+            // emitting a signed-out event.
+            do {
+                try await supabase.auth.signOut()
+                applySignedOutState(
+                    deleteCachedUser: true,
+                    reason: "user initiated Supabase signOut",
+                    allowDuringStartupCheck: true
+                )
+                print("✅ Supabase sign out complete")
+            } catch {
+                applySignedOutState(
+                    deleteCachedUser: true,
+                    reason: "failed Supabase signOut",
+                    allowDuringStartupCheck: true
+                )
+                throw error
+            }
             return
         }
         #endif
