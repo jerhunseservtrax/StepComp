@@ -798,6 +798,11 @@ final class ChallengeService: ObservableObject {
                 loadedChallenges.append(challenge)
             }
             
+            guard AuthService.shared.currentUser?.id == userId else {
+                print("⚠️ Auth user changed, discarding stale challenge refresh")
+                return
+            }
+
             challenges = loadedChallenges
             print("✅ Loaded \(challenges.count) challenges from Supabase")
             // Log challenge details for debugging

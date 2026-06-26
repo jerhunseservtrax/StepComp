@@ -49,8 +49,9 @@ class WeightViewModel: ObservableObject {
         
         // Sync to Supabase in the background
         let entryToSync = entry
+        let expectedUserId = AuthService.shared.currentUser?.id
         Task.detached(priority: .utility) {
-            await MetricsService.shared.syncWeightEntry(entryToSync)
+            await MetricsService.shared.syncWeightEntry(entryToSync, expectedUserId: expectedUserId)
         }
     }
     
@@ -75,7 +76,8 @@ class WeightViewModel: ObservableObject {
     // MARK: - HealthKit Integration
     
     func syncWithHealthKit() async {
-        guard AuthService.shared.isAuthenticated else {
+        guard AuthService.shared.isAuthenticated,
+              let syncUserId = AuthService.shared.currentUser?.id else {
             print("⚠️ User not authenticated, skipping HealthKit weight sync")
             return
         }
@@ -86,6 +88,11 @@ class WeightViewModel: ObservableObject {
         
         do {
             if let healthKitWeight = try await healthKitService.getWeight() {
+                guard AuthService.shared.currentUser?.id == syncUserId else {
+                    print("⚠️ Auth user changed, skipping HealthKit weight save")
+                    return
+                }
+
                 // Check if we need to add this as a new entry
                 let today = Calendar.current.startOfDay(for: Date())
                 let hasEntryToday = entries.contains { entry in

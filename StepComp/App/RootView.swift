@@ -175,10 +175,11 @@ struct RootView: View {
         guard !hasTriggeredMetricsStartupSync else { return }
         guard !sessionViewModel.isCheckingSession else { return }
         guard sessionViewModel.isAuthenticated else { return }
+        guard let syncUserId = sessionViewModel.currentUser?.id else { return }
         
         hasTriggeredMetricsStartupSync = true
         Task(priority: .utility) {
-            await MetricsService.shared.syncAllLocalData()
+            await MetricsService.shared.syncAllLocalData(expectedUserId: syncUserId)
         }
     }
 

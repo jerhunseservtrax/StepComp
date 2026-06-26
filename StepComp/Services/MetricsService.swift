@@ -32,12 +32,17 @@ final class MetricsService: ObservableObject {
     // MARK: - Sync: Workout Session
 
     /// Converts a local CompletedWorkoutSession to a JSON payload and syncs to Supabase.
-    func syncWorkoutSession(_ session: CompletedWorkoutSession) async {
+    func syncWorkoutSession(_ session: CompletedWorkoutSession, expectedUserId: String? = nil) async {
         #if canImport(Supabase)
+        let authSession: Session
         do {
-            _ = try await supabase.auth.session
+            authSession = try await supabase.auth.session
         } catch {
             print("⚠️ [MetricsService] No session, skipping workout sync")
+            return
+        }
+        if let expectedUserId, authSession.user.id.uuidString != expectedUserId {
+            print("⚠️ [MetricsService] Auth user changed, skipping workout sync")
             return
         }
 
@@ -63,12 +68,17 @@ final class MetricsService: ObservableObject {
     // MARK: - Sync: Weight Entry
 
     /// Syncs a single weight entry to Supabase via the sync_weight_entry RPC.
-    func syncWeightEntry(_ entry: WeightEntry) async {
+    func syncWeightEntry(_ entry: WeightEntry, expectedUserId: String? = nil) async {
         #if canImport(Supabase)
+        let authSession: Session
         do {
-            _ = try await supabase.auth.session
+            authSession = try await supabase.auth.session
         } catch {
             print("⚠️ [MetricsService] No session, skipping weight sync")
+            return
+        }
+        if let expectedUserId, authSession.user.id.uuidString != expectedUserId {
+            print("⚠️ [MetricsService] Auth user changed, skipping weight sync")
             return
         }
 
@@ -99,12 +109,18 @@ final class MetricsService: ObservableObject {
 
     /// Syncs all local workout sessions and weight entries that haven't been synced yet.
     /// Call this on app launch to recover from any missed syncs.
-    func syncAllLocalData() async {
+    func syncAllLocalData(expectedUserId: String? = nil) async {
         #if canImport(Supabase)
+        let authSession: Session
         do {
-            _ = try await supabase.auth.session
+            authSession = try await supabase.auth.session
         } catch {
             print("⚠️ [MetricsService] No session, skipping bulk sync")
+            return
+        }
+        let syncUserId = authSession.user.id.uuidString
+        if let expectedUserId, syncUserId != expectedUserId {
+            print("⚠️ [MetricsService] Auth user changed, skipping bulk sync")
             return
         }
 
@@ -128,7 +144,7 @@ final class MetricsService: ObservableObject {
                 unsyncedSessions.forEach { markSessionSynced($0.id) }
             } catch {
                 for session in unsyncedSessions {
-                    await syncWorkoutSession(session)
+                    await syncWorkoutSession(session, expectedUserId: syncUserId)
                 }
             }
         }
@@ -156,7 +172,7 @@ final class MetricsService: ObservableObject {
                 unsyncedEntries.forEach { markWeightEntrySynced($0.id) }
             } catch {
                 for entry in unsyncedEntries {
-                    await syncWeightEntry(entry)
+                    await syncWeightEntry(entry, expectedUserId: syncUserId)
                 }
             }
         }
