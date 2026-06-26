@@ -29,6 +29,23 @@ final class MetricsService: ObservableObject {
         UserDefaults.standard.removeObject(forKey: syncedWeightEntriesKey)
     }
 
+    private enum MetricsSyncError: LocalizedError {
+        case authenticatedUserChanged
+
+        var errorDescription: String? {
+            "Authenticated user changed during metrics sync"
+        }
+    }
+
+    #if canImport(Supabase)
+    private func ensureAuthenticatedUser(_ expectedUserId: String) async throws {
+        let session = try await supabase.auth.session
+        guard session.user.id.uuidString == expectedUserId else {
+            throw MetricsSyncError.authenticatedUserChanged
+        }
+    }
+    #endif
+
     // MARK: - Sync: Workout Session
 
     /// Converts a local CompletedWorkoutSession to a JSON payload and syncs to Supabase.
@@ -45,11 +62,13 @@ final class MetricsService: ObservableObject {
             print("⚠️ [MetricsService] Auth user changed, skipping workout sync")
             return
         }
+        let syncUserId = expectedUserId ?? authSession.user.id.uuidString
 
         let sessionPayload = sessionPayload(for: session)
 
         do {
             _ = try await SupabaseRequestExecutor.executeWithAuthRetry(context: "sync_workout_session") {
+                try await self.ensureAuthenticatedUser(syncUserId)
                 try await supabase
                     .rpc("sync_workout_session", params: [
                         "p_session": .object(sessionPayload)
@@ -57,6 +76,7 @@ final class MetricsService: ObservableObject {
                     .execute()
             }
 
+            try await ensureAuthenticatedUser(syncUserId)
             markSessionSynced(session.id)
             print("✅ [MetricsService] Synced workout session: \(session.workoutName)")
         } catch {
@@ -81,6 +101,7 @@ final class MetricsService: ObservableObject {
             print("⚠️ [MetricsService] Auth user changed, skipping weight sync")
             return
         }
+        let syncUserId = expectedUserId ?? authSession.user.id.uuidString
 
         let dateFormatter = DateFormatter()
         dateFormatter.dateFormat = "yyyy-MM-dd"
@@ -88,6 +109,7 @@ final class MetricsService: ObservableObject {
 
         do {
             _ = try await SupabaseRequestExecutor.executeWithAuthRetry(context: "sync_weight_entry") {
+                try await self.ensureAuthenticatedUser(syncUserId)
                 try await supabase
                     .rpc("sync_weight_entry", params: [
                         "p_date": dateString,
@@ -97,6 +119,7 @@ final class MetricsService: ObservableObject {
                     .execute()
             }
 
+            try await ensureAuthenticatedUser(syncUserId)
             markWeightEntrySynced(entry.id)
             print("✅ [MetricsService] Synced weight entry: \(entry.weightKg) kg on \(dateString)")
         } catch {
@@ -137,10 +160,12 @@ final class MetricsService: ObservableObject {
             let batchPayload = unsyncedSessions.map { AnyJSON.object(sessionPayload(for: $0)) }
             do {
                 _ = try await SupabaseRequestExecutor.executeWithAuthRetry(context: "sync_workout_sessions_batch") {
+                    try await self.ensureAuthenticatedUser(syncUserId)
                     try await supabase
                         .rpc("sync_workout_sessions_batch", params: ["p_sessions": .array(batchPayload)] as [String: AnyJSON])
                         .execute()
                 }
+                try await ensureAuthenticatedUser(syncUserId)
                 unsyncedSessions.forEach { markSessionSynced($0.id) }
             } catch {
                 for session in unsyncedSessions {
@@ -165,10 +190,12 @@ final class MetricsService: ObservableObject {
             }
             do {
                 _ = try await SupabaseRequestExecutor.executeWithAuthRetry(context: "sync_weight_entries_batch") {
+                    try await self.ensureAuthenticatedUser(syncUserId)
                     try await supabase
                         .rpc("sync_weight_entries_batch", params: ["p_entries": .array(batchPayload)] as [String: AnyJSON])
                         .execute()
                 }
+                try await ensureAuthenticatedUser(syncUserId)
                 unsyncedEntries.forEach { markWeightEntrySynced($0.id) }
             } catch {
                 for entry in unsyncedEntries {
