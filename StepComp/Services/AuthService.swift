@@ -204,6 +204,7 @@ final class AuthService: ObservableObject {
             KeychainStore.delete(account: keychainUserAccount)
         }
         OfflineCacheService.clearAll()
+        ChallengeService.shared.clearCachedChallengeData()
         
         // Clear active workout state (draft, widget, live activity)
         WorkoutViewModel.clearAllActiveWorkoutState()

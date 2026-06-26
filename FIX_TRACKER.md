@@ -30,8 +30,8 @@
 ### 1. Offline Cache Cross-Account Data Disclosure
 - **Status:** Fixed
 - **Symptom:** A second user on the same device could see the previous user's cached metrics, weight history, workout history, or private challenge leaderboard after sign-out if the live Supabase fetch failed.
-- **Root Cause:** `OfflineCacheService` used global cache keys such as `metrics_summary_30` and `workout_history_90`, and auth sign-out did not purge the disk cache.
-- **Fix:** Added user-scoped offline cache keys for metrics and leaderboard data. Sign-out now clears existing offline cache files so legacy unscoped entries cannot be replayed.
+- **Root Cause:** `OfflineCacheService` used global cache keys such as `metrics_summary_30` and `workout_history_90`, challenge leaderboards also remained in memory by challenge ID, and auth sign-out did not purge these caches.
+- **Fix:** Added user-scoped offline cache keys for metrics and leaderboard data. Sign-out now clears existing offline cache files and challenge service in-memory/local caches so legacy unscoped entries cannot be replayed.
 - **Files:** `OfflineCacheService.swift`, `MetricsService.swift`, `ChallengeService.swift`, `AuthService.swift`
 - **Prevention:** Any cache containing user data must include account identity in the cache key and be invalidated on auth transitions.
 
