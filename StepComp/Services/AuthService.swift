@@ -209,6 +209,16 @@ final class AuthService: ObservableObject {
         FoodLogViewModel.shared.clearLocalData()
         ComprehensiveMetricsStore.shared.clearLocalData()
         WeightViewModel.shared.clearAllEntries()
+        [
+            "userHeight",
+            "userWeight",
+            "user_weight",
+            "user_weight_goal",
+            "dailyStepGoal",
+            "daily_calorie_goal",
+            "calorie_goal_is_manual",
+            "daily_protein_goal_g"
+        ].forEach { UserDefaults.standard.removeObject(forKey: $0) }
         
         // Clear account-local workout state and history.
         WorkoutViewModel.clearAllPersistedWorkoutData()

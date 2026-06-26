@@ -146,7 +146,9 @@ final class ChallengesViewModel: ObservableObject {
             }
             
             // Convert to Challenge models - these are the user's active challenges
-            activeChallenges = try await convertToChallenges(allUserChallenges)
+            let convertedActiveChallenges = try await convertToChallenges(allUserChallenges)
+            guard AuthService.shared.currentUser?.id == userId else { return }
+            activeChallenges = convertedActiveChallenges
             print("📊 ChallengesViewModel: Loaded \(activeChallenges.count) active challenges for user")
             
             // Use IDs of challenges user is already participating in
@@ -170,6 +172,7 @@ final class ChallengesViewModel: ObservableObject {
             
             // Convert to Challenge models
             let allPublic = try await convertToChallenges(discoverableChallenges)
+            guard AuthService.shared.currentUser?.id == userId else { return }
             hasMorePublicChallenges = allPublicChallenges.count >= publicPageSize
             
             // Show only public challenges that user is NOT already participating in
@@ -213,6 +216,7 @@ final class ChallengesViewModel: ObservableObject {
             
             let discoverable = nextPage.filter { !participatingChallengeIds.contains($0.id) }
             let converted = try await convertToChallenges(discoverable)
+            guard AuthService.shared.currentUser?.id == userId else { return }
             
             publicChallenges.append(contentsOf: converted)
         } catch {
@@ -264,7 +268,9 @@ final class ChallengesViewModel: ObservableObject {
             allArchivedChallenges.sort { $0.endDate > $1.endDate }
             
             // Convert to Challenge models
-            archivedChallenges = try await convertToChallenges(allArchivedChallenges)
+            let convertedArchivedChallenges = try await convertToChallenges(allArchivedChallenges)
+            guard AuthService.shared.currentUser?.id == userId else { return }
+            archivedChallenges = convertedArchivedChallenges
             print("📊 ChallengesViewModel: Loaded \(archivedChallenges.count) archived challenges for user")
             
             // Debug each archived challenge

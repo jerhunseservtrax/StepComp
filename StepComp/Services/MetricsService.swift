@@ -238,6 +238,11 @@ final class MetricsService: ObservableObject {
         } catch MetricsSyncError.authenticatedUserChanged {
             return nil
         } catch {
+            do {
+                try await ensureAuthenticatedUser(session.user.id.uuidString)
+            } catch {
+                return nil
+            }
             return OfflineCacheService.load(MetricsSummary.self, key: cacheKey)
         }
         #else
@@ -429,6 +434,11 @@ final class MetricsService: ObservableObject {
         } catch MetricsSyncError.authenticatedUserChanged {
             return []
         } catch {
+            do {
+                try await ensureAuthenticatedUser(session.user.id.uuidString)
+            } catch {
+                return []
+            }
             return OfflineCacheService.load([WeightHistoryPoint].self, key: cacheKey) ?? []
         }
         #else
@@ -462,6 +472,11 @@ final class MetricsService: ObservableObject {
         } catch MetricsSyncError.authenticatedUserChanged {
             return []
         } catch {
+            do {
+                try await ensureAuthenticatedUser(session.user.id.uuidString)
+            } catch {
+                return []
+            }
             return OfflineCacheService.load([WorkoutHistoryPoint].self, key: cacheKey) ?? []
         }
         #else

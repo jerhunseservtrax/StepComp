@@ -105,6 +105,10 @@ final class DashboardViewModel: ObservableObject {
         #if canImport(Supabase)
         await challengeService.refreshChallenges()
         #endif
+        guard AuthService.shared.currentUser?.id == userId else {
+            print("⚠️ Auth user changed, discarding dashboard challenges")
+            return
+        }
         activeChallenges = challengeService.getActiveChallenges(userId: userId)
         print("📊 DashboardViewModel: Loaded \(activeChallenges.count) active challenges for user \(userId)")
         

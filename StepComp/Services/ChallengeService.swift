@@ -566,6 +566,12 @@ final class ChallengeService: ObservableObject {
         } catch ChallengeServiceError.authenticatedUserChanged {
             return []
         } catch {
+            do {
+                let currentSession = try await supabase.auth.session
+                guard currentSession.user.id.uuidString == userId else { return [] }
+            } catch {
+                return []
+            }
             if let cached = OfflineCacheService.load([LeaderboardEntry].self, key: cacheKey) {
                 leaderboardEntries[challengeId] = cached
                 leaderboardEntryUserIds[challengeId] = userId
@@ -721,6 +727,7 @@ final class ChallengeService: ObservableObject {
     }
     
     private func loadChallengesFromSupabase() async {
+        var requestedUserId: String?
         do {
             // Check if user is authenticated before trying to load challenges
             do {
@@ -734,6 +741,7 @@ final class ChallengeService: ObservableObject {
             // Get current user ID from session
             let session = try await supabase.auth.session
             let userId = session.user.id.uuidString
+            requestedUserId = userId
             
             let pageSize = 200
             // Load challenges where user is creator
@@ -852,6 +860,10 @@ final class ChallengeService: ObservableObject {
         } catch {
             print("⚠️ Error loading challenges from Supabase: \(error.localizedDescription)")
             lastErrorMessage = error.localizedDescription
+            if let requestedUserId, AuthService.shared.currentUser?.id != requestedUserId {
+                print("⚠️ Auth user changed, skipping local challenge fallback")
+                return
+            }
             // Fallback to local storage
             loadChallenges()
         }
