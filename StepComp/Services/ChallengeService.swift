@@ -22,6 +22,14 @@ final class ChallengeService: ObservableObject {
     private let challengesKey = "challenges"
     private let leaderboardKey = "leaderboard"
     private let useSupabase: Bool
+
+    private enum ChallengeServiceError: LocalizedError {
+        case authenticatedUserChanged
+
+        var errorDescription: String? {
+            "Authenticated user changed during challenge request"
+        }
+    }
     
     init(useSupabase: Bool = true) {
         self.useSupabase = useSupabase
@@ -536,10 +544,18 @@ final class ChallengeService: ObservableObject {
 
         do {
             let serverEntries: [ServerLeaderboardEntry] = try await SupabaseRequestExecutor.executeWithAuthRetry(context: "get_leaderboard") {
-                try await supabase
+                let retrySession = try await supabase.auth.session
+                guard retrySession.user.id.uuidString == userId else {
+                    throw ChallengeServiceError.authenticatedUserChanged
+                }
+                return try await supabase
                     .rpc("get_challenge_leaderboard", params: ["p_challenge_id": challengeId])
                     .execute()
                     .value
+            }
+            let currentSession = try await supabase.auth.session
+            guard currentSession.user.id.uuidString == userId else {
+                throw ChallengeServiceError.authenticatedUserChanged
             }
 
             let entries = serverEntries.map { $0.toLeaderboardEntry(challengeId: challengeId) }
@@ -547,6 +563,8 @@ final class ChallengeService: ObservableObject {
             leaderboardEntryUserIds[challengeId] = userId
             OfflineCacheService.save(entries, key: cacheKey)
             return entries
+        } catch ChallengeServiceError.authenticatedUserChanged {
+            return []
         } catch {
             if let cached = OfflineCacheService.load([LeaderboardEntry].self, key: cacheKey) {
                 leaderboardEntries[challengeId] = cached

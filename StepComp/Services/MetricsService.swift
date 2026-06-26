@@ -224,13 +224,21 @@ final class MetricsService: ObservableObject {
         }
 
         let cacheKey = OfflineCacheService.userScopedKey("metrics_summary_\(days)", userId: session.user.id.uuidString)
-        return await OfflineCacheService.fetchWithFallback(key: cacheKey) {
-            try await SupabaseRequestExecutor.executeWithAuthRetry(context: "fetch_metrics_summary") {
-                try await supabase
+        do {
+            let value: MetricsSummary = try await SupabaseRequestExecutor.executeWithAuthRetry(context: "fetch_metrics_summary") {
+                try await self.ensureAuthenticatedUser(session.user.id.uuidString)
+                return try await supabase
                     .rpc("get_user_metrics_summary", params: ["p_days": String(days)])
                     .execute()
                     .value
             }
+            try await ensureAuthenticatedUser(session.user.id.uuidString)
+            OfflineCacheService.save(value, key: cacheKey)
+            return value
+        } catch MetricsSyncError.authenticatedUserChanged {
+            return nil
+        } catch {
+            return OfflineCacheService.load(MetricsSummary.self, key: cacheKey)
         }
         #else
         return nil
@@ -383,13 +391,21 @@ final class MetricsService: ObservableObject {
         }
 
         let cacheKey = OfflineCacheService.userScopedKey("weight_history_\(days)", userId: session.user.id.uuidString)
-        return await OfflineCacheService.fetchArrayWithFallback(key: cacheKey) {
-            try await SupabaseRequestExecutor.executeWithAuthRetry(context: "fetch_weight_history") {
-                try await supabase
+        do {
+            let value: [WeightHistoryPoint] = try await SupabaseRequestExecutor.executeWithAuthRetry(context: "fetch_weight_history") {
+                try await self.ensureAuthenticatedUser(session.user.id.uuidString)
+                return try await supabase
                     .rpc("get_weight_history", params: ["p_days": String(days)])
                     .execute()
                     .value
             }
+            try await ensureAuthenticatedUser(session.user.id.uuidString)
+            OfflineCacheService.save(value, key: cacheKey)
+            return value
+        } catch MetricsSyncError.authenticatedUserChanged {
+            return []
+        } catch {
+            return OfflineCacheService.load([WeightHistoryPoint].self, key: cacheKey) ?? []
         }
         #else
         return []
@@ -408,13 +424,21 @@ final class MetricsService: ObservableObject {
         }
 
         let cacheKey = OfflineCacheService.userScopedKey("workout_history_\(days)", userId: session.user.id.uuidString)
-        return await OfflineCacheService.fetchArrayWithFallback(key: cacheKey) {
-            try await SupabaseRequestExecutor.executeWithAuthRetry(context: "fetch_workout_history") {
-                try await supabase
+        do {
+            let value: [WorkoutHistoryPoint] = try await SupabaseRequestExecutor.executeWithAuthRetry(context: "fetch_workout_history") {
+                try await self.ensureAuthenticatedUser(session.user.id.uuidString)
+                return try await supabase
                     .rpc("get_workout_history", params: ["p_days": String(days)])
                     .execute()
                     .value
             }
+            try await ensureAuthenticatedUser(session.user.id.uuidString)
+            OfflineCacheService.save(value, key: cacheKey)
+            return value
+        } catch MetricsSyncError.authenticatedUserChanged {
+            return []
+        } catch {
+            return OfflineCacheService.load([WorkoutHistoryPoint].self, key: cacheKey) ?? []
         }
         #else
         return []
