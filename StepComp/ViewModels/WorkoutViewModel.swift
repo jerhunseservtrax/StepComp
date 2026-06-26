@@ -1031,6 +1031,23 @@ class WorkoutViewModel: ObservableObject {
         WorkoutLiveActivityManager.end()
         print("🧹 All active workout state cleared")
     }
+
+    /// Clears workout data stored locally for the signed-out account.
+    static func clearAllPersistedWorkoutData() {
+        let vm = WorkoutViewModel.shared
+        vm.workouts = []
+        vm.completedSessions = []
+        vm.finishedSession = nil
+        vm.currentSession = nil
+        vm.sessionStartTime = nil
+        vm.workoutTargetDate = nil
+        vm.isPaused = false
+        vm.elapsedTime = 0
+        UserDefaults.standard.removeObject(forKey: "saved_workouts")
+        UserDefaults.standard.removeObject(forKey: "completed_workout_sessions")
+        clearAllActiveWorkoutState()
+        print("🧹 Persisted workout data cleared")
+    }
     
     // MARK: - Data Migration
     

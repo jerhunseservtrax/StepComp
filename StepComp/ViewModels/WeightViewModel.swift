@@ -65,10 +65,20 @@ class WeightViewModel: ObservableObject {
         let cutoffDate = calendar.date(byAdding: .day, value: -days, to: Date()) ?? Date()
         return entries.filter { $0.date >= cutoffDate }.sorted { $0.date < $1.date }
     }
+
+    func clearAllEntries() {
+        entries = []
+        latestWeight = nil
+        UserDefaults.standard.removeObject(forKey: userDefaultsKey)
+    }
     
     // MARK: - HealthKit Integration
     
     func syncWithHealthKit() async {
+        guard AuthService.shared.isAuthenticated else {
+            print("⚠️ User not authenticated, skipping HealthKit weight sync")
+            return
+        }
         guard healthKitService.isAuthorized else {
             print("⚠️ HealthKit not authorized, skipping sync")
             return

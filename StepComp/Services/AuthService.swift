@@ -205,9 +205,11 @@ final class AuthService: ObservableObject {
         }
         OfflineCacheService.clearAll()
         ChallengeService.shared.clearCachedChallengeData()
+        MetricsService.shared.clearLocalSyncState()
+        WeightViewModel.shared.clearAllEntries()
         
-        // Clear active workout state (draft, widget, live activity)
-        WorkoutViewModel.clearAllActiveWorkoutState()
+        // Clear account-local workout state and history.
+        WorkoutViewModel.clearAllPersistedWorkoutData()
     }
     
     /// Refreshes the session when a 401 is received.

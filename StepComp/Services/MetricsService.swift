@@ -23,6 +23,12 @@ final class MetricsService: ObservableObject {
 
     private init() {}
 
+    func clearLocalSyncState() {
+        nutritionLogTableUnavailable = false
+        UserDefaults.standard.removeObject(forKey: syncedSessionsKey)
+        UserDefaults.standard.removeObject(forKey: syncedWeightEntriesKey)
+    }
+
     // MARK: - Sync: Workout Session
 
     /// Converts a local CompletedWorkoutSession to a JSON payload and syncs to Supabase.
