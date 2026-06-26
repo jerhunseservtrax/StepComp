@@ -17,6 +17,7 @@ final class ChallengeService: ObservableObject {
     @Published var challenges: [Challenge] = []
     @Published var leaderboardEntries: [String: [LeaderboardEntry]] = [:] // challengeId: entries
     @Published var lastErrorMessage: String?
+    private var leaderboardEntryUserIds: [String: String] = [:] // challengeId: authenticated userId
     
     private let challengesKey = "challenges"
     private let leaderboardKey = "leaderboard"
@@ -38,6 +39,7 @@ final class ChallengeService: ObservableObject {
     func clearCachedChallengeData() {
         challenges = []
         leaderboardEntries = [:]
+        leaderboardEntryUserIds = [:]
         lastErrorMessage = nil
         UserDefaults.standard.removeObject(forKey: challengesKey)
         UserDefaults.standard.removeObject(forKey: leaderboardKey)
@@ -523,11 +525,13 @@ final class ChallengeService: ObservableObject {
     #if canImport(Supabase)
     private func getLeaderboardFromSupabase(challengeId: String) async -> [LeaderboardEntry] {
         let cacheKey: String
+        let userId: String
         do {
             let session = try await supabase.auth.session
-            cacheKey = OfflineCacheService.userScopedKey("leaderboard_\(challengeId)", userId: session.user.id.uuidString)
+            userId = session.user.id.uuidString
+            cacheKey = OfflineCacheService.userScopedKey("leaderboard_\(challengeId)", userId: userId)
         } catch {
-            return leaderboardEntries[challengeId] ?? []
+            return []
         }
 
         do {
@@ -540,13 +544,16 @@ final class ChallengeService: ObservableObject {
 
             let entries = serverEntries.map { $0.toLeaderboardEntry(challengeId: challengeId) }
             leaderboardEntries[challengeId] = entries
+            leaderboardEntryUserIds[challengeId] = userId
             OfflineCacheService.save(entries, key: cacheKey)
             return entries
         } catch {
             if let cached = OfflineCacheService.load([LeaderboardEntry].self, key: cacheKey) {
                 leaderboardEntries[challengeId] = cached
+                leaderboardEntryUserIds[challengeId] = userId
                 return cached
             }
+            guard leaderboardEntryUserIds[challengeId] == userId else { return [] }
             return leaderboardEntries[challengeId] ?? []
         }
     }
