@@ -167,7 +167,15 @@ final class MetricsService: ObservableObject {
 
     func fetchMetricsSummary(days: Int = 30) async -> MetricsSummary? {
         #if canImport(Supabase)
-        return await OfflineCacheService.fetchWithFallback(key: "metrics_summary_\(days)") {
+        let session: Session
+        do {
+            session = try await supabase.auth.session
+        } catch {
+            return nil
+        }
+
+        let cacheKey = OfflineCacheService.userScopedKey("metrics_summary_\(days)", userId: session.user.id.uuidString)
+        return await OfflineCacheService.fetchWithFallback(key: cacheKey) {
             try await SupabaseRequestExecutor.executeWithAuthRetry(context: "fetch_metrics_summary") {
                 try await supabase
                     .rpc("get_user_metrics_summary", params: ["p_days": String(days)])
@@ -318,7 +326,15 @@ final class MetricsService: ObservableObject {
 
     func fetchWeightHistory(days: Int = 90) async -> [WeightHistoryPoint] {
         #if canImport(Supabase)
-        return await OfflineCacheService.fetchArrayWithFallback(key: "weight_history_\(days)") {
+        let session: Session
+        do {
+            session = try await supabase.auth.session
+        } catch {
+            return []
+        }
+
+        let cacheKey = OfflineCacheService.userScopedKey("weight_history_\(days)", userId: session.user.id.uuidString)
+        return await OfflineCacheService.fetchArrayWithFallback(key: cacheKey) {
             try await SupabaseRequestExecutor.executeWithAuthRetry(context: "fetch_weight_history") {
                 try await supabase
                     .rpc("get_weight_history", params: ["p_days": String(days)])
@@ -335,7 +351,15 @@ final class MetricsService: ObservableObject {
 
     func fetchWorkoutHistory(days: Int = 90) async -> [WorkoutHistoryPoint] {
         #if canImport(Supabase)
-        return await OfflineCacheService.fetchArrayWithFallback(key: "workout_history_\(days)") {
+        let session: Session
+        do {
+            session = try await supabase.auth.session
+        } catch {
+            return []
+        }
+
+        let cacheKey = OfflineCacheService.userScopedKey("workout_history_\(days)", userId: session.user.id.uuidString)
+        return await OfflineCacheService.fetchArrayWithFallback(key: cacheKey) {
             try await SupabaseRequestExecutor.executeWithAuthRetry(context: "fetch_workout_history") {
                 try await supabase
                     .rpc("get_workout_history", params: ["p_days": String(days)])

@@ -20,6 +20,10 @@ enum OfflineCacheService {
         return dir
     }
 
+    static func userScopedKey(_ key: String, userId: String) -> String {
+        "user_\(userId)_\(key)"
+    }
+
     static func save<T: Encodable>(_ value: T, key: String) {
         let url = cacheDirectory.appendingPathComponent(safeName(key) + ".json")
         do {

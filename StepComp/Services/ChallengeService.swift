@@ -514,7 +514,14 @@ final class ChallengeService: ObservableObject {
     
     #if canImport(Supabase)
     private func getLeaderboardFromSupabase(challengeId: String) async -> [LeaderboardEntry] {
-        let cacheKey = "leaderboard_\(challengeId)"
+        let cacheKey: String
+        do {
+            let session = try await supabase.auth.session
+            cacheKey = OfflineCacheService.userScopedKey("leaderboard_\(challengeId)", userId: session.user.id.uuidString)
+        } catch {
+            return leaderboardEntries[challengeId] ?? []
+        }
+
         do {
             let serverEntries: [ServerLeaderboardEntry] = try await SupabaseRequestExecutor.executeWithAuthRetry(context: "get_leaderboard") {
                 try await supabase
