@@ -921,23 +921,10 @@ final class AuthService: ObservableObject {
         _ profileLoadTask: Task<Void, Never>,
         timeoutNanoseconds: UInt64
     ) async -> Bool {
-        await withTaskGroup(of: Bool.self) { group in
-            group.addTask {
-                await profileLoadTask.value
-                return true
-            }
-            group.addTask {
-                try? await Task.sleep(nanoseconds: timeoutNanoseconds)
-                return false
-            }
-            
-            let completedBeforeTimeout = await group.next() ?? false
-            if completedBeforeTimeout {
-                // Cancel timeout task when profile load finishes first.
-                group.cancelAll()
-            }
-            return completedBeforeTimeout
-        }
+        await AuthProfileLoadTimeout.wait(
+            for: profileLoadTask,
+            timeoutNanoseconds: timeoutNanoseconds
+        )
     }
     
     /// Load cached user from UserDefaults (for offline access)
@@ -1163,6 +1150,41 @@ final class AuthService: ObservableObject {
         
         currentUser = user
         isAuthenticated = true
+    }
+}
+
+enum AuthProfileLoadTimeout {
+    static func wait(for profileLoadTask: Task<Void, Never>, timeoutNanoseconds: UInt64) async -> Bool {
+        await withCheckedContinuation { continuation in
+            let coordinator = AuthProfileLoadTimeoutCoordinator(continuation: continuation)
+
+            Task {
+                await profileLoadTask.value
+                await coordinator.resume(returning: true)
+            }
+
+            Task {
+                try? await Task.sleep(nanoseconds: timeoutNanoseconds)
+                await coordinator.resume(returning: false)
+            }
+        }
+    }
+}
+
+private actor AuthProfileLoadTimeoutCoordinator {
+    private var continuation: CheckedContinuation<Bool, Never>?
+
+    init(continuation: CheckedContinuation<Bool, Never>) {
+        self.continuation = continuation
+    }
+
+    func resume(returning value: Bool) {
+        guard let continuation else {
+            return
+        }
+
+        self.continuation = nil
+        continuation.resume(returning: value)
     }
 }
 

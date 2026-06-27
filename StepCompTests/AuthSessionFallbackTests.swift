@@ -7,6 +7,22 @@ import XCTest
 @testable import StepComp
 
 final class AuthSessionFallbackTests: XCTestCase {
+    func testProfileLoadWaitReturnsFalseWhenTaskDoesNotFinishBeforeTimeout() async {
+        let profileLoadTask = Task<Void, Never> {
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: 1_000_000_000)
+            }
+        }
+        defer { profileLoadTask.cancel() }
+
+        let completed = await AuthProfileLoadTimeout.wait(
+            for: profileLoadTask,
+            timeoutNanoseconds: 1
+        )
+
+        XCTAssertFalse(completed)
+    }
+
     func testFallbackDoesNotUseCachedUserFromDifferentSession() {
         let sessionUserId = "session-user"
         let cachedUser = User(
