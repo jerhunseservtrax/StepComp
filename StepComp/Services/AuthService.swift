@@ -156,11 +156,19 @@ final class AuthService: ObservableObject {
         }
         let completedBeforeTimeout = await waitForProfileLoad(profileLoadTask, timeoutNanoseconds: 8_000_000_000)
         if !completedBeforeTimeout {
-            print("⚠️ Profile load timed out — using cached data")
-            if let cachedUser = self.loadCachedUser() {
-                self.currentUser = cachedUser
-                self.isAuthenticated = true
+            print("⚠️ Profile load timed out — using session-scoped fallback data")
+            guard await canPublishProfile(for: userId) else {
+                print("ℹ️ Skipping stale profile timeout fallback for user: \(userId)")
+                return
             }
+
+            let fallbackUser = AuthSessionFallback.user(
+                forSessionUserId: userId,
+                cachedUser: self.loadCachedUser()
+            )
+            self.currentUser = fallbackUser
+            self.isAuthenticated = true
+            self.saveUser()
         }
         
         if isAuthenticated && currentUser != nil {
@@ -822,18 +830,15 @@ final class AuthService: ObservableObject {
     
     private func loadUserProfile(userId: String) async {
         do {
-            // PERMANENT LOGIN: Load profile directly from database using userId
-            // Don't require a valid session - the profile has all the info we need
-            // This allows users to stay logged in even if session is being refreshed
-            
-            // Try to get email from session (optional - won't fail if not available)
-            var sessionEmail: String? = nil
-            do {
-                let session = try await supabase.auth.session
-                sessionEmail = session.user.email
-            } catch {
-                // Session not available yet - that's OK, we'll use email from profile
-                print("ℹ️ Session not available, will use email from profile")
+            // Profile loads may outlive their original auth event, so every publish
+            // must be bound to the currently active Supabase session.
+            let initialSession = await activeSessionSnapshot()
+            guard AuthSessionPublicationGuard.canPublish(
+                requestedUserId: userId,
+                activeSessionUserId: initialSession.userId
+            ) else {
+                print("ℹ️ Skipping stale profile load for user: \(userId)")
+                return
             }
             
             // Fetch profile from database - this is the source of truth
@@ -845,6 +850,11 @@ final class AuthService: ObservableObject {
                 .execute()
                 .value
             
+            guard await canPublishProfile(for: userId) else {
+                print("ℹ️ Skipping stale profile publish for user: \(userId)")
+                return
+            }
+
             // Convert to app User model
             // Use firstName and lastName from profile, fallback to empty strings
             let firstName = profile.firstName ?? ""
@@ -854,7 +864,7 @@ final class AuthService: ObservableObject {
             let avatarURL = profile.avatarUrl ?? profile.avatar
             
             // Use email from session if available, otherwise from profile
-            let email = sessionEmail ?? profile.email ?? ""
+            let email = initialSession.email ?? profile.email ?? ""
             
             let user = User(
                 id: profile.id,
@@ -895,33 +905,44 @@ final class AuthService: ObservableObject {
             }
             print("⚠️ Error loading user profile: \(error.localizedDescription)")
             
-            // If we can't load from database, try to use locally cached user
-            // This handles offline scenarios
-            if let cachedUser = loadCachedUser() {
+            guard await canPublishProfile(for: userId) else {
+                print("ℹ️ Skipping stale profile fallback for user: \(userId)")
+                return
+            }
+
+            // If we can't load from database, use only cache scoped to this session.
+            let cachedUser = loadCachedUser()
+            let fallbackUser = AuthSessionFallback.user(
+                forSessionUserId: userId,
+                cachedUser: cachedUser
+            )
+            currentUser = fallbackUser
+            isAuthenticated = true
+            saveUser()
+
+            if cachedUser?.id == userId {
                 print("ℹ️ Using cached user data for offline access")
-                currentUser = cachedUser
-                isAuthenticated = true
             } else {
-                // No cached user - create a minimal profile to keep them logged in
-                // They'll get full data when network is available
-                let email: String? = nil
-                
-                let user = User(
-                    id: userId,
-                    username: "user_\(userId.prefix(8))",
-                    firstName: "User",
-                    lastName: "",
-                    email: email,
-                    publicProfile: true,
-                    totalSteps: 0,
-                    totalChallenges: 0
-                )
-                currentUser = user
-                isAuthenticated = true
-                saveUser()
                 print("⚠️ Created minimal user profile - will sync when online")
             }
         }
+    }
+
+    private func activeSessionSnapshot() async -> (userId: String?, email: String?) {
+        do {
+            let session = try await supabase.auth.session
+            return (session.user.id.uuidString, session.user.email)
+        } catch {
+            return (nil, nil)
+        }
+    }
+
+    private func canPublishProfile(for userId: String) async -> Bool {
+        let session = await activeSessionSnapshot()
+        return AuthSessionPublicationGuard.canPublish(
+            requestedUserId: userId,
+            activeSessionUserId: session.userId
+        )
     }
 
     @MainActor
@@ -929,23 +950,10 @@ final class AuthService: ObservableObject {
         _ profileLoadTask: Task<Void, Never>,
         timeoutNanoseconds: UInt64
     ) async -> Bool {
-        await withTaskGroup(of: Bool.self) { group in
-            group.addTask {
-                await profileLoadTask.value
-                return true
-            }
-            group.addTask {
-                try? await Task.sleep(nanoseconds: timeoutNanoseconds)
-                return false
-            }
-            
-            let completedBeforeTimeout = await group.next() ?? false
-            if completedBeforeTimeout {
-                // Cancel timeout task when profile load finishes first.
-                group.cancelAll()
-            }
-            return completedBeforeTimeout
-        }
+        await AuthProfileLoadTimeout.wait(
+            for: profileLoadTask,
+            timeoutNanoseconds: timeoutNanoseconds
+        )
     }
     
     /// Load cached user from UserDefaults (for offline access)
@@ -1171,6 +1179,66 @@ final class AuthService: ObservableObject {
         
         currentUser = user
         isAuthenticated = true
+    }
+}
+
+enum AuthProfileLoadTimeout {
+    static func wait(for profileLoadTask: Task<Void, Never>, timeoutNanoseconds: UInt64) async -> Bool {
+        await withCheckedContinuation { continuation in
+            let coordinator = AuthProfileLoadTimeoutCoordinator(continuation: continuation)
+
+            Task {
+                await profileLoadTask.value
+                await coordinator.resume(returning: true)
+            }
+
+            Task {
+                try? await Task.sleep(nanoseconds: timeoutNanoseconds)
+                await coordinator.resume(returning: false)
+            }
+        }
+    }
+}
+
+private actor AuthProfileLoadTimeoutCoordinator {
+    private var continuation: CheckedContinuation<Bool, Never>?
+
+    init(continuation: CheckedContinuation<Bool, Never>) {
+        self.continuation = continuation
+    }
+
+    func resume(returning value: Bool) {
+        guard let continuation else {
+            return
+        }
+
+        self.continuation = nil
+        continuation.resume(returning: value)
+    }
+}
+
+enum AuthSessionPublicationGuard {
+    static func canPublish(requestedUserId: String, activeSessionUserId: String?) -> Bool {
+        requestedUserId == activeSessionUserId
+    }
+}
+
+enum AuthSessionFallback {
+    static func user(forSessionUserId sessionUserId: String, cachedUser: User?) -> User {
+        if let cachedUser, cachedUser.id == sessionUserId {
+            return cachedUser
+        }
+
+        return User(
+            id: sessionUserId,
+            username: "user_\(sessionUserId.prefix(8))",
+            firstName: "User",
+            lastName: "",
+            email: nil,
+            publicProfile: true,
+            totalSteps: 0,
+            totalChallenges: 0
+        )
     }
 }
 
