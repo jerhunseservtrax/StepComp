@@ -825,18 +825,15 @@ final class AuthService: ObservableObject {
     
     private func loadUserProfile(userId: String) async {
         do {
-            // PERMANENT LOGIN: Load profile directly from database using userId
-            // Don't require a valid session - the profile has all the info we need
-            // This allows users to stay logged in even if session is being refreshed
-            
-            // Try to get email from session (optional - won't fail if not available)
-            var sessionEmail: String? = nil
-            do {
-                let session = try await supabase.auth.session
-                sessionEmail = session.user.email
-            } catch {
-                // Session not available yet - that's OK, we'll use email from profile
-                print("ℹ️ Session not available, will use email from profile")
+            // Profile loads may outlive their original auth event, so every publish
+            // must be bound to the currently active Supabase session.
+            let initialSession = await activeSessionSnapshot()
+            guard AuthSessionPublicationGuard.canPublish(
+                requestedUserId: userId,
+                activeSessionUserId: initialSession.userId
+            ) else {
+                print("ℹ️ Skipping stale profile load for user: \(userId)")
+                return
             }
             
             // Fetch profile from database - this is the source of truth
@@ -848,6 +845,11 @@ final class AuthService: ObservableObject {
                 .execute()
                 .value
             
+            guard await canPublishProfile(for: userId) else {
+                print("ℹ️ Skipping stale profile publish for user: \(userId)")
+                return
+            }
+
             // Convert to app User model
             // Use firstName and lastName from profile, fallback to empty strings
             let firstName = profile.firstName ?? ""
@@ -857,7 +859,7 @@ final class AuthService: ObservableObject {
             let avatarURL = profile.avatarUrl ?? profile.avatar
             
             // Use email from session if available, otherwise from profile
-            let email = sessionEmail ?? profile.email ?? ""
+            let email = initialSession.email ?? profile.email ?? ""
             
             let user = User(
                 id: profile.id,
@@ -898,6 +900,11 @@ final class AuthService: ObservableObject {
             }
             print("⚠️ Error loading user profile: \(error.localizedDescription)")
             
+            guard await canPublishProfile(for: userId) else {
+                print("ℹ️ Skipping stale profile fallback for user: \(userId)")
+                return
+            }
+
             // If we can't load from database, use only cache scoped to this session.
             let cachedUser = loadCachedUser()
             let fallbackUser = AuthSessionFallback.user(
@@ -914,6 +921,23 @@ final class AuthService: ObservableObject {
                 print("⚠️ Created minimal user profile - will sync when online")
             }
         }
+    }
+
+    private func activeSessionSnapshot() async -> (userId: String?, email: String?) {
+        do {
+            let session = try await supabase.auth.session
+            return (session.user.id.uuidString, session.user.email)
+        } catch {
+            return (nil, nil)
+        }
+    }
+
+    private func canPublishProfile(for userId: String) async -> Bool {
+        let session = await activeSessionSnapshot()
+        return AuthSessionPublicationGuard.canPublish(
+            requestedUserId: userId,
+            activeSessionUserId: session.userId
+        )
     }
 
     @MainActor
@@ -1185,6 +1209,12 @@ private actor AuthProfileLoadTimeoutCoordinator {
 
         self.continuation = nil
         continuation.resume(returning: value)
+    }
+}
+
+enum AuthSessionPublicationGuard {
+    static func canPublish(requestedUserId: String, activeSessionUserId: String?) -> Bool {
+        requestedUserId == activeSessionUserId
     }
 }
 

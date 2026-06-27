@@ -92,8 +92,8 @@
 ### 62. Auth Timeout Fallback Could Publish Previous Account
 - **Status:** Fixed (pending PR)
 - **Symptom:** After signing into a different account on a shared device, a slow/offline profile load could show the previous account's cached profile while Supabase had already switched sessions.
-- **Root Cause:** `AuthService` fallback paths restored the Keychain-cached user without verifying that `cachedUser.id` matched the active Supabase session user ID. The timeout wait used a task group that could still wait for a hung profile load after the timeout child won.
-- **Fix:** Added a session-scoped auth fallback helper and a non-blocking profile-load timeout helper. Profile timeout and offline/error fallbacks now reuse cached profiles only when IDs match; otherwise they create a minimal user for the authenticated session ID and overwrite stale local cache.
+- **Root Cause:** `AuthService` fallback paths restored the Keychain-cached user without verifying that `cachedUser.id` matched the active Supabase session user ID. The timeout wait used a task group that could still wait for a hung profile load after the timeout child won, and late profile tasks could publish after the active session changed.
+- **Fix:** Added session-scoped auth fallback/publication guards and a non-blocking profile-load timeout helper. Profile timeout and offline/error fallbacks now reuse cached profiles only when IDs match; otherwise they create a minimal user for the authenticated session ID and overwrite stale local cache. Late profile success/fallback writes are skipped unless the active session still matches the requested user.
 - **Files:** `AuthService.swift`, `AuthSessionFallbackTests.swift`
 - **Prevention:** Any auth recovery fallback that reads local identity state must validate it against the active session user before publishing it to UI.
 

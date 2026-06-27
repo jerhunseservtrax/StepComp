@@ -7,6 +7,30 @@ import XCTest
 @testable import StepComp
 
 final class AuthSessionFallbackTests: XCTestCase {
+    func testPublicationGuardRejectsStaleProfileTask() {
+        XCTAssertFalse(
+            AuthSessionPublicationGuard.canPublish(
+                requestedUserId: "old-user",
+                activeSessionUserId: "new-user"
+            )
+        )
+        XCTAssertFalse(
+            AuthSessionPublicationGuard.canPublish(
+                requestedUserId: "old-user",
+                activeSessionUserId: nil
+            )
+        )
+    }
+
+    func testPublicationGuardAllowsCurrentSessionUser() {
+        XCTAssertTrue(
+            AuthSessionPublicationGuard.canPublish(
+                requestedUserId: "current-user",
+                activeSessionUserId: "current-user"
+            )
+        )
+    }
+
     func testProfileLoadWaitReturnsFalseWhenTaskDoesNotFinishBeforeTimeout() async {
         let profileLoadTask = Task<Void, Never> {
             while !Task.isCancelled {
