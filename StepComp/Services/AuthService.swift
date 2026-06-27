@@ -907,7 +907,7 @@ final class AuthService: ObservableObject {
             currentUser = fallbackUser
             isAuthenticated = true
             saveUser()
-            
+
             if cachedUser?.id == userId {
                 print("ℹ️ Using cached user data for offline access")
             } else {
@@ -1171,7 +1171,7 @@ enum AuthSessionFallback {
         if let cachedUser, cachedUser.id == sessionUserId {
             return cachedUser
         }
-        
+
         return User(
             id: sessionUserId,
             username: "user_\(sessionUserId.prefix(8))",
