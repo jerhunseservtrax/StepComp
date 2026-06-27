@@ -157,6 +157,11 @@ final class AuthService: ObservableObject {
         let completedBeforeTimeout = await waitForProfileLoad(profileLoadTask, timeoutNanoseconds: 8_000_000_000)
         if !completedBeforeTimeout {
             print("⚠️ Profile load timed out — using session-scoped fallback data")
+            guard await canPublishProfile(for: userId) else {
+                print("ℹ️ Skipping stale profile timeout fallback for user: \(userId)")
+                return
+            }
+
             let fallbackUser = AuthSessionFallback.user(
                 forSessionUserId: userId,
                 cachedUser: self.loadCachedUser()
