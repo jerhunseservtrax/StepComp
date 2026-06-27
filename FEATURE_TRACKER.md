@@ -1,7 +1,7 @@
 # FitComp Feature Tracker
 
 > Comprehensive catalog of all features in the FitComp fitness competition app (formerly StepComp).
-> Last updated: 2026-04-13 (v5)
+> Last updated: 2026-06-27 (v6)
 
 ---
 
@@ -325,6 +325,7 @@
 | Feature | File(s) | Description |
 |---------|---------|-------------|
 | Supabase Auth | `AuthService.swift` | Singleton auth with Keychain persistence, Apple Sign In, auth state listener |
+| Session-Scoped Auth Fallback | `AuthService.swift`, `AuthSessionFallbackTests.swift` | Profile timeout/offline fallback only restores cached users that match the active Supabase session ID; mismatches receive a minimal session-scoped profile |
 | Auth State Listener | `AuthService.swift` | Real-time auth state monitoring via Supabase events with automatic session recovery |
 | Auth Recovery | `RootView.swift` | Debounced periodic auth state recovery checks on foreground transitions |
 | Automatic Metrics Sync | `RootView.swift` | One-shot metrics sync on foreground/auth changes with dedup flag |

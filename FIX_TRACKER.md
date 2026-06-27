@@ -1,7 +1,7 @@
 # FitComp Fix Tracker
 
 > Log of all bugs encountered and fixes implemented to prevent recurrence.
-> Last updated: 2026-04-13 (v6)
+> Last updated: 2026-06-27 (v7)
 
 ---
 
@@ -88,6 +88,14 @@
 ---
 
 ## Authentication & Session
+
+### 62. Auth Timeout Fallback Could Publish Previous Account
+- **Status:** Fixed (pending PR)
+- **Symptom:** After signing into a different account on a shared device, a slow/offline profile load could show the previous account's cached profile while Supabase had already switched sessions.
+- **Root Cause:** `AuthService` fallback paths restored the Keychain-cached user without verifying that `cachedUser.id` matched the active Supabase session user ID.
+- **Fix:** Added a session-scoped auth fallback helper. Profile timeout and offline/error fallbacks now reuse cached profiles only when IDs match; otherwise they create a minimal user for the authenticated session ID and overwrite stale local cache.
+- **Files:** `AuthService.swift`, `AuthSessionFallbackTests.swift`
+- **Prevention:** Any auth recovery fallback that reads local identity state must validate it against the active session user before publishing it to UI.
 
 ### 7. Apple Sign In Profile Creation Failure
 - **Commit:** `fda99a6`

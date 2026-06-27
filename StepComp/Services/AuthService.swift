@@ -156,11 +156,14 @@ final class AuthService: ObservableObject {
         }
         let completedBeforeTimeout = await waitForProfileLoad(profileLoadTask, timeoutNanoseconds: 8_000_000_000)
         if !completedBeforeTimeout {
-            print("⚠️ Profile load timed out — using cached data")
-            if let cachedUser = self.loadCachedUser() {
-                self.currentUser = cachedUser
-                self.isAuthenticated = true
-            }
+            print("⚠️ Profile load timed out — using session-scoped fallback data")
+            let fallbackUser = AuthSessionFallback.user(
+                forSessionUserId: userId,
+                cachedUser: self.loadCachedUser()
+            )
+            self.currentUser = fallbackUser
+            self.isAuthenticated = true
+            self.saveUser()
         }
         
         if isAuthenticated && currentUser != nil {
@@ -895,30 +898,19 @@ final class AuthService: ObservableObject {
             }
             print("⚠️ Error loading user profile: \(error.localizedDescription)")
             
-            // If we can't load from database, try to use locally cached user
-            // This handles offline scenarios
-            if let cachedUser = loadCachedUser() {
+            // If we can't load from database, use only cache scoped to this session.
+            let cachedUser = loadCachedUser()
+            let fallbackUser = AuthSessionFallback.user(
+                forSessionUserId: userId,
+                cachedUser: cachedUser
+            )
+            currentUser = fallbackUser
+            isAuthenticated = true
+            saveUser()
+            
+            if cachedUser?.id == userId {
                 print("ℹ️ Using cached user data for offline access")
-                currentUser = cachedUser
-                isAuthenticated = true
             } else {
-                // No cached user - create a minimal profile to keep them logged in
-                // They'll get full data when network is available
-                let email: String? = nil
-                
-                let user = User(
-                    id: userId,
-                    username: "user_\(userId.prefix(8))",
-                    firstName: "User",
-                    lastName: "",
-                    email: email,
-                    publicProfile: true,
-                    totalSteps: 0,
-                    totalChallenges: 0
-                )
-                currentUser = user
-                isAuthenticated = true
-                saveUser()
                 print("⚠️ Created minimal user profile - will sync when online")
             }
         }
@@ -1171,6 +1163,25 @@ final class AuthService: ObservableObject {
         
         currentUser = user
         isAuthenticated = true
+    }
+}
+
+enum AuthSessionFallback {
+    static func user(forSessionUserId sessionUserId: String, cachedUser: User?) -> User {
+        if let cachedUser, cachedUser.id == sessionUserId {
+            return cachedUser
+        }
+        
+        return User(
+            id: sessionUserId,
+            username: "user_\(sessionUserId.prefix(8))",
+            firstName: "User",
+            lastName: "",
+            email: nil,
+            publicProfile: true,
+            totalSteps: 0,
+            totalChallenges: 0
+        )
     }
 }
 
