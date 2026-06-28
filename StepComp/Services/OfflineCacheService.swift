@@ -47,6 +47,10 @@ enum OfflineCacheService {
         try? fileManager.removeItem(at: cacheDirectory)
     }
 
+    static func userScopedKey(_ key: String, userId: String) -> String {
+        "user_\(userId)_\(key)"
+    }
+
     /// Fetch from the network; on success cache the result, on failure return cached data.
     static func fetchWithFallback<T: Codable>(
         key: String,

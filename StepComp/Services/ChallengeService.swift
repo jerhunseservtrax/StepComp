@@ -514,7 +514,9 @@ final class ChallengeService: ObservableObject {
     
     #if canImport(Supabase)
     private func getLeaderboardFromSupabase(challengeId: String) async -> [LeaderboardEntry] {
-        let cacheKey = "leaderboard_\(challengeId)"
+        guard let cacheKey = await userScopedOfflineCacheKey("leaderboard_\(challengeId)") else {
+            return leaderboardEntries[challengeId] ?? []
+        }
         do {
             let serverEntries: [ServerLeaderboardEntry] = try await SupabaseRequestExecutor.executeWithAuthRetry(context: "get_leaderboard") {
                 try await supabase
@@ -659,6 +661,7 @@ final class ChallengeService: ObservableObject {
     }
     
     private func loadChallengesFromSupabase() async {
+        var requestedUserId: String?
         do {
             // Check if user is authenticated before trying to load challenges
             do {
@@ -672,6 +675,7 @@ final class ChallengeService: ObservableObject {
             // Get current user ID from session
             let session = try await supabase.auth.session
             let userId = session.user.id.uuidString
+            requestedUserId = userId
             
             let pageSize = 200
             // Load challenges where user is creator
@@ -785,22 +789,40 @@ final class ChallengeService: ObservableObject {
         } catch {
             print("⚠️ Error loading challenges from Supabase: \(error.localizedDescription)")
             lastErrorMessage = error.localizedDescription
-            // Fallback to local storage
-            loadChallenges()
+            // Fallback only to cache scoped to the authenticated user.
+            if let requestedUserId {
+                loadChallenges(for: requestedUserId)
+            } else {
+                challenges = []
+            }
         }
     }
     #endif
     
     // MARK: - Persistence
+
+    func clearLocalCaches(userId: String? = AuthService.shared.currentUser?.id) {
+        challenges.removeAll()
+        leaderboardEntries.removeAll()
+
+        if let userId {
+            UserDefaults.standard.removeObject(forKey: challengeStorageKey(for: userId))
+            UserDefaults.standard.removeObject(forKey: leaderboardStorageKey(for: userId))
+        }
+
+        // Remove legacy global caches so account switches cannot resurrect old data.
+        UserDefaults.standard.removeObject(forKey: challengesKey)
+        UserDefaults.standard.removeObject(forKey: leaderboardKey)
+    }
     
     private func saveChallenges() {
         if let encoded = try? JSONEncoder().encode(challenges) {
-            UserDefaults.standard.set(encoded, forKey: challengesKey)
+            UserDefaults.standard.set(encoded, forKey: challengeStorageKey())
         }
     }
     
-    private func loadChallenges() {
-        guard let data = UserDefaults.standard.data(forKey: challengesKey),
+    private func loadChallenges(for userId: String? = AuthService.shared.currentUser?.id) {
+        guard let data = UserDefaults.standard.data(forKey: challengeStorageKey(for: userId)),
               let decoded = try? JSONDecoder().decode([Challenge].self, from: data) else {
             return
         }
@@ -809,17 +831,39 @@ final class ChallengeService: ObservableObject {
     
     private func saveLeaderboards() {
         if let encoded = try? JSONEncoder().encode(leaderboardEntries) {
-            UserDefaults.standard.set(encoded, forKey: leaderboardKey)
+            UserDefaults.standard.set(encoded, forKey: leaderboardStorageKey())
         }
     }
     
-    private func loadLeaderboards() {
-        guard let data = UserDefaults.standard.data(forKey: leaderboardKey),
+    private func loadLeaderboards(for userId: String? = AuthService.shared.currentUser?.id) {
+        guard let data = UserDefaults.standard.data(forKey: leaderboardStorageKey(for: userId)),
               let decoded = try? JSONDecoder().decode([String: [LeaderboardEntry]].self, from: data) else {
             return
         }
         leaderboardEntries = decoded
     }
+
+    private func challengeStorageKey(for userId: String? = AuthService.shared.currentUser?.id) -> String {
+        guard let userId, !userId.isEmpty else { return challengesKey }
+        return OfflineCacheService.userScopedKey(challengesKey, userId: userId)
+    }
+
+    private func leaderboardStorageKey(for userId: String? = AuthService.shared.currentUser?.id) -> String {
+        guard let userId, !userId.isEmpty else { return leaderboardKey }
+        return OfflineCacheService.userScopedKey(leaderboardKey, userId: userId)
+    }
+
+    #if canImport(Supabase)
+    private func userScopedOfflineCacheKey(_ logicalKey: String) async -> String? {
+        do {
+            let userId = try await supabase.auth.session.user.id.uuidString
+            return OfflineCacheService.userScopedKey(logicalKey, userId: userId)
+        } catch {
+            print("⚠️ [ChallengeService] No session for cache key \(logicalKey)")
+            return nil
+        }
+    }
+    #endif
     
     // MARK: - Challenge Snapshots
     
