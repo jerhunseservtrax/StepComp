@@ -244,7 +244,8 @@ struct EditWorkoutView: View {
             exercises: workoutExercises,
             assignedDays: Array(selectedDays),
             createdAt: workout.createdAt,
-            lastCompletedAt: workout.lastCompletedAt
+            lastCompletedAt: workout.lastCompletedAt,
+            oneTimeDate: workout.oneTimeDate
         )
         
         viewModel.updateWorkout(updatedWorkout)

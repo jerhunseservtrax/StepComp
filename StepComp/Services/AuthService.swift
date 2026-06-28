@@ -198,11 +198,15 @@ final class AuthService: ObservableObject {
             return
         }
 
+        let signedOutUserId = currentUser?.id
         currentUser = nil
         isAuthenticated = false
         if deleteCachedUser {
             KeychainStore.delete(account: keychainUserAccount)
         }
+
+        OfflineCacheService.clearAll()
+        ChallengeService.shared.clearLocalCaches(userId: signedOutUserId)
         
         // Clear active workout state (draft, widget, live activity)
         WorkoutViewModel.clearAllActiveWorkoutState()

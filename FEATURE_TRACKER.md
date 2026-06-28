@@ -1,7 +1,7 @@
 # FitComp Feature Tracker
 
 > Comprehensive catalog of all features in the FitComp fitness competition app (formerly StepComp).
-> Last updated: 2026-04-13 (v5)
+> Last updated: 2026-06-28 (v6)
 
 ---
 
@@ -85,7 +85,7 @@
 | Workout Templates | `WorkoutTemplates.swift` | Predefined splits (PPL, Upper/Lower, Full Body, etc.) |
 | Suggested Workouts | `SuggestedWorkoutsView.swift` | Algorithm-powered recommendations by muscle group |
 | Recurring Scheduling | `CreateWorkoutView.swift` | Schedule workouts for recurring days of the week |
-| One-Time Scheduling | `CreateWorkoutView.swift` | Schedule a workout for a specific date (non-recurring) |
+| One-Time Scheduling | `CreateWorkoutView.swift`, `EditWorkoutView.swift` | Schedule a workout for a specific date (non-recurring) and preserve that date when editing |
 
 ### Exercise Library
 
@@ -109,7 +109,7 @@
 | Rest Timer Alerts | `RestTimerManager.swift` | Visual, haptic, sound, and push notification alerts |
 | Smart Rest Suggestions | `WorkoutAnalyticsEngine.swift` | Auto-suggest rest duration based on exercise intensity and set exertion |
 | Progressive Overload | `WorkoutAnalyticsEngine.swift` | Trend detection (progressing/plateau/regressing), 1RM estimation, overload recommendations |
-| Workout Persistence | `WorkoutViewModel.swift` | Save/restore active workout state across app lifecycle |
+| Workout Persistence | `WorkoutViewModel.swift`, `ActiveWorkoutView.swift` | Save/restore active workout state across app lifecycle and commit set edits by stable field identity |
 | Workout Summary | `WorkoutSummaryView.swift` | Post-workout stats (duration, exercises, sets, calories) |
 | Session History | `CompletedSessionDetailView.swift` | View past workout details |
 | Edit Sessions | `EditCompletedSessionView.swift` | Modify completed session data |
@@ -357,7 +357,7 @@
 | Haptic Manager | `HapticManager.swift` | Haptic feedback patterns |
 | Keychain Store | `KeychainStore.swift` | Secure credential storage with kSecAttrService scoping and OSStatus error handling |
 | Retry Utility | `RetryUtility.swift` | Exponential backoff retry logic |
-| Offline Cache | `OfflineCacheService.swift` | Generic disk-backed Codable cache with fetch-with-fallback for offline resilience |
+| Offline Cache | `OfflineCacheService.swift`, `MetricsService.swift`, `ChallengeService.swift`, `AuthService.swift` | Generic disk-backed Codable cache with user-scoped keys, fetch-with-fallback for offline resilience, and sign-out cleanup |
 | Cached Async Image | `CachedAsyncImage.swift` | Image caching for remote images (used in ProfileView, etc.) |
 | Reaction Effects | `ReactionEffectManager.swift` | Celebration/reaction animations |
 | Avatar View | `AvatarView.swift` | Reusable avatar component |

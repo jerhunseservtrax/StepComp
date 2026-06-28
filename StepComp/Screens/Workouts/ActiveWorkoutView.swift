@@ -999,15 +999,19 @@ struct SetRow: View {
     }
 
     private func commitCurrentField(_ field: SetFieldIdentifier) {
+        guard let session = viewModel.currentSession,
+              let exercise = session.exercises.first(where: { $0.sets.contains(where: { $0.id == field.setId }) }),
+              let targetSet = exercise.sets.first(where: { $0.id == field.setId }) else { return }
+
         switch field.fieldType {
         case .weight:
             if let displayVal = Double(editBuffer), displayVal > 0 {
                 let storageWeight = unitManager.convertWeightToStorage(displayVal)
-                viewModel.updateSet(exerciseId: exerciseId, setId: set.id, weight: storageWeight, reps: set.reps)
+                viewModel.updateSet(exerciseId: exercise.id, setId: targetSet.id, weight: storageWeight, reps: targetSet.reps)
             }
         case .reps:
             if let reps = Int(editBuffer), reps > 0 {
-                viewModel.updateSet(exerciseId: exerciseId, setId: set.id, weight: set.weight, reps: reps)
+                viewModel.updateSet(exerciseId: exercise.id, setId: targetSet.id, weight: targetSet.weight, reps: reps)
             }
         }
     }

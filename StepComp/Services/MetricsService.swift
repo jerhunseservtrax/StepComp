@@ -167,7 +167,10 @@ final class MetricsService: ObservableObject {
 
     func fetchMetricsSummary(days: Int = 30) async -> MetricsSummary? {
         #if canImport(Supabase)
-        return await OfflineCacheService.fetchWithFallback(key: "metrics_summary_\(days)") {
+        guard let cacheKey = await userScopedCacheKey("metrics_summary_\(days)") else {
+            return nil
+        }
+        return await OfflineCacheService.fetchWithFallback(key: cacheKey) {
             try await SupabaseRequestExecutor.executeWithAuthRetry(context: "fetch_metrics_summary") {
                 try await supabase
                     .rpc("get_user_metrics_summary", params: ["p_days": String(days)])
@@ -318,7 +321,10 @@ final class MetricsService: ObservableObject {
 
     func fetchWeightHistory(days: Int = 90) async -> [WeightHistoryPoint] {
         #if canImport(Supabase)
-        return await OfflineCacheService.fetchArrayWithFallback(key: "weight_history_\(days)") {
+        guard let cacheKey = await userScopedCacheKey("weight_history_\(days)") else {
+            return []
+        }
+        return await OfflineCacheService.fetchArrayWithFallback(key: cacheKey) {
             try await SupabaseRequestExecutor.executeWithAuthRetry(context: "fetch_weight_history") {
                 try await supabase
                     .rpc("get_weight_history", params: ["p_days": String(days)])
@@ -335,7 +341,10 @@ final class MetricsService: ObservableObject {
 
     func fetchWorkoutHistory(days: Int = 90) async -> [WorkoutHistoryPoint] {
         #if canImport(Supabase)
-        return await OfflineCacheService.fetchArrayWithFallback(key: "workout_history_\(days)") {
+        guard let cacheKey = await userScopedCacheKey("workout_history_\(days)") else {
+            return []
+        }
+        return await OfflineCacheService.fetchArrayWithFallback(key: cacheKey) {
             try await SupabaseRequestExecutor.executeWithAuthRetry(context: "fetch_workout_history") {
                 try await supabase
                     .rpc("get_workout_history", params: ["p_days": String(days)])
@@ -347,6 +356,18 @@ final class MetricsService: ObservableObject {
         return []
         #endif
     }
+
+    #if canImport(Supabase)
+    private func userScopedCacheKey(_ logicalKey: String) async -> String? {
+        do {
+            let userId = try await supabase.auth.session.user.id.uuidString
+            return OfflineCacheService.userScopedKey(logicalKey, userId: userId)
+        } catch {
+            print("⚠️ [MetricsService] No session for cache key \(logicalKey)")
+            return nil
+        }
+    }
+    #endif
 
     // MARK: - Sync Tracking (UserDefaults)
 

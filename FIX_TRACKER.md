@@ -1,7 +1,7 @@
 # FitComp Fix Tracker
 
 > Log of all bugs encountered and fixes implemented to prevent recurrence.
-> Last updated: 2026-04-13 (v6)
+> Last updated: 2026-06-28 (v7)
 
 ---
 
@@ -587,6 +587,30 @@
 - **Fix:** Restored a dedicated Workouts tab in a 5-tab layout and updated tab-index routing in workout start flow and tab manager helper.
 - **Files:** `MainTabView.swift`, `WorkoutDetailView.swift`
 - **Prevention:** Keep central tab index mapping documented and update all programmatic tab switches whenever tab order changes.
+
+### 62. Offline Metrics Cache Leaked Across Accounts
+- **Status:** Fixed
+- **Symptom:** On shared devices or after account switching, Metrics/leaderboard screens could display a previous user's cached health or challenge data when a Supabase fetch failed.
+- **Root Cause:** `OfflineCacheService` keys were global (`weight_history_90`, `workout_history_90`, `leaderboard_<id>`) and sign-out did not clear the disk cache or challenge fallback cache.
+- **Fix:** Added user-scoped cache keys, scoped Metrics and leaderboard fallback data by active Supabase user ID, cleared offline/challenge caches on signed-out state, and prevented challenge fallback when no user ID is known.
+- **Files:** `OfflineCacheService.swift`, `MetricsService.swift`, `ChallengeService.swift`, `AuthService.swift`
+- **Prevention:** Any persisted fallback data that can contain user-specific health, challenge, profile, or social data must include the authenticated user ID in its storage key and be cleared on sign-out.
+
+### 63. Active Workout Edits Saved to Wrong Set
+- **Status:** Fixed
+- **Symptom:** If a user entered weight/reps for one set and then tapped another set before pressing Done, the buffered value could be written to the wrong set.
+- **Root Cause:** `SetRow.commitCurrentField(_:)` used the row's `set.id` instead of the `activeField.setId` that identified the field being edited.
+- **Fix:** Resolve the target exercise/set from `activeField.setId` before committing the edit buffer.
+- **Files:** `ActiveWorkoutView.swift`
+- **Prevention:** Shared edit buffers must commit by stable field identity, not by the view row that receives the next gesture.
+
+### 64. Editing One-Time Workouts Dropped Scheduled Date
+- **Status:** Fixed
+- **Symptom:** Editing a one-time scheduled workout removed its `oneTimeDate`, causing it to disappear from the originally scheduled date.
+- **Root Cause:** `EditWorkoutView.saveWorkout()` rebuilt the `Workout` without passing through `workout.oneTimeDate`.
+- **Fix:** Preserve `oneTimeDate` when saving edits.
+- **Files:** `EditWorkoutView.swift`
+- **Prevention:** When rebuilding models during edit flows, carry forward scheduling metadata that is not directly edited in the form.
 
 ## New Features
 
