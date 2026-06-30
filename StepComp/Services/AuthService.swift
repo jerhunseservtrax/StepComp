@@ -11,6 +11,16 @@ import Combine // Required for @Published and ObservableObject
 import Supabase
 #endif
 
+private actor ProfileLoadRace {
+    private var didFinish = false
+
+    func claim() -> Bool {
+        guard !didFinish else { return false }
+        didFinish = true
+        return true
+    }
+}
+
 @MainActor
 final class AuthService: ObservableObject {
     static let shared = AuthService()
@@ -95,18 +105,12 @@ final class AuthService: ObservableObject {
                 print("🔐 Initial session found for user: \(session.user.id)")
                 await applyAuthenticatedSession(session)
             } else {
-                if let cachedUser = loadCachedUser() {
-                    print("ℹ️ No initial session from Supabase, restoring cached user while auth recovers")
-                    currentUser = cachedUser
-                    isAuthenticated = true
-                } else {
-                    print("ℹ️ No initial session and no cached user - showing login screen")
-                    applySignedOutState(
-                        deleteCachedUser: false,
-                        reason: "initialSession nil with no cached user",
-                        allowDuringStartupCheck: true
-                    )
-                }
+                print("ℹ️ No initial session from Supabase - showing login screen")
+                applySignedOutState(
+                    deleteCachedUser: true,
+                    reason: "initialSession nil",
+                    allowDuringStartupCheck: true
+                )
             }
             isCheckingSession = false
             print("✅ Initial auth session check complete")
@@ -119,19 +123,11 @@ final class AuthService: ObservableObject {
             }
         case .signedOut:
             print("🚪 Auth signed out event received")
-            if isCheckingSession, let cachedUser = loadCachedUser() {
-                // Startup races can emit signedOut before session recovery completes.
-                // Keep local user state and let the manual fallback re-check Supabase.
-                print("ℹ️ Ignoring signed-out event during startup because cached user exists")
-                currentUser = cachedUser
-                isAuthenticated = true
-            } else {
-                applySignedOutState(
-                    deleteCachedUser: true,
-                    reason: "signedOut auth event",
-                    allowDuringStartupCheck: true
-                )
-            }
+            applySignedOutState(
+                deleteCachedUser: !isCheckingSession,
+                reason: "signedOut auth event",
+                allowDuringStartupCheck: true
+            )
             if isCheckingSession {
                 isCheckingSession = false
             }
@@ -148,16 +144,21 @@ final class AuthService: ObservableObject {
     
     private func applyAuthenticatedSession(_ session: Session) async {
         let userId = session.user.id.uuidString
+
+        if !Self.userIdsMatch(currentUser?.id, userId) {
+            currentUser = nil
+            isAuthenticated = false
+        }
         
-        // Keep profile loading in a standalone task so timeout does not cancel it.
-        // If timeout wins, we use cached data immediately and let profile update when it finishes.
+        // Keep profile loading bounded so startup can fall back to a matching cache
+        // without waiting indefinitely on a slow profile request.
         let profileLoadTask = Task { @MainActor [weak self] in
             _ = await self?.loadUserProfile(userId: userId)
         }
         let completedBeforeTimeout = await waitForProfileLoad(profileLoadTask, timeoutNanoseconds: 8_000_000_000)
         if !completedBeforeTimeout {
             print("⚠️ Profile load timed out — using cached data")
-            if let cachedUser = self.loadCachedUser() {
+            if await isActiveSessionUser(userId), let cachedUser = self.loadCachedUser(matching: userId) {
                 self.currentUser = cachedUser
                 self.isAuthenticated = true
             }
@@ -867,6 +868,11 @@ final class AuthService: ObservableObject {
                 totalSteps: profile.totalSteps ?? 0,
                 totalChallenges: 0
             )
+
+            guard await isActiveSessionUser(userId) else {
+                print("ℹ️ Ignoring stale profile load for user: \(userId)")
+                return
+            }
             
             currentUser = user
             isAuthenticated = true
@@ -894,10 +900,15 @@ final class AuthService: ObservableObject {
                 return
             }
             print("⚠️ Error loading user profile: \(error.localizedDescription)")
+
+            guard await isActiveSessionUser(userId) else {
+                print("ℹ️ Ignoring stale profile fallback for user: \(userId)")
+                return
+            }
             
             // If we can't load from database, try to use locally cached user
             // This handles offline scenarios
-            if let cachedUser = loadCachedUser() {
+            if let cachedUser = loadCachedUser(matching: userId) {
                 print("ℹ️ Using cached user data for offline access")
                 currentUser = cachedUser
                 isAuthenticated = true
@@ -929,22 +940,22 @@ final class AuthService: ObservableObject {
         _ profileLoadTask: Task<Void, Never>,
         timeoutNanoseconds: UInt64
     ) async -> Bool {
-        await withTaskGroup(of: Bool.self) { group in
-            group.addTask {
+        let race = ProfileLoadRace()
+        return await withCheckedContinuation { continuation in
+            Task {
                 await profileLoadTask.value
-                return true
+                if await race.claim() {
+                    continuation.resume(returning: true)
+                }
             }
-            group.addTask {
+
+            Task {
                 try? await Task.sleep(nanoseconds: timeoutNanoseconds)
-                return false
+                if await race.claim() {
+                    profileLoadTask.cancel()
+                    continuation.resume(returning: false)
+                }
             }
-            
-            let completedBeforeTimeout = await group.next() ?? false
-            if completedBeforeTimeout {
-                // Cancel timeout task when profile load finishes first.
-                group.cancelAll()
-            }
-            return completedBeforeTimeout
         }
     }
     
@@ -954,6 +965,50 @@ final class AuthService: ObservableObject {
             return nil
         }
         return try? JSONDecoder().decode(User.self, from: data)
+    }
+
+    static func cachedUser(_ cachedUser: User?, matching userId: String?) -> User? {
+        guard let cachedUser, Self.userIdsMatch(cachedUser.id, userId) else {
+            return nil
+        }
+        return cachedUser
+    }
+
+    static func cachedUserForInitialSession(_ sessionUserId: String?, cachedUser: User?) -> User? {
+        cachedUser(cachedUser, matching: sessionUserId)
+    }
+
+    static func canPublishProfileLoadResult(requestedUserId: String, activeSessionUserId: String?) -> Bool {
+        userIdsMatch(requestedUserId, activeSessionUserId)
+    }
+
+    private static func userIdsMatch(_ lhs: String?, _ rhs: String?) -> Bool {
+        guard let lhs, let rhs, !lhs.isEmpty, !rhs.isEmpty else {
+            return false
+        }
+
+        if let lhsUUID = UUID(uuidString: lhs),
+           let rhsUUID = UUID(uuidString: rhs) {
+            return lhsUUID == rhsUUID
+        }
+
+        return lhs == rhs
+    }
+
+    private func loadCachedUser(matching userId: String) -> User? {
+        Self.cachedUser(loadCachedUser(), matching: userId)
+    }
+
+    private func isActiveSessionUser(_ userId: String) async -> Bool {
+        do {
+            let session = try await supabase.auth.session
+            return Self.canPublishProfileLoadResult(
+                requestedUserId: userId,
+                activeSessionUserId: session.user.id.uuidString
+            )
+        } catch {
+            return false
+        }
     }
     
     private func updateUserProfile(user: User) async {
