@@ -85,6 +85,22 @@
 - **Files:** `RootView.swift`, `MainTabView.swift`, `SessionViewModel.swift`
 - **Prevention:** Use `@ObservedObject` for shared view models during view transitions. Use `.id()` to force clean recreation.
 
+### 2026-06-30. Stale Auth Cache Cross-User Leak
+- **Commit:** Current PR
+- **Symptom:** A cold start or profile-load timeout could show a cached Keychain profile as authenticated even when Supabase had no session or a different active session user.
+- **Root Cause:** `AuthService` treated the cached profile as equivalent to a valid Supabase session and did not verify `cachedUser.id` against the session user ID before offline/timeout fallback.
+- **Fix:** Nil initial sessions now apply signed-out state and delete the cached profile. Authenticated-session fallback only accepts cached users whose ID matches the active Supabase session user ID, current user state is cleared before loading a different session user, and slow profile-load tasks re-check the active session before publishing state.
+- **Files:** `AuthService.swift`, `AuthServiceCachedUserTests.swift`
+- **Prevention:** Cached identity data is display fallback only; never use it to establish authentication or for a different session user.
+
+### 2026-06-30. Chat List Deleted Ended Challenge Memberships
+- **Commit:** Current PR
+- **Symptom:** Opening the chat list could permanently delete `challenge_members` rows for ended challenges.
+- **Root Cause:** `ChatListViewModel` fetched only active challenges with `end_date >= now`, then treated every missing ID as an orphan and issued client-side deletes. Ended challenges were intentionally filtered out but still valid historical memberships.
+- **Fix:** Made chat-list challenge loading read-only. Ended challenges are excluded from active chat previews without deleting membership rows.
+- **Files:** `ChatListViewModel.swift`
+- **Prevention:** Client views that use filtered reads must not perform destructive cleanup from the absence of filtered records.
+
 ---
 
 ## Authentication & Session
