@@ -152,6 +152,7 @@ final class AuthService: ObservableObject {
         if let currentUser, !userIdsMatch(currentUser.id, userId) {
             self.currentUser = nil
             isAuthenticated = false
+            KeychainStore.delete(account: keychainUserAccount)
             OfflineCacheService.clearAll()
             ChallengeService.shared.clearAuthenticatedUserState()
         }
@@ -164,6 +165,10 @@ final class AuthService: ObservableObject {
         let completedBeforeTimeout = await waitForProfileLoad(profileLoadTask, timeoutNanoseconds: 8_000_000_000)
         if !completedBeforeTimeout {
             print("⚠️ Profile load timed out — using cached data")
+            guard await activeSessionMatches(userId: userId) else {
+                print("ℹ️ Ignoring timed-out profile fallback for non-current session")
+                return
+            }
             if let cachedUser = self.loadCachedUser(matching: userId) {
                 self.currentUser = cachedUser
                 self.isAuthenticated = true
