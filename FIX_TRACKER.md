@@ -29,11 +29,11 @@
 
 ### 0. User-Scoped Offline Cache to Prevent Cross-Account Data Leak
 - **Commit:** `cursor/critical-bug-investigation-f80f`
-- **Symptom:** After User A viewed metrics/leaderboards and signed out, User B on the same device could see User A's cached metrics, weight/workout history, or challenge leaderboard if Supabase fetches failed. A stale profile-load task could also republish the prior user after sign-out/account switch.
-- **Root Cause:** `OfflineCacheService` cache keys were global (`metrics_summary_*`, `weight_history_*`, `workout_history_*`, `leaderboard_*`) and sign-out did not purge disk-backed or in-memory fallback caches. Auth profile fallbacks accepted any cached profile during session timeouts/errors, and profile-load tasks wrote user state without rechecking the active session.
-- **Fix:** Added user-scoped offline cache keys, used them for Metrics and Challenge leaderboard fallbacks, cleared offline and ChallengeService fallback caches on signed-out state/session switch, only reused cached profiles when their user ID matches the active Supabase session, and dropped stale profile-load success/fallback writes.
+- **Symptom:** After User A viewed metrics/leaderboards and signed out, User B on the same device could see User A's cached metrics, weight/workout history, or challenge leaderboard if Supabase fetches failed. Stale profile/challenge load tasks could also republish the prior user's data after sign-out/account switch.
+- **Root Cause:** `OfflineCacheService` cache keys were global (`metrics_summary_*`, `weight_history_*`, `workout_history_*`, `leaderboard_*`) and sign-out did not purge disk-backed or in-memory fallback caches. Auth profile fallbacks accepted any cached profile during session timeouts/errors, and profile/challenge load tasks wrote user state without rechecking the active session.
+- **Fix:** Added user-scoped offline cache keys, used them for Metrics and Challenge leaderboard fallbacks, cleared offline and ChallengeService fallback caches on signed-out state/session switch, only reused cached profiles when their user ID matches the active Supabase session, and dropped stale profile/challenge success/fallback writes.
 - **Files:** `OfflineCacheService.swift`, `MetricsService.swift`, `ChallengeService.swift`, `AuthService.swift`, `OfflineCacheServiceTests.swift`
-- **Prevention:** Every persisted or in-memory fallback containing user data must include the authenticated user ID in its cache key or be purged on sign-out/account switch. Cached profiles and async profile-load results may only hydrate a matching active session user when an active session ID is available.
+- **Prevention:** Every persisted or in-memory fallback containing user data must include the authenticated user ID in its cache key or be purged on sign-out/account switch. Cached profiles and async profile/challenge results may only hydrate a matching active session user when an active session ID is available.
 
 ---
 

@@ -106,22 +106,26 @@ Symptoms that must never return:
 - After account switch in the same app process, User B receives User A's retained in-memory challenge or leaderboard data when a server fetch fails.
 - A Supabase profile load timeout/error hydrates `AuthService.currentUser` with a cached profile whose ID differs from the active session user.
 - A stale profile-load task for a previous session republishes that previous user after sign-out or account switch.
+- A stale challenge or leaderboard request for a previous session republishes that user's challenge state after sign-out or account switch.
 
 Root causes that were fixed:
 - `OfflineCacheService` keys for metrics and leaderboards were global instead of scoped by authenticated user ID.
 - Signed-out auth state did not purge disk-backed offline fallback caches or `ChallengeService` in-memory fallback state.
 - Auth profile fallback accepted any cached user during active-session profile timeouts/errors.
 - Async profile-load tasks wrote `currentUser`, Keychain cache, and profile preferences without rechecking that the active Supabase session still matched the requested user ID.
+- Async challenge and leaderboard requests wrote `ChallengeService` state without rechecking that the active Supabase session still matched the requested user ID.
 
 Required guardrails:
 1. Any `OfflineCacheService` entry containing user data must use `OfflineCacheService.userScopedKey(_:userId:)` with the active Supabase session user ID.
 2. Signed-out/account-switch cleanup in `AuthService.applySignedOutState` must clear offline fallback caches and service-owned in-memory user data such as challenge leaderboards.
 3. Cached profile fallback during an authenticated session must only load cached users whose ID matches the session user ID, using case-insensitive UUID comparison.
 4. Before `loadUserProfile(userId:)` writes `currentUser`, cached user data, or profile preferences, it must verify the active Supabase session still matches `userId`.
+5. Before Supabase challenge or leaderboard requests publish `ChallengeService` state, they must verify the active Supabase session still matches the user ID captured before the request.
 
 Verification checklist for any offline cache or auth fallback change:
 - User A loads metrics/leaderboard, signs out, User B signs in, network fetch fails: User B must not see User A's cached data.
 - User A loads a challenge leaderboard, signs out, User B signs in in the same app process, leaderboard fetch fails: User B must not see User A's retained in-memory entries.
 - Profile load timeout/error for session User B with cached User A: `currentUser` must not become User A.
 - Start profile load for User A, sign out or switch to User B before it completes: User A's load result must be ignored.
+- Start challenge/leaderboard load for User A, sign out or switch to User B before it completes: User A's load result must be ignored.
 - Add or update cache-isolation tests when adding new offline fallback keys.

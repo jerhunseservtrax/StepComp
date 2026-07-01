@@ -522,7 +522,8 @@ final class ChallengeService: ObservableObject {
     
     #if canImport(Supabase)
     private func getLeaderboardFromSupabase(challengeId: String) async -> [LeaderboardEntry] {
-        let cacheKey = await userScopedCacheKey("leaderboard_\(challengeId)")
+        let cacheUserId = await currentCacheUserId()
+        let cacheKey = cacheUserId.map { OfflineCacheService.userScopedKey("leaderboard_\(challengeId)", userId: $0) }
         do {
             let serverEntries: [ServerLeaderboardEntry] = try await SupabaseRequestExecutor.executeWithAuthRetry(context: "get_leaderboard") {
                 try await supabase
@@ -532,6 +533,9 @@ final class ChallengeService: ObservableObject {
             }
 
             let entries = serverEntries.map { $0.toLeaderboardEntry(challengeId: challengeId) }
+            guard let cacheUserId, await activeSessionMatches(userId: cacheUserId) else {
+                return []
+            }
             leaderboardEntries[challengeId] = entries
             if let cacheKey {
                 OfflineCacheService.save(entries, key: cacheKey)
@@ -542,18 +546,25 @@ final class ChallengeService: ObservableObject {
                 leaderboardEntries[challengeId] = cached
                 return cached
             }
-            return leaderboardEntries[challengeId] ?? []
+            return []
         }
     }
 
-    private func userScopedCacheKey(_ key: String) async -> String? {
+    private func currentCacheUserId() async -> String? {
         if let session = try? await supabase.auth.session {
-            return OfflineCacheService.userScopedKey(key, userId: session.user.id.uuidString)
+            return session.user.id.uuidString
         }
         if let userId = AuthService.shared.currentUser?.id, !userId.isEmpty {
-            return OfflineCacheService.userScopedKey(key, userId: userId)
+            return userId
         }
         return nil
+    }
+
+    private func activeSessionMatches(userId: String) async -> Bool {
+        guard let session = try? await supabase.auth.session else { return false }
+        return session.user.id.uuidString
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .caseInsensitiveCompare(userId.trimmingCharacters(in: .whitespacesAndNewlines)) == .orderedSame
     }
     #endif
     
@@ -679,6 +690,7 @@ final class ChallengeService: ObservableObject {
     }
     
     private func loadChallengesFromSupabase() async {
+        var requestedUserId: String?
         do {
             // Check if user is authenticated before trying to load challenges
             do {
@@ -692,6 +704,7 @@ final class ChallengeService: ObservableObject {
             // Get current user ID from session
             let session = try await supabase.auth.session
             let userId = session.user.id.uuidString
+            requestedUserId = userId
             
             let pageSize = 200
             // Load challenges where user is creator
@@ -795,6 +808,11 @@ final class ChallengeService: ObservableObject {
                 
                 loadedChallenges.append(challenge)
             }
+
+            guard await activeSessionMatches(userId: userId) else {
+                print("ℹ️ Ignoring stale challenge load for non-current session")
+                return
+            }
             
             challenges = loadedChallenges
             print("✅ Loaded \(challenges.count) challenges from Supabase")
@@ -804,9 +822,13 @@ final class ChallengeService: ObservableObject {
             }
         } catch {
             print("⚠️ Error loading challenges from Supabase: \(error.localizedDescription)")
+            if let requestedUserId {
+                guard await activeSessionMatches(userId: requestedUserId) else {
+                    print("ℹ️ Ignoring challenge fallback for non-current session")
+                    return
+                }
+            }
             lastErrorMessage = error.localizedDescription
-            // Fallback to local storage
-            loadChallenges()
         }
     }
     #endif
