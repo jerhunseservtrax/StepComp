@@ -30,10 +30,10 @@
 ### 0. User-Scoped Offline Cache to Prevent Cross-Account Data Leak
 - **Commit:** `cursor/critical-bug-investigation-f80f`
 - **Symptom:** After User A viewed metrics/leaderboards and signed out, User B on the same device could see User A's cached metrics, weight/workout history, or challenge leaderboard if Supabase fetches failed.
-- **Root Cause:** `OfflineCacheService` cache keys were global (`metrics_summary_*`, `weight_history_*`, `workout_history_*`, `leaderboard_*`) and sign-out did not purge the disk-backed offline cache. Auth profile fallbacks also accepted any cached profile during session timeouts/errors.
-- **Fix:** Added user-scoped offline cache keys, used them for Metrics and Challenge leaderboard fallbacks, cleared offline caches on signed-out state, and only reused cached profiles when their user ID matches the active Supabase session.
+- **Root Cause:** `OfflineCacheService` cache keys were global (`metrics_summary_*`, `weight_history_*`, `workout_history_*`, `leaderboard_*`) and sign-out did not purge disk-backed or in-memory fallback caches. Auth profile fallbacks also accepted any cached profile during session timeouts/errors.
+- **Fix:** Added user-scoped offline cache keys, used them for Metrics and Challenge leaderboard fallbacks, cleared offline and ChallengeService fallback caches on signed-out state, and only reused cached profiles when their user ID matches the active Supabase session.
 - **Files:** `OfflineCacheService.swift`, `MetricsService.swift`, `ChallengeService.swift`, `AuthService.swift`, `OfflineCacheServiceTests.swift`
-- **Prevention:** Every persisted fallback containing user data must include the authenticated user ID in its cache key and must be purged on sign-out/account switch. Cached profiles may only hydrate a matching active session user.
+- **Prevention:** Every persisted or in-memory fallback containing user data must include the authenticated user ID in its cache key or be purged on sign-out/account switch. Cached profiles may only hydrate a matching active session user when an active session ID is available.
 
 ---
 

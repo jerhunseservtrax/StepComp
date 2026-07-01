@@ -152,6 +152,8 @@ final class AuthService: ObservableObject {
         if let currentUser, !userIdsMatch(currentUser.id, userId) {
             self.currentUser = nil
             isAuthenticated = false
+            OfflineCacheService.clearAll()
+            ChallengeService.shared.clearAuthenticatedUserState()
         }
         
         // Keep profile loading in a standalone task so timeout does not cancel it.
@@ -209,6 +211,7 @@ final class AuthService: ObservableObject {
             KeychainStore.delete(account: keychainUserAccount)
         }
         OfflineCacheService.clearAll()
+        ChallengeService.shared.clearAuthenticatedUserState()
         
         // Clear active workout state (draft, widget, live activity)
         WorkoutViewModel.clearAllActiveWorkoutState()

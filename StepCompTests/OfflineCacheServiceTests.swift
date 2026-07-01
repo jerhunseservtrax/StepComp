@@ -27,4 +27,24 @@ final class OfflineCacheServiceTests: XCTestCase {
         )
         XCTAssertNil(OfflineCacheService.load([String: Int].self, key: userBKey))
     }
+
+    @MainActor
+    func testChallengeServiceClearsInMemoryLeaderboardsOnAuthCleanup() {
+        let service = ChallengeService(useSupabase: false)
+        service.leaderboardEntries["challenge-1"] = [
+            LeaderboardEntry(
+                userId: "USER-A",
+                challengeId: "challenge-1",
+                displayName: "User A",
+                steps: 12_345,
+                rank: 1
+            )
+        ]
+
+        service.clearAuthenticatedUserState()
+
+        XCTAssertTrue(service.challenges.isEmpty)
+        XCTAssertTrue(service.leaderboardEntries.isEmpty)
+        XCTAssertNil(service.lastErrorMessage)
+    }
 }

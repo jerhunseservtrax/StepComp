@@ -34,6 +34,14 @@ final class ChallengeService: ObservableObject {
         loadLeaderboards()
         #endif
     }
+
+    func clearAuthenticatedUserState() {
+        challenges.removeAll()
+        leaderboardEntries.removeAll()
+        lastErrorMessage = nil
+        UserDefaults.standard.removeObject(forKey: challengesKey)
+        UserDefaults.standard.removeObject(forKey: leaderboardKey)
+    }
     
     // MARK: - Challenges
     
