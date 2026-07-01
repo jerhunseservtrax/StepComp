@@ -324,14 +324,14 @@
 
 | Feature | File(s) | Description |
 |---------|---------|-------------|
-| Supabase Auth | `AuthService.swift` | Singleton auth with Keychain persistence, Apple Sign In, auth state listener |
+| Supabase Auth | `AuthService.swift` | Singleton auth with Keychain persistence, Apple Sign In, auth state listener, and session-matched cached profile fallback |
 | Auth State Listener | `AuthService.swift` | Real-time auth state monitoring via Supabase events with automatic session recovery |
 | Auth Recovery | `RootView.swift` | Debounced periodic auth state recovery checks on foreground transitions |
 | Automatic Metrics Sync | `RootView.swift` | One-shot metrics sync on foreground/auth changes with dedup flag |
 | Singleton Services | `HealthKitService.swift`, `ChallengeService.swift` | Shared singleton instances to prevent state desync |
 | Supabase Client | `SupabaseClient.swift` | Database client configuration |
 | Step Sync | `StepSyncService.swift` | Sync steps to server with fraud detection, RPC fallback |
-| Challenge Service | `ChallengeService.swift` | CRUD for challenges, invites, leaderboards |
+| Challenge Service | `ChallengeService.swift` | CRUD for challenges, invites, leaderboards, and auth cleanup for user-bound challenge caches |
 | Friends Service | `FriendsService.swift` | Friendship management, profile search |
 | Metrics Service | `MetricsService.swift` | Sync workouts, weight, nutrition to server |
 | HealthKit Service | `HealthKitService.swift` | Steps, distance, calories, weight, and expanded health data |
@@ -357,7 +357,7 @@
 | Haptic Manager | `HapticManager.swift` | Haptic feedback patterns |
 | Keychain Store | `KeychainStore.swift` | Secure credential storage with kSecAttrService scoping and OSStatus error handling |
 | Retry Utility | `RetryUtility.swift` | Exponential backoff retry logic |
-| Offline Cache | `OfflineCacheService.swift` | Generic disk-backed Codable cache with fetch-with-fallback for offline resilience |
+| Offline Cache | `OfflineCacheService.swift` | Generic disk-backed Codable cache with user-scoped fetch-with-fallback for offline resilience |
 | Cached Async Image | `CachedAsyncImage.swift` | Image caching for remote images (used in ProfileView, etc.) |
 | Reaction Effects | `ReactionEffectManager.swift` | Celebration/reaction animations |
 | Avatar View | `AvatarView.swift` | Reusable avatar component |

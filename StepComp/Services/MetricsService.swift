@@ -167,13 +167,32 @@ final class MetricsService: ObservableObject {
 
     func fetchMetricsSummary(days: Int = 30) async -> MetricsSummary? {
         #if canImport(Supabase)
-        return await OfflineCacheService.fetchWithFallback(key: "metrics_summary_\(days)") {
+        let cacheUserId = await currentCacheUserId()
+        let cacheKey = cacheUserId.map { OfflineCacheService.userScopedKey("metrics_summary_\(days)", userId: $0) }
+        let fetchSummary = { () async throws -> MetricsSummary in
             try await SupabaseRequestExecutor.executeWithAuthRetry(context: "fetch_metrics_summary") {
                 try await supabase
                     .rpc("get_user_metrics_summary", params: ["p_days": String(days)])
                     .execute()
                     .value
             }
+        }
+        do {
+            let summary = try await fetchSummary()
+            guard let cacheUserId, await activeSessionMatches(userId: cacheUserId) else {
+                return nil
+            }
+            if let cacheKey {
+                OfflineCacheService.save(summary, key: cacheKey)
+            }
+            return summary
+        } catch {
+            guard let cacheKey,
+                  let cacheUserId,
+                  await activeSessionMatches(userId: cacheUserId) else {
+                return nil
+            }
+            return OfflineCacheService.load(MetricsSummary.self, key: cacheKey)
         }
         #else
         return nil
@@ -318,13 +337,32 @@ final class MetricsService: ObservableObject {
 
     func fetchWeightHistory(days: Int = 90) async -> [WeightHistoryPoint] {
         #if canImport(Supabase)
-        return await OfflineCacheService.fetchArrayWithFallback(key: "weight_history_\(days)") {
+        let cacheUserId = await currentCacheUserId()
+        let cacheKey = cacheUserId.map { OfflineCacheService.userScopedKey("weight_history_\(days)", userId: $0) }
+        let fetchHistory = { () async throws -> [WeightHistoryPoint] in
             try await SupabaseRequestExecutor.executeWithAuthRetry(context: "fetch_weight_history") {
                 try await supabase
                     .rpc("get_weight_history", params: ["p_days": String(days)])
                     .execute()
                     .value
             }
+        }
+        do {
+            let history = try await fetchHistory()
+            guard let cacheUserId, await activeSessionMatches(userId: cacheUserId) else {
+                return []
+            }
+            if let cacheKey {
+                OfflineCacheService.save(history, key: cacheKey)
+            }
+            return history
+        } catch {
+            guard let cacheKey,
+                  let cacheUserId,
+                  await activeSessionMatches(userId: cacheUserId) else {
+                return []
+            }
+            return OfflineCacheService.load([WeightHistoryPoint].self, key: cacheKey) ?? []
         }
         #else
         return []
@@ -335,7 +373,9 @@ final class MetricsService: ObservableObject {
 
     func fetchWorkoutHistory(days: Int = 90) async -> [WorkoutHistoryPoint] {
         #if canImport(Supabase)
-        return await OfflineCacheService.fetchArrayWithFallback(key: "workout_history_\(days)") {
+        let cacheUserId = await currentCacheUserId()
+        let cacheKey = cacheUserId.map { OfflineCacheService.userScopedKey("workout_history_\(days)", userId: $0) }
+        let fetchHistory = { () async throws -> [WorkoutHistoryPoint] in
             try await SupabaseRequestExecutor.executeWithAuthRetry(context: "fetch_workout_history") {
                 try await supabase
                     .rpc("get_workout_history", params: ["p_days": String(days)])
@@ -343,10 +383,46 @@ final class MetricsService: ObservableObject {
                     .value
             }
         }
+        do {
+            let history = try await fetchHistory()
+            guard let cacheUserId, await activeSessionMatches(userId: cacheUserId) else {
+                return []
+            }
+            if let cacheKey {
+                OfflineCacheService.save(history, key: cacheKey)
+            }
+            return history
+        } catch {
+            guard let cacheKey,
+                  let cacheUserId,
+                  await activeSessionMatches(userId: cacheUserId) else {
+                return []
+            }
+            return OfflineCacheService.load([WorkoutHistoryPoint].self, key: cacheKey) ?? []
+        }
         #else
         return []
         #endif
     }
+
+    #if canImport(Supabase)
+    private func currentCacheUserId() async -> String? {
+        if let session = try? await supabase.auth.session {
+            return session.user.id.uuidString
+        }
+        if let userId = AuthService.shared.currentUser?.id, !userId.isEmpty {
+            return userId
+        }
+        return nil
+    }
+
+    private func activeSessionMatches(userId: String) async -> Bool {
+        guard let session = try? await supabase.auth.session else { return false }
+        return session.user.id.uuidString
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .caseInsensitiveCompare(userId.trimmingCharacters(in: .whitespacesAndNewlines)) == .orderedSame
+    }
+    #endif
 
     // MARK: - Sync Tracking (UserDefaults)
 
