@@ -542,7 +542,10 @@ final class ChallengeService: ObservableObject {
             }
             return entries
         } catch {
-            if let cacheKey, let cached = OfflineCacheService.load([LeaderboardEntry].self, key: cacheKey) {
+            if let cacheKey,
+               let cacheUserId,
+               await activeSessionMatches(userId: cacheUserId),
+               let cached = OfflineCacheService.load([LeaderboardEntry].self, key: cacheKey) {
                 leaderboardEntries[challengeId] = cached
                 return cached
             }
