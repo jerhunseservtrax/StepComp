@@ -597,6 +597,7 @@ final class ChallengeService: ObservableObject {
     
     #if canImport(Supabase)
     private func getDailyLeaderboardFromSupabase(challengeId: String) async -> [LeaderboardEntry] {
+        let cacheUserId = await currentCacheUserId()
         do {
             let serverEntries: [ServerLeaderboardEntry] = try await SupabaseRequestExecutor.executeWithAuthRetry(context: "get_daily_leaderboard") {
                 try await supabase
@@ -607,6 +608,9 @@ final class ChallengeService: ObservableObject {
             
             // Convert to client model
             let entries = serverEntries.map { $0.toLeaderboardEntry(challengeId: challengeId) }
+            guard let cacheUserId, await activeSessionMatches(userId: cacheUserId) else {
+                return []
+            }
             
             print("✅ Loaded \(entries.count) daily leaderboard entries from RPC")
             return entries
@@ -618,6 +622,7 @@ final class ChallengeService: ObservableObject {
     }
     
     private func getWeeklyLeaderboardFromSupabase(challengeId: String) async -> [LeaderboardEntry] {
+        let cacheUserId = await currentCacheUserId()
         do {
             let calendar = Calendar.current
             let now = Date()
@@ -675,6 +680,10 @@ final class ChallengeService: ObservableObject {
                     lastUpdated: Date()
                 )
                 entries.append(entry)
+            }
+
+            guard let cacheUserId, await activeSessionMatches(userId: cacheUserId) else {
+                return []
             }
             
             return entries
