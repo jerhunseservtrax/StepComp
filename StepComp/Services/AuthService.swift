@@ -876,6 +876,11 @@ final class AuthService: ObservableObject {
                 totalSteps: profile.totalSteps ?? 0,
                 totalChallenges: 0
             )
+
+            guard await activeSessionMatches(userId: userId) else {
+                print("ℹ️ Ignoring stale profile load for non-current session")
+                return
+            }
             
             currentUser = user
             isAuthenticated = true
@@ -903,6 +908,11 @@ final class AuthService: ObservableObject {
                 return
             }
             print("⚠️ Error loading user profile: \(error.localizedDescription)")
+
+            guard await activeSessionMatches(userId: userId) else {
+                print("ℹ️ Ignoring profile fallback for non-current session")
+                return
+            }
             
             // If we can't load from database, try to use locally cached user
             // This handles offline scenarios
@@ -976,6 +986,15 @@ final class AuthService: ObservableObject {
     private func userIdsMatch(_ lhs: String, _ rhs: String) -> Bool {
         lhs.trimmingCharacters(in: .whitespacesAndNewlines)
             .caseInsensitiveCompare(rhs.trimmingCharacters(in: .whitespacesAndNewlines)) == .orderedSame
+    }
+
+    private func activeSessionMatches(userId: String) async -> Bool {
+        do {
+            let session = try await supabase.auth.session
+            return userIdsMatch(session.user.id.uuidString, userId)
+        } catch {
+            return false
+        }
     }
     
     private func updateUserProfile(user: User) async {
