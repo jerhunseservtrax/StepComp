@@ -362,12 +362,9 @@ final class ChallengeChatViewModel: ObservableObject {
 
     #if canImport(Supabase)
     private func fetchLatestMessages(limit: Int) async throws -> [ChallengeMessage] {
-        let response: [ServerChallengeMessage] = try await supabase
+        let response: [ChallengeMessageRow] = try await supabase
             .from("challenge_messages")
-            .select("""
-                *,
-                profiles(username, display_name, avatar_url)
-            """)
+            .select("id,challenge_id,user_id,content,message_type,created_at,edited_at,is_deleted")
             .eq("challenge_id", value: challengeId)
             .eq("is_deleted", value: false)
             .order("created_at", ascending: false)
@@ -375,19 +372,15 @@ final class ChallengeChatViewModel: ObservableObject {
             .execute()
             .value
 
-        return response
-            .map { $0.toChallengeMessage() }
+        return try await hydrateMessages(response)
             .sorted { $0.createdAt < $1.createdAt }
     }
 
     private func fetchMessages(before: Date, limit: Int) async throws -> [ChallengeMessage] {
         let iso = ISO8601DateFormatter().string(from: before)
-        let response: [ServerChallengeMessage] = try await supabase
+        let response: [ChallengeMessageRow] = try await supabase
             .from("challenge_messages")
-            .select("""
-                *,
-                profiles(username, display_name, avatar_url)
-            """)
+            .select("id,challenge_id,user_id,content,message_type,created_at,edited_at,is_deleted")
             .eq("challenge_id", value: challengeId)
             .eq("is_deleted", value: false)
             .lt("created_at", value: iso)
@@ -396,9 +389,30 @@ final class ChallengeChatViewModel: ObservableObject {
             .execute()
             .value
 
-        return response
-            .map { $0.toChallengeMessage() }
+        return try await hydrateMessages(response)
             .sorted { $0.createdAt < $1.createdAt }
+    }
+
+    private func hydrateMessages(_ rows: [ChallengeMessageRow]) async throws -> [ChallengeMessage] {
+        let userIds = Array(Set(rows.map(\.userId)))
+        guard !userIds.isEmpty else { return [] }
+
+        do {
+            let profiles: [ChallengeMessageProfileRow] = try await supabase
+                .from("profiles")
+                .select("id,username,display_name,avatar_url")
+                .in("id", values: userIds)
+                .execute()
+                .value
+
+            return ChallengeMessageHydrator.hydrate(rows: rows, profiles: profiles)
+        } catch {
+            try Task.checkCancellation()
+            #if DEBUG
+            print("⚠️ Loading chat profiles failed; displaying messages without sender details: \(error.localizedDescription)")
+            #endif
+            return ChallengeMessageHydrator.hydrate(rows: rows, profiles: [])
+        }
     }
     #endif
 }

@@ -1,7 +1,7 @@
 # FitComp Feature Tracker
 
 > Comprehensive catalog of all features in the FitComp fitness competition app (formerly StepComp).
-> Last updated: 2026-04-13 (v5)
+> Last updated: 2026-07-20 (v6)
 
 ---
 
@@ -194,6 +194,7 @@
 | Feature | File(s) | Description |
 |---------|---------|-------------|
 | Challenge Chat | `ChallengeChatView.swift`, `ChallengeChatViewModel.swift` | Real-time group messaging via Supabase postgresChange streams with polling fallback |
+| Schema-Compatible Chat Profiles | `ChallengeChatViewModel.swift`, `ChallengeMessage.swift` | Loads messages independently of profile enrichment, then hydrates sender details without requiring a PostgREST embedded relationship |
 | Chat List | `ChatListView.swift`, `ChatListViewModel.swift` | Overview of all chat conversations |
 | Message Actions | `ChallengeChatViewModel.swift` | Send, delete, auto-scroll |
 

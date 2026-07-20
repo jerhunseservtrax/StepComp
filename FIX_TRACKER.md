@@ -1,7 +1,7 @@
 # FitComp Fix Tracker
 
 > Log of all bugs encountered and fixes implemented to prevent recurrence.
-> Last updated: 2026-04-13 (v6)
+> Last updated: 2026-07-20 (v7)
 
 ---
 
@@ -349,6 +349,14 @@
 - **Symptom:** ERROR 42725 — multiple overloads causing ambiguity.
 - **Fix:** Drop all existing overloads before creating new function.
 - **Prevention:** Always drop existing DB functions before recreating to avoid overload ambiguity.
+
+### 62. Challenge Chat Failed to Load Against Deployed Schema
+- **Status:** Fixed
+- **Symptom:** Opening any challenge chat showed an empty thread and a PostgREST `PGRST200` relationship error.
+- **Root Cause:** The paginated chat loader required an embedded `challenge_messages → profiles` relationship, but the deployed database has no direct foreign key between those tables. The prior degraded loader had been removed during the pagination refactor.
+- **Fix:** Fetch message rows directly, fetch sender profiles separately, and hydrate display details in memory. Profile lookup failures now degrade to an `Unknown` sender instead of hiding message content.
+- **Files:** `ChallengeChatViewModel.swift`, `ChallengeMessage.swift`
+- **Prevention:** Do not rely on PostgREST resource embedding unless the deployed schema has a direct relationship; keep nonessential profile enrichment from blocking message delivery.
 
 ---
 
