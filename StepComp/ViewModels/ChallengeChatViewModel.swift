@@ -372,7 +372,7 @@ final class ChallengeChatViewModel: ObservableObject {
             .execute()
             .value
 
-        return await hydrateMessages(response)
+        return try await hydrateMessages(response)
             .sorted { $0.createdAt < $1.createdAt }
     }
 
@@ -389,11 +389,11 @@ final class ChallengeChatViewModel: ObservableObject {
             .execute()
             .value
 
-        return await hydrateMessages(response)
+        return try await hydrateMessages(response)
             .sorted { $0.createdAt < $1.createdAt }
     }
 
-    private func hydrateMessages(_ rows: [ChallengeMessageRow]) async -> [ChallengeMessage] {
+    private func hydrateMessages(_ rows: [ChallengeMessageRow]) async throws -> [ChallengeMessage] {
         let userIds = Array(Set(rows.map(\.userId)))
         guard !userIds.isEmpty else { return [] }
 
@@ -407,6 +407,7 @@ final class ChallengeChatViewModel: ObservableObject {
 
             return ChallengeMessageHydrator.hydrate(rows: rows, profiles: profiles)
         } catch {
+            try Task.checkCancellation()
             #if DEBUG
             print("⚠️ Loading chat profiles failed; displaying messages without sender details: \(error.localizedDescription)")
             #endif
