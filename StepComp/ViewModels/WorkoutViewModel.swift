@@ -163,7 +163,8 @@ class WorkoutViewModel: ObservableObject {
                     reps: lastSet?.reps,     // Auto-populate with last reps
                     isCompleted: false,
                     suggestedWeight: suggestedWeight,
-                    suggestedReps: suggestedReps
+                    suggestedReps: suggestedReps,
+                    weightInputMode: lastSet?.weightInputMode ?? set.weightInputMode
                 )
             }
             
@@ -483,7 +484,8 @@ class WorkoutViewModel: ObservableObject {
                 previousWeight: lastSet?.previousWeight,
                 previousReps: lastSet?.previousReps,
                 suggestedWeight: suggestedWeight,
-                suggestedReps: suggestedReps
+                suggestedReps: suggestedReps,
+                weightInputMode: lastSet?.weightInputMode ?? .total
             )
             session.exercises[exerciseIndex].sets.append(newSet)
             currentSession = session
