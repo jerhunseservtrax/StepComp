@@ -6,23 +6,17 @@
 import XCTest
 @testable import StepComp
 
-@MainActor
 final class WorkoutWeightModeCarryForwardTests: XCTestCase {
-    private let viewModel = WorkoutViewModel.shared
-
-    override func setUp() {
-        super.setUp()
-        viewModel.cancelWorkout()
-        viewModel.completedSessions = []
-    }
-
-    override func tearDown() {
-        viewModel.cancelWorkout()
-        viewModel.completedSessions = []
-        super.tearDown()
-    }
-
+    @MainActor
     func testStartWorkoutPreservesHistoricalPerSideMode() {
+        let viewModel = WorkoutViewModel.shared
+        viewModel.cancelWorkout()
+        viewModel.completedSessions = []
+        defer {
+            viewModel.cancelWorkout()
+            viewModel.completedSessions = []
+        }
+
         let workoutId = UUID()
         let exercise = Exercise(name: "Dumbbell Bench Press", targetMuscles: "Chest")
         let historicalSet = WorkoutSet(
@@ -60,9 +54,15 @@ final class WorkoutWeightModeCarryForwardTests: XCTestCase {
         XCTAssertEqual(carriedSet?.weight, 30)
         XCTAssertEqual(carriedSet?.weightInputMode, .perSide)
         XCTAssertEqual(carriedSet?.effectiveWeightForVolume, 60)
+        XCTAssertEqual(carriedSet?.suggestedWeight, 30)
     }
 
+    @MainActor
     func testAddSetInheritsExerciseWeightInputMode() {
+        let viewModel = WorkoutViewModel.shared
+        viewModel.cancelWorkout()
+        defer { viewModel.cancelWorkout() }
+
         let exercise = Exercise(name: "Dumbbell Bench Press", targetMuscles: "Chest")
         let workoutExercise = WorkoutExercise(
             exercise: exercise,
@@ -72,6 +72,12 @@ final class WorkoutWeightModeCarryForwardTests: XCTestCase {
                     weight: 30,
                     reps: 8,
                     weightInputMode: .perSide
+                ),
+                WorkoutSet(
+                    setNumber: 2,
+                    weight: 60,
+                    reps: 8,
+                    weightInputMode: .total
                 )
             ]
         )
@@ -84,7 +90,7 @@ final class WorkoutWeightModeCarryForwardTests: XCTestCase {
         viewModel.addSet(exerciseId: workoutExercise.id)
 
         let addedSet = viewModel.currentSession?.exercises.first?.sets.last
-        XCTAssertEqual(addedSet?.setNumber, 2)
+        XCTAssertEqual(addedSet?.setNumber, 3)
         XCTAssertEqual(addedSet?.weightInputMode, .perSide)
     }
 }
