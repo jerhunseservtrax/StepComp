@@ -146,13 +146,19 @@ class WorkoutViewModel: ObservableObject {
                 if lastSet == nil {
                     lastSet = latestCompletedSetForExercise(exerciseName: workoutExercise.exercise.name)
                 }
-                
+
+                let weightInputMode = lastSet?.weightInputMode ?? set.weightInputMode
+
                 // Calculate progressive overload suggestions using smart engine
-                let (suggestedWeight, suggestedReps) = calculateProgressiveOverload(
+                let (suggestedCombinedWeight, suggestedReps) = calculateProgressiveOverload(
                     exerciseName: workoutExercise.exercise.name,
                     setNumber: set.setNumber,
-                    previousWeight: lastSet?.weight,
+                    previousCombinedWeight: lastSet?.effectiveWeightForVolume,
                     previousReps: lastSet?.reps
+                )
+                let suggestedWeight = inputWeight(
+                    fromCombinedWeight: suggestedCombinedWeight,
+                    mode: weightInputMode
                 )
                 
                 return WorkoutSet(
@@ -164,7 +170,7 @@ class WorkoutViewModel: ObservableObject {
                     isCompleted: false,
                     suggestedWeight: suggestedWeight,
                     suggestedReps: suggestedReps,
-                    weightInputMode: lastSet?.weightInputMode ?? set.weightInputMode
+                    weightInputMode: weightInputMode
                 )
             }
             
@@ -471,12 +477,22 @@ class WorkoutViewModel: ObservableObject {
             
             // Try to base suggestions on the last set in this exercise
             let lastSet = session.exercises[exerciseIndex].sets.last
+            let weightInputMode = session.exercises[exerciseIndex].sets.first?.weightInputMode ?? .total
             let exerciseName = session.exercises[exerciseIndex].exercise.name
-            let (suggestedWeight, suggestedReps) = calculateProgressiveOverload(
+            let previousWeight = lastSet?.weight ?? lastSet?.previousWeight
+            let previousCombinedWeight = combinedWeight(
+                fromInputWeight: previousWeight,
+                mode: lastSet?.weightInputMode ?? weightInputMode
+            )
+            let (suggestedCombinedWeight, suggestedReps) = calculateProgressiveOverload(
                 exerciseName: exerciseName,
                 setNumber: setNumber,
-                previousWeight: lastSet?.weight ?? lastSet?.previousWeight,
+                previousCombinedWeight: previousCombinedWeight,
                 previousReps: lastSet?.reps ?? lastSet?.previousReps
+            )
+            let suggestedWeight = inputWeight(
+                fromCombinedWeight: suggestedCombinedWeight,
+                mode: weightInputMode
             )
             
             let newSet = WorkoutSet(
@@ -485,7 +501,7 @@ class WorkoutViewModel: ObservableObject {
                 previousReps: lastSet?.previousReps,
                 suggestedWeight: suggestedWeight,
                 suggestedReps: suggestedReps,
-                weightInputMode: lastSet?.weightInputMode ?? .total
+                weightInputMode: weightInputMode
             )
             session.exercises[exerciseIndex].sets.append(newSet)
             currentSession = session
@@ -709,7 +725,7 @@ class WorkoutViewModel: ObservableObject {
     private func calculateProgressiveOverload(
         exerciseName: String,
         setNumber: Int,
-        previousWeight: Double?,
+        previousCombinedWeight: Double?,
         previousReps: Int?
     ) -> (suggestedWeight: Double?, suggestedReps: Int?) {
         let history = getExerciseHistory(exerciseName: exerciseName, setNumber: setNumber)
@@ -720,10 +736,26 @@ class WorkoutViewModel: ObservableObject {
 
         // Fallback to simple logic when no history
         let simple = analytics.progressiveOverloadSuggestion(
-            previousWeight: previousWeight,
+            previousWeight: previousCombinedWeight,
             previousReps: previousReps
         )
         return (simple.0, simple.1)
+    }
+
+    private func combinedWeight(
+        fromInputWeight weight: Double?,
+        mode: WorkoutSet.WeightInputMode
+    ) -> Double? {
+        guard let weight else { return nil }
+        return mode == .perSide ? weight * WorkoutSet.perSideCombinedMultiplier : weight
+    }
+
+    private func inputWeight(
+        fromCombinedWeight weight: Double?,
+        mode: WorkoutSet.WeightInputMode
+    ) -> Double? {
+        guard let weight else { return nil }
+        return mode == .perSide ? weight / WorkoutSet.perSideCombinedMultiplier : weight
     }
     
     /// Returns a smart rest timer duration based on the exertion of the just-completed set.

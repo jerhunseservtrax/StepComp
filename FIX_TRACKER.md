@@ -592,7 +592,7 @@
 - **Status:** Fixed
 - **Symptom:** Starting a workout from per-side history reset sets to total-weight mode, halving persisted volume; changing the visible selector back to per-side divided the carried weight again. Newly added sets also silently used total mode while the exercise selector still displayed per-side.
 - **Root Cause:** `startWorkout()` copied historical weight and reps without `weightInputMode`, and `addSet()` relied on the `.total` initializer default instead of inheriting the exercise's mode.
-- **Fix:** Carry the source set's explicit weight mode into replayed and newly added sets.
+- **Fix:** Carry the source set's explicit mode into replayed sets, use the exercise selector's mode for added sets, and convert combined-load progressive-overload suggestions back to the selected input representation.
 - **Files:** `WorkoutViewModel.swift`, `WorkoutWeightModeCarryForwardTests.swift`
 - **Prevention:** Whenever weight values are copied, copy the input semantics that determine how those values are interpreted.
 
