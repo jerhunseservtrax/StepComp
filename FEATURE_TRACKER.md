@@ -330,7 +330,7 @@
 | Automatic Metrics Sync | `RootView.swift` | One-shot metrics sync on foreground/auth changes with dedup flag |
 | Singleton Services | `HealthKitService.swift`, `ChallengeService.swift` | Shared singleton instances to prevent state desync |
 | Supabase Client | `SupabaseClient.swift` | Database client configuration |
-| Step Sync | `StepSyncService.swift` | Sync steps to server with fraud detection, RPC fallback |
+| Step Sync | `StepSyncService.swift` | Sync steps to server with fraud detection, RPC fallback; local `YYYY-MM-dd` day keys aligned with HealthKit |
 | Challenge Service | `ChallengeService.swift` | CRUD for challenges, invites, leaderboards |
 | Friends Service | `FriendsService.swift` | Friendship management, profile search |
 | Metrics Service | `MetricsService.swift` | Sync workouts, weight, nutrition to server |
