@@ -1,7 +1,7 @@
 # FitComp Fix Tracker
 
 > Log of all bugs encountered and fixes implemented to prevent recurrence.
-> Last updated: 2026-04-13 (v6)
+> Last updated: 2026-07-24 (v7)
 
 ---
 
@@ -26,6 +26,14 @@
 ---
 
 ## Critical Fixes
+
+### 0. Step Sync Local-Day Mis-Keying (UTC Timestamp)
+- **Commit:** (pending) `cursor/critical-bug-investigation-5939`
+- **Symptom:** After UTC midnight, users in Americas timezones had evening HealthKit steps written to the next UTC calendar day. The following local morning sync overwrote that row with the new day's lower morning count — challenge/leaderboard totals dropped or shifted days.
+- **Root Cause:** `StepSyncService.syncTodayStepsToProfile()` read steps with `Calendar.current` day boundaries but sent `ISO8601DateFormatter().string(from: Date())` (UTC) as `p_day`. Postgres `DATE` cast kept the UTC day, not the local day.
+- **Fix:** Format sync days as local `YYYY-MM-dd` via `StepSyncService.localDayString(for:)`. Relax `sync_daily_steps` future-day guard to `CURRENT_DATE + 1` for clients east of UTC. Add regression script + XCTest.
+- **Files:** `StepSyncService.swift`, `supabase/functions/sync-steps/index.ts`, `scripts/sql/FIX_SYNC_DAILY_STEPS_LOCAL_DAY_SKEW.sql`, `scripts/step_sync_local_day_regression_check.py`, `StepCompTests/StepSyncLocalDayTests.swift`
+- **Prevention:** Any day key paired with HealthKit local-day queries must use the device calendar date (`YYYY-MM-dd`), never a UTC ISO-8601 timestamp.
 
 ### 1. Workout State Data Loss After Long Sessions
 - **Commit:** `6b21b36`
@@ -621,6 +629,7 @@
 | Hardcoded unit display (miles, lbs) | Wrong values for metric users | Always use `UnitPreferenceManager` formatters |
 | Capping progress at 100% in display | Misleading achievement info | Cap the visual ring, not the number |
 | Only checking recurring workout days | One-time workouts invisible | Query both `assignedDays` and `oneTimeDate` |
+| UTC ISO-8601 timestamps as `p_day` for HealthKit sync | Steps land on wrong calendar day / get overwritten | Send local `YYYY-MM-dd` matching `Calendar.current` |
 
 ---
 
