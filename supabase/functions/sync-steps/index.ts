@@ -10,7 +10,9 @@ const RATE_LIMIT_PER_HOUR = 4
 const MAX_STEPS_PER_HOUR = 10000 // Reasonable max for validation
 
 interface SyncStepsRequest {
-  day?: string // ISO date string (YYYY-MM-DD)
+  // Local calendar day matching HealthKit day boundaries (YYYY-MM-DD).
+  // Do not send UTC ISO-8601 timestamps — Postgres DATE casts them to the UTC day.
+  day?: string
   steps: number
   device_id?: string
 }

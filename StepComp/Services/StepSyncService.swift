@@ -56,15 +56,20 @@ final class StepSyncService: ObservableObject {
         }
         
         do {
-            // Get today's steps from HealthKit
-            let todaySteps = try await healthKitService.getSteps(for: Date())
+            // Get today's steps from HealthKit (local calendar day boundaries)
+            let syncDate = Date()
+            let todaySteps = try await healthKitService.getSteps(for: syncDate)
+            // Must match HealthKit's local day — never UTC ISO-8601 timestamps.
+            // Postgres DATE casts UTC timestamps, which mis-keys evening syncs
+            // after UTC midnight and lets the next local morning overwrite them.
+            let day = Self.localDayString(for: syncDate)
             
-            print("🔄 Syncing \(todaySteps) steps to backend")
+            print("🔄 Syncing \(todaySteps) steps to backend for \(day)")
             
             // Call Edge Function (server validates and stores)
             try await syncStepsViaEdgeFunction(
                 steps: todaySteps,
-                day: ISO8601DateFormatter().string(from: Date())
+                day: day
             )
             
             print("✅ Successfully synced \(todaySteps) steps")
@@ -214,5 +219,16 @@ final class StepSyncService: ObservableObject {
     func syncAll(challengeService: ChallengeService) async {
         await syncTodayStepsToProfile()
         // Challenges are automatically updated by server
+    }
+
+    /// Calendar day key matching HealthKit local-day queries (`YYYY-MM-DD`).
+    /// Uses the provided calendar's time zone so sync rows align with on-device steps.
+    nonisolated static func localDayString(for date: Date, calendar: Calendar = .current) -> String {
+        let formatter = DateFormatter()
+        formatter.calendar = calendar
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = calendar.timeZone
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter.string(from: date)
     }
 }
