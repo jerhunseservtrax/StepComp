@@ -177,8 +177,10 @@ BEGIN
     -- Default to today if no day specified
     v_day := COALESCE(p_day, CURRENT_DATE);
     
-    -- Validate: can't sync future days
-    IF v_day > CURRENT_DATE THEN
+    -- Validate: can't sync far-future days.
+    -- Allow CURRENT_DATE + 1 so clients east of UTC can sync their local
+    -- calendar day while the database session is still on the previous UTC date.
+    IF v_day > CURRENT_DATE + 1 THEN
         RAISE EXCEPTION 'Cannot sync steps for future dates';
     END IF;
     
