@@ -920,6 +920,23 @@ class WorkoutViewModel: ObservableObject {
             UserDefaults.standard.set(encoded, forKey: "completed_workout_sessions")
         }
     }
+
+    /// Updates a completed session locally and re-syncs to Supabase.
+    /// Required because `MetricsService.syncAllLocalData()` skips IDs already marked synced,
+    /// so edits would otherwise leave server metrics permanently stale.
+    func updateCompletedSession(_ session: CompletedWorkoutSession) {
+        guard let index = completedSessions.firstIndex(where: { $0.id == session.id }) else {
+            return
+        }
+
+        completedSessions[index] = session
+        saveCompletedSessions()
+
+        let sessionToSync = session
+        Task.detached(priority: .utility) {
+            await MetricsService.shared.syncWorkoutSession(sessionToSync)
+        }
+    }
     
     private func loadCompletedSessions() {
         if let data = UserDefaults.standard.data(forKey: "completed_workout_sessions"),
