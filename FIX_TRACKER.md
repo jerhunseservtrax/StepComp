@@ -1,7 +1,7 @@
 # FitComp Fix Tracker
 
 > Log of all bugs encountered and fixes implemented to prevent recurrence.
-> Last updated: 2026-04-13 (v6)
+> Last updated: 2026-07-25 (v7)
 
 ---
 
@@ -272,6 +272,14 @@
 ---
 
 ## Data Integrity
+
+### 27b. Edited Completed Workout Never Re-Syncs to Metrics
+- **Date:** 2026-07-25
+- **Symptom:** After finishing a workout (synced to Supabase), editing sets/reps/weights updated local history only. Metrics page, workout history RPCs, and volume totals kept the original values forever.
+- **Root Cause:** `EditCompletedSessionView.saveChanges()` wrote to `completedSessions` + UserDefaults but never called `MetricsService.syncWorkoutSession`. Bulk catch-up (`syncAllLocalData`) skips IDs already in `metrics_synced_session_ids`, so edits were never uploaded.
+- **Fix:** Added `WorkoutViewModel.updateCompletedSession(_:)` which persists locally and re-syncs. Edit save path now uses that helper. `sync_workout_session` already upserts on `(user_id, started_at)` and replaces sets, so re-sync is idempotent.
+- **Files:** `WorkoutViewModel.swift`, `EditCompletedSessionView.swift`, `scripts/edited_workout_resync_regression_check.py`, `StepCompTests/EditedWorkoutResyncTests.swift`
+- **Prevention:** Any mutation of already-synced completed sessions must explicitly re-sync; do not rely on bulk catch-up for edits.
 
 ### 28. Rest Timer Drifts in Background
 - **Documented in:** `.cursor/rules/bug-fixes.md`

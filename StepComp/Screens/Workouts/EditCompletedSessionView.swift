@@ -82,22 +82,17 @@ struct EditCompletedSessionView: View {
     }
     
     private func saveChanges() {
-        // Find the session in the completed sessions array and update it
-        if let index = viewModel.completedSessions.firstIndex(where: { $0.id == session.id }) {
-            // Create a new session with updated exercises
-            let updatedSession = CompletedWorkoutSession(
-                id: session.id,
-                workoutId: session.workoutId,
-                workoutName: session.workoutName,
-                startTime: session.startTime,
-                endTime: session.endTime,
-                exercises: editedExercises
-            )
-            viewModel.completedSessions[index] = updatedSession
-            
-            // Save to persistence
-            viewModel.saveCompletedSessions()
-        }
+        let updatedSession = CompletedWorkoutSession(
+            id: session.id,
+            workoutId: session.workoutId,
+            workoutName: session.workoutName,
+            startTime: session.startTime,
+            endTime: session.endTime,
+            exercises: editedExercises
+        )
+        // Persist locally and re-sync so Metrics/history RPCs reflect the edit.
+        // Bulk catch-up skips already-synced IDs, so a local-only save is not enough.
+        viewModel.updateCompletedSession(updatedSession)
     }
 }
 
