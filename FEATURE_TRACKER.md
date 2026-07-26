@@ -1,7 +1,7 @@
 # FitComp Feature Tracker
 
 > Comprehensive catalog of all features in the FitComp fitness competition app (formerly StepComp).
-> Last updated: 2026-04-13 (v5)
+> Last updated: 2026-07-26 (v6)
 
 ---
 
@@ -201,11 +201,12 @@
 
 | Feature | File(s) | Description |
 |---------|---------|-------------|
-| Daily Leaderboard | `LeaderboardView.swift`, `LeaderboardViewModel.swift` | Today's step rankings |
-| All-Time Leaderboard | `LeaderboardView.swift` | Cumulative step rankings |
+| Daily Leaderboard | `LeaderboardView.swift`, `LeaderboardViewModel.swift`, `ChallengeService.swift` | Today's step rankings via `get_challenge_leaderboard_today` with local `p_day` |
+| Weekly Leaderboard | `LeaderboardView.swift`, `ChallengeService.swift` | Rolling 7-day rankings via `get_challenge_leaderboard_week` over `daily_steps` |
+| All-Time Leaderboard | `LeaderboardView.swift` | Cumulative step rankings via `get_challenge_leaderboard` |
 | Podium Display | `LeaderboardView.swift` | 1st/2nd/3rd place highlights |
 | Leaderboard Row | `LeaderboardRow.swift` | Individual rank display |
-| Scope Toggle | `LeaderboardScope.swift` | Daily vs. All-Time switch |
+| Scope Toggle | `LeaderboardScope.swift` | Daily / Week / Overall switch |
 
 ### Inbox
 
