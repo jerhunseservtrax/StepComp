@@ -1,7 +1,7 @@
 # FitComp Fix Tracker
 
 > Log of all bugs encountered and fixes implemented to prevent recurrence.
-> Last updated: 2026-04-13 (v6)
+> Last updated: 2026-07-26 (v7)
 
 ---
 
@@ -331,6 +331,15 @@
 - **Symptom:** Step sync failed with 404.
 - **Fix:** Added RPC fallback when Edge Function is unavailable.
 - **Files:** `StepSyncService.swift`
+
+### 35b. Weekly Leaderboard Always Zero After Security Overhaul V2 (2026-07-26)
+- **Symptom:** Challenge Leaderboard → Week showed 0 steps for every member even when Daily/Overall had correct totals.
+- **Root Cause:** V2 `sync_daily_steps` stopped writing `challenge_members.daily_steps` JSONB, but `getWeeklyLeaderboardFromSupabase` still selected that abandoned map and summed it client-side. Daily/all-time already used `daily_steps` RPCs.
+- **Related:** `get_challenge_leaderboard_today` joined `ds.day = CURRENT_DATE` (UTC), so local-day step keys missed the Daily tab near timezone boundaries.
+- **Fix:** Added `get_challenge_leaderboard_week(p_challenge_id, p_start_date, p_end_date)` over `public.daily_steps`; updated the Week tab to call it with local dates; extended today RPC with optional local `p_day`.
+- **Files:** `ChallengeService.swift`, `scripts/sql/FIX_WEEKLY_LEADERBOARD_FROM_DAILY_STEPS.sql`, `scripts/weekly_leaderboard_regression_check.py`
+- **Deploy:** Run `scripts/sql/FIX_WEEKLY_LEADERBOARD_FROM_DAILY_STEPS.sql` in Supabase SQL Editor after V2.
+- **Prevention:** Any leaderboard scope must read `public.daily_steps` (via SECURITY DEFINER RPC), never `challenge_members` denormalized step columns.
 
 ---
 

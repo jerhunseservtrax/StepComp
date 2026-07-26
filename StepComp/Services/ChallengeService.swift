@@ -564,9 +564,13 @@ final class ChallengeService: ObservableObject {
     #if canImport(Supabase)
     private func getDailyLeaderboardFromSupabase(challengeId: String) async -> [LeaderboardEntry] {
         do {
+            let localDay = Self.localDayString(for: Date())
             let serverEntries: [ServerLeaderboardEntry] = try await SupabaseRequestExecutor.executeWithAuthRetry(context: "get_daily_leaderboard") {
                 try await supabase
-                    .rpc("get_challenge_leaderboard_today", params: ["p_challenge_id": challengeId])
+                    .rpc("get_challenge_leaderboard_today", params: [
+                        "p_challenge_id": challengeId,
+                        "p_day": localDay
+                    ])
                     .execute()
                     .value
             }
@@ -587,67 +591,41 @@ final class ChallengeService: ObservableObject {
         do {
             let calendar = Calendar.current
             let now = Date()
-            let weekAgo = calendar.date(byAdding: .day, value: -7, to: now) ?? now
-            let dateFormatter = DateFormatter()
-            dateFormatter.dateFormat = "yyyy-MM-dd"
-            
-            // Get all members for this challenge
-            let members: [ChallengeMember] = try await supabase
-                .from("challenge_members")
-                .select()
-                .eq("challenge_id", value: challengeId)
-                .execute()
-                .value
-            
-            // Calculate weekly steps from daily_steps JSONB
-            var weeklyEntries: [(userId: String, steps: Int)] = []
-            
-            for member in members {
-                var weeklySteps = 0
-                var currentDate = weekAgo
-                while currentDate <= now {
-                    let dateString = dateFormatter.string(from: currentDate)
-                    weeklySteps += member.dailySteps[dateString] ?? 0
-                    currentDate = calendar.date(byAdding: .day, value: 1, to: currentDate) ?? currentDate
-                }
-                weeklyEntries.append((userId: member.userId, steps: weeklySteps))
+            let weekAgo = calendar.date(byAdding: .day, value: -6, to: calendar.startOfDay(for: now)) ?? now
+            let startDate = Self.localDayString(for: weekAgo)
+            let endDate = Self.localDayString(for: now)
+
+            // Aggregate from public.daily_steps via SECURITY DEFINER RPC.
+            // Do NOT read challenge_members.daily_steps JSONB — V2 sync no longer updates it.
+            let serverEntries: [ServerLeaderboardEntry] = try await SupabaseRequestExecutor.executeWithAuthRetry(context: "get_weekly_leaderboard") {
+                try await supabase
+                    .rpc("get_challenge_leaderboard_week", params: [
+                        "p_challenge_id": challengeId,
+                        "p_start_date": startDate,
+                        "p_end_date": endDate
+                    ])
+                    .execute()
+                    .value
             }
-            
-            // Sort by steps descending
-            weeklyEntries.sort { $0.steps > $1.steps }
-            
-            // Get user profiles
-            let userIds = weeklyEntries.map { $0.userId }
-            let profiles: [UserProfile] = try await supabase
-                .from("profiles")
-                .select()
-                .in("id", values: userIds)
-                .execute()
-                .value
-            
-            // Create leaderboard entries
-            var entries: [LeaderboardEntry] = []
-            for (index, weeklyEntry) in weeklyEntries.enumerated() {
-                let profile = profiles.first { $0.id == weeklyEntry.userId }
-                let entry = LeaderboardEntry(
-                    id: UUID().uuidString,
-                    userId: weeklyEntry.userId,
-                    challengeId: challengeId,
-                    username: profile?.username ?? "",
-                    displayName: profile?.displayName ?? profile?.username ?? "User",
-                    avatarURL: profile?.avatarUrl ?? profile?.avatar,
-                    steps: weeklyEntry.steps,
-                    rank: index + 1,
-                    lastUpdated: Date()
-                )
-                entries.append(entry)
-            }
-            
+
+            let entries = serverEntries.map { $0.toLeaderboardEntry(challengeId: challengeId) }
+            print("✅ Loaded \(entries.count) weekly leaderboard entries from RPC")
             return entries
         } catch {
             print("⚠️ Error loading weekly leaderboard: \(error.localizedDescription)")
-            return []
+            // Fallback to all-time leaderboard (better than empty / all zeros)
+            return await getLeaderboardFromSupabase(challengeId: challengeId)
         }
+    }
+
+    /// Local calendar day key matching HealthKit / step-sync day boundaries.
+    private static func localDayString(for date: Date, calendar: Calendar = .current) -> String {
+        let formatter = DateFormatter()
+        formatter.calendar = calendar
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = calendar.timeZone
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter.string(from: date)
     }
     #endif
     
@@ -894,13 +872,13 @@ final class ChallengeService: ObservableObject {
     
     func syncStepsToChallenge(challengeId: String, userId: String, steps: Int, date: Date = Date()) async throws {
         // ⚠️ DEPRECATED: Steps are now synced automatically via Edge Function
-        // The sync_daily_steps() RPC automatically updates challenge_members
+        // V2 sync_daily_steps() writes public.daily_steps only (no challenge_members denorm)
         print("ℹ️ syncStepsToChallenge is deprecated - steps are synced via Edge Function")
     }
     
     func syncTodayStepsToAllChallenges(healthKitService: HealthKitService) async {
         // ⚠️ DEPRECATED: Steps are now synced automatically via Edge Function
-        // The sync_daily_steps() RPC automatically updates all challenge_members
+        // V2 sync_daily_steps() writes public.daily_steps; leaderboards read via RPCs
         print("ℹ️ syncTodayStepsToAllChallenges is deprecated - steps are synced via Edge Function")
     }
 }
