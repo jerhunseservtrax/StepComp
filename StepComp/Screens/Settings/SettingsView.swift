@@ -22,6 +22,8 @@ struct SettingsView: View {
     @State private var showingDeleteAccountAlert = false
     @State private var showingDeleteAccountConfirmation = false
     @State private var deleteAccountConfirmationText = ""
+    @State private var showingDeleteAccountError = false
+    @State private var deleteAccountErrorMessage = ""
     @State private var isDeletingAccount = false
     @State private var healthKitEnabled = true
     @State private var appleWatchSetup = false
@@ -57,6 +59,8 @@ struct SettingsView: View {
                 showingDeleteAccountAlert: $showingDeleteAccountAlert,
                 showingDeleteAccountConfirmation: $showingDeleteAccountConfirmation,
                 deleteAccountConfirmationText: $deleteAccountConfirmationText,
+                showingDeleteAccountError: $showingDeleteAccountError,
+                deleteAccountErrorMessage: $deleteAccountErrorMessage,
                 isDeletingAccount: isDeletingAccount,
                 onSignOut: {
                     Task {
@@ -67,7 +71,11 @@ struct SettingsView: View {
                 onDeleteAccount: {
                     Task {
                         await deleteAccount()
-                        showingDeleteAccountConfirmation = false
+                        // Keep confirmation sheet open on failure so the user can retry
+                        if !showingDeleteAccountError {
+                            showingDeleteAccountConfirmation = false
+                            deleteAccountConfirmationText = ""
+                        }
                     }
                 }
             ))
@@ -357,6 +365,10 @@ struct SettingsView: View {
     private func deleteAccount() async {
         guard let userId = sessionViewModel.currentUser?.id else {
             print("⚠️ Cannot delete account: No user ID found")
+            await MainActor.run {
+                deleteAccountErrorMessage = "Unable to delete account because no signed-in user was found. Sign in again and retry."
+                showingDeleteAccountError = true
+            }
             return
         }
         
@@ -366,16 +378,8 @@ struct SettingsView: View {
         do {
             print("🗑️ Starting account deletion for user: \(userId)")
             
-            // Call the delete_user_account RPC function
-            // This will cascade delete all related data:
-            // - friendships (both directions)
-            // - challenge_members (removes from all challenges)
-            // - daily_steps
-            // - challenge_messages
-            // - challenge_invites
-            // - inbox_notifications
-            // - profiles
-            // - auth.users (final deletion)
+            // Requires deployed public.delete_user_account() matching live schema
+            // (see scripts/sql/FIX_DELETE_USER_ACCOUNT_LIVE_SCHEMA.sql).
             try await supabase
                 .rpc("delete_user_account")
                 .execute()
@@ -392,8 +396,12 @@ struct SettingsView: View {
         } catch {
             print("❌ Error deleting account: \(error.localizedDescription)")
             await MainActor.run {
-                // Show error alert
-                // TODO: Add error handling UI
+                deleteAccountErrorMessage = """
+                Account deletion failed: \(error.localizedDescription)
+
+                If this keeps happening, the delete_user_account database function may be missing or out of date. Deploy scripts/sql/FIX_DELETE_USER_ACCOUNT_LIVE_SCHEMA.sql and try again.
+                """
+                showingDeleteAccountError = true
             }
         }
     }

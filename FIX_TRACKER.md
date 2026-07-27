@@ -1,7 +1,7 @@
 # FitComp Fix Tracker
 
 > Log of all bugs encountered and fixes implemented to prevent recurrence.
-> Last updated: 2026-04-13 (v6)
+> Last updated: 2026-07-27 (v7)
 
 ---
 
@@ -26,6 +26,17 @@
 ---
 
 ## Critical Fixes
+
+### 0. Account Deletion RPC Missing / Schema-Stale (2026-07-27)
+- **Symptom:** Settings → Delete Account always failed. Live PostgREST returned `PGRST202` (`public.delete_user_account` not in schema cache). Failures were also swallowed by a TODO in Settings UI, so users got no actionable feedback. Privacy/GDPR account deletion was non-functional.
+- **Root Cause:** The RPC was never deployed to production. The checked-in `DELETE_ACCOUNT_FUNCTION.sql` also targeted a pre-friends-migration schema (`friendships.user_id` / `friend_id`), omitted owned-challenge cleanup, and only cleared `inbox_notifications` while the app uses `notifications`.
+- **Concrete trigger:** Authenticated user opens Settings → Account → Delete Account → types DELETE → confirm. Client calls `.rpc("delete_user_account")` → 404/PGRST202.
+- **Fix:** Added `scripts/sql/FIX_DELETE_USER_ACCOUNT_LIVE_SCHEMA.sql` (and synced canonical `DELETE_ACCOUNT_FUNCTION.sql`) using live columns (`requester_id`/`addressee_id`), deleting owned challenges, notifications, workouts/weight logs, and optional metrics tables defensively via `to_regclass`. Settings now surfaces an "Account Deletion Failed" alert. Added `scripts/delete_account_rpc_regression_check.py`.
+- **Deploy:** Run `FIX_DELETE_USER_ACCOUNT_LIVE_SCHEMA.sql` in the Supabase SQL Editor.
+- **Files:** `scripts/sql/FIX_DELETE_USER_ACCOUNT_LIVE_SCHEMA.sql`, `scripts/sql/DELETE_ACCOUNT_FUNCTION.sql`, `SettingsView.swift`, `SettingsViewModifiers.swift`, `scripts/delete_account_rpc_regression_check.py`
+- **Prevention:** After friends/schema migrations, re-validate SECURITY DEFINER cleanup RPCs against live OpenAPI/column probes; never leave destructive Settings actions with silent TODO catch blocks.
+
+---
 
 ### 1. Workout State Data Loss After Long Sessions
 - **Commit:** `6b21b36`

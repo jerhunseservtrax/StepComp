@@ -44,6 +44,8 @@ struct SettingsAlertsModifiers: ViewModifier {
     @Binding var showingDeleteAccountAlert: Bool
     @Binding var showingDeleteAccountConfirmation: Bool
     @Binding var deleteAccountConfirmationText: String
+    @Binding var showingDeleteAccountError: Bool
+    @Binding var deleteAccountErrorMessage: String
     let isDeletingAccount: Bool
     let onSignOut: () -> Void
     let onDeleteAccount: () -> Void
@@ -65,6 +67,11 @@ struct SettingsAlertsModifiers: ViewModifier {
                 }
             } message: {
                 Text("This action cannot be undone. Your account, friendships, challenge memberships, and all data will be permanently deleted.")
+            }
+            .alert("Account Deletion Failed", isPresented: $showingDeleteAccountError) {
+                Button("OK", role: .cancel) { }
+            } message: {
+                Text(deleteAccountErrorMessage)
             }
             .sheet(isPresented: $showingDeleteAccountConfirmation) {
                 DeleteAccountConfirmationView(
