@@ -1,7 +1,7 @@
 # FitComp Feature Tracker
 
 > Comprehensive catalog of all features in the FitComp fitness competition app (formerly StepComp).
-> Last updated: 2026-04-13 (v5)
+> Last updated: 2026-07-27 (v6)
 
 ---
 
@@ -267,7 +267,7 @@
 | HealthKit Toggle | `SettingsConnectivityCard.swift` | Enable/disable HealthKit integration |
 | Notification Prefs | `SettingsNotificationsCard.swift` | Daily recap, leaderboard alerts, motivational nudges |
 | Sign Out | `SettingsView.swift`, `SettingsMainContent.swift`, `SessionViewModel.swift` | Logout with proper cleanup |
-| Delete Account | `DeleteAccountConfirmationView.swift`, `SettingsView.swift`, `SettingsViewModifiers.swift` | Account deletion with confirmation |
+| Delete Account | `DeleteAccountConfirmationView.swift`, `SettingsView.swift`, `SettingsViewModifiers.swift`, `scripts/sql/FIX_DELETE_USER_ACCOUNT_LIVE_SCHEMA.sql` | Account deletion with confirmation; calls `delete_user_account` RPC (live-schema cleanup) and surfaces failure alerts |
 | Streak Display | `SettingsView.swift`, `SettingsLayoutViews.swift` | Current step streak (30-day lookback) |
 
 ### Feedback System

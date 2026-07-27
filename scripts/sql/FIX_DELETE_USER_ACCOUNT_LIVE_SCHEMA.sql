@@ -1,9 +1,16 @@
 -- ============================================================================
--- DELETE ACCOUNT FUNCTION (live schema)
+-- FIX: delete_user_account for live schema
 -- ============================================================================
--- Canonical definition of public.delete_user_account().
--- For already-deployed projects, run FIX_DELETE_USER_ACCOUNT_LIVE_SCHEMA.sql
--- (same body) in the Supabase SQL Editor.
+-- Production bug (2026-07-27):
+--   Settings → Delete Account calls public.delete_user_account, but that RPC is
+--   missing from the deployed schema cache (PostgREST PGRST202). The checked-in
+--   DELETE_ACCOUNT_FUNCTION.sql is also schema-stale and would fail even if
+--   deployed:
+--     * friendships uses requester_id/addressee_id (not user_id/friend_id)
+--     * app inbox uses notifications (inbox_notifications alone is incomplete)
+--     * owned challenges / metrics tables were not cleaned up
+--
+-- Deploy: run this script in the Supabase SQL Editor after review.
 -- ============================================================================
 
 CREATE OR REPLACE FUNCTION public.delete_user_account()
