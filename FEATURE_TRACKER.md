@@ -1,7 +1,7 @@
 # FitComp Feature Tracker
 
 > Comprehensive catalog of all features in the FitComp fitness competition app (formerly StepComp).
-> Last updated: 2026-04-13 (v5)
+> Last updated: 2026-07-28 (v6)
 
 ---
 
@@ -160,6 +160,7 @@
 | Discover Tab | `DiscoverChallengesTab.swift` | Browse/search public challenges |
 | Archived Tab | `ArchivedChallengesTab.swift` | Historical completed challenges |
 | Join Challenge | `JoinChallengeView.swift`, `JoinChallengeViewModel.swift` | Join via code or discover |
+| Private Join Authorization | `ChallengeService.swift`, `FIX_PRIVATE_CHALLENGE_MEMBERSHIP_AND_LEADERBOARD_IDOR.sql` | Direct joins limited to public/creator-self; private joins via pending invite / `accept_challenge_invite`; leaderboard RPCs gated to member/creator/public |
 | Group Preview | `GroupPreviewCard.swift` | Challenge preview before joining |
 | Challenge Summary | `ChallengeSummaryView.swift` | Challenge details and stats |
 | Challenge Celebration | `ChallengeCelebrationView.swift` | Completion celebration screen |
@@ -202,7 +203,7 @@
 | Feature | File(s) | Description |
 |---------|---------|-------------|
 | Daily Leaderboard | `LeaderboardView.swift`, `LeaderboardViewModel.swift` | Today's step rankings |
-| All-Time Leaderboard | `LeaderboardView.swift` | Cumulative step rankings |
+| All-Time Leaderboard | `LeaderboardView.swift`, `get_challenge_leaderboard` RPC | Cumulative step rankings; server rejects non-member private access |
 | Podium Display | `LeaderboardView.swift` | 1st/2nd/3rd place highlights |
 | Leaderboard Row | `LeaderboardRow.swift` | Individual rank display |
 | Scope Toggle | `LeaderboardScope.swift` | Daily vs. All-Time switch |

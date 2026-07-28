@@ -563,17 +563,30 @@ CREATE POLICY "View members of challenges you created"
     )
   );
 
-CREATE POLICY "Insert own membership"
-  ON challenge_members FOR INSERT
-  WITH CHECK (user_id = auth.uid());
-
-CREATE POLICY "Creators can add members"
+-- Self-insert only for public challenges, creator self-enroll, or pending invite.
+-- Do NOT allow creator force-enroll of arbitrary users (IDOR / unwilling membership).
+-- Private joins for invitees should prefer accept_challenge_invite (SECURITY DEFINER).
+CREATE POLICY "Insert own membership when allowed"
   ON challenge_members FOR INSERT
   WITH CHECK (
-    EXISTS (
-      SELECT 1 FROM challenges
-      WHERE challenges.id = challenge_members.challenge_id
-      AND challenges.created_by = auth.uid()
+    user_id = auth.uid()
+    AND (
+      EXISTS (
+        SELECT 1
+        FROM challenges c
+        WHERE c.id = challenge_members.challenge_id
+          AND (
+            c.is_public = TRUE
+            OR c.created_by = auth.uid()
+          )
+      )
+      OR EXISTS (
+        SELECT 1
+        FROM challenge_invites ci
+        WHERE ci.challenge_id = challenge_members.challenge_id
+          AND ci.invitee_id = auth.uid()
+          AND ci.status = 'pending'
+      )
     )
   );
 

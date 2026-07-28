@@ -449,6 +449,22 @@ final class ChallengeService: ObservableObject {
         if !existing.isEmpty {
             throw ChallengeError.alreadyParticipating
         }
+
+        // Defense in depth: only direct-join public challenges (or self as creator).
+        // Private joins must use accept_challenge_invite / pending-invite RLS paths.
+        // Server RLS is the real gate; this stops the app from attempting private self-joins.
+        let remoteChallenges: [SupabaseChallenge] = try await supabase
+            .from("challenges")
+            .select()
+            .eq("id", value: challengeId)
+            .execute()
+            .value
+        guard let remoteChallenge = remoteChallenges.first else {
+            throw ChallengeError.notFound
+        }
+        guard remoteChallenge.isPublic || remoteChallenge.createdBy == userId else {
+            throw ChallengeError.invalidData
+        }
         
         // Add as challenge member
         try await addChallengeMember(challengeId: challengeId, userId: userId)
