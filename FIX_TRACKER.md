@@ -1,7 +1,7 @@
 # FitComp Fix Tracker
 
 > Log of all bugs encountered and fixes implemented to prevent recurrence.
-> Last updated: 2026-04-13 (v6)
+> Last updated: 2026-07-28 (v7)
 
 ---
 
@@ -26,6 +26,14 @@
 ---
 
 ## Critical Fixes
+
+### 0. Private Challenge Membership + Leaderboard IDOR (2026-07-28)
+- **Symptom:** Any authenticated user who knew a private challenge UUID could force-join via `challenge_members` INSERT, then read/write that challenge's chat. Separately, `get_challenge_leaderboard` / `get_challenge_leaderboard_today` returned member identities and step totals to non-members.
+- **Root Cause:** Live INSERT RLS only required `user_id = auth.uid()` (no public/invite/creator gate). Leaderboard RPCs were SECURITY DEFINER without an access check (V3 deploy overwrote V2's `access_check`).
+- **Concrete trigger:** Attacker B `POST /challenge_members` with A's private `challenge_id` → 201; then `GET /challenge_messages` returns A's content. Or B calls `rpc/get_challenge_leaderboard` without joining → 200 with member PII/steps.
+- **Fix:** Deploy `scripts/sql/FIX_PRIVATE_CHALLENGE_MEMBERSHIP_AND_LEADERBOARD_IDOR.sql` — tighten membership INSERT to public/creator-self/pending-invite only; drop creator force-enroll policies; restore leaderboard `access_check` without `is_suspicious`. Harden V2 overhaul script and add client join guard in `ChallengeService`.
+- **Files:** `scripts/sql/FIX_PRIVATE_CHALLENGE_MEMBERSHIP_AND_LEADERBOARD_IDOR.sql`, `scripts/sql/IMPLEMENT_SECURITY_OVERHAUL_V2_SAFE.sql`, `StepComp/Services/ChallengeService.swift`, `scripts/private_challenge_idor_regression_check.py`
+- **Prevention:** Never allow unrestricted self-insert into membership-gated resources; SECURITY DEFINER leaderboard RPCs must always gate on member/creator/public.
 
 ### 1. Workout State Data Loss After Long Sessions
 - **Commit:** `6b21b36`
