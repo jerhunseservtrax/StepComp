@@ -1,7 +1,7 @@
 # FitComp Fix Tracker
 
 > Log of all bugs encountered and fixes implemented to prevent recurrence.
-> Last updated: 2026-04-13 (v6)
+> Last updated: 2026-07-29 (v7)
 
 ---
 
@@ -26,6 +26,14 @@
 ---
 
 ## Critical Fixes
+
+### 0. Weight Delete + HealthKit Import Corrupted Metrics History
+- **Date:** 2026-07-29
+- **Symptom:** Deleting a weight entry only cleared local UI; Metrics still showed the point from `weight_log`. HealthKit imports stamped `Date()` instead of the sample day and never called `syncWeightEntry`, so bulk sync later wrote the wrong calendar day into `weight_log`.
+- **Root Cause:** `WeightViewModel.deleteEntry` had no remote delete path. `syncWithHealthKit` checked "has entry today" and used `Date()`, while `HealthKitService.getWeight()` discarded the sample timestamp.
+- **Fix:** Preserve HealthKit sample end date via `getLatestWeightSample`; gate import with `WeightSyncPolicy` day matching; sync HealthKit imports through `MetricsService.syncWeightEntry`; delete matching `weight_log.recorded_on` on local delete and invalidate weight/metrics offline caches. Local `yyyy-MM-dd` day keys via `WeightSyncPolicy.recordedOnString`.
+- **Files:** `WeightViewModel.swift`, `HealthKitService.swift`, `MetricsService.swift`, `WeightSyncPolicy.swift`, `WeightSyncPolicyTests.swift`
+- **Prevention:** Any local mutation that already syncs on create must also sync on delete. Never stamp HealthKit samples with `Date()` — use the sample's own date and key remote rows by local calendar day.
 
 ### 1. Workout State Data Loss After Long Sessions
 - **Commit:** `6b21b36`

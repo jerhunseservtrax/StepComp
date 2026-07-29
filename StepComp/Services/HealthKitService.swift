@@ -393,13 +393,18 @@ final class HealthKitService: ObservableObject {
     }
     
     func getWeight() async throws -> Double? {
+        try await getLatestWeightSample()?.weightKg
+    }
+
+    /// Latest body-mass sample with its HealthKit end date (needed so sync does not stamp `Date()`).
+    func getLatestWeightSample() async throws -> (weightKg: Double, date: Date)? {
         #if os(iOS)
         guard isAuthorized,
               let healthStore = healthStore,
               let weightType = weightType else {
             return nil
         }
-        
+
         return try await withCheckedThrowingContinuation { continuation in
             let query = HKSampleQuery(
                 sampleType: weightType,
@@ -411,18 +416,18 @@ final class HealthKitService: ObservableObject {
                     continuation.resume(returning: nil)
                     return
                 }
-                
+
                 guard let sample = samples?.first as? HKQuantitySample else {
                     continuation.resume(returning: nil)
                     return
                 }
-                
+
                 // Weight is stored in kilograms in HealthKit
                 let weightInKg = sample.quantity.doubleValue(for: HKUnit.gramUnit(with: .kilo))
-                print("✅ Weight from HealthKit: \(weightInKg) kg")
-                continuation.resume(returning: weightInKg)
+                print("✅ Weight from HealthKit: \(weightInKg) kg on \(sample.endDate)")
+                continuation.resume(returning: (weightKg: weightInKg, date: sample.endDate))
             }
-            
+
             healthStore.execute(query)
         }
         #else

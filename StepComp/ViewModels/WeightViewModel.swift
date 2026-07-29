@@ -55,9 +55,16 @@ class WeightViewModel: ObservableObject {
     }
     
     func deleteEntry(id: UUID) {
+        guard let entry = entries.first(where: { $0.id == id }) else { return }
         entries.removeAll { $0.id == id }
         updateLatestWeight()
         saveEntries()
+
+        // Mirror delete to Supabase weight_log (add path already syncs remotely).
+        let entryToDelete = entry
+        Task.detached(priority: .utility) {
+            await MetricsService.shared.deleteWeightEntry(entryToDelete)
+        }
     }
     
     func getEntriesForGraph(days: Int = 90) -> [WeightEntry] {
@@ -75,24 +82,30 @@ class WeightViewModel: ObservableObject {
         }
         
         do {
-            if let healthKitWeight = try await healthKitService.getWeight() {
-                // Check if we need to add this as a new entry
-                let today = Calendar.current.startOfDay(for: Date())
-                let hasEntryToday = entries.contains { entry in
-                    Calendar.current.isDate(entry.date, inSameDayAs: today)
-                }
-                
-                if !hasEntryToday {
+            if let sample = try await healthKitService.getLatestWeightSample() {
+                let sampleDate = WeightSyncPolicy.entryDateForHealthKitImport(sampleDate: sample.date)
+                let shouldImport = WeightSyncPolicy.shouldImportHealthKitSample(
+                    sampleDate: sampleDate,
+                    existingEntryDates: entries.map(\.date)
+                )
+
+                if shouldImport {
                     let entry = WeightEntry(
-                        date: Date(),
-                        weightKg: healthKitWeight,
+                        date: sampleDate,
+                        weightKg: sample.weightKg,
                         source: .healthKit
                     )
                     entries.append(entry)
                     entries.sort { $0.date > $1.date }
                     updateLatestWeight()
                     saveEntries()
-                    print("✅ Synced weight from HealthKit: \(healthKitWeight) kg")
+
+                    // Keep Metrics / weight_log aligned with the imported sample day.
+                    let entryToSync = entry
+                    Task.detached(priority: .utility) {
+                        await MetricsService.shared.syncWeightEntry(entryToSync)
+                    }
+                    print("✅ Synced weight from HealthKit: \(sample.weightKg) kg on \(sampleDate)")
                 }
             }
         } catch {
