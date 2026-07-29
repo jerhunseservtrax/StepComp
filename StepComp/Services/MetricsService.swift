@@ -66,9 +66,7 @@ final class MetricsService: ObservableObject {
             return
         }
 
-        let dateFormatter = DateFormatter()
-        dateFormatter.dateFormat = "yyyy-MM-dd"
-        let dateString = dateFormatter.string(from: entry.date)
+        let dateString = WeightSyncPolicy.recordedOnString(from: entry.date)
 
         do {
             _ = try await SupabaseRequestExecutor.executeWithAuthRetry(context: "sync_weight_entry") {
@@ -85,6 +83,37 @@ final class MetricsService: ObservableObject {
             print("✅ [MetricsService] Synced weight entry: \(entry.weightKg) kg on \(dateString)")
         } catch {
             print("❌ [MetricsService] Failed to sync weight entry: \(error.localizedDescription)")
+        }
+        #endif
+    }
+
+    /// Deletes a weight entry from Supabase `weight_log` by local calendar day.
+    /// Local delete UI already removed the entry; this keeps Metrics history from resurrecting it.
+    func deleteWeightEntry(_ entry: WeightEntry) async {
+        #if canImport(Supabase)
+        do {
+            _ = try await supabase.auth.session
+        } catch {
+            print("⚠️ [MetricsService] No session, skipping weight delete sync")
+            return
+        }
+
+        let dateString = WeightSyncPolicy.recordedOnString(from: entry.date)
+
+        do {
+            _ = try await SupabaseRequestExecutor.executeWithAuthRetry(context: "delete_weight_entry") {
+                try await supabase
+                    .from("weight_log")
+                    .delete()
+                    .eq("recorded_on", value: dateString)
+                    .execute()
+            }
+
+            unmarkWeightEntrySynced(entry.id)
+            invalidateWeightHistoryCaches()
+            print("✅ [MetricsService] Deleted weight entry for \(dateString)")
+        } catch {
+            print("❌ [MetricsService] Failed to delete weight entry: \(error.localizedDescription)")
         }
         #endif
     }
@@ -132,11 +161,9 @@ final class MetricsService: ObservableObject {
 
         if !unsyncedEntries.isEmpty {
             print("🔄 [MetricsService] Syncing \(unsyncedEntries.count) unsynced weight entries...")
-            let formatter = DateFormatter()
-            formatter.dateFormat = "yyyy-MM-dd"
             let batchPayload: [AnyJSON] = unsyncedEntries.map { entry in
                 .object([
-                    "date": .string(formatter.string(from: entry.date)),
+                    "date": .string(WeightSyncPolicy.recordedOnString(from: entry.date)),
                     "weight_kg": .string(String(entry.weightKg)),
                     "source": .string(entry.source == .healthKit ? "healthKit" : "manual")
                 ])
@@ -407,5 +434,19 @@ final class MetricsService: ObservableObject {
             ids = Array(ids.suffix(maxTrackedSyncIds))
         }
         UserDefaults.standard.set(ids, forKey: syncedWeightEntriesKey)
+    }
+
+    private func unmarkWeightEntrySynced(_ id: UUID) {
+        var ids = UserDefaults.standard.stringArray(forKey: syncedWeightEntriesKey) ?? []
+        ids.removeAll { $0 == id.uuidString }
+        UserDefaults.standard.set(ids, forKey: syncedWeightEntriesKey)
+    }
+
+    private func invalidateWeightHistoryCaches() {
+        // MetricsTimePeriod lookbacks (plus common defaults); clear so deleted points cannot revive offline.
+        for days in [7, 30, 84, 90, 365, 1460] {
+            OfflineCacheService.remove(key: "weight_history_\(days)")
+            OfflineCacheService.remove(key: "metrics_summary_\(days)")
+        }
     }
 }

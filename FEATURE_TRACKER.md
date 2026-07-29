@@ -1,7 +1,7 @@
 # FitComp Feature Tracker
 
 > Comprehensive catalog of all features in the FitComp fitness competition app (formerly StepComp).
-> Last updated: 2026-04-13 (v5)
+> Last updated: 2026-07-29 (v6)
 
 ---
 
@@ -122,6 +122,8 @@
 | Log Weight | `WeightEntryView.swift` | Daily weight entries |
 | Weight Graph | `WeightTrackingCard.swift` | Weight history visualization |
 | Weight Progress | `WeightViewModel.swift` | Trend tracking over time |
+| HealthKit Day-Accurate Sync | `WeightViewModel.swift`, `HealthKitService.swift`, `WeightSyncPolicy.swift`, `MetricsService.swift` | Import latest HealthKit body-mass using sample date; upsert `weight_log` |
+| Remote Weight Delete | `WeightViewModel.swift`, `MetricsService.swift` | Local delete also removes `weight_log` row and clears weight metrics offline cache |
 
 ### Transformation Photos
 
