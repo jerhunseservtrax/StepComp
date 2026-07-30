@@ -1,7 +1,7 @@
 # FitComp Feature Tracker
 
 > Comprehensive catalog of all features in the FitComp fitness competition app (formerly StepComp).
-> Last updated: 2026-04-13 (v5)
+> Last updated: 2026-07-30 (v6)
 
 ---
 
@@ -332,6 +332,7 @@
 | Supabase Client | `SupabaseClient.swift` | Database client configuration |
 | Step Sync | `StepSyncService.swift` | Sync steps to server with fraud detection, RPC fallback |
 | Challenge Service | `ChallengeService.swift` | CRUD for challenges, invites, leaderboards |
+| Chat/snapshot RPC auth gates | `scripts/sql/FIX_CHALLENGE_CHAT_SYSTEM_MESSAGE_AND_SNAPSHOT_IDOR.sql`, `IMPLEMENT_CHALLENGE_CHAT.sql`, `CREATE_CHALLENGE_SNAPSHOTS.sql` | `create_system_message` / unread count / snapshot RPCs require membership or creator (or public for snapshots); blocks private chat forgery and activity leaks |
 | Friends Service | `FriendsService.swift` | Friendship management, profile search |
 | Metrics Service | `MetricsService.swift` | Sync workouts, weight, nutrition to server |
 | HealthKit Service | `HealthKitService.swift` | Steps, distance, calories, weight, and expanded health data |
