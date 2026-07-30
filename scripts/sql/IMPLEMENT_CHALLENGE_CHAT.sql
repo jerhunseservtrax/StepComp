@@ -174,12 +174,26 @@ CREATE OR REPLACE FUNCTION public.get_challenge_unread_count(
 RETURNS INTEGER
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public
 AS $$
 DECLARE
     v_user_id UUID := auth.uid();
     v_unread_count INTEGER;
+    v_is_member BOOLEAN;
 BEGIN
     IF v_user_id IS NULL THEN
+        RETURN 0;
+    END IF;
+
+    -- Non-members must not learn private-challenge activity via counts
+    SELECT EXISTS (
+        SELECT 1
+        FROM public.challenge_members cm
+        WHERE cm.challenge_id = p_challenge_id
+          AND cm.user_id = v_user_id
+    ) INTO v_is_member;
+
+    IF NOT v_is_member THEN
         RETURN 0;
     END IF;
     
@@ -202,6 +216,7 @@ $$;
 GRANT EXECUTE ON FUNCTION public.get_challenge_unread_count TO authenticated;
 
 -- 8️⃣ Helper Function: Create System Message
+-- Caller must be a member or creator. Never attribute as an arbitrary member.
 CREATE OR REPLACE FUNCTION public.create_system_message(
     p_challenge_id UUID,
     p_content TEXT
@@ -209,19 +224,41 @@ CREATE OR REPLACE FUNCTION public.create_system_message(
 RETURNS UUID
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public
 AS $$
 DECLARE
+    v_caller_id UUID := auth.uid();
     v_message_id UUID;
-    v_system_user_id UUID;
+    v_is_allowed BOOLEAN;
 BEGIN
-    -- Use the first challenge member or a system ID
-    SELECT user_id INTO v_system_user_id
-    FROM public.challenge_members
-    WHERE challenge_id = p_challenge_id
-    LIMIT 1;
-    
-    IF v_system_user_id IS NULL THEN
-        RAISE EXCEPTION 'No members in challenge';
+    IF v_caller_id IS NULL THEN
+        RAISE EXCEPTION 'Authentication required';
+    END IF;
+
+    IF p_content IS NULL OR char_length(trim(p_content)) = 0 THEN
+        RAISE EXCEPTION 'Message content cannot be empty';
+    END IF;
+
+    IF char_length(p_content) > 2000 THEN
+        RAISE EXCEPTION 'Message content cannot exceed 2000 characters';
+    END IF;
+
+    SELECT EXISTS (
+        SELECT 1
+        FROM public.challenge_members cm
+        WHERE cm.challenge_id = p_challenge_id
+          AND cm.user_id = v_caller_id
+    )
+    OR EXISTS (
+        SELECT 1
+        FROM public.challenges c
+        WHERE c.id = p_challenge_id
+          AND c.created_by = v_caller_id
+    )
+    INTO v_is_allowed;
+
+    IF NOT v_is_allowed THEN
+        RAISE EXCEPTION 'Not authorized to post system messages to this challenge';
     END IF;
     
     INSERT INTO public.challenge_messages (
@@ -232,8 +269,8 @@ BEGIN
     )
     VALUES (
         p_challenge_id,
-        v_system_user_id,
-        p_content,
+        v_caller_id,
+        trim(p_content),
         'system'
     )
     RETURNING id INTO v_message_id;

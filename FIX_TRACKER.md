@@ -1,7 +1,7 @@
 # FitComp Fix Tracker
 
 > Log of all bugs encountered and fixes implemented to prevent recurrence.
-> Last updated: 2026-04-13 (v6)
+> Last updated: 2026-07-30 (v7)
 
 ---
 
@@ -335,6 +335,13 @@
 ---
 
 ## Chat System
+
+### 36b. Private challenge system-message forgery + unread/snapshot IDOR (2026-07-30)
+- **Symptom / impact:** Any authenticated user could call `create_system_message` on a private challenge UUID and insert a forged `message_type='system'` row attributed to the first member. Separately, `get_challenge_unread_count` returned private-challenge activity counts to non-members; `snapshot_challenge_results` / `has_challenge_snapshot` lacked access gates (same class as leaderboard IDOR; snapshot also hit live `42702` ambiguous `user_id`).
+- **Concrete trigger (live-proven):** User A creates private challenge + membership + chat message. User B (non-member) `POST /rest/v1/rpc/create_system_message` → **200** and A sees forged system message. B `get_challenge_unread_count` → **2**.
+- **Root Cause:** SECURITY DEFINER chat/snapshot helpers granted to `authenticated` with no membership/creator check; system message attributed via `LIMIT 1` member pick.
+- **Fix:** Deploy `scripts/sql/FIX_CHALLENGE_CHAT_SYSTEM_MESSAGE_AND_SNAPSHOT_IDOR.sql`. Harden `IMPLEMENT_CHALLENGE_CHAT.sql` + `CREATE_CHALLENGE_SNAPSHOTS.sql`. Regression: `python3 scripts/challenge_chat_rpc_idor_regression_check.py` (after deploy).
+- **Prevention:** Every SECURITY DEFINER RPC that reads/writes challenge-scoped data must gate on public/creator/membership (or return empty/0). Never attribute writes to another user via `LIMIT 1`.
 
 ### 36. Chat Messages Not Displaying Correctly
 - **Commits:** `6fb2f88`, `5abcfe0`, `b50f117`, `7c68752`, `3cc9b07`, `ffb734e`

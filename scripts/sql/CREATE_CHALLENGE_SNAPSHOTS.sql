@@ -62,6 +62,10 @@ WITH CHECK (false);
 
 -- STEP 2: Create snapshot_challenge_results RPC function
 -- ============================================
+-- Access: public challenge, creator, or member. Unauthorized callers get [].
+-- LANGUAGE sql avoids PL/pgSQL RETURNS TABLE "user_id is ambiguous" errors.
+DROP FUNCTION IF EXISTS public.snapshot_challenge_results(UUID);
+
 CREATE OR REPLACE FUNCTION public.snapshot_challenge_results(p_challenge_id UUID)
 RETURNS TABLE (
     user_id UUID,
@@ -71,98 +75,115 @@ RETURNS TABLE (
     total_steps BIGINT,
     rank BIGINT
 )
-LANGUAGE plpgsql
+LANGUAGE sql
 SECURITY DEFINER
 SET search_path = public
 AS $$
-DECLARE
-    v_snapshot_count INT;
-BEGIN
-    -- Compute leaderboard data (same logic as get_challenge_leaderboard)
-    WITH challenge_members_cte AS (
-        SELECT cm.user_id
+    WITH access_check AS (
+        SELECT 1
+        FROM public.challenges c
+        WHERE c.id = p_challenge_id
+          AND auth.uid() IS NOT NULL
+          AND (
+              c.is_public = TRUE
+              OR c.created_by = auth.uid()
+              OR EXISTS (
+                  SELECT 1
+                  FROM public.challenge_members cm_auth
+                  WHERE cm_auth.challenge_id = c.id
+                    AND cm_auth.user_id = auth.uid()
+              )
+          )
+    ),
+    challenge_members_cte AS (
+        SELECT cm.user_id AS member_user_id
         FROM public.challenge_members cm
         WHERE cm.challenge_id = p_challenge_id
+          AND EXISTS (SELECT 1 FROM access_check)
     ),
     challenge_info AS (
-        SELECT 
+        SELECT
             (start_date AT TIME ZONE 'UTC')::date AS start_date,
             (end_date AT TIME ZONE 'UTC')::date AS end_date
         FROM public.challenges
         WHERE id = p_challenge_id
     ),
     member_steps AS (
-        SELECT 
-            cm.user_id,
-            COALESCE(SUM(ds.steps), 0) AS total_steps
+        SELECT
+            cm.member_user_id,
+            COALESCE(SUM(ds.steps), 0) AS member_total_steps
         FROM challenge_members_cte cm
         CROSS JOIN challenge_info ci
-        LEFT JOIN public.daily_steps ds 
-            ON ds.user_id = cm.user_id
+        LEFT JOIN public.daily_steps ds
+            ON ds.user_id = cm.member_user_id
             AND ds.day >= ci.start_date
             AND ds.day <= ci.end_date
-        GROUP BY cm.user_id
+        GROUP BY cm.member_user_id
     ),
     ranked_results AS (
-        SELECT 
-            ms.user_id,
-            COALESCE(p.username, 'User') AS username,
-            COALESCE(p.display_name, p.username, 'User') AS display_name,
-            p.avatar_url,
-            ms.total_steps,
-            RANK() OVER (ORDER BY ms.total_steps DESC) AS rank
+        SELECT
+            ms.member_user_id,
+            COALESCE(p.username, 'User') AS member_username,
+            COALESCE(p.display_name, p.username, 'User') AS member_display_name,
+            p.avatar_url AS member_avatar_url,
+            ms.member_total_steps,
+            RANK() OVER (ORDER BY ms.member_total_steps DESC) AS member_rank
         FROM member_steps ms
-        LEFT JOIN public.profiles p ON p.id = ms.user_id
+        LEFT JOIN public.profiles p ON p.id = ms.member_user_id
+    ),
+    upserted AS (
+        INSERT INTO public.challenge_snapshots (
+            challenge_id,
+            user_id,
+            username,
+            display_name,
+            avatar_url,
+            total_steps,
+            rank,
+            snapshotted_at
+        )
+        SELECT
+            p_challenge_id,
+            rr.member_user_id,
+            rr.member_username,
+            rr.member_display_name,
+            rr.member_avatar_url,
+            rr.member_total_steps::INT,
+            rr.member_rank::INT,
+            NOW()
+        FROM ranked_results rr
+        ON CONFLICT (challenge_id, user_id)
+        DO UPDATE SET
+            username = EXCLUDED.username,
+            display_name = EXCLUDED.display_name,
+            avatar_url = EXCLUDED.avatar_url,
+            total_steps = EXCLUDED.total_steps,
+            rank = EXCLUDED.rank,
+            snapshotted_at = NOW()
+        RETURNING
+            challenge_snapshots.user_id,
+            challenge_snapshots.username,
+            challenge_snapshots.display_name,
+            challenge_snapshots.avatar_url,
+            challenge_snapshots.total_steps,
+            challenge_snapshots.rank
     )
-    -- Upsert snapshot data (idempotent)
-    INSERT INTO public.challenge_snapshots (
-        challenge_id,
-        user_id,
-        username,
-        display_name,
-        avatar_url,
-        total_steps,
-        rank,
-        snapshotted_at
-    )
-    SELECT 
-        p_challenge_id,
-        rr.user_id,
-        rr.username,
-        rr.display_name,
-        rr.avatar_url,
-        rr.total_steps::INT,
-        rr.rank::INT,
-        NOW()
-    FROM ranked_results rr
-    ON CONFLICT (challenge_id, user_id) 
-    DO UPDATE SET
-        username = EXCLUDED.username,
-        display_name = EXCLUDED.display_name,
-        avatar_url = EXCLUDED.avatar_url,
-        total_steps = EXCLUDED.total_steps,
-        rank = EXCLUDED.rank,
-        snapshotted_at = NOW();
-    
-    -- Return the snapshot data
-    RETURN QUERY
-    SELECT 
-        cs.user_id::UUID,
-        cs.username,
-        cs.display_name,
-        cs.avatar_url,
-        cs.total_steps::BIGINT,
-        cs.rank::BIGINT
-    FROM public.challenge_snapshots cs
-    WHERE cs.challenge_id = p_challenge_id
-    ORDER BY cs.rank;
-END;
+    SELECT
+        u.user_id::UUID,
+        u.username,
+        u.display_name,
+        u.avatar_url,
+        u.total_steps::BIGINT,
+        u.rank::BIGINT
+    FROM upserted u
+    ORDER BY u.rank;
 $$;
 
 -- Grant permissions
 GRANT EXECUTE ON FUNCTION public.snapshot_challenge_results(UUID) TO authenticated;
 
-COMMENT ON FUNCTION public.snapshot_challenge_results IS 'Creates/updates snapshot of challenge results. Idempotent - safe to call multiple times. Returns snapshotted leaderboard data.';
+COMMENT ON FUNCTION public.snapshot_challenge_results IS
+  'Creates/updates challenge result snapshots for public challenges, creators, or members. Idempotent.';
 
 -- STEP 3: Helper function to check if snapshot exists
 -- ============================================
@@ -174,9 +195,24 @@ SET search_path = public
 STABLE
 AS $$
     SELECT EXISTS (
-        SELECT 1 
-        FROM public.challenge_snapshots
-        WHERE challenge_id = p_challenge_id
+        SELECT 1
+        FROM public.challenge_snapshots cs
+        WHERE cs.challenge_id = p_challenge_id
+          AND EXISTS (
+              SELECT 1
+              FROM public.challenges c
+              WHERE c.id = p_challenge_id
+                AND (
+                    c.is_public = TRUE
+                    OR c.created_by = auth.uid()
+                    OR EXISTS (
+                        SELECT 1
+                        FROM public.challenge_members cm_auth
+                        WHERE cm_auth.challenge_id = c.id
+                          AND cm_auth.user_id = auth.uid()
+                    )
+                )
+          )
         LIMIT 1
     );
 $$;
