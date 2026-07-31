@@ -38,11 +38,21 @@ ON public.challenge_invites
 FOR INSERT
 WITH CHECK (
     inviter_id = auth.uid()
+    AND invitee_id <> auth.uid()
     AND EXISTS (
         SELECT 1
         FROM public.challenge_members cm
         WHERE cm.challenge_id = challenge_invites.challenge_id
         AND cm.user_id = auth.uid()
+    )
+    AND EXISTS (
+        SELECT 1
+        FROM public.friendships f
+        WHERE f.status = 'accepted'
+          AND (
+            (f.requester_id = auth.uid() AND f.addressee_id = challenge_invites.invitee_id)
+            OR (f.addressee_id = auth.uid() AND f.requester_id = challenge_invites.invitee_id)
+          )
     )
 );
 
@@ -128,9 +138,21 @@ BEGIN
     FROM public.challenges
     WHERE id = p_challenge_id;
     
-    -- Loop through friend IDs and create invites
+    -- Loop through accepted friends only and create invites
     FOREACH v_friend_id IN ARRAY p_friend_ids
     LOOP
+        IF NOT EXISTS (
+            SELECT 1
+            FROM public.friendships f
+            WHERE f.status = 'accepted'
+              AND (
+                (f.requester_id = v_inviter_id AND f.addressee_id = v_friend_id)
+                OR (f.addressee_id = v_inviter_id AND f.requester_id = v_friend_id)
+              )
+        ) THEN
+            CONTINUE;
+        END IF;
+
         -- Check if friend is not already in challenge
         IF NOT EXISTS (
             SELECT 1

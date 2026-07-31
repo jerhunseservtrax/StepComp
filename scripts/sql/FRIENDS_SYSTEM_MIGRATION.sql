@@ -136,18 +136,49 @@ ON public.friendships
 FOR SELECT
 USING (requester_id = auth.uid() OR addressee_id = auth.uid());
 
--- Insert: requester must be current user
+-- Insert: requester must be current user; status must start as pending
+-- (prevents force-accept by inserting status='accepted')
 CREATE POLICY "send friend request as requester"
 ON public.friendships
 FOR INSERT
-WITH CHECK (requester_id = auth.uid());
+WITH CHECK (
+  requester_id = auth.uid()
+  AND status = 'pending'
+  AND addressee_id <> auth.uid()
+);
 
 -- Update: only addressee can accept (pending -> accepted)
 CREATE POLICY "addressee can accept"
 ON public.friendships
 FOR UPDATE
-USING (addressee_id = auth.uid())
-WITH CHECK (addressee_id = auth.uid());
+USING (
+  addressee_id = auth.uid()
+  AND status = 'pending'
+)
+WITH CHECK (
+  addressee_id = auth.uid()
+  AND status = 'accepted'
+);
+
+-- Freeze participant columns on update (prevents identity swap on accept)
+CREATE OR REPLACE FUNCTION public.friendships_freeze_participants()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  IF NEW.requester_id IS DISTINCT FROM OLD.requester_id
+     OR NEW.addressee_id IS DISTINCT FROM OLD.addressee_id THEN
+    RAISE EXCEPTION 'friendship participants cannot be changed';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_friendships_freeze_participants ON public.friendships;
+CREATE TRIGGER trg_friendships_freeze_participants
+BEFORE UPDATE ON public.friendships
+FOR EACH ROW
+EXECUTE FUNCTION public.friendships_freeze_participants();
 
 -- Delete: either side can remove
 CREATE POLICY "either side can remove"

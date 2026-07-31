@@ -1,7 +1,7 @@
 # FitComp Feature Tracker
 
 > Comprehensive catalog of all features in the FitComp fitness competition app (formerly StepComp).
-> Last updated: 2026-04-13 (v5)
+> Last updated: 2026-07-31 (v6)
 
 ---
 
@@ -186,8 +186,10 @@
 | Add Friends | `AddFriendsView.swift` | Search public profiles by username |
 | Paginated Discovery | `FriendsViewModel.swift` | Infinite scroll for discovering new users with offset/limit pagination (30 per page) |
 | Friend Requests | `PendingRequestRow.swift` | Send/accept/decline/cancel requests |
+| Friendship consent RLS | `scripts/sql/FIX_FRIENDSHIP_FORCE_ACCEPT_AND_INVITE_FRIENDS_ONLY.sql`, `FRIENDS_SYSTEM_MIGRATION.sql` | INSERT friendships only as `pending`; only addressee may accept; participant columns frozen on update |
 | Public Profile Toggle | `SettingsView.swift` | Control discoverability |
 | Invite Accept | `InviteAcceptView.swift` | Accept friend/challenge invitations |
+| Friends-only challenge invites | `SETUP_CHALLENGE_INVITES.sql`, `IMPLEMENT_INBOX_SYSTEM.sql` | `send_challenge_invites` + `challenge_invites` INSERT require accepted friendship |
 
 ### Chat System
 
@@ -333,6 +335,7 @@
 | Step Sync | `StepSyncService.swift` | Sync steps to server with fraud detection, RPC fallback |
 | Challenge Service | `ChallengeService.swift` | CRUD for challenges, invites, leaderboards |
 | Friends Service | `FriendsService.swift` | Friendship management, profile search |
+| Friendship/invite IDOR gates | `scripts/sql/FIX_FRIENDSHIP_FORCE_ACCEPT_AND_INVITE_FRIENDS_ONLY.sql` | Blocks force-accept friendships and non-friend challenge invites at RLS/RPC layer |
 | Metrics Service | `MetricsService.swift` | Sync workouts, weight, nutrition to server |
 | HealthKit Service | `HealthKitService.swift` | Steps, distance, calories, weight, and expanded health data |
 | Resting Heart Rate | `HealthKitService.swift` | Recovery indicator from HealthKit |

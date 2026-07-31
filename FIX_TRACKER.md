@@ -1,7 +1,7 @@
 # FitComp Fix Tracker
 
 > Log of all bugs encountered and fixes implemented to prevent recurrence.
-> Last updated: 2026-04-13 (v6)
+> Last updated: 2026-07-31 (v7)
 
 ---
 
@@ -26,6 +26,13 @@
 ---
 
 ## Critical Fixes
+
+### 0. Friendship force-accept + non-friend challenge invites (2026-07-31)
+- **Symptom / impact:** Any authenticated user could `POST /rest/v1/friendships` with `status='accepted'` and appear as an accepted friend of an arbitrary user without consent (social-graph forgery). Separately, `send_challenge_invites` and direct `challenge_invites` INSERT allowed inviting non-friends, contradicting friends-only UI and creating a privileged private-join path once invite-gated membership is deployed.
+- **Concrete trigger (live-proven):** User A authenticates and inserts `{requester_id: A, addressee_id: B, status: "accepted"}` → **201**; B's accepted friendship list includes A. A (challenge member, not friends with B) calls `rpc/send_challenge_invites` with B → **200** count `1`; direct invite INSERT also **201**.
+- **Root Cause:** Friendships INSERT RLS only checked `requester_id = auth.uid()` (no `status = 'pending'`). Invite RPC/RLS only checked challenge membership, not accepted friendship.
+- **Fix:** Deploy `scripts/sql/FIX_FRIENDSHIP_FORCE_ACCEPT_AND_INVITE_FRIENDS_ONLY.sql`. Harden `FRIENDS_SYSTEM_MIGRATION.sql`, `SETUP_CHALLENGE_INVITES.sql`, `IMPLEMENT_INBOX_SYSTEM.sql`. Regression: `python3 scripts/friendship_invite_idor_regression_check.py` (after deploy).
+- **Prevention:** Social INSERT policies must constrain status transitions at the DB boundary. Friends-only product rules must be enforced in SECURITY DEFINER RPCs and RLS, not only in the client.
 
 ### 1. Workout State Data Loss After Long Sessions
 - **Commit:** `6b21b36`
@@ -108,6 +115,9 @@
 ---
 
 ## Database & Supabase RLS
+
+### 8b. Friendship force-accept + invite friends-only gap (2026-07-31)
+- **See Critical Fix 0.** Deploy `FIX_FRIENDSHIP_FORCE_ACCEPT_AND_INVITE_FRIENDS_ONLY.sql`. INSERT friendships require `status='pending'`; UPDATE is addressee-only `pending → accepted` with frozen participants; challenge invites require accepted friendship in RLS and `send_challenge_invites`.
 
 ### 9. Infinite Recursion in RLS Policies
 - **Commits:** `dbd6730`, `77a6696`, `39f8ee7`
