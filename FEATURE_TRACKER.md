@@ -1,7 +1,7 @@
 # FitComp Feature Tracker
 
 > Comprehensive catalog of all features in the FitComp fitness competition app (formerly StepComp).
-> Last updated: 2026-04-13 (v5)
+> Last updated: 2026-08-01 (v6)
 
 ---
 
@@ -331,6 +331,7 @@
 | Singleton Services | `HealthKitService.swift`, `ChallengeService.swift` | Shared singleton instances to prevent state desync |
 | Supabase Client | `SupabaseClient.swift` | Database client configuration |
 | Step Sync | `StepSyncService.swift` | Sync steps to server with fraud detection, RPC fallback |
+| Monotonic daily step upsert | `scripts/sql/FIX_SYNC_DAILY_STEPS_MONOTONIC_UPSERT.sql` | `sync_daily_steps` keeps `GREATEST` of existing vs incoming steps so lower late syncs cannot erase higher totals |
 | Challenge Service | `ChallengeService.swift` | CRUD for challenges, invites, leaderboards |
 | Friends Service | `FriendsService.swift` | Friendship management, profile search |
 | Metrics Service | `MetricsService.swift` | Sync workouts, weight, nutrition to server |

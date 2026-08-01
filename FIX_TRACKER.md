@@ -1,7 +1,7 @@
 # FitComp Fix Tracker
 
 > Log of all bugs encountered and fixes implemented to prevent recurrence.
-> Last updated: 2026-04-13 (v6)
+> Last updated: 2026-08-01 (v7)
 
 ---
 
@@ -26,6 +26,13 @@
 ---
 
 ## Critical Fixes
+
+### 0. Step sync last-write-wins overwrites higher daily totals (2026-08-01)
+- **Symptom / impact:** `sync_daily_steps` unconditionally set `daily_steps.steps = p_steps` on conflict. A later lower HealthKit/device reading permanently erased a higher already-synced count. Challenge leaderboards `SUM(daily_steps.steps)`, so competitive totals dropped silently.
+- **Concrete trigger (live-proven):** Authenticated user syncs `p_steps=12000` then `p_steps=3000` for the same day → RPC `accepted_steps=3000` and stored row is `3000` (response may flag `is_suspicious`, but live `daily_steps` has no such column so the lower value still wins).
+- **Root Cause:** Last-write-wins upsert; negative deltas only influenced a response flag, not the stored value.
+- **Fix:** Deploy `scripts/sql/FIX_SYNC_DAILY_STEPS_MONOTONIC_UPSERT.sql` (`steps = GREATEST(daily_steps.steps, EXCLUDED.steps)`, live columns `last_synced_at` / no `is_suspicious`). Harden `IMPLEMENT_SECURITY_OVERHAUL_V2_SAFE.sql` and `IMPLEMENT_SECURITY_OVERHAUL.sql`. Regression: `python3 scripts/step_sync_monotonic_upsert_regression_check.py` (live probe passes after deploy).
+- **Prevention:** Daily step upserts must be monotonic (keep the higher known count) unless an explicit admin/fraud correction path exists. Live deploy SQL must match production columns (`last_synced_at`, no `is_suspicious`).
 
 ### 1. Workout State Data Loss After Long Sessions
 - **Commit:** `6b21b36`
@@ -610,6 +617,7 @@
 | `Int()` truncation in unit conversions | Off-by-one errors | Use `.rounded()` first |
 | In-process timer ticks | Timer drift in background | Use wall-clock target dates |
 | Local-only delete/leave operations | Data reappears on refresh | Always delete from DB too |
+| `steps = p_steps` on daily upsert | Leaderboard totals drop on lower late sync | Use `GREATEST(existing, incoming)` unless explicit correction path |
 | `[String: Any]` for Supabase payloads | Non-Codable crash | Use Codable structs |
 | Unit conversion on every keystroke | Input feedback loop | Convert only on commit |
 | `CREATE POLICY IF NOT EXISTS` | PostgreSQL syntax error | `DROP IF EXISTS` + `CREATE` |
