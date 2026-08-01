@@ -203,7 +203,7 @@ BEGIN
         v_is_suspicious := TRUE;
     END IF;
     
-    -- Insert or update
+    -- Insert or update (monotonic: never lower stored steps on conflict)
     INSERT INTO public.daily_steps (
         user_id, 
         day, 
@@ -217,7 +217,7 @@ BEGIN
     VALUES (
         v_user_id,
         v_day,
-        p_steps,
+        GREATEST(COALESCE(v_previous_steps, 0), p_steps),
         p_source,
         p_device_id,
         p_ip,
@@ -226,7 +226,7 @@ BEGIN
     )
     ON CONFLICT (user_id, day)
     DO UPDATE SET
-        steps = p_steps,
+        steps = GREATEST(daily_steps.steps, EXCLUDED.steps),
         source = p_source,
         device_id = p_device_id,
         ip_address = p_ip,
@@ -261,7 +261,7 @@ BEGIN
         daily_steps = jsonb_set(
             COALESCE(cm.daily_steps, '{}'::jsonb),
             ARRAY[v_day::text],
-            to_jsonb(p_steps)
+            to_jsonb(GREATEST(COALESCE(v_previous_steps, 0), p_steps))
         ),
         last_updated = NOW()
     WHERE cm.user_id = v_user_id
@@ -274,13 +274,18 @@ BEGIN
     -- Return result
     RETURN json_build_object(
         'success', TRUE,
-        'accepted_steps', p_steps,
+        'accepted_steps', GREATEST(COALESCE(v_previous_steps, 0), p_steps),
         'day', v_day,
         'is_suspicious', v_is_suspicious,
         'previous_steps', v_previous_steps,
-        'message', CASE 
-            WHEN v_is_suspicious THEN 'Steps recorded but flagged for review'
-            ELSE 'Steps synced successfully'
+        'message', CASE
+            WHEN v_previous_steps IS NOT NULL
+                 AND GREATEST(v_previous_steps, p_steps) > p_steps THEN
+                'Kept higher previously synced step count'
+            WHEN v_is_suspicious THEN
+                'Steps recorded but flagged for review'
+            ELSE
+                'Steps synced successfully'
         END
     );
 END;
