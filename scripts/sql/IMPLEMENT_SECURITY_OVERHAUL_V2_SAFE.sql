@@ -166,6 +166,7 @@ DECLARE
     v_step_diff INT;
     v_is_suspicious BOOLEAN := FALSE;
     v_last_update TIMESTAMPTZ;
+    v_accepted_steps INT;
 BEGIN
     -- Get user from JWT (never trust client)
     v_user_id := auth.uid();
@@ -186,6 +187,10 @@ BEGIN
     IF v_day < CURRENT_DATE - INTERVAL '30 days' THEN
         RAISE EXCEPTION 'Cannot sync steps older than 30 days';
     END IF;
+
+    IF p_steps < 0 THEN
+        RAISE EXCEPTION 'Invalid steps value';
+    END IF;
     
     -- Get previous record if exists
     SELECT steps, updated_at INTO v_previous_steps, v_last_update
@@ -203,8 +208,7 @@ BEGIN
             v_is_suspicious := TRUE;
         END IF;
         
-        -- ✅ Allow small negative deltas (HealthKit can revise downward)
-        -- Only flag large negative changes
+        -- Large downward revision (device/HK race) — keep higher via GREATEST
         IF v_step_diff < -500 THEN
             v_is_suspicious := TRUE;
         END IF;
@@ -214,6 +218,9 @@ BEGIN
     IF p_steps > 100000 THEN
         v_is_suspicious := TRUE;
     END IF;
+
+    -- Monotonic: never lower a day's stored step count on conflict
+    v_accepted_steps := GREATEST(COALESCE(v_previous_steps, 0), p_steps);
     
     -- ============================================
     -- Insert or update daily_steps
@@ -231,7 +238,7 @@ BEGIN
     VALUES (
         v_user_id,
         v_day,
-        p_steps,
+        v_accepted_steps,
         p_source,
         p_device_id,
         p_ip,
@@ -240,7 +247,7 @@ BEGIN
     )
     ON CONFLICT (user_id, day)
     DO UPDATE SET
-        steps = p_steps,
+        steps = GREATEST(daily_steps.steps, EXCLUDED.steps),
         source = p_source,
         device_id = p_device_id,
         ip_address = p_ip,
@@ -250,6 +257,10 @@ BEGIN
             ELSE daily_steps.is_suspicious 
         END,
         updated_at = NOW();
+
+    SELECT steps INTO v_accepted_steps
+    FROM public.daily_steps
+    WHERE user_id = v_user_id AND day = v_day;
     
     -- ============================================
     -- Update profiles.total_steps (last 30 days only - bounded!)
@@ -275,13 +286,17 @@ BEGIN
     -- Return result
     RETURN json_build_object(
         'success', TRUE,
-        'accepted_steps', p_steps,
+        'accepted_steps', v_accepted_steps,
         'day', v_day,
         'is_suspicious', v_is_suspicious,
         'previous_steps', v_previous_steps,
-        'message', CASE 
-            WHEN v_is_suspicious THEN 'Steps recorded but flagged for review'
-            ELSE 'Steps synced successfully'
+        'message', CASE
+            WHEN v_previous_steps IS NOT NULL AND v_accepted_steps > p_steps THEN
+                'Kept higher previously synced step count'
+            WHEN v_is_suspicious THEN
+                'Steps recorded but flagged for review'
+            ELSE
+                'Steps synced successfully'
         END
     );
 END;
@@ -290,7 +305,7 @@ $$;
 -- Grant to authenticated users (they call via Edge Function, which uses their JWT)
 GRANT EXECUTE ON FUNCTION public.sync_daily_steps TO authenticated;
 
-COMMENT ON FUNCTION public.sync_daily_steps IS 'Server-side step sync with validation. Called by Edge Function. Uses auth.uid() for security.';
+COMMENT ON FUNCTION public.sync_daily_steps IS 'Server-side step sync with validation. Called by Edge Function. Uses auth.uid() for security. Monotonic upsert: never lowers daily_steps.steps on conflict.';
 
 -- ============================================
 -- 6. Revoke direct update on profiles.total_steps
