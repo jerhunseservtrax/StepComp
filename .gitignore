@@ -118,3 +118,4 @@ generate_apple_secret.js
 *.swo
 *~
 
+__pycache__/

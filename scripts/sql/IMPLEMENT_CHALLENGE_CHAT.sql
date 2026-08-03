@@ -62,14 +62,15 @@ USING (
     )
 );
 
--- INSERT: Can send messages if you're a challenge member
+-- INSERT: Members may send text messages only (system rows via SECURITY DEFINER RPC)
 DROP POLICY IF EXISTS "Send messages in joined challenges" ON public.challenge_messages;
 CREATE POLICY "Send messages in joined challenges"
 ON public.challenge_messages
 FOR INSERT
 WITH CHECK (
     user_id = auth.uid()
-    AND NOT is_deleted -- Cannot insert already-deleted messages
+    AND COALESCE(is_deleted, FALSE) = FALSE
+    AND message_type = 'text'
     AND EXISTS (
         SELECT 1
         FROM public.challenge_members cm
@@ -78,13 +79,19 @@ WITH CHECK (
     )
 );
 
--- UPDATE: Can edit/delete own messages only
+-- UPDATE: Edit/soft-delete own text messages only; cannot escalate to system
 DROP POLICY IF EXISTS "Edit own messages" ON public.challenge_messages;
 CREATE POLICY "Edit own messages"
 ON public.challenge_messages
 FOR UPDATE
-USING (user_id = auth.uid())
-WITH CHECK (user_id = auth.uid());
+USING (
+    user_id = auth.uid()
+    AND message_type = 'text'
+)
+WITH CHECK (
+    user_id = auth.uid()
+    AND message_type = 'text'
+);
 
 -- 5️⃣ RLS Policies for challenge_message_reads
 
@@ -101,10 +108,11 @@ FOR INSERT
 WITH CHECK (user_id = auth.uid());
 
 -- 6️⃣ RPC Function: Send Message (Server-side validation)
+-- Always inserts message_type='text'. System messages use create_system_message.
+DROP FUNCTION IF EXISTS public.send_challenge_message(UUID, TEXT, TEXT);
 CREATE OR REPLACE FUNCTION public.send_challenge_message(
     p_challenge_id UUID,
-    p_content TEXT,
-    p_message_type TEXT DEFAULT 'text'
+    p_content TEXT
 )
 RETURNS TABLE(
     message_id UUID,
@@ -112,6 +120,7 @@ RETURNS TABLE(
 )
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public
 AS $$
 DECLARE
     v_user_id UUID := auth.uid();
@@ -145,7 +154,7 @@ BEGIN
         RAISE EXCEPTION 'Message content cannot exceed 2000 characters';
     END IF;
     
-    -- Insert message
+    -- Insert user text message only
     INSERT INTO public.challenge_messages (
         challenge_id,
         user_id,
@@ -156,7 +165,7 @@ BEGIN
         p_challenge_id,
         v_user_id,
         trim(p_content),
-        p_message_type
+        'text'
     )
     RETURNING id, created_at INTO v_message_id, v_created_at;
     
@@ -165,7 +174,8 @@ BEGIN
 END;
 $$;
 
-GRANT EXECUTE ON FUNCTION public.send_challenge_message TO authenticated;
+REVOKE ALL ON FUNCTION public.send_challenge_message(UUID, TEXT) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.send_challenge_message(UUID, TEXT) TO authenticated;
 
 -- 7️⃣ RPC Function: Get Unread Count
 CREATE OR REPLACE FUNCTION public.get_challenge_unread_count(
