@@ -1,7 +1,7 @@
 # FitComp Fix Tracker
 
 > Log of all bugs encountered and fixes implemented to prevent recurrence.
-> Last updated: 2026-04-13 (v6)
+> Last updated: 2026-08-03 (v7)
 
 ---
 
@@ -349,6 +349,13 @@
 - **Symptom:** ERROR 42725 — multiple overloads causing ambiguity.
 - **Fix:** Drop all existing overloads before creating new function.
 - **Prevention:** Always drop existing DB functions before recreating to avoid overload ambiguity.
+
+### 37a. Challenge Chat System Message Forgery via RLS (2026-08-03)
+- **Symptom:** Challenge members could insert or patch `challenge_messages` with `message_type='system'`. The iOS chat UI renders those rows as centered official system notices with no author, enabling forged join/leave/end announcements.
+- **Root Cause:** INSERT/UPDATE RLS only checked membership + `user_id = auth.uid()`, with no `message_type` constraint. Direct REST writes bypassed `send_challenge_message` (which already forces text on live).
+- **Fix:** Deploy `scripts/sql/FIX_CHALLENGE_MESSAGES_SYSTEM_TYPE_RLS.sql` — INSERT/UPDATE policies require `message_type = 'text'`; harden `send_challenge_message` to always insert `'text'` and drop any 3-arg overload. Source script `IMPLEMENT_CHALLENGE_CHAT.sql` updated to match.
+- **Validation:** Live REST probe (2026-08-03) confirmed member INSERT/PATCH forgery before fix. Regression: `python3 scripts/challenge_messages_system_type_rls_regression_check.py` (expects deploy).
+- **Prevention:** Privileged message types (`system`) must only be writable by SECURITY DEFINER RPCs; client-facing RLS must constrain `message_type`. Distinct from PR #57 (RPC `create_system_message` non-member gate).
 
 ---
 
