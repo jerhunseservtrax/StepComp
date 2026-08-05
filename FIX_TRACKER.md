@@ -1,7 +1,7 @@
 # FitComp Fix Tracker
 
 > Log of all bugs encountered and fixes implemented to prevent recurrence.
-> Last updated: 2026-04-13 (v6)
+> Last updated: 2026-08-05 (v7)
 
 ---
 
@@ -137,6 +137,15 @@
 - **Root Cause:** `p_ip` parameter set to string `'unknown'`, invalid for PostgreSQL `inet` type.
 - **Fix:** Changed to `nil` (NULL).
 - **Prevention:** Use proper types for PostgreSQL columns. When value is unknown, use NULL not placeholder strings.
+
+### 12b. Private Profiles World-Readable (PII Leak)
+- **Date:** 2026-08-05
+- **Symptom:** Users with `public_profile=false` (UI: "Only friends can see your profile") still had full profile rows readable by anyone holding the published anon key — including email, name, height, and weight.
+- **Root Cause:** Live `profiles` SELECT RLS retained `USING (true)` ("Users can read other profiles") from setup SQL; privacy-intended policies never replaced it (Postgres ORs multiple SELECT policies).
+- **Fix:** Deploy `scripts/sql/FIX_PRIVATE_PROFILE_SELECT_RLS.sql` — scoped SELECT via `public_profile` + SECURITY DEFINER helper for self/friend/co-member access; revoke client `UPDATE` on `is_premium` / `total_steps`. Client Discover search also filters `public_profile=true`.
+- **Files:** `scripts/sql/FIX_PRIVATE_PROFILE_SELECT_RLS.sql`, `scripts/private_profile_select_rls_regression_check.py`, `AddFriendsView.swift`
+- **Validation:** `python3 scripts/private_profile_select_rls_regression_check.py` (fails until SQL is deployed).
+- **Prevention:** Never ship `USING (true)` SELECT on PII tables; treat `public_profile` as a DB boundary, not UI-only. Drop superseded policies explicitly — leftover permissive policies keep the table open.
 
 ---
 

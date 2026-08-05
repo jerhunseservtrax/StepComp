@@ -298,9 +298,12 @@ final class AddFriendsViewModel: ObservableObject {
                 // Search profiles by username (primary search method)
                 // Using ilike for case-insensitive pattern matching
                 // Select all fields needed for UserProfile
+                // Discover search must only return public profiles. Private
+                // profiles are for self/friends/co-members (enforced by RLS).
                 let profiles: [UserProfile] = try await supabase
                     .from("profiles")
                     .select()
+                    .eq("public_profile", value: true)
                     .ilike("username", pattern: "%\(query)%")
                     .limit(20)
                     .execute()

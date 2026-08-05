@@ -1,7 +1,7 @@
 # FitComp Feature Tracker
 
 > Comprehensive catalog of all features in the FitComp fitness competition app (formerly StepComp).
-> Last updated: 2026-04-13 (v5)
+> Last updated: 2026-08-05 (v6)
 
 ---
 
@@ -183,10 +183,10 @@
 | Feature | File(s) | Description |
 |---------|---------|-------------|
 | Friends List | `FriendsView.swift`, `FriendsViewModel.swift` | View current friends |
-| Add Friends | `AddFriendsView.swift` | Search public profiles by username |
+| Add Friends | `AddFriendsView.swift` | Search public profiles by username (`public_profile=true` client filter + RLS) |
 | Paginated Discovery | `FriendsViewModel.swift` | Infinite scroll for discovering new users with offset/limit pagination (30 per page) |
 | Friend Requests | `PendingRequestRow.swift` | Send/accept/decline/cancel requests |
-| Public Profile Toggle | `SettingsView.swift` | Control discoverability |
+| Public Profile Toggle | `ProfileSettingsView.swift`, `FIX_PRIVATE_PROFILE_SELECT_RLS.sql` | Control discoverability; private rows readable only by self/friends/challenge co-members (DB RLS) |
 | Invite Accept | `InviteAcceptView.swift` | Accept friend/challenge invitations |
 
 ### Chat System
