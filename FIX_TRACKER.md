@@ -1,7 +1,7 @@
 # FitComp Fix Tracker
 
 > Log of all bugs encountered and fixes implemented to prevent recurrence.
-> Last updated: 2026-04-13 (v6)
+> Last updated: 2026-08-06 (v7)
 
 ---
 
@@ -26,6 +26,16 @@
 ---
 
 ## Critical Fixes
+
+### 0. Step History + Waitlist SECURITY DEFINER IDORs (2026-08-06)
+- **Symptom:** Any authenticated user could (1) read another user’s private daily step history via `get_user_step_history`, and (2) list waitlist emails via `get_recent_waitlist_signups`, while direct table SELECT correctly returned empty under RLS.
+- **Root Cause:** Both RPCs are `SECURITY DEFINER` and bypass RLS. Live `get_user_step_history` trusted client-supplied `p_user_id`. Waitlist listing was documented as admin-only but `GRANT EXECUTE` was given to `authenticated` with no role check.
+- **Fix:** Replace step-history RPC to return only `auth.uid()` rows (`p_user_id` must be null or self). Harden waitlist listing with `auth.role() = 'service_role'` guard, revoke execute from `anon`/`authenticated`, grant only `service_role`. Align setup/overhaul SQL so redeploys do not reintroduce the hole. Live `daily_steps` has no `is_suspicious` column — response synthesizes `FALSE`.
+- **Files:** `scripts/sql/FIX_STEP_HISTORY_AND_WAITLIST_RPC_IDOR.sql`, `scripts/sql/SETUP_WAITLIST_DATABASE.sql`, `scripts/sql/IMPLEMENT_SECURITY_OVERHAUL.sql`, `scripts/sql/IMPLEMENT_SECURITY_OVERHAUL_V2_SAFE.sql`, `scripts/step_history_waitlist_rpc_idor_regression_check.py`
+- **Prevention:** Every `SECURITY DEFINER` RPC that accepts a user id must re-bind to `auth.uid()` (or an explicit membership/friendship gate). Admin-only RPCs must revoke client execute and check `auth.role()`.
+- **Deploy:** Run `scripts/sql/FIX_STEP_HISTORY_AND_WAITLIST_RPC_IDOR.sql` in Supabase SQL Editor. Validate with `python3 scripts/step_history_waitlist_rpc_idor_regression_check.py` (live asserts fail until deploy).
+
+---
 
 ### 1. Workout State Data Loss After Long Sessions
 - **Commit:** `6b21b36`

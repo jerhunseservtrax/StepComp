@@ -55,7 +55,9 @@ $$;
 GRANT EXECUTE ON FUNCTION get_waitlist_count() TO anon;
 GRANT EXECUTE ON FUNCTION get_waitlist_count() TO authenticated;
 
--- 10. Create function to get recent signups (admin only)
+-- 10. Create function to get recent signups (service_role / admin only)
+-- NOTE: Never GRANT this to anon or authenticated — that leaked waitlist
+-- emails via SECURITY DEFINER (see FIX_STEP_HISTORY_AND_WAITLIST_RPC_IDOR.sql).
 CREATE OR REPLACE FUNCTION get_recent_waitlist_signups(limit_count INTEGER DEFAULT 10)
 RETURNS TABLE (
     id UUID,
@@ -63,22 +65,32 @@ RETURNS TABLE (
     referral_source TEXT,
     created_at TIMESTAMP WITH TIME ZONE
 )
-LANGUAGE sql
+LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public
 STABLE
 AS $$
-  SELECT 
-    id,
-    email,
-    referral_source,
-    created_at
-  FROM public.waitlist
-  ORDER BY created_at DESC
-  LIMIT limit_count;
+BEGIN
+  IF auth.role() IS DISTINCT FROM 'service_role' THEN
+    RAISE EXCEPTION 'not authorized' USING ERRCODE = '42501';
+  END IF;
+
+  RETURN QUERY
+  SELECT
+    w.id,
+    w.email,
+    w.referral_source,
+    w.created_at
+  FROM public.waitlist w
+  ORDER BY w.created_at DESC
+  LIMIT GREATEST(COALESCE(limit_count, 10), 0);
+END;
 $$;
 
--- 11. Grant execute permission only to authenticated users
-GRANT EXECUTE ON FUNCTION get_recent_waitlist_signups(INTEGER) TO authenticated;
+-- 11. Grant execute permission only to service_role (not end-user JWTs)
+REVOKE ALL ON FUNCTION get_recent_waitlist_signups(INTEGER) FROM PUBLIC;
+REVOKE ALL ON FUNCTION get_recent_waitlist_signups(INTEGER) FROM anon, authenticated;
+GRANT EXECUTE ON FUNCTION get_recent_waitlist_signups(INTEGER) TO service_role;
 
 -- 12. Create updated_at trigger
 CREATE OR REPLACE FUNCTION update_updated_at_column()
