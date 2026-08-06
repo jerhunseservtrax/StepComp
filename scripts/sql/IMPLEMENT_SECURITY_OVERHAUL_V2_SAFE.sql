@@ -459,9 +459,17 @@ $$;
 
 GRANT EXECUTE ON FUNCTION public.get_challenge_leaderboard_today(UUID) TO authenticated;
 
--- Get user's step history (bounded to 90 days max)
+-- Get caller's own step history (bounded to 90 days max).
+-- Live production exposes (p_user_id, p_start_date, p_end_date). Never trust
+-- p_user_id for another user — that was an IDOR (see
+-- FIX_STEP_HISTORY_AND_WAITLIST_RPC_IDOR.sql). daily_steps has no
+-- is_suspicious column on live; synthesize FALSE for response shape.
+DROP FUNCTION IF EXISTS public.get_user_step_history(UUID, DATE, DATE);
+DROP FUNCTION IF EXISTS public.get_user_step_history(DATE, DATE);
+
 CREATE OR REPLACE FUNCTION public.get_user_step_history(
-    p_start_date DATE DEFAULT CURRENT_DATE - INTERVAL '7 days',
+    p_user_id UUID DEFAULT NULL,
+    p_start_date DATE DEFAULT (CURRENT_DATE - INTERVAL '7 days'),
     p_end_date DATE DEFAULT CURRENT_DATE
 )
 RETURNS TABLE(
@@ -474,18 +482,21 @@ SECURITY DEFINER
 SET search_path = public
 STABLE
 AS $$
-    SELECT 
-        day,
-        steps,
-        is_suspicious
-    FROM public.daily_steps
-    WHERE user_id = auth.uid()
-    AND day BETWEEN p_start_date AND p_end_date
-    AND day >= CURRENT_DATE - INTERVAL '90 days'  -- ✅ Hard limit: 90 days max
-    ORDER BY day DESC;
+    SELECT
+        ds.day,
+        ds.steps,
+        FALSE AS is_suspicious
+    FROM public.daily_steps ds
+    WHERE auth.uid() IS NOT NULL
+      AND ds.user_id = auth.uid()
+      AND (p_user_id IS NULL OR p_user_id = auth.uid())
+      AND ds.day BETWEEN p_start_date AND p_end_date
+      AND ds.day >= CURRENT_DATE - INTERVAL '90 days'
+    ORDER BY ds.day DESC;
 $$;
 
-GRANT EXECUTE ON FUNCTION public.get_user_step_history TO authenticated;
+REVOKE ALL ON FUNCTION public.get_user_step_history(UUID, DATE, DATE) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.get_user_step_history(UUID, DATE, DATE) TO authenticated;
 
 -- ============================================
 -- 8. Fix existing RLS policies to avoid recursion
