@@ -273,6 +273,12 @@ final class CreateChallengeViewModel: ObservableObject {
             
             print("✅ Challenge created successfully in database")
             createdChallenge = challenge
+            // Invite failures after create are non-fatal but must be visible — selected
+            // friends are not force-enrolled under RLS and only join via challenge_invites.
+            if let inviteWarning = challengeService.lastErrorMessage,
+               inviteWarning.localizedCaseInsensitiveContains("invite") {
+                errorMessage = inviteWarning
+            }
         } catch {
             let errorMsg = error.localizedDescription
             print("❌ Challenge creation failed: \(errorMsg)")

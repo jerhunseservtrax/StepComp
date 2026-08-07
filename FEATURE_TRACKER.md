@@ -1,7 +1,7 @@
 # FitComp Feature Tracker
 
 > Comprehensive catalog of all features in the FitComp fitness competition app (formerly StepComp).
-> Last updated: 2026-04-13 (v5)
+> Last updated: 2026-08-07 (v6)
 
 ---
 
@@ -150,7 +150,7 @@
 
 | Feature | File(s) | Description |
 |---------|---------|-------------|
-| Create Challenge | `CreateChallengeView.swift`, `CreateChallengeViewModel.swift` | Name, description, dates, step target, image, privacy |
+| Create Challenge | `CreateChallengeView.swift`, `CreateChallengeViewModel.swift`, `ChallengeService.swift` | Name, description, dates, step target, image, privacy; selected friends invited via `send_challenge_invites` after creator self-enroll (not force-inserted into `challenge_members`) |
 | Privacy Settings | `PrivacyToggleView.swift` | Public/private challenge toggle |
 | Friends-Only Mode | `FriendsOnlyToggleView.swift` | Restrict to friends |
 | Category Selection | `CreateChallengeView.swift` | Short-Term, Friends, Corporate, Marathon, Fun |
