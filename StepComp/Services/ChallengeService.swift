@@ -53,6 +53,8 @@ final class ChallengeService: ObservableObject {
     
     #if canImport(Supabase)
     private func createChallengeInSupabase(_ challenge: Challenge, isPublic: Bool) async throws {
+        lastErrorMessage = nil
+
         // Generate invite code if not provided (only for private challenges)
         // For public challenges, invite code is nil
         var inviteCode: String? = nil
@@ -153,43 +155,32 @@ final class ChallengeService: ObservableObject {
             throw error
         }
         
-        // Add selected participants
-        var successCount = 0
-        var failedParticipants: [(String, String)] = []
-        
-        for participantId in challenge.participantIds where participantId != challenge.creatorId {
+        // Invite selected friends. Live RLS only allows self-enroll (user_id = auth.uid()),
+        // so creators cannot force-insert other users into challenge_members. The supported
+        // path is send_challenge_invites → pending challenge_invites + notification.
+        let friendIds = challenge.participantIds.filter { $0 != challenge.creatorId }
+        if !friendIds.isEmpty {
             do {
-                try await addChallengeMember(challengeId: challenge.id, userId: participantId)
-                
-                // Verify the participant was actually added
-                let verifyMember: [ChallengeMember] = try await supabase
-                    .from("challenge_members")
-                    .select()
-                    .eq("challenge_id", value: challenge.id)
-                    .eq("user_id", value: participantId)
+                let inviteCount: Int = try await supabase
+                    .rpc("send_challenge_invites", params: [
+                        "p_challenge_id": AnyJSON.string(challenge.id),
+                        "p_friend_ids": AnyJSON.array(friendIds.map { AnyJSON.string($0) })
+                    ] as [String: AnyJSON])
                     .execute()
                     .value
                 
-                if verifyMember.isEmpty {
-                    print("❌ WARNING: Participant \(participantId) insertion claimed success but not found in database!")
-                    failedParticipants.append((participantId, "Verification failed - not in database"))
-                } else {
-                    successCount += 1
-                    print("✅ Participant \(participantId) verified in database")
+                print("📨 Sent \(inviteCount) challenge invite(s) for \(friendIds.count) selected friend(s)")
+                if inviteCount < friendIds.count {
+                    let message = "Challenge created, but only \(inviteCount) of \(friendIds.count) invites were sent."
+                    lastErrorMessage = message
+                    print("⚠️ \(message)")
                 }
             } catch {
-                let errorDetails = "\(error)"
-                print("❌ Failed to add participant \(participantId): \(errorDetails)")
-                failedParticipants.append((participantId, errorDetails))
-            }
-        }
-        
-        // Log summary
-        print("📊 Member addition summary: \(successCount) succeeded, \(failedParticipants.count) failed")
-        if !failedParticipants.isEmpty {
-            print("❌ Failed participants:")
-            for (participantId, error) in failedParticipants {
-                print("  - \(participantId): \(error)")
+                // Challenge + creator membership already committed; do not fail creation.
+                // Surface invite failure so the UI can prompt the user to retry invites.
+                let message = "Challenge created, but inviting friends failed: \(error.localizedDescription)"
+                lastErrorMessage = message
+                print("❌ \(message)")
             }
         }
         

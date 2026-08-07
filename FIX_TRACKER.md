@@ -1,7 +1,7 @@
 # FitComp Fix Tracker
 
 > Log of all bugs encountered and fixes implemented to prevent recurrence.
-> Last updated: 2026-04-13 (v6)
+> Last updated: 2026-08-07 (v7)
 
 ---
 
@@ -587,6 +587,14 @@
 - **Fix:** Restored a dedicated Workouts tab in a 5-tab layout and updated tab-index routing in workout start flow and tab manager helper.
 - **Files:** `MainTabView.swift`, `WorkoutDetailView.swift`
 - **Prevention:** Keep central tab index mapping documented and update all programmatic tab switches whenever tab order changes.
+
+### 62. Create Challenge Silently Drops Selected Friends
+- **Status:** Fixed (2026-08-07)
+- **Symptom:** Creating a challenge with friends selected showed success, but friends were never added and never received invites/notifications.
+- **Root Cause:** `ChallengeService.createChallengeInSupabase` force-inserted selected users into `challenge_members`. Live RLS only allows `user_id = auth.uid()` self-enroll, so every non-creator insert returned `42501`. Errors were swallowed and `send_challenge_invites` was never called.
+- **Fix:** After creator self-enroll, invite selected friends via `send_challenge_invites` (same path as `InviteFriendsToChallengeView`). Surface partial/failed invites through `lastErrorMessage` without rolling back challenge creation. Regression: `python3 scripts/create_challenge_invite_participants_regression_check.py`.
+- **Files:** `ChallengeService.swift`, `CreateChallengeViewModel.swift`
+- **Prevention:** Never force-enroll other users into `challenge_members` from the client; use invite RPCs. Do not treat swallowed per-participant insert failures as success.
 
 ## New Features
 
