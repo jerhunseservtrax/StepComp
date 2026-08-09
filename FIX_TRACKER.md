@@ -1,7 +1,7 @@
 # FitComp Fix Tracker
 
 > Log of all bugs encountered and fixes implemented to prevent recurrence.
-> Last updated: 2026-04-13 (v6)
+> Last updated: 2026-08-09 (v7)
 
 ---
 
@@ -26,6 +26,14 @@
 ---
 
 ## Critical Fixes
+
+### 0. Friend Invite Deep Links Silently Reject Live Tokens
+- **Date:** 2026-08-09
+- **Symptom:** Shared friend-invite links never open the accept flow. `DeepLinkRouter` dropped every live token, so recipients could not consume invites from SMS/Messages/universal links.
+- **Root Cause:** `isValidInviteToken` only allowed `[A-Za-z0-9_-]`, but live `create_friend_invite` returns Postgres `base64url` tokens that include `~` padding (e.g. `…ag~~`). 5/5 live tokens were rejected.
+- **Fix:** Expand the validator to the base64url alphabet including `=` and `~` padding while still rejecting unrelated special characters. Added XCTest coverage and `scripts/friend_invite_token_deeplink_regression_check.py`.
+- **Files:** `DeepLinkRouter.swift`, `DeepLinkRouterTests.swift`, `scripts/friend_invite_token_deeplink_regression_check.py`
+- **Prevention:** When adding deep-link token validation, validate against tokens produced by the live RPC — not an assumed alphabet.
 
 ### 1. Workout State Data Loss After Long Sessions
 - **Commit:** `6b21b36`
@@ -483,12 +491,12 @@
 ## Deep Linking
 
 ### 51. Invalid Invite Token Processing
-- **Status:** Fixed (uncommitted)
+- **Status:** Fixed (superseded by Critical Fix #0 on 2026-08-09)
 - **Symptom:** Malformed or empty invite tokens in deep links could trigger unnecessary network requests or errors.
 - **Root Cause:** No validation on invite token format before processing the deep link.
-- **Fix:** Added `isValidInviteToken()` that validates token length (8-128 chars) and character set (alphanumeric, `-`, `_`) before routing.
+- **Fix:** Added `isValidInviteToken()` that validates token length (8-128 chars) and character set before routing. The original alphabet omitted live Postgres `base64url` padding (`~` / `=`); see Critical Fix #0.
 - **Files:** `DeepLinkRouter.swift`
-- **Prevention:** Always validate deep link parameters at the routing layer before passing to services.
+- **Prevention:** Always validate deep link parameters at the routing layer before passing to services, using the live token alphabet.
 
 ---
 

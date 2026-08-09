@@ -18,7 +18,10 @@ final class DeepLinkRouter: ObservableObject {
     private func isValidInviteToken(_ token: String) -> Bool {
         let trimmed = token.trimmingCharacters(in: .whitespacesAndNewlines)
         guard (8...128).contains(trimmed.count) else { return false }
-        let pattern = "^[A-Za-z0-9_-]+$"
+        // Live create_friend_invite tokens are Postgres base64url
+        // (A-Za-z0-9_-, plus '=' / '~' padding). Rejecting '~' silently
+        // drops every shared friend-invite deep link.
+        let pattern = "^[A-Za-z0-9_=~-]+$"
         return trimmed.range(of: pattern, options: .regularExpression) != nil
     }
 
