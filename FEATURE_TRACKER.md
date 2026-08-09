@@ -1,7 +1,7 @@
 # FitComp Feature Tracker
 
 > Comprehensive catalog of all features in the FitComp fitness competition app (formerly StepComp).
-> Last updated: 2026-04-13 (v5)
+> Last updated: 2026-08-09 (v6)
 
 ---
 
@@ -40,7 +40,7 @@
 |---------|---------|-------------|
 | 5-Tab Navigation | `MainTabView.swift` | Home, Workouts, Challenges, Metrics, Settings |
 | Deep Link Routing | `DeepLinkRouter.swift`, `AppRoute.swift` | Route handling for leaderboard, profile, create/join challenge, OAuth callbacks |
-| Invite Token Validation | `DeepLinkRouter.swift` | Validates invite tokens (8-128 chars, alphanumeric) before processing |
+| Invite Token Validation | `DeepLinkRouter.swift` | Validates invite tokens (8-128 chars, base64url alphabet including `-`, `_`, `=`, `~`) before processing |
 | Haptic Tab Switching | `HapticManager.swift` | Tactile feedback on tab changes |
 
 ---

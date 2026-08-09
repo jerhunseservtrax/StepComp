@@ -22,6 +22,21 @@ final class DeepLinkRouterTests: XCTestCase {
         XCTAssertEqual(router.pendingInviteToken, "ABCD1234")
     }
 
+    func testBase64URLInviteTokenWithTildePadding() {
+        // Live Postgres encode(..., 'base64url') tokens end with '~' padding.
+        let token = "oznuK7XIV6T_wTgNco7qag~~"
+        let url = URL(string: "fitcomp://friend-invite?token=\(token)")!
+        router.handle(url: url)
+        XCTAssertEqual(router.pendingInviteToken, token)
+    }
+
+    func testBase64URLInviteTokenWithEqualsPadding() {
+        let token = "abcdEFGH1234xyz="
+        let url = URL(string: "fitcomp://friend-invite?token=\(token)")!
+        router.handle(url: url)
+        XCTAssertEqual(router.pendingInviteToken, token)
+    }
+
     func testInvalidTokenTooShort() {
         let url = URL(string: "fitcomp://friend-invite?token=AB")!
         router.handle(url: url)
