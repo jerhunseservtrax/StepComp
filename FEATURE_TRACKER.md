@@ -1,7 +1,7 @@
 # FitComp Feature Tracker
 
 > Comprehensive catalog of all features in the FitComp fitness competition app (formerly StepComp).
-> Last updated: 2026-04-13 (v5)
+> Last updated: 2026-08-10 (v6)
 
 ---
 
@@ -122,6 +122,7 @@
 | Log Weight | `WeightEntryView.swift` | Daily weight entries |
 | Weight Graph | `WeightTrackingCard.swift` | Weight history visualization |
 | Weight Progress | `WeightViewModel.swift` | Trend tracking over time |
+| Ordered Weight Catch-up Sync | `MetricsService.swift`, `sync_weight_entry` | Offline bulk weight sync replays oldest→newest; profile weight only advances from non-older days |
 
 ### Transformation Photos
 
