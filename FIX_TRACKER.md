@@ -1,7 +1,7 @@
 # FitComp Fix Tracker
 
 > Log of all bugs encountered and fixes implemented to prevent recurrence.
-> Last updated: 2026-04-13 (v6)
+> Last updated: 2026-08-10 (v7)
 
 ---
 
@@ -587,6 +587,15 @@
 - **Fix:** Restored a dedicated Workouts tab in a 5-tab layout and updated tab-index routing in workout start flow and tab manager helper.
 - **Files:** `MainTabView.swift`, `WorkoutDetailView.swift`
 - **Prevention:** Keep central tab index mapping documented and update all programmatic tab switches whenever tab order changes.
+
+### 62. Weight Bulk Sync Corrupts profiles.weight / Same-Day Logs
+- **Status:** Fixed (pending SQL deploy)
+- **Symptom:** After offline weight logging, app launch catch-up could set `profiles.weight` to an older day's value, and same-day corrections could store the older sample in `weight_log`.
+- **Root Cause:** `WeightViewModel.entries` is newest-first; `MetricsService.syncAllLocalData` synced that order. Live `sync_weight_entries_batch` is missing (404), so fallback loops `sync_weight_entry`, which always `SET profiles.weight = p_weight_kg` and last-write-wins on `(user_id, recorded_on)`.
+- **Fix:** Sort unsynced weight entries oldest→newest before bulk/sequential sync; use local `yyyy-MM-dd` day keys; update `sync_weight_entry` so `profiles.weight` updates only when no later `recorded_on` exists (`FIX_SYNC_WEIGHT_ENTRY_LATEST_PROFILE.sql`).
+- **Files:** `MetricsService.swift`, `scripts/sql/FIX_SYNC_WEIGHT_ENTRY_LATEST_PROFILE.sql`, `scripts/sql/CREATE_USER_METRICS_TABLES.sql`, `scripts/weight_sync_order_regression_check.py`
+- **Prevention:** Any catch-up that replays last-write-wins upserts must process chronological order (or make the RPC choose the latest day explicitly). Deploy paired SQL when client replay order matters.
+- **Validation:** `python3 scripts/weight_sync_order_regression_check.py` (static ok; live fails until SQL deploy).
 
 ## New Features
 

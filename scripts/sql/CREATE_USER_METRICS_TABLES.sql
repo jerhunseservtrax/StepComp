@@ -292,10 +292,18 @@ BEGIN
         source    = EXCLUDED.source
     RETURNING id INTO v_entry_id;
 
-    -- Keep profiles.weight in sync with latest entry
+    -- Only bump profiles.weight when this day is not older than an existing log.
+    -- Prevents offline catch-up that syncs newest-first from stamping an older
+    -- day's weight onto the profile (see FIX_SYNC_WEIGHT_ENTRY_LATEST_PROFILE.sql).
     UPDATE public.profiles
     SET weight = p_weight_kg::INT
-    WHERE id = v_user_id;
+    WHERE id = v_user_id
+      AND NOT EXISTS (
+          SELECT 1
+          FROM public.weight_log wl
+          WHERE wl.user_id = v_user_id
+            AND wl.recorded_on > p_date
+      );
 
     RETURN v_entry_id;
 END;

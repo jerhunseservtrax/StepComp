@@ -66,9 +66,7 @@ final class MetricsService: ObservableObject {
             return
         }
 
-        let dateFormatter = DateFormatter()
-        dateFormatter.dateFormat = "yyyy-MM-dd"
-        let dateString = dateFormatter.string(from: entry.date)
+        let dateString = Self.localDayKey(for: entry.date)
 
         do {
             _ = try await SupabaseRequestExecutor.executeWithAuthRetry(context: "sync_weight_entry") {
@@ -128,15 +126,20 @@ final class MetricsService: ObservableObject {
         }
 
         let syncedWeightIds = getSyncedWeightEntryIds()
-        let unsyncedEntries = weightVM.entries.filter { !syncedWeightIds.contains($0.id.uuidString) }
+        // WeightViewModel keeps entries newest-first for UI. Bulk catch-up must
+        // sync oldest→newest so last-write-wins in sync_weight_entry leaves the
+        // chronologically latest day (and newest same-day sample) in weight_log
+        // and profiles.weight. Live sync_weight_entries_batch is missing (404),
+        // so the sequential fallback below is the real path.
+        let unsyncedEntries = weightVM.entries
+            .filter { !syncedWeightIds.contains($0.id.uuidString) }
+            .sorted { $0.date < $1.date }
 
         if !unsyncedEntries.isEmpty {
             print("🔄 [MetricsService] Syncing \(unsyncedEntries.count) unsynced weight entries...")
-            let formatter = DateFormatter()
-            formatter.dateFormat = "yyyy-MM-dd"
             let batchPayload: [AnyJSON] = unsyncedEntries.map { entry in
                 .object([
-                    "date": .string(formatter.string(from: entry.date)),
+                    "date": .string(Self.localDayKey(for: entry.date)),
                     "weight_kg": .string(String(entry.weightKg)),
                     "source": .string(entry.source == .healthKit ? "healthKit" : "manual")
                 ])
@@ -349,6 +352,16 @@ final class MetricsService: ObservableObject {
     }
 
     // MARK: - Sync Tracking (UserDefaults)
+
+    /// Local calendar day key for weight_log.recorded_on (yyyy-MM-dd).
+    private static func localDayKey(for date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.calendar = Calendar.current
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone.current
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter.string(from: date)
+    }
 
     private func sessionPayload(for session: CompletedWorkoutSession) -> [String: AnyJSON] {
         var setsArray: [AnyJSON] = []
