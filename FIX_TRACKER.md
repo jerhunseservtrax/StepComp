@@ -1,7 +1,7 @@
 # FitComp Fix Tracker
 
 > Log of all bugs encountered and fixes implemented to prevent recurrence.
-> Last updated: 2026-04-13 (v6)
+> Last updated: 2026-08-11 (v7)
 
 ---
 
@@ -490,6 +490,14 @@
 - **Files:** `DeepLinkRouter.swift`
 - **Prevention:** Always validate deep link parameters at the routing layer before passing to services.
 
+### 51b. Friend Invite Auto-Consume Burns One-Time Tokens
+- **Status:** Fixed (2026-08-11)
+- **Symptom:** Opening a friend-invite deep link immediately called `consume_friend_invite`, burning the one-time token under whichever account was signed in (shared device / wrong account). Intended recipient then saw "Invite already used"; a pending friendship was created for the wrong user.
+- **Root Cause:** `InviteAcceptView` used `.task { await vm.consume(token:) }` on appear with no confirmation step. Live RPC marks `friend_invites.used_at` on first successful consume.
+- **Fix:** Require explicit "Send Friend Request" confirmation via `confirmAndConsume` before calling the RPC; "Not Now" dismisses without consuming.
+- **Files:** `InviteAcceptView.swift`, `StepCompTests/InviteAcceptViewModelTests.swift`, `scripts/friend_invite_accept_confirm_regression_check.py`
+- **Prevention:** One-time token RPCs must never run on view appear; always gate with an explicit user action. Regression: `python3 scripts/friend_invite_accept_confirm_regression_check.py`.
+
 ---
 
 ## Profile & Settings
@@ -616,6 +624,7 @@
 | Chaining 5+ `onChange` modifiers | Type-check timeout | Split into sub-ViewModifiers |
 | Timer callbacks without `@MainActor` | UI race conditions | Wrap in `Task { @MainActor in }` |
 | No validation on deep link params | Bad network requests | Validate format before routing |
+| Auto-running one-time token RPCs on appear | Wrong-account consume / burned invites | Require explicit confirm before consume |
 | Multiple startup sync triggers | Redundant network calls | Use a one-shot flag to deduplicate |
 | Not adopting existing Live Activities | Orphaned system activities | Scan and adopt on launch |
 | Hardcoded unit display (miles, lbs) | Wrong values for metric users | Always use `UnitPreferenceManager` formatters |
