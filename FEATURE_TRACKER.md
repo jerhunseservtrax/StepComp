@@ -1,7 +1,7 @@
 # FitComp Feature Tracker
 
 > Comprehensive catalog of all features in the FitComp fitness competition app (formerly StepComp).
-> Last updated: 2026-04-13 (v5)
+> Last updated: 2026-08-11 (v6)
 
 ---
 
@@ -187,7 +187,7 @@
 | Paginated Discovery | `FriendsViewModel.swift` | Infinite scroll for discovering new users with offset/limit pagination (30 per page) |
 | Friend Requests | `PendingRequestRow.swift` | Send/accept/decline/cancel requests |
 | Public Profile Toggle | `SettingsView.swift` | Control discoverability |
-| Invite Accept | `InviteAcceptView.swift` | Accept friend/challenge invitations |
+| Invite Accept | `InviteAcceptView.swift` | Confirm-then-accept friend invitations (does not auto-consume one-time tokens on appear) |
 
 ### Chat System
 

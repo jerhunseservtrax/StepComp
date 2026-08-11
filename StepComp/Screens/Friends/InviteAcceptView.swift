@@ -12,6 +12,7 @@ import Combine
 final class InviteAcceptViewModel: ObservableObject {
     @Published var inviter: Profile?
     @Published var isLoading = false
+    @Published var didConsume = false
     @Published var errorMessage: String?
 
     private let service: FriendsService
@@ -20,7 +21,9 @@ final class InviteAcceptViewModel: ObservableObject {
         self.service = service
     }
 
-    func consume(token: String) async {
+    /// Consumes the one-time invite token. Must only be called after explicit user confirmation.
+    func confirmAndConsume(token: String) async {
+        guard !didConsume, !isLoading else { return }
         isLoading = true
         defer { isLoading = false }
         do {
@@ -32,6 +35,8 @@ final class InviteAcceptViewModel: ObservableObject {
                 avatarUrl: result.inviterAvatarUrl,
                 publicProfile: false
             )
+            didConsume = true
+            errorMessage = nil
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -41,6 +46,7 @@ final class InviteAcceptViewModel: ObservableObject {
 struct InviteAcceptView: View {
     let token: String
     @StateObject private var vm: InviteAcceptViewModel
+    @Environment(\.dismiss) private var dismiss
 
     init(token: String, service: FriendsService) {
         self.token = token
@@ -50,8 +56,8 @@ struct InviteAcceptView: View {
     var body: some View {
         VStack(spacing: 16) {
             if vm.isLoading {
-                ProgressView("Loading invite…")
-            } else if let inviter = vm.inviter {
+                ProgressView("Sending friend request…")
+            } else if let inviter = vm.inviter, vm.didConsume {
                 AvatarCircle(url: inviter.avatarUrl, fallback: String(inviter.username.prefix(1)).uppercased())
                 Text("Friend request sent to")
                     .foregroundStyle(.secondary)
@@ -59,10 +65,40 @@ struct InviteAcceptView: View {
                     .font(.title2).bold()
                 Text("@\(inviter.username)")
                     .foregroundStyle(.secondary)
+
+                Button("Done") { dismiss() }
+                    .buttonStyle(.borderedProminent)
+                    .padding(.top, 8)
             } else {
-                Text("Invalid invite")
-                    .font(.title3)
-                Text(vm.errorMessage ?? "This invite may be expired or already used.")
+                Image(systemName: "person.badge.plus")
+                    .font(.system(size: 48))
+                    .foregroundStyle(.secondary)
+                    .padding(.top, 8)
+
+                Text("Friend Invite")
+                    .font(.title2).bold()
+
+                Text("This will send a friend request using your currently signed-in account. Confirm only if this is the account you want to connect.")
+                    .font(.body)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal)
+
+                if let errorMessage = vm.errorMessage {
+                    Text(errorMessage)
+                        .font(.footnote)
+                        .foregroundStyle(.red)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal)
+                }
+
+                Button("Send Friend Request") {
+                    Task { await vm.confirmAndConsume(token: token) }
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(vm.isLoading)
+
+                Button("Not Now") { dismiss() }
                     .foregroundStyle(.secondary)
             }
 
@@ -70,7 +106,7 @@ struct InviteAcceptView: View {
         }
         .padding()
         .navigationTitle("Friend Invite")
-        .task { await vm.consume(token: token) }
+        // Intentionally no .task auto-consume: one-time tokens must not burn on appear.
     }
 }
 
@@ -78,4 +114,3 @@ struct InviteTokenItem: Identifiable {
     let id = UUID()
     let token: String
 }
-
