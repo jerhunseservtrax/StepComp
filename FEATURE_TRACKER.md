@@ -1,7 +1,7 @@
 # FitComp Feature Tracker
 
 > Comprehensive catalog of all features in the FitComp fitness competition app (formerly StepComp).
-> Last updated: 2026-04-13 (v5)
+> Last updated: 2026-08-16 (v6)
 
 ---
 
@@ -112,6 +112,7 @@
 | Workout Persistence | `WorkoutViewModel.swift` | Save/restore active workout state across app lifecycle |
 | Workout Summary | `WorkoutSummaryView.swift` | Post-workout stats (duration, exercises, sets, calories) |
 | Session History | `CompletedSessionDetailView.swift` | View past workout details |
+| Past-Date Session Timestamps | `WorkoutViewModel.swift`, `MetricsService.swift` | Backfilled workouts keep clock time and sync by client session id so two same-day logs cannot overwrite each other |
 | Edit Sessions | `EditCompletedSessionView.swift` | Modify completed session data |
 | Workout Progress | `WorkoutProgressView.swift` | Track progress over time |
 

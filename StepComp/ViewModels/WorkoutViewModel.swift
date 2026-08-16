@@ -209,24 +209,16 @@ class WorkoutViewModel: ObservableObject {
     func finishWorkout() {
         guard var session = currentSession else { return }
         
-        // Use the target date if set, otherwise use current date/time
-        let calendar = Calendar.current
         let now = Date()
         let effectiveDuration = max(0, computeActiveWorkoutDuration(at: now))
-        
-        // Set endTime to a time on the target date (use current time of day but on target date)
-        let endTime: Date
-        if let workoutTargetDate = workoutTargetDate,
-           !calendar.isDateInToday(workoutTargetDate) {
-            // If target date is not today, set endTime to 11:59 PM on that date
-            let components = calendar.dateComponents([.year, .month, .day], from: workoutTargetDate)
-            endTime = calendar.date(bySettingHour: 23, minute: 59, second: 59, of: calendar.date(from: components) ?? workoutTargetDate) ?? Date()
-        } else {
-            // If target date is today or not set, use current time
-            endTime = now
-        }
-        
-        session.endTime = endTime
+        let timestamps = WorkoutSessionTimestampMapper.timestamps(
+            targetDate: workoutTargetDate,
+            now: now,
+            duration: effectiveDuration,
+            existingStartTimes: completedSessions.map(\.startTime)
+        )
+
+        session.endTime = timestamps.end
         session.isActive = false
         
         // Save completed session
@@ -234,8 +226,8 @@ class WorkoutViewModel: ObservableObject {
             id: session.id,
             workoutId: session.workoutId,
             workoutName: session.workoutName,
-            startTime: endTime.addingTimeInterval(-effectiveDuration),
-            endTime: endTime,
+            startTime: timestamps.start,
+            endTime: timestamps.end,
             exercises: session.exercises
         )
         completedSessions.append(completedSession)
@@ -1179,5 +1171,41 @@ class WorkoutViewModel: ObservableObject {
         let weekday = calendar.component(.weekday, from: normalizedDate)
         let daysFromStart = weekStartsOnMonday ? (weekday + 5) % 7 : (weekday - 1)
         return calendar.date(byAdding: .day, value: -daysFromStart, to: normalizedDate) ?? normalizedDate
+    }
+}
+
+/// Maps an in-progress session onto a log date without collapsing distinct
+/// workouts onto the same `started_at`. The metrics RPC upserts on a unique
+/// `(user_id, started_at)` key, so identical reconstructed timestamps silently
+/// overwrite an earlier session and delete its sets.
+enum WorkoutSessionTimestampMapper {
+    static func timestamps(
+        targetDate: Date?,
+        now: Date,
+        duration: TimeInterval,
+        existingStartTimes: [Date],
+        calendar: Calendar = .current
+    ) -> (start: Date, end: Date) {
+        let clampedDuration = max(0, duration)
+        let endOnTarget: Date
+        if let targetDate, !calendar.isDate(targetDate, inSameDayAs: now) {
+            var parts = calendar.dateComponents([.year, .month, .day], from: targetDate)
+            let clock = calendar.dateComponents([.hour, .minute, .second], from: now)
+            parts.hour = clock.hour
+            parts.minute = clock.minute
+            parts.second = clock.second
+            endOnTarget = calendar.date(from: parts) ?? now
+        } else {
+            endOnTarget = now
+        }
+
+        var end = endOnTarget
+        var start = end.addingTimeInterval(-clampedDuration)
+        let existingSeconds = Set(existingStartTimes.map { Int($0.timeIntervalSince1970) })
+        while existingSeconds.contains(Int(start.timeIntervalSince1970)) {
+            start = start.addingTimeInterval(1)
+            end = end.addingTimeInterval(1)
+        }
+        return (start, end)
     }
 }

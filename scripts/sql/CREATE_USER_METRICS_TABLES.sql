@@ -22,8 +22,9 @@ CREATE TABLE IF NOT EXISTS public.workout_sessions (
     total_volume_kg INT NOT NULL DEFAULT 0,
     max_weight_kg INT NOT NULL DEFAULT 0,
     source TEXT NOT NULL DEFAULT 'app',
+    client_session_id UUID NOT NULL DEFAULT gen_random_uuid(),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    CONSTRAINT uq_workout_sessions_user_start UNIQUE(user_id, started_at)
+    CONSTRAINT uq_workout_sessions_user_client UNIQUE(user_id, client_session_id)
 );
 
 CREATE INDEX IF NOT EXISTS idx_workout_sessions_user_ended
@@ -172,6 +173,7 @@ AS $$
 DECLARE
     v_user_id UUID;
     v_session_id UUID;
+    v_client_session_id UUID;
     v_workout_id UUID;
     v_workout_name TEXT;
     v_started_at TIMESTAMPTZ;
@@ -194,6 +196,16 @@ BEGIN
     v_ended_at     := (p_session->>'ended_at')::TIMESTAMPTZ;
     v_source       := COALESCE(p_session->>'source', 'app');
 
+    IF p_session->>'id' IS NOT NULL AND p_session->>'id' <> '' THEN
+        BEGIN
+            v_client_session_id := (p_session->>'id')::UUID;
+        EXCEPTION WHEN invalid_text_representation THEN
+            v_client_session_id := gen_random_uuid();
+        END;
+    ELSE
+        v_client_session_id := gen_random_uuid();
+    END IF;
+
     IF p_session->>'workout_id' IS NOT NULL AND p_session->>'workout_id' <> '' THEN
         v_workout_id := (p_session->>'workout_id')::UUID;
     END IF;
@@ -215,17 +227,19 @@ BEGIN
         END IF;
     END LOOP;
 
-    -- Upsert session row
+    -- Upsert by client session id so same-second / past-dated timestamps
+    -- cannot overwrite a different workout.
     INSERT INTO public.workout_sessions (
-        user_id, workout_id, workout_name, started_at, ended_at,
+        user_id, client_session_id, workout_id, workout_name, started_at, ended_at,
         total_volume_kg, max_weight_kg, source
     )
     VALUES (
-        v_user_id, v_workout_id, v_workout_name, v_started_at, v_ended_at,
+        v_user_id, v_client_session_id, v_workout_id, v_workout_name, v_started_at, v_ended_at,
         v_total_volume, v_max_weight, v_source
     )
-    ON CONFLICT (user_id, started_at) DO UPDATE SET
+    ON CONFLICT (user_id, client_session_id) DO UPDATE SET
         workout_name   = EXCLUDED.workout_name,
+        started_at     = EXCLUDED.started_at,
         ended_at       = EXCLUDED.ended_at,
         total_volume_kg = EXCLUDED.total_volume_kg,
         max_weight_kg  = EXCLUDED.max_weight_kg,

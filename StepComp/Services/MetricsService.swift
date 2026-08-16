@@ -368,6 +368,7 @@ final class MetricsService: ObservableObject {
 
         let isoFormatter = ISO8601DateFormatter()
         return [
+            "id": .string(session.id.uuidString),
             "workout_id": .string(session.workoutId.uuidString),
             "workout_name": .string(session.workoutName),
             "started_at": .string(isoFormatter.string(from: session.startTime)),

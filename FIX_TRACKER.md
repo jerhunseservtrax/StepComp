@@ -1,7 +1,7 @@
 # FitComp Fix Tracker
 
 > Log of all bugs encountered and fixes implemented to prevent recurrence.
-> Last updated: 2026-04-13 (v6)
+> Last updated: 2026-08-16 (v7)
 
 ---
 
@@ -272,6 +272,17 @@
 ---
 
 ## Data Integrity
+
+### 62. Past-Dated Workout Sync Overwrites a Different Session
+- **Status:** Fixed (2026-08-16)
+- **Symptom:** Completing two workouts logged to the same past calendar day could erase the first workout from cloud metrics/history.
+- **Root Cause:** `finishWorkout()` pinned every non-today session to 23:59:59 and reconstructed `started_at` as `end - duration`. `sync_workout_session` upserted on `UNIQUE(user_id, started_at)` and deleted the matched row's sets, so same-duration backfills last-write-wins.
+- **Trigger:** Workouts tab → select yesterday → finish Push in 15:00 → finish Pull in 15:00. Both sync with the same `started_at`; the second RPC replaces the first.
+- **Fix:** Preserve clock time-of-day on the target date and nudge colliding local start timestamps. Send the local session UUID in the sync payload. Change the RPC idempotency key to `(user_id, client_session_id)` and drop the `started_at` unique constraint.
+- **Files:** `WorkoutViewModel.swift`, `MetricsService.swift`, `scripts/sql/FIX_WORKOUT_SESSION_SYNC_IDEMPOTENCY.sql`, `scripts/sql/CREATE_USER_METRICS_TABLES.sql`
+- **Prevention:** Never use a reconstructed wall-clock timestamp as an idempotency key. Upsert completed workouts by client session id.
+- **Deploy:** Run `scripts/sql/FIX_WORKOUT_SESSION_SYNC_IDEMPOTENCY.sql` in Supabase. Client timestamp mapping protects new app builds even before deploy.
+- **Regression:** `python3 scripts/workout_session_timestamp_collision_regression_check.py`
 
 ### 28. Rest Timer Drifts in Background
 - **Documented in:** `.cursor/rules/bug-fixes.md`
@@ -621,6 +632,7 @@
 | Hardcoded unit display (miles, lbs) | Wrong values for metric users | Always use `UnitPreferenceManager` formatters |
 | Capping progress at 100% in display | Misleading achievement info | Cap the visual ring, not the number |
 | Only checking recurring workout days | One-time workouts invisible | Query both `assignedDays` and `oneTimeDate` |
+| Unique constraint on reconstructed `started_at` | Past-dated workouts overwrite each other | Idempotency key must be the client session id |
 
 ---
 
