@@ -1,7 +1,7 @@
 # FitComp Fix Tracker
 
 > Log of all bugs encountered and fixes implemented to prevent recurrence.
-> Last updated: 2026-04-13 (v6)
+> Last updated: 2026-08-20 (v7)
 
 ---
 
@@ -590,6 +590,16 @@
 
 ## New Features
 
+### 62. Stale Workout Draft Silently Auto-Finished After 6 Hours
+- **Status:** Fixed
+- **Symptom:** Starting a workout, locking or force-quitting the phone, then reopening after 6+ hours silently finished the in-progress session. Incomplete sets were saved as a completed workout with an inflated duration and synced to the server. The user could not continue the session.
+- **Root Cause:** Draft persistence restored `sessionStartTime` and restarted the 1s timer. Elapsed time is wall-clock minus explicit pauses, so overnight/background time counted as active. Crossing `6 * 3600` called `finishWorkout()` with no confirmation.
+- **Fix:** Extracted `AbandonedWorkoutPolicy` and replaced the 6-hour `finishWorkout()` call with a one-shot pause (`applyStaleSessionGuard`) on the timer, draft restore, and foreground reconcile. The user can resume or finish manually; an explicit resume after auto-pause is allowed to continue.
+- **Files:** `AbandonedWorkoutPolicy.swift`, `WorkoutViewModel.swift`, `scripts/abandoned_workout_autofinish_regression_check.py`, `StepCompTests/AbandonedWorkoutPolicyTests.swift`
+- **Prevention:** Never persist/sync a completed workout from a stale-session timeout. Pause and let the user decide. Wall-clock since start is not gym time after suspension.
+
+---
+
 ### Auto-Complete Workout on All Sets Done
 - **Status:** Implemented (uncommitted)
 - **Feature:** Workout automatically finishes when every set across every exercise has been completed, after a 1.5-second delay with a "Workout Complete!" overlay.
@@ -621,6 +631,7 @@
 | Hardcoded unit display (miles, lbs) | Wrong values for metric users | Always use `UnitPreferenceManager` formatters |
 | Capping progress at 100% in display | Misleading achievement info | Cap the visual ring, not the number |
 | Only checking recurring workout days | One-time workouts invisible | Query both `assignedDays` and `oneTimeDate` |
+| Wall-clock elapsed auto-finish after draft restore | Overnight sessions silently saved with inflated duration | Pause stale sessions; never finish without the user |
 
 ---
 
