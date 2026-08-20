@@ -46,9 +46,10 @@ class WorkoutViewModel: ObservableObject {
     private var timer: Timer?
     private var pauseStartTime: Date?
     private var totalPausedTime: TimeInterval = 0
-    private let autoFinishThreshold: TimeInterval = 6 * 3600
     private let analytics = WorkoutAnalyticsEngine()
     private var autoFinishTask: Task<Void, Never>?
+    /// One-shot so an explicit resume after a stale-session pause can continue.
+    private var didAutoPauseStaleSession = false
     
     private init() {
         loadWorkouts()
@@ -182,6 +183,7 @@ class WorkoutViewModel: ObservableObject {
         sessionStartTime = Date()
         totalPausedTime = 0
         isPaused = false
+        didAutoPauseStaleSession = false
         startTimer()
         saveActiveWorkoutDraft()
         pushWidgetState()
@@ -258,6 +260,7 @@ class WorkoutViewModel: ObservableObject {
         autoFinishTask?.cancel()
         autoFinishTask = nil
         isAutoFinishing = false
+        didAutoPauseStaleSession = false
         stopTimer()
         currentSession = nil
         sessionStartTime = nil
@@ -272,6 +275,7 @@ class WorkoutViewModel: ObservableObject {
         autoFinishTask?.cancel()
         autoFinishTask = nil
         isAutoFinishing = false
+        didAutoPauseStaleSession = false
         stopTimer()
         currentSession = nil
         sessionStartTime = nil
@@ -521,11 +525,24 @@ class WorkoutViewModel: ObservableObject {
             Task { @MainActor [weak self] in
                 guard let self, let startTime = self.sessionStartTime else { return }
                 self.elapsedTime = Date().timeIntervalSince(startTime) - self.totalPausedTime
-
-                if self.elapsedTime >= self.autoFinishThreshold {
-                    self.finishWorkout()
-                }
+                self.applyStaleSessionGuard()
             }
+        }
+    }
+
+    /// Pauses a stale in-progress session instead of silently finishing it.
+    /// Overnight / force-quit time is wall-clock, not gym time — finishing
+    /// would persist a partial workout with an inflated duration and sync it.
+    private func applyStaleSessionGuard() {
+        guard AbandonedWorkoutPolicy.shouldAutoPause(
+            elapsed: elapsedTime,
+            isPaused: false,
+            alreadyAutoPaused: didAutoPauseStaleSession
+        ) else { return }
+
+        didAutoPauseStaleSession = true
+        if !isPaused {
+            pauseWorkout()
         }
     }
     
@@ -973,8 +990,9 @@ class WorkoutViewModel: ObservableObject {
         
         // Refresh elapsed time based on saved timestamps
         refreshElapsedTime()
-        
-        // Restart timer if not paused
+        applyStaleSessionGuard()
+
+        // Restart timer if not paused (including after a stale-session pause)
         if !isPaused {
             startTimer()
         }
@@ -1015,6 +1033,7 @@ class WorkoutViewModel: ObservableObject {
         if currentSession != nil {
             // Refresh elapsed time and save draft
             refreshElapsedTime()
+            applyStaleSessionGuard()
             saveActiveWorkoutDraft()
         } else {
             // No active session, ensure draft and widget are cleared
