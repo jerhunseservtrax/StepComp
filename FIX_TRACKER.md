@@ -1,7 +1,7 @@
 # FitComp Fix Tracker
 
 > Log of all bugs encountered and fixes implemented to prevent recurrence.
-> Last updated: 2026-04-13 (v6)
+> Last updated: 2026-08-21 (v7)
 
 ---
 
@@ -272,6 +272,16 @@
 ---
 
 ## Data Integrity
+
+### 62. FatSecret Search Serving Size Hardcoded to 100g
+- **Status:** Fixed (2026-08-21)
+- **Symptom:** Logging a restaurant/branded food from FatSecret text search stored calories and macros as if every result was per 100g. A "Per 342g - 835 kcal" item saved **835 kcal for 100g** instead of ~244 kcal.
+- **Root Cause:** `fatsecret-proxy` `parseFoodDescription()` used `servingPer100 ? 100 : 100`. FatSecret `food_description` values are per the stated serving (`Per 342g`, `Per 8 oz`, `Per 100g`), and iOS scales with `consumed_g / serving_size_g`.
+- **Fix:** Parse gram/oz serving mass from the description; prefer `servings.serving` when search.v3 includes it; convert barcode `metric_serving_unit=oz` to grams.
+- **Files:** `supabase/functions/fatsecret-proxy/index.ts`, `scripts/fatsecret_serving_parse_regression_check.py`
+- **Deploy:** Redeploy the `fatsecret-proxy` Edge Function after merge. Client scaling is already correct once `serving_size_g` is honest.
+- **Prevention:** Never assume FatSecret search macros are per 100g. Parse the serving clause or use `food.get` metric serving mass.
+- **Remaining:** Descriptions that only say "Per 1 serving" with no mass still fall back to 100g unless the search payload includes `servings`.
 
 ### 28. Rest Timer Drifts in Background
 - **Documented in:** `.cursor/rules/bug-fixes.md`
@@ -621,6 +631,7 @@
 | Hardcoded unit display (miles, lbs) | Wrong values for metric users | Always use `UnitPreferenceManager` formatters |
 | Capping progress at 100% in display | Misleading achievement info | Cap the visual ring, not the number |
 | Only checking recurring workout days | One-time workouts invisible | Query both `assignedDays` and `oneTimeDate` |
+| FatSecret `serving_size_g = 100` always | Calorie/macro logs inflated 2×–10× | Parse `Per <n>g` / `Per <n> oz` or use `food.get` metric serving |
 
 ---
 

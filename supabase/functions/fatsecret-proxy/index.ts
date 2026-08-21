@@ -247,6 +247,13 @@ function mapFoodSearchResult(food: any): NutritionItem | null {
   const name = String(food?.food_name ?? "").trim().toLowerCase()
   if (!name) return null
 
+  // foods.search.v3 sometimes includes a default serving; prefer that over
+  // description text so branded items keep their metric serving mass.
+  if (firstServing(food?.servings?.serving)) {
+    const detailed = mapFoodGetResult(food)
+    if (detailed) return detailed
+  }
+
   const description = String(food?.food_description ?? "")
   const parsed = parseFoodDescription(description)
 
@@ -273,7 +280,7 @@ function mapFoodGetResult(food: any): NutritionItem | null {
   const servingNode = firstServing(food?.servings?.serving)
   const servingSizeG = parseNumber(servingNode?.metric_serving_amount, 100)
   const servingUnit = String(servingNode?.metric_serving_unit ?? "").toLowerCase()
-  const normalizedServingG = servingUnit === "g" ? servingSizeG : 100
+  const normalizedServingG = normalizeMetricServingGrams(servingSizeG, servingUnit)
 
   return {
     name,
@@ -291,6 +298,34 @@ function mapFoodGetResult(food: any): NutritionItem | null {
   }
 }
 
+function parseServingSizeGrams(text: string): number {
+  const gramMatch = text.match(/per\s+([0-9]+(?:\.[0-9]+)?)\s*g\b/i)
+  if (gramMatch) {
+    return parseNumber(gramMatch[1], 100)
+  }
+  const ozMatch = text.match(/per\s+([0-9]+(?:\.[0-9]+)?)\s*(?:fl\s+)?oz\b/i)
+  if (ozMatch) {
+    return parseNumber(ozMatch[1], 0) * 28.3495
+  }
+  return 100
+}
+
+function normalizeMetricServingGrams(amount: number, unit: string): number {
+  const normalized = unit.trim().toLowerCase()
+  if (normalized === "oz" || normalized === "ounce" || normalized === "ounces") {
+    return amount * 28.3495
+  }
+  if (
+    normalized === "g" ||
+    normalized === "gram" ||
+    normalized === "grams" ||
+    normalized === ""
+  ) {
+    return amount
+  }
+  return 100
+}
+
 function parseFoodDescription(text: string): {
   servingSizeG: number
   calories: number
@@ -298,8 +333,7 @@ function parseFoodDescription(text: string): {
   carbsG: number
   proteinG: number
 } {
-  const servingPer100 = /per\s+100g/i.test(text)
-  const servingSizeG = servingPer100 ? 100 : 100
+  const servingSizeG = parseServingSizeGrams(text)
   const calories = extractMacro(text, "Calories")
   const fatTotalG = extractMacro(text, "Fat")
   const carbsG = extractMacro(text, "Carbs")
