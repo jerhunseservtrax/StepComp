@@ -1,7 +1,7 @@
 # FitComp Fix Tracker
 
 > Log of all bugs encountered and fixes implemented to prevent recurrence.
-> Last updated: 2026-04-13 (v6)
+> Last updated: 2026-08-23 (v7)
 
 ---
 
@@ -286,6 +286,15 @@
 - **Root Cause:** `WorkoutLiveActivityManager.end()` only ended in-memory `currentActivity`, not all system activities.
 - **Fix:** End all system activities, not just the in-memory reference.
 - **Prevention:** Always iterate all system activities when cleaning up Live Activities.
+
+### 62. FatSecret Barcode ml Servings Collapsed to 100g
+- **Status:** Fixed (2026-08-23)
+- **Symptom:** Scanning a beverage barcode stored whole-can calories as if they were per 100g. A 355ml soda at 140 kcal saved **140 kcal for 100g** instead of ~39 kcal.
+- **Root Cause:** `fatsecret-proxy` `mapFoodGetResult()` used `servingUnit === "g" ? servingSizeG : 100`. FatSecret `food.get` returns drinks as `metric_serving_unit=ml` with calories for that full serving, and iOS scales with `consumed_g / serving_size_g`.
+- **Fix:** Convert `ml`/`milliliter` 1:1 to grams, liters to grams, and oz to grams before returning `serving_size_g`.
+- **Files:** `supabase/functions/fatsecret-proxy/index.ts`, `scripts/fatsecret_ml_serving_regression_check.py`
+- **Deploy:** Redeploy the `fatsecret-proxy` Edge Function after merge. Client scaling is already correct once `serving_size_g` is honest.
+- **Prevention:** Never treat FatSecret non-`g` metric units as 100g. Map `ml`≈g and convert oz/liters.
 
 ### 30. Leave Challenge Not Deleting from DB
 - **Commit:** `7177bcf`
@@ -621,6 +630,7 @@
 | Hardcoded unit display (miles, lbs) | Wrong values for metric users | Always use `UnitPreferenceManager` formatters |
 | Capping progress at 100% in display | Misleading achievement info | Cap the visual ring, not the number |
 | Only checking recurring workout days | One-time workouts invisible | Query both `assignedDays` and `oneTimeDate` |
+| FatSecret non-`g` serving forced to 100g | Beverage barcode calories inflated ~3× | Convert `ml` 1:1 and oz/liters to grams |
 
 ---
 
