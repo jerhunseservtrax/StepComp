@@ -1,7 +1,7 @@
 # FitComp Feature Tracker
 
 > Comprehensive catalog of all features in the FitComp fitness competition app (formerly StepComp).
-> Last updated: 2026-04-13 (v5)
+> Last updated: 2026-08-23 (v6)
 
 ---
 
@@ -142,7 +142,7 @@
 | Calorie Calculator | `CalorieCalculatorView.swift`, `CalorieCalculator.swift` | BMR/TDEE estimation with activity level |
 | Macro Targets | `FoodLogViewModel.swift` | Protein, carbs, fat goal tracking |
 | CalorieNinjas API | `CalorieNinjasService.swift` | Alternative nutrient calculation |
-| FatSecret API | `FatSecretFoodService.swift` | Alternative food database |
+| FatSecret API | `FatSecretFoodService.swift`, `supabase/functions/fatsecret-proxy/index.ts` | Alternative food database; barcode/`food.get` metric servings convert `ml`/`oz`/`l` to grams so logged calories scale correctly |
 
 ---
 

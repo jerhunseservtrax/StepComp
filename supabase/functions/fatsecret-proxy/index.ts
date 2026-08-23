@@ -273,7 +273,7 @@ function mapFoodGetResult(food: any): NutritionItem | null {
   const servingNode = firstServing(food?.servings?.serving)
   const servingSizeG = parseNumber(servingNode?.metric_serving_amount, 100)
   const servingUnit = String(servingNode?.metric_serving_unit ?? "").toLowerCase()
-  const normalizedServingG = servingUnit === "g" ? servingSizeG : 100
+  const normalizedServingG = normalizeMetricServingGrams(servingSizeG, servingUnit)
 
   return {
     name,
@@ -311,6 +311,28 @@ function extractMacro(description: string, label: string): number {
   const pattern = new RegExp(`${label}\\s*:\\s*([0-9]+(?:\\.[0-9]+)?)`, "i")
   const match = description.match(pattern)
   return parseNumber(match?.[1], 0)
+}
+
+function normalizeMetricServingGrams(amount: number, unit: string): number {
+  const normalized = unit.trim().toLowerCase()
+  if (
+    normalized === "g" ||
+    normalized === "gram" ||
+    normalized === "grams" ||
+    normalized === "ml" ||
+    normalized === "milliliter" ||
+    normalized === "milliliters" ||
+    normalized === ""
+  ) {
+    return amount
+  }
+  if (normalized === "l" || normalized === "liter" || normalized === "liters") {
+    return amount * 1000
+  }
+  if (normalized === "oz" || normalized === "ounce" || normalized === "ounces") {
+    return amount * 28.3495
+  }
+  return 100
 }
 
 function parseNumber(value: unknown, fallback: number): number {
