@@ -1,7 +1,7 @@
 # FitComp Fix Tracker
 
 > Log of all bugs encountered and fixes implemented to prevent recurrence.
-> Last updated: 2026-04-13 (v6)
+> Last updated: 2026-08-25 (v7)
 
 ---
 
@@ -26,6 +26,17 @@
 ---
 
 ## Critical Fixes
+
+### 0. Barcode Meal Scan Overwritten by Live Text Search
+- **Status:** Fixed (2026-08-25)
+- **Symptom:** Scanning a product barcode (or looking up a UPC) briefly showed the correct food, then results vanished or were replaced by unrelated text-search hits. Users logged the wrong calories or thought barcode lookup was broken.
+- **Root Cause:** `handleScannedBarcode` assigned `foodQuery = code`, which fired `.onChange(of: foodQuery)` and scheduled `searchFood()` 300ms later. Text and barcode lookups both wrote the same `searchResults` with no generation token, so the last response won.
+- **Fix:** Suppress live text search for barcode fills. Each lookup now takes a generation token and only the current search may publish `searchResults`.
+- **Files:** `AddMealView.swift`, `FoodLogViewModel.swift`, `FoodSearchDispatch.swift`
+- **Prevention:** Never bind a barcode/UPC into a live text-search field without a source flag. Shared search results need a generation/request id.
+- **Validation:** `python3 scripts/food_search_barcode_race_check.py`
+
+---
 
 ### 1. Workout State Data Loss After Long Sessions
 - **Commit:** `6b21b36`
@@ -621,6 +632,7 @@
 | Hardcoded unit display (miles, lbs) | Wrong values for metric users | Always use `UnitPreferenceManager` formatters |
 | Capping progress at 100% in display | Misleading achievement info | Cap the visual ring, not the number |
 | Only checking recurring workout days | One-time workouts invisible | Query both `assignedDays` and `oneTimeDate` |
+| Barcode/UPC written into a live text-search field | Correct product replaced by empty/wrong foods | Suppress live search for barcode fills; generation-guard shared `searchResults` |
 
 ---
 

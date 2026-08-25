@@ -1,7 +1,7 @@
 # FitComp Feature Tracker
 
 > Comprehensive catalog of all features in the FitComp fitness competition app (formerly StepComp).
-> Last updated: 2026-04-13 (v5)
+> Last updated: 2026-08-25 (v6)
 
 ---
 
@@ -136,8 +136,8 @@
 
 | Feature | File(s) | Description |
 |---------|---------|-------------|
-| Food Search | `AddMealView.swift`, `FoodSearchSection.swift`, `FoodSearchResultsSection.swift`, `USDAFoodService.swift` | USDA food database search |
-| Meal Logging | `FoodLogViewModel.swift`, `AddMealView.swift`, `MealEntryRow.swift`, `FoodLogMealSectionView.swift` | Log meals with calories and macros |
+| Food Search | `AddMealView.swift`, `FoodSearchSection.swift`, `FoodSearchResultsSection.swift`, `USDAFoodService.swift`, `FoodSearchDispatch.swift` | USDA/FatSecret/CalorieNinjas search; barcode fills do not start a competing live text search |
+| Meal Logging | `FoodLogViewModel.swift`, `AddMealView.swift`, `MealEntryRow.swift`, `FoodLogMealSectionView.swift` | Log meals with calories and macros; search results publish only from the current lookup generation |
 | Daily Summary | `FoodLogView.swift`, `FoodLogSummaryCard.swift`, `FoodLogDailySummaryHeader.swift` | Calorie/macro progress rings |
 | Calorie Calculator | `CalorieCalculatorView.swift`, `CalorieCalculator.swift` | BMR/TDEE estimation with activity level |
 | Macro Targets | `FoodLogViewModel.swift` | Protein, carbs, fat goal tracking |
