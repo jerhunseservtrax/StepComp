@@ -34,6 +34,7 @@ final class FoodLogViewModel: ObservableObject {
     private let usdaService = USDAFoodService.shared
     private let calorieService = CalorieNinjasService.shared
     private let metricsStore = ComprehensiveMetricsStore.shared
+    private var searchGeneration = FoodSearchGeneration()
 
     private init() {
         loadEntries()
@@ -81,74 +82,92 @@ final class FoodLogViewModel: ObservableObject {
 
     // MARK: - API Lookup
 
+    func clearSearchResults() {
+        _ = searchGeneration.begin()
+        isSearching = false
+        searchResults = []
+        errorMessage = nil
+    }
+
     func searchFood(query: String) async {
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        let token = searchGeneration.begin()
         guard !trimmed.isEmpty else {
-            isSearching = false
-            searchResults = []
-            errorMessage = nil
+            _ = publishSearchResults([], token: token, errorMessage: nil)
+            if searchGeneration.isCurrent(token) {
+                isSearching = false
+            }
             return
         }
         isSearching = true
         errorMessage = nil
         do {
+            var results: [NutritionItem] = []
             do {
-                searchResults = try await fatSecretService.searchFoods(query: trimmed)
+                results = try await fatSecretService.searchFoods(query: trimmed)
             } catch {
-                searchResults = []
+                results = []
             }
-            if searchResults.isEmpty {
+            guard publishSearchResults(results, token: token) else { return }
+            if results.isEmpty {
                 do {
-                    searchResults = try await usdaService.searchFoods(query: trimmed)
+                    results = try await usdaService.searchFoods(query: trimmed)
                 } catch {
-                    searchResults = []
+                    results = []
                 }
+                guard publishSearchResults(results, token: token) else { return }
             }
-            if searchResults.isEmpty {
-                searchResults = try await calorieService.lookupNutrition(query: trimmed)
+            if results.isEmpty {
+                results = try await calorieService.lookupNutrition(query: trimmed)
+                guard publishSearchResults(results, token: token) else { return }
             }
-            if searchResults.isEmpty {
-                errorMessage = "No results found for \"\(trimmed)\""
+            if results.isEmpty {
+                guard publishSearchResults([], token: token, errorMessage: "No results found for \"\(trimmed)\"") else { return }
             }
         } catch {
-            errorMessage = error.localizedDescription
-            searchResults = []
+            _ = publishSearchResults([], token: token, errorMessage: error.localizedDescription)
         }
-        isSearching = false
+        if searchGeneration.isCurrent(token) {
+            isSearching = false
+        }
     }
 
     func searchFoodByBarcode(_ barcode: String) async {
         let trimmed = barcode.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
 
+        let token = searchGeneration.begin()
         isSearching = true
         errorMessage = nil
         do {
+            var results: [NutritionItem] = []
             do {
-                searchResults = try await fatSecretService.searchByBarcode(upc: trimmed)
+                results = try await fatSecretService.searchByBarcode(upc: trimmed)
             } catch {
-                searchResults = []
+                results = []
             }
-            do {
-                if searchResults.isEmpty {
-                    searchResults = try await usdaService.searchByUPC(upc: trimmed)
+            guard publishSearchResults(results, token: token) else { return }
+            if results.isEmpty {
+                do {
+                    results = try await usdaService.searchByUPC(upc: trimmed)
+                } catch {
+                    results = []
                 }
-            } catch {
-                if searchResults.isEmpty {
-                    searchResults = []
-                }
+                guard publishSearchResults(results, token: token) else { return }
             }
-            if searchResults.isEmpty {
-                searchResults = try await calorieService.lookupNutritionByBarcode(trimmed)
+            if results.isEmpty {
+                results = try await calorieService.lookupNutritionByBarcode(trimmed)
+                guard publishSearchResults(results, token: token) else { return }
             }
-            if searchResults.isEmpty {
-                errorMessage = "No product found for barcode \(trimmed)."
+            if results.isEmpty {
+                guard publishSearchResults([], token: token, errorMessage: "No product found for barcode \(trimmed).") else { return }
             }
         } catch {
-            errorMessage = error.localizedDescription
-            searchResults = []
+            _ = publishSearchResults([], token: token, errorMessage: error.localizedDescription)
         }
-        isSearching = false
+        if searchGeneration.isCurrent(token) {
+            isSearching = false
+        }
     }
 
     #if canImport(UIKit)
@@ -156,6 +175,7 @@ final class FoodLogViewModel: ObservableObject {
     /// receipts, recipe cards). If nothing is detected, signal that the user should
     /// describe what they see so we can use the text API instead.
     func scanImage(_ image: UIImage) async {
+        let token = searchGeneration.begin()
         scanStatus = .scanning
         isSearching = true
         errorMessage = nil
@@ -164,22 +184,37 @@ final class FoodLogViewModel: ObservableObject {
             let items = try await calorieService.scanImageForNutrition(image: image)
             if items.isEmpty {
                 scanStatus = .noTextDetected
-                searchResults = []
+                _ = publishSearchResults([], token: token)
             } else {
-                searchResults = items
-                scanStatus = .foundItems
+                if publishSearchResults(items, token: token) {
+                    scanStatus = .foundItems
+                }
             }
         } catch {
             scanStatus = .noTextDetected
-            searchResults = []
+            _ = publishSearchResults([], token: token)
         }
-        isSearching = false
+        if searchGeneration.isCurrent(token) {
+            isSearching = false
+        }
     }
 
     func resetScanStatus() {
         scanStatus = .idle
     }
     #endif
+
+    @discardableResult
+    private func publishSearchResults(
+        _ results: [NutritionItem],
+        token: UInt,
+        errorMessage: String? = nil
+    ) -> Bool {
+        guard searchGeneration.isCurrent(token) else { return false }
+        searchResults = results
+        self.errorMessage = errorMessage
+        return true
+    }
 
     // MARK: - CRUD
 

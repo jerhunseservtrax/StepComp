@@ -23,6 +23,7 @@ struct AddMealView: View {
     @State private var weightInputUnit: AddMealWeightInputUnit = .grams
     @State private var showingWeightPrompt = false
     @State private var liveSearchTask: Task<Void, Never>?
+    @State private var suppressNextLiveSearch = false
     @State private var mealPhoto: UIImage?
     @State private var showingPhotoPicker = false
     @State private var showingCamera = false
@@ -120,6 +121,9 @@ struct AddMealView: View {
                 )
             }
             .onChange(of: foodQuery) { _, newQuery in
+                let source: FoodQueryChangeSource = suppressNextLiveSearch ? .barcodeFill : .userTyping
+                suppressNextLiveSearch = false
+                guard FoodSearchDispatch.shouldScheduleLiveTextSearch(source: source) else { return }
                 scheduleLiveSearch(for: newQuery)
             }
             .onDisappear {
@@ -134,8 +138,7 @@ struct AddMealView: View {
         mealPhoto = nil
         didAutoScan = false
         viewModel.resetScanStatus()
-        viewModel.searchResults = []
-        viewModel.errorMessage = nil
+        viewModel.clearSearchResults()
     }
 
     private func performSearch() {
@@ -228,6 +231,7 @@ struct AddMealView: View {
     private func handleScannedBarcode(_ code: String) {
         liveSearchTask?.cancel()
         manualBarcode = code
+        suppressNextLiveSearch = true
         foodQuery = code
         Task {
             await viewModel.searchFoodByBarcode(code)
@@ -244,8 +248,7 @@ struct AddMealView: View {
         liveSearchTask?.cancel()
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         if trimmed.isEmpty {
-            viewModel.searchResults = []
-            viewModel.errorMessage = nil
+            viewModel.clearSearchResults()
             return
         }
 
