@@ -1,7 +1,7 @@
 # FitComp Fix Tracker
 
 > Log of all bugs encountered and fixes implemented to prevent recurrence.
-> Last updated: 2026-04-13 (v6)
+> Last updated: 2026-08-27 (v7)
 
 ---
 
@@ -26,6 +26,14 @@
 ---
 
 ## Critical Fixes
+
+### 0. Number Pad Dismiss Wiped Auto-Populated Set Weight/Reps
+- **Date:** 2026-08-27
+- **Symptom:** During an active workout, tapping a weight or reps field and then dismissing the number pad (Done, tap outside, or auto-finish) cleared the already-stored value.
+- **Root Cause:** `activateField()` resets `editBuffer` to `""` for replacement input. `commitAndDismiss()` → `commitValue()` treated that empty buffer as an explicit clear and wrote `weight`/`reps` = `nil` into the draft. `commitCurrentField()` already kept the existing value.
+- **Fix:** Empty/invalid number-pad commits no longer overwrite stored weight or reps. A new value is applied only when the buffer parses to a positive number.
+- **Files:** `ActiveWorkoutView.swift`, `scripts/workout_numpad_empty_dismiss_check.py`
+- **Prevention:** Number-pad dismiss must match field-switch commit semantics. Never persist `nil` from an empty replacement buffer.
 
 ### 1. Workout State Data Loss After Long Sessions
 - **Commit:** `6b21b36`
@@ -612,6 +620,7 @@
 | Local-only delete/leave operations | Data reappears on refresh | Always delete from DB too |
 | `[String: Any]` for Supabase payloads | Non-Codable crash | Use Codable structs |
 | Unit conversion on every keystroke | Input feedback loop | Convert only on commit |
+| Empty number-pad buffer committed as nil | Wipes auto-populated set weight/reps | Keep stored value unless buffer parses > 0 |
 | `CREATE POLICY IF NOT EXISTS` | PostgreSQL syntax error | `DROP IF EXISTS` + `CREATE` |
 | Chaining 5+ `onChange` modifiers | Type-check timeout | Split into sub-ViewModifiers |
 | Timer callbacks without `@MainActor` | UI race conditions | Wrap in `Task { @MainActor in }` |

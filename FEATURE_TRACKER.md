@@ -1,7 +1,7 @@
 # FitComp Feature Tracker
 
 > Comprehensive catalog of all features in the FitComp fitness competition app (formerly StepComp).
-> Last updated: 2026-04-13 (v5)
+> Last updated: 2026-08-27 (v6)
 
 ---
 
@@ -103,7 +103,7 @@
 |---------|---------|-------------|
 | Workout Timer | `ActiveWorkoutView.swift` | Real-time session duration tracking |
 | Set/Rep Tracking | `ActiveWorkoutView.swift` | Log sets, reps, and weight per exercise |
-| Custom Number Pad | `ActiveWorkoutView.swift` | Built-in number pad (replaces system keyboard) |
+| Custom Number Pad | `ActiveWorkoutView.swift` | Built-in number pad (replaces system keyboard); dismiss without typing keeps auto-populated weight/reps |
 | Pause/Resume | `ActiveWorkoutView.swift` | Pause and continue workout |
 | Rest Timer | `RestTimerOverlayView.swift`, `RestTimerManager.swift` | Configurable rest intervals (30s–5min) with presets |
 | Rest Timer Alerts | `RestTimerManager.swift` | Visual, haptic, sound, and push notification alerts |
