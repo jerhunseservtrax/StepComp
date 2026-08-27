@@ -96,3 +96,25 @@ Verification checklist for any rest timer changes:
 - Start rest timer, leave app, wait for completion time: receive local notification popup.
 - Start timer, add time, leave app: notification fires at updated end time.
 - Start timer then cancel/skip: no completion notification should fire.
+
+## Rule 6: Number Pad Dismiss Must Not Wipe Set Values
+
+Status: fixed on 2026-08-27
+
+Symptoms that must never return:
+- Tapping a weight/reps cell then Done (or tap-outside / auto-finish) clears an already-populated set value.
+- Finished workout history missing weights that were visible before the pad opened.
+
+Root causes that were fixed:
+- `activateField()` reset `editBuffer` to `""` for replacement input.
+- `commitValue()` wrote `weight`/`reps` = `nil` when that empty buffer was committed.
+
+Required guardrails:
+1. `commitValue` in `ActiveWorkoutView.swift` must apply a new value only when the buffer parses to a positive number.
+2. Empty/invalid dismiss must keep the already-committed set data, matching `commitCurrentField`.
+3. `scripts/workout_numpad_empty_dismiss_check.py` must stay green.
+
+Verification checklist:
+- Start a workout with last-session weights, tap a weight cell, tap Done without typing: weight remains.
+- Tap a reps cell, tap the scroll area to dismiss: reps remain.
+- Type a new positive weight and tap Done: new weight is stored.

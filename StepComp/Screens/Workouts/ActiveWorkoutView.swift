@@ -296,18 +296,17 @@ struct ActiveWorkoutView: View {
 
         switch field.fieldType {
         case .weight:
+            // activateField() starts with an empty buffer for replacement input.
+            // Dismissing without a new value must keep the already-committed weight
+            // (same policy as commitCurrentField).
             if let displayVal = Double(text), displayVal > 0 {
                 // Store in kg with full decimal precision
                 let storageKg = unitManager.convertWeightToStorage(displayVal)
                 viewModel.updateSet(exerciseId: exercise.id, setId: set.id, weight: storageKg, reps: set.reps)
-            } else if text.isEmpty {
-                viewModel.updateSet(exerciseId: exercise.id, setId: set.id, weight: nil, reps: set.reps)
             }
         case .reps:
             if let reps = Int(text), reps > 0 {
                 viewModel.updateSet(exerciseId: exercise.id, setId: set.id, weight: set.weight, reps: reps)
-            } else if text.isEmpty {
-                viewModel.updateSet(exerciseId: exercise.id, setId: set.id, weight: set.weight, reps: nil)
             }
         }
     }
