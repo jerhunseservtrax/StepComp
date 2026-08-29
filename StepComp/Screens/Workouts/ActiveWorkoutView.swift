@@ -785,9 +785,7 @@ struct ExerciseCard: View {
     private func exerciseModeButton(title: String, mode: WorkoutSet.WeightInputMode) -> some View {
         let selected = exerciseWeightInputMode == mode
         Button(action: {
-            guard exerciseWeightInputMode != mode else { return }
-            viewModel.updateExerciseWeightInputMode(exerciseId: workoutExercise.id, mode: mode)
-            HapticManager.shared.light()
+            applyExerciseWeightInputMode(mode)
         }) {
             Text(title)
                 .font(.system(size: 11, weight: .semibold))
@@ -798,6 +796,41 @@ struct ExerciseCard: View {
                 .cornerRadius(10)
         }
         .buttonStyle(.plain)
+    }
+
+    /// Commit any in-progress number-pad value under the current mode, convert
+    /// stored weights, then dismiss the editor. Leaving the buffer open would
+    /// let Done interpret the old digits as the new mode (2× / ½× volume).
+    private func applyExerciseWeightInputMode(_ mode: WorkoutSet.WeightInputMode) {
+        guard exerciseWeightInputMode != mode else { return }
+        commitActiveEditForThisExerciseIfNeeded()
+        viewModel.updateExerciseWeightInputMode(exerciseId: workoutExercise.id, mode: mode)
+        dismissActiveEditorForThisExercise()
+        HapticManager.shared.light()
+    }
+
+    private func commitActiveEditForThisExerciseIfNeeded() {
+        guard let field = activeField,
+              let set = workoutExercise.sets.first(where: { $0.id == field.setId }) else { return }
+
+        switch field.fieldType {
+        case .weight:
+            if let displayVal = Double(editBuffer), displayVal > 0 {
+                let storageKg = unitManager.convertWeightToStorage(displayVal)
+                viewModel.updateSet(exerciseId: workoutExercise.id, setId: set.id, weight: storageKg, reps: set.reps)
+            }
+        case .reps:
+            if let reps = Int(editBuffer), reps > 0 {
+                viewModel.updateSet(exerciseId: workoutExercise.id, setId: set.id, weight: set.weight, reps: reps)
+            }
+        }
+    }
+
+    private func dismissActiveEditorForThisExercise() {
+        guard let field = activeField,
+              workoutExercise.sets.contains(where: { $0.id == field.setId }) else { return }
+        activeField = nil
+        editBuffer = ""
     }
 
     private var exerciseFooterVolumeTracker: some View {

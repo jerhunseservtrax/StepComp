@@ -1,7 +1,7 @@
 # FitComp Fix Tracker
 
 > Log of all bugs encountered and fixes implemented to prevent recurrence.
-> Last updated: 2026-04-13 (v6)
+> Last updated: 2026-08-29 (v7)
 
 ---
 
@@ -588,6 +588,14 @@
 - **Files:** `MainTabView.swift`, `WorkoutDetailView.swift`
 - **Prevention:** Keep central tab index mapping documented and update all programmatic tab switches whenever tab order changes.
 
+### 62. Total/Per Side Toggle Doubled or Halved In-Progress Set Weight
+- **Status:** Fixed
+- **Symptom:** During an active workout, typing a weight then tapping Total/Per Side before Done stored the typed number under the new mode. 50 kg Total became 50 kg per side (100 kg volume); the reverse halved load. Wrong weights persisted in the draft and synced to Supabase.
+- **Root Cause:** `editBuffer` is uncommitted display text with no mode. `updateExerciseWeightInputMode()` converted already-persisted set weights only. Dismiss then committed the old digits under the new mode.
+- **Fix:** Mode toggle now commits a valid pending weight/reps under the current mode, converts stored weights, and dismisses the number pad. Empty buffers do not wipe auto-populated values.
+- **Files:** `ActiveWorkoutView.swift`, `scripts/workout_weight_mode_toggle_check.py`
+- **Prevention:** Any control that changes how a field is interpreted (mode, unit) must commit or rescale the open editor first and must not leave stale digits to be committed later. Regression: `python3 scripts/workout_weight_mode_toggle_check.py`.
+
 ## New Features
 
 ### Auto-Complete Workout on All Sets Done
@@ -612,6 +620,7 @@
 | Local-only delete/leave operations | Data reappears on refresh | Always delete from DB too |
 | `[String: Any]` for Supabase payloads | Non-Codable crash | Use Codable structs |
 | Unit conversion on every keystroke | Input feedback loop | Convert only on commit |
+| Mode/unit toggle while number pad is open | 2× / ½× stored weight | Commit under old mode, convert, dismiss editor |
 | `CREATE POLICY IF NOT EXISTS` | PostgreSQL syntax error | `DROP IF EXISTS` + `CREATE` |
 | Chaining 5+ `onChange` modifiers | Type-check timeout | Split into sub-ViewModifiers |
 | Timer callbacks without `@MainActor` | UI race conditions | Wrap in `Task { @MainActor in }` |
