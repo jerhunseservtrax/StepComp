@@ -96,3 +96,27 @@ Verification checklist for any rest timer changes:
 - Start rest timer, leave app, wait for completion time: receive local notification popup.
 - Start timer, add time, leave app: notification fires at updated end time.
 - Start timer then cancel/skip: no completion notification should fire.
+
+## Rule 6: Weight Mode Toggle Must Not Reinterpret Uncommitted Digits
+
+Status: fixed on 2026-08-29
+
+Symptoms that must never return:
+- Typing a weight then tapping Total/Per Side before Done stores 2× or ½× the intended load.
+- Volume, 1RM, and synced `weight_kg` inflate or deflate after a mid-edit mode toggle.
+
+Root causes that were fixed:
+- `editBuffer` has no `WeightInputMode` context.
+- `updateExerciseWeightInputMode()` converted persisted set weights only.
+- Dismiss committed the old buffer under the new mode.
+
+Required guardrails:
+1. In `ActiveWorkoutView.swift`, Total/Per Side must commit a valid open weight/reps buffer under the current mode before converting stored weights.
+2. After the mode change, dismiss the number pad for that exercise (`activeField = nil`, `editBuffer = ""`) so Done cannot rewrite the old digits.
+3. An empty buffer must not write `weight: nil` / `reps: nil` (keep last-session auto-populated values).
+
+Verification checklist for any active-workout input change:
+- Type 50 in Total, tap Per Side before Done: stored weight is 25 per side (50 kg effective).
+- Type 25 in Per Side, tap Total before Done: stored weight is 50 total.
+- Tap weight (empty buffer) then toggle mode: last-session weight is converted, not cleared.
+- `python3 scripts/workout_weight_mode_toggle_check.py` passes.
