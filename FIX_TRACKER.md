@@ -1,7 +1,7 @@
 # FitComp Fix Tracker
 
 > Log of all bugs encountered and fixes implemented to prevent recurrence.
-> Last updated: 2026-04-13 (v6)
+> Last updated: 2026-08-31 (v7)
 
 ---
 
@@ -26,6 +26,14 @@
 ---
 
 ## Critical Fixes
+
+### 0. HealthKit Write-Denied Zeroed All Step Reads (2026-08-31)
+- **Symptom:** Home dashboard, streaks, and challenge step sync showed 0 steps after the user granted Health *read* access but denied *write* for steps.
+- **Root Cause:** `HealthKitService.checkAuthorizationStatus()` set `isAuthorized` from `authorizationStatus(for: stepCount) == .sharingAuthorized`. Apple's API reports write/share status only, so a read-only grant is `.sharingDenied` and every read path short-circuited to 0.
+- **Trigger:** Onboarding or Settings Health sheet → enable Read for steps, disable Write (the app's own HealthKit guide describes read-only intent). Also: user later turns off FitComp write access in the Health app while leaving read on.
+- **Fix:** Treat any determined write status as "prompt completed" for reads (`canAttemptRead`). Gate `saveWeight` on write authorization for the weight type (`canAttemptWrite`).
+- **Files:** `HealthKitAuthorizationPolicy.swift`, `HealthKitService.swift`
+- **Prevention:** Never use `HKAuthorizationStatus.sharingAuthorized` as a read gate. Attempt queries after the user has been prompted; only gate HealthKit *writes* on share status.
 
 ### 1. Workout State Data Loss After Long Sessions
 - **Commit:** `6b21b36`
@@ -621,6 +629,7 @@
 | Hardcoded unit display (miles, lbs) | Wrong values for metric users | Always use `UnitPreferenceManager` formatters |
 | Capping progress at 100% in display | Misleading achievement info | Cap the visual ring, not the number |
 | Only checking recurring workout days | One-time workouts invisible | Query both `assignedDays` and `oneTimeDate` |
+| `isAuthorized == sharingAuthorized` for HealthKit reads | 0 steps for read-only users | Attempt reads after prompt; gate writes only |
 
 ---
 
