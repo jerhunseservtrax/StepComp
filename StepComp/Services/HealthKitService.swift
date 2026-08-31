@@ -114,7 +114,9 @@ final class HealthKitService: ObservableObject {
         
         let status = healthStore.authorizationStatus(for: stepCountType)
         authorizationStatus = status
-        isAuthorized = status == .sharingAuthorized
+        // authorizationStatus is write/share status only. Read-only users are
+        // `.sharingDenied` for steps but can still have read access granted.
+        isAuthorized = HealthKitAuthorizationPolicy.canAttemptRead(writeStatusRawValue: status.rawValue)
         #else
         // HealthKit not available on this platform
         isAuthorized = false
@@ -432,9 +434,12 @@ final class HealthKitService: ObservableObject {
     
     func saveWeight(weightKg: Double, date: Date) async throws {
         #if os(iOS)
-        guard isAuthorized,
-              let healthStore = healthStore,
+        guard let healthStore = healthStore,
               let weightType = weightType else {
+            throw HealthKitError.notAuthorized
+        }
+        let writeStatus = healthStore.authorizationStatus(for: weightType)
+        guard HealthKitAuthorizationPolicy.canAttemptWrite(writeStatusRawValue: writeStatus.rawValue) else {
             throw HealthKitError.notAuthorized
         }
         

@@ -1,7 +1,7 @@
 # FitComp Feature Tracker
 
 > Comprehensive catalog of all features in the FitComp fitness competition app (formerly StepComp).
-> Last updated: 2026-04-13 (v5)
+> Last updated: 2026-08-31 (v6)
 
 ---
 
@@ -334,7 +334,7 @@
 | Challenge Service | `ChallengeService.swift` | CRUD for challenges, invites, leaderboards |
 | Friends Service | `FriendsService.swift` | Friendship management, profile search |
 | Metrics Service | `MetricsService.swift` | Sync workouts, weight, nutrition to server |
-| HealthKit Service | `HealthKitService.swift` | Steps, distance, calories, weight, and expanded health data |
+| HealthKit Service | `HealthKitService.swift`, `HealthKitAuthorizationPolicy.swift` | Steps, distance, calories, weight, and expanded health data. Reads are attempted after the Health permission sheet is shown even if write/share was denied; writes still require share authorization. |
 | Resting Heart Rate | `HealthKitService.swift` | Recovery indicator from HealthKit |
 | Heart Rate Variability | `HealthKitService.swift` | HRV (SDNN) analysis for recovery tracking |
 | VO2 Max | `HealthKitService.swift` | Aerobic capacity measurement |
