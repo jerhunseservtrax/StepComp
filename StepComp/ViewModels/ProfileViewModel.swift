@@ -234,39 +234,48 @@ final class ProfileViewModel: ObservableObject {
     }
     
     private func loadHeightWeightFromHealthKit(healthKitService: HealthKitService) async {
-        // Only load if user has default values (hasn't set custom height/weight)
         let currentHeight = UserDefaults.standard.integer(forKey: "userHeight")
         let currentWeight = UserDefaults.standard.integer(forKey: "userWeight")
-        
-        // Only auto-load if user hasn't set custom values
-        guard currentHeight == 0 || currentHeight == 175, currentWeight == 0 || currentWeight == 68 else {
-            // User already has custom values, don't overwrite
+
+        guard HeightWeightAutoSyncPolicy.shouldAutoLoad(
+            storedHeight: currentHeight,
+            storedWeight: currentWeight
+        ) else {
             return
         }
-        
+
         do {
-            // Try to load height from HealthKit
-            if let heightInCm = try await healthKitService.getHeight() {
+            var loadedHeight: Int?
+            var loadedWeight: Int?
+
+            if HeightWeightAutoSyncPolicy.isMissingStoredMeasurement(currentHeight),
+               let heightInCm = try await healthKitService.getHeight() {
                 let heightInt = Int(heightInCm)
                 if heightInt > 0 {
                     print("✅ Loaded height from HealthKit: \(heightInt) cm")
+                    loadedHeight = heightInt
                     height = heightInt
                     UserDefaults.standard.set(heightInt, forKey: "userHeight")
-                    // Update in database
-                    await authService.updateUserHeightWeight(height: heightInt, weight: weight)
                 }
             }
-            
-            // Try to load weight from HealthKit
-            if let weightInKg = try await healthKitService.getWeight() {
+
+            if HeightWeightAutoSyncPolicy.isMissingStoredMeasurement(currentWeight),
+               let weightInKg = try await healthKitService.getWeight() {
                 let weightInt = Int(weightInKg)
                 if weightInt > 0 {
                     print("✅ Loaded weight from HealthKit: \(weightInt) kg")
+                    loadedWeight = weightInt
                     weight = weightInt
                     UserDefaults.standard.set(weightInt, forKey: "userWeight")
-                    // Update in database
-                    await authService.updateUserHeightWeight(height: height, weight: weightInt)
                 }
+            }
+
+            let payload = HeightWeightAutoSyncPolicy.profileWritePayload(
+                loadedHeight: loadedHeight,
+                loadedWeight: loadedWeight
+            )
+            if payload.height != nil || payload.weight != nil {
+                await authService.updateUserHeightWeight(height: payload.height, weight: payload.weight)
             }
         } catch {
             print("⚠️ Error loading height/weight from HealthKit: \(error.localizedDescription)")

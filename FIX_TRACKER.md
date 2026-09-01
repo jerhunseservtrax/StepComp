@@ -1,7 +1,7 @@
 # FitComp Fix Tracker
 
 > Log of all bugs encountered and fixes implemented to prevent recurrence.
-> Last updated: 2026-04-13 (v6)
+> Last updated: 2026-09-01 (v7)
 
 ---
 
@@ -141,6 +141,15 @@
 ---
 
 ## UI/UX Bugs
+
+### 13b. HealthKit Height Sync Persisted Fake 68 kg Weight
+- **Date:** 2026-09-01
+- **Symptom:** Opening Profile with HealthKit authorized could write `profiles.weight = 68` for users who never set weight, and overwrite users whose real measurements were 175 cm / 68 kg. Subsequent HealthKit weight sync was then blocked.
+- **Root Cause:** `loadHeightWeightFromHealthKit` treated 175/68 as "unset" sentinels and called `updateUserHeightWeight(height:heightInt, weight: weight)` using the `@Published` default of 68 when only height was loaded.
+- **Fix:** `HeightWeightAutoSyncPolicy` treats only `<= 0` as missing, syncs height and weight independently, persists only HealthKit-loaded fields, and merges unspecified fields with the existing profile row.
+- **Files:** `HeightWeightAutoSyncPolicy.swift`, `ProfileViewModel.swift`, `AuthService.swift`
+- **Prevention:** Never use plausible body measurements as storage sentinels. Never persist UI default values for fields that were not actually loaded.
+- **Validation:** `python3 scripts/height_weight_autosync_check.py`
 
 ### 13. Height/Weight Off-by-One Error
 - **Commit:** `e6fcb89`
