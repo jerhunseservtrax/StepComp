@@ -1,7 +1,7 @@
 # FitComp Feature Tracker
 
 > Comprehensive catalog of all features in the FitComp fitness competition app (formerly StepComp).
-> Last updated: 2026-04-13 (v5)
+> Last updated: 2026-09-01 (v6)
 
 ---
 
@@ -243,6 +243,7 @@
 | Feature | File(s) | Description |
 |---------|---------|-------------|
 | User Profile | `ProfileView.swift`, `ProfileViewModel.swift` | Stats, avatar, achievements |
+| Height/Weight HealthKit Auto-Sync | `HeightWeightAutoSyncPolicy.swift`, `ProfileViewModel.swift`, `AuthService.swift` | First-run HealthKit height/weight import only when stored values are missing; never treats 175 cm / 68 kg as unset; writes only fields actually read from HealthKit |
 | Profile Card | `UserProfileCard.swift` | User info summary card |
 | Achievements Grid | `AchievementsGrid.swift` | Badge/achievement display |
 | Friends Section | `FriendsSection.swift` | Friends list on profile |

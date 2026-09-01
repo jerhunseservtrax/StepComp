@@ -1037,6 +1037,12 @@ final class AuthService: ObservableObject {
             // Get daily step goal from UserDefaults or use existing profile value
             let dailyStepGoal = UserDefaults.standard.integer(forKey: "dailyStepGoal")
             let goal = dailyStepGoal > 0 ? dailyStepGoal : (existingProfile?.dailyStepGoal ?? 10000)
+            let merged = HeightWeightAutoSyncPolicy.mergedProfileValues(
+                incomingHeight: height,
+                incomingWeight: weight,
+                existingHeight: existingProfile?.height,
+                existingWeight: existingProfile?.weight
+            )
             
             let profile = UserProfile(
                 id: userId,
@@ -1045,8 +1051,8 @@ final class AuthService: ObservableObject {
                 lastName: currentUser?.lastName,
                 avatar: currentUser?.avatarURL,
                 isPremium: existingProfile?.isPremium ?? false,
-                height: height,
-                weight: weight,
+                height: merged.height,
+                weight: merged.weight,
                 publicProfile: existingProfile?.publicProfile ?? false,
                 dailyStepGoal: goal
             )
