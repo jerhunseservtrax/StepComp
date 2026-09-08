@@ -576,11 +576,21 @@ final class AuthService: ObservableObject {
         
         #if canImport(Supabase)
         if useSupabase {
-            // This clears the session from Supabase's internal storage.
-            // Local cleanup is handled by the signed-out auth state event.
-            try await supabase.auth.signOut()
-            print("✅ Supabase sign out requested - awaiting signed-out event")
-            return
+            do {
+                // This clears the session from Supabase's internal storage.
+                // Local cleanup is handled by the signed-out auth state event.
+                try await supabase.auth.signOut()
+                print("✅ Supabase sign out requested - awaiting signed-out event")
+                return
+            } catch {
+                // Remote revoke can fail while offline / flaky. forceLogout() already
+                // falls back to a local clear; user-initiated sign-out must too.
+                // Otherwise SessionViewModel can show the login screen while the
+                // SDK session remains valid and auth recovery logs the user back in.
+                print("⚠️ Remote sign out failed, clearing local auth state: \(error.localizedDescription)")
+                applySignedOutState(deleteCachedUser: true)
+                return
+            }
         }
         #endif
         

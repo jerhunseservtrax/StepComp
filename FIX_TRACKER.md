@@ -1,7 +1,7 @@
 # FitComp Fix Tracker
 
 > Log of all bugs encountered and fixes implemented to prevent recurrence.
-> Last updated: 2026-04-13 (v6)
+> Last updated: 2026-09-08 (v7)
 
 ---
 
@@ -457,6 +457,14 @@
 - **Fix:** Added `hasTriggeredMetricsStartupSync` flag to ensure sync only fires once per launch. Guard checks both authentication state and session readiness before syncing.
 - **Files:** `RootView.swift`
 - **Prevention:** Use a flag to deduplicate startup operations that can be triggered from multiple lifecycle events.
+
+### 48a. Failed Remote Sign-Out Left a Live Session Behind a Login Screen (2026-09-08)
+- **Status:** Fixed
+- **Symptom:** Signing out while offline or on a flaky network showed the login screen, but the Supabase session stayed valid. Foreground recovery or the next cold start logged the user back in. On a shared device this looks like a successful logout while the account remains active.
+- **Root Cause:** `AuthService.signOut()` returned immediately when `supabase.auth.signOut()` threw and never called `applySignedOutState()`. `forceLogout()` already had that fallback; the user-initiated path did not. `SessionViewModel.signOut()` then cleared only UI/onboarding flags, so `RootView.triggerAuthRecoveryCheckIfNeeded()` saw a logged-out view model and a still-valid SDK session.
+- **Fix:** User-initiated sign-out now clears local auth state when the remote revoke fails (same fallback as `forceLogout()`). `SessionViewModel.signOut()` no longer pretends logout succeeded when `AuthService.signOut()` throws.
+- **Files:** `AuthService.swift`, `SessionViewModel.swift`
+- **Prevention:** Any user-initiated logout path that talks to the network must still tear down local session/cache when the remote call fails. Do not clear only the view-model flags.
 
 ---
 
