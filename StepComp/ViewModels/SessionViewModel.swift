@@ -81,7 +81,11 @@ final class SessionViewModel: ObservableObject {
         do {
             try await authService.signOut()
         } catch {
+            // Do not pretend logout succeeded. A failed remote sign-out used to
+            // clear only this view model, leaving AuthService's session intact.
+            // Auth recovery then treated the user as logged out and restored them.
             print("⚠️ Error signing out: \(error.localizedDescription)")
+            return
         }
         
         // Clear local state - already on main actor since class is @MainActor

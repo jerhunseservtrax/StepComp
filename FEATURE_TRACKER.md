@@ -1,7 +1,7 @@
 # FitComp Feature Tracker
 
 > Comprehensive catalog of all features in the FitComp fitness competition app (formerly StepComp).
-> Last updated: 2026-04-13 (v5)
+> Last updated: 2026-09-08 (v6)
 
 ---
 
@@ -266,7 +266,7 @@
 | Unit Preference | `SettingsPreferencesCard.swift`, `UnitPreferenceManager.swift` | Metric/imperial system |
 | HealthKit Toggle | `SettingsConnectivityCard.swift` | Enable/disable HealthKit integration |
 | Notification Prefs | `SettingsNotificationsCard.swift` | Daily recap, leaderboard alerts, motivational nudges |
-| Sign Out | `SettingsView.swift`, `SettingsMainContent.swift`, `SessionViewModel.swift` | Logout with proper cleanup |
+| Sign Out | `SettingsView.swift`, `SettingsMainContent.swift`, `SessionViewModel.swift`, `AuthService.swift` | Logout with proper cleanup; remote revoke failure still clears the local session so the login screen cannot sit in front of a live SDK session |
 | Delete Account | `DeleteAccountConfirmationView.swift`, `SettingsView.swift`, `SettingsViewModifiers.swift` | Account deletion with confirmation |
 | Streak Display | `SettingsView.swift`, `SettingsLayoutViews.swift` | Current step streak (30-day lookback) |
 
