@@ -1,7 +1,7 @@
 # FitComp Fix Tracker
 
 > Log of all bugs encountered and fixes implemented to prevent recurrence.
-> Last updated: 2026-04-13 (v6)
+> Last updated: 2026-09-11 (v7)
 
 ---
 
@@ -26,6 +26,15 @@
 ---
 
 ## Critical Fixes
+
+### 0. Empty Finish Locked Start Workout For The Rest Of The Day
+- **Status:** Fixed (2026-09-11)
+- **Symptom:** Starting a workout and tapping Finish without checking off any sets saved a completed session. Start Workout was replaced with "Completed" / "Already Completed Today" until the next calendar day, and there is no delete-session path.
+- **Root Cause:** `wasWorkoutCompleted` treated any same-day session as done, including sessions where every set still had `isCompleted == false`. Weekly progress used the same "any session" rule.
+- **Fix:** Extracted `WorkoutCompletionPolicy`. A session only counts as completed when at least one set is checked off. Wired into `wasWorkoutCompleted` and weekly scheduled progress.
+- **Files:** `WorkoutCompletionPolicy.swift`, `WorkoutViewModel.swift`
+- **Prevention:** Day-lock and weekly-complete checks must require completed work, not merely a saved session row.
+- **Validation:** `python3 scripts/empty_workout_finish_lockout_regression_check.py` — PASS
 
 ### 1. Workout State Data Loss After Long Sessions
 - **Commit:** `6b21b36`
@@ -621,6 +630,7 @@
 | Hardcoded unit display (miles, lbs) | Wrong values for metric users | Always use `UnitPreferenceManager` formatters |
 | Capping progress at 100% in display | Misleading achievement info | Cap the visual ring, not the number |
 | Only checking recurring workout days | One-time workouts invisible | Query both `assignedDays` and `oneTimeDate` |
+| Treating any saved session as "completed today" | Empty Finish hides Start Workout all day | Require at least one `isCompleted` set before locking the day |
 
 ---
 
