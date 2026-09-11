@@ -373,6 +373,7 @@ class WorkoutViewModel: ObservableObject {
 
         var completedInstances = Set<ScheduledWorkoutInstance>()
         for session in completedSessions {
+            guard WorkoutCompletionPolicy.hasCompletedWork(exercises: session.exercises) else { continue }
             let sessionDate = calendar.startOfDay(for: session.endTime)
             guard sessionDate >= weekStart, sessionDate < weekEnd else { continue }
             let instance = ScheduledWorkoutInstance(workoutId: session.workoutId, date: sessionDate)
@@ -891,12 +892,10 @@ class WorkoutViewModel: ObservableObject {
     
     /// Returns true if the given workout was completed on the given date.
     /// Matches by workoutId first, falls back to workoutName for resilience.
+    /// A session only counts when at least one set was checked off.
     func wasWorkoutCompleted(workout: Workout, on date: Date) -> Bool {
-        let calendar = Calendar.current
-        return completedSessions.contains { session in
-            let sameDay = calendar.isDate(session.endTime, inSameDayAs: date)
-            let sameWorkout = session.workoutId == workout.id || session.workoutName == workout.name
-            return sameDay && sameWorkout
+        completedSessions.contains { session in
+            WorkoutCompletionPolicy.sessionCompletesWorkout(session, workout: workout, on: date)
         }
     }
     
