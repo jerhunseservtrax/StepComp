@@ -8,6 +8,58 @@
 import Foundation
 import Combine
 
+enum ProfileMeasurementResolver {
+    /// Converts profile form fields into storage units (cm / kg).
+    /// Empty or invalid fields return nil so name-only saves cannot invent measurements.
+    static func resolvedStorage(
+        heightPrimaryText: String,
+        heightInchesText: String,
+        weightText: String,
+        unitSystem: UnitSystem
+    ) -> (heightCm: Int?, weightKg: Int?) {
+        let heightPrimary = heightPrimaryText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let heightInches = heightInchesText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let weight = weightText.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        let heightCm: Int?
+        switch unitSystem {
+        case .metric:
+            if let parsed = Int(heightPrimary), parsed > 0 {
+                heightCm = parsed
+            } else {
+                heightCm = nil
+            }
+        case .imperial:
+            let hasHeightInput = !heightPrimary.isEmpty || !heightInches.isEmpty
+            if hasHeightInput {
+                let feet = Int(heightPrimary) ?? 0
+                let inches = Int(heightInches) ?? 0
+                if feet > 0 || inches > 0 {
+                    heightCm = Int((Double((feet * 12) + inches) * 2.54).rounded())
+                } else {
+                    heightCm = nil
+                }
+            } else {
+                heightCm = nil
+            }
+        }
+
+        let weightKg: Int?
+        if let parsed = Int(weight), parsed > 0 {
+            switch unitSystem {
+            case .metric:
+                weightKg = parsed
+            case .imperial:
+                weightKg = Int((Double(parsed) / 2.20462).rounded())
+            }
+        } else {
+            weightKg = nil
+        }
+
+        return (heightCm, weightKg)
+    }
+}
+
 enum UnitSystem: String, Codable {
     case metric
     case imperial

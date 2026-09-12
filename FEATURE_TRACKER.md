@@ -1,7 +1,7 @@
 # FitComp Feature Tracker
 
 > Comprehensive catalog of all features in the FitComp fitness competition app (formerly StepComp).
-> Last updated: 2026-04-13 (v5)
+> Last updated: 2026-09-12 (v6)
 
 ---
 
@@ -246,7 +246,7 @@
 | Profile Card | `UserProfileCard.swift` | User info summary card |
 | Achievements Grid | `AchievementsGrid.swift` | Badge/achievement display |
 | Friends Section | `FriendsSection.swift` | Friends list on profile |
-| Profile Settings | `ProfileSettingsView.swift` | Edit username, display name, height, weight |
+| Profile Settings | `ProfileSettingsView.swift` | Edit username, display name, height, weight. Name-only Save no longer persists placeholder 5'9"/150 measurements; height/weight are written only when the user entered values |
 | Avatar Selection | `AvatarSelectionView.swift` | Choose profile avatar |
 
 ### Settings
