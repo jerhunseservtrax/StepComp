@@ -36,10 +36,11 @@ struct ProfileSettingsView: View {
     @State private var selectedPhotoData: Data?
     @State private var profileImageURL: String?
     
-    // Height & Weight - Editable inputs
-    @State private var heightFeetText: String = "5"
-    @State private var heightInchesText: String = "9"
-    @State private var weightText: String = "150"
+    // Height & Weight - Editable inputs. Stay empty until the user has real values
+    // so a Personal-tab Save cannot persist placeholder 5'9" / 150 lb measurements.
+    @State private var heightFeetText: String = ""
+    @State private var heightInchesText: String = ""
+    @State private var weightText: String = ""
     
     // Password
     @State private var showingChangePassword = false
@@ -802,26 +803,22 @@ struct ProfileSettingsView: View {
         isSaving = true
         errorMessage = nil
         
-        // Parse height and weight from text fields
-        let primaryHeight = Int(heightFeetText) ?? 0
-        let inches = Int(heightInchesText) ?? 0
-        let weight = Int(weightText) ?? 150
+        let resolvedMeasurements = ProfileMeasurementResolver.resolvedStorage(
+            heightPrimaryText: heightFeetText,
+            heightInchesText: heightInchesText,
+            weightText: weightText,
+            unitSystem: unitManager.unitSystem
+        )
+        let heightCm = resolvedMeasurements.heightCm
+        let weightKg = resolvedMeasurements.weightKg
         
         do {
-            // Convert height and weight to metric
-            let heightCm: Int
-            let weightKg: Int
-            if unitManager.unitSystem == .metric {
-                heightCm = max(primaryHeight, 0)
-                weightKg = max(weight, 0)
-            } else {
-                heightCm = unitManager.heightToStorage(feet: primaryHeight, inches: inches)
-                weightKg = unitManager.weightToStorage(weight)
+            if let heightCm {
+                UserDefaults.standard.set(heightCm, forKey: "userHeight")
             }
-            
-            // Save to UserDefaults
-            UserDefaults.standard.set(heightCm, forKey: "userHeight")
-            UserDefaults.standard.set(weightKg, forKey: "userWeight")
+            if let weightKg {
+                UserDefaults.standard.set(weightKg, forKey: "userWeight")
+            }
             
             #if canImport(Supabase)
             var avatarUrl: String? = profileImageURL
@@ -885,9 +882,28 @@ struct ProfileSettingsView: View {
                 let last_name: String
                 let display_name: String // ✅ NEW: Update display name
                 let username: String
-                let height: Int
-                let weight: Int
+                let height: Int?
+                let weight: Int?
                 let avatar_url: String?
+
+                enum CodingKeys: String, CodingKey {
+                    case first_name, last_name, display_name, username, height, weight, avatar_url
+                }
+
+                func encode(to encoder: Encoder) throws {
+                    var container = encoder.container(keyedBy: CodingKeys.self)
+                    try container.encode(first_name, forKey: .first_name)
+                    try container.encode(last_name, forKey: .last_name)
+                    try container.encode(display_name, forKey: .display_name)
+                    try container.encode(username, forKey: .username)
+                    if let height {
+                        try container.encode(height, forKey: .height)
+                    }
+                    if let weight {
+                        try container.encode(weight, forKey: .weight)
+                    }
+                    try container.encodeIfPresent(avatar_url, forKey: .avatar_url)
+                }
             }
             
             let displayName = "\(firstName) \(lastName)".trimmingCharacters(in: .whitespaces)

@@ -1,7 +1,7 @@
 # FitComp Fix Tracker
 
 > Log of all bugs encountered and fixes implemented to prevent recurrence.
-> Last updated: 2026-04-13 (v6)
+> Last updated: 2026-09-12 (v7)
 
 ---
 
@@ -26,6 +26,15 @@
 ---
 
 ## Critical Fixes
+
+### 1a. Profile Save Invented 5'9" / 150 lb Measurements (2026-09-12)
+- **Status:** Fixed
+- **Symptom:** Saving a name/username on the Personal tab wrote fabricated body measurements to `UserDefaults` and `profiles.height` / `profiles.weight`.
+- **Concrete trigger:** New Apple/email user with null height/weight opens Settings → Profile, stays on Personal, taps Save. Form defaults were `5` / `9` / `150`. Imperial users got 175 cm / 68 kg. Metric users got 5 cm / 150 kg, which also blocked HealthKit correction because `ProfileViewModel` only treats 175/68 as unset sentinels.
+- **Root Cause:** `saveProfile()` always parsed measurement fields and used `Int(weightText) ?? 150`. Empty/unset users still had placeholder `@State` defaults, and the global toolbar Save is visible on every tab.
+- **Fix:** Leave measurement fields empty until real values exist. `ProfileMeasurementResolver` only persists height/weight when the user entered a positive value. Profile PATCH omits nil measurement keys so name-only saves cannot wipe or invent server data.
+- **Files:** `UnitPreferenceManager.swift`, `ProfileSettingsView.swift`, `StepCompTests/ProfileMeasurementResolverTests.swift`
+- **Prevention:** Never seed measurement forms with plausible defaults that a shared Save action can persist. Omit unset optional fields from profile updates.
 
 ### 1. Workout State Data Loss After Long Sessions
 - **Commit:** `6b21b36`
@@ -619,6 +628,7 @@
 | Multiple startup sync triggers | Redundant network calls | Use a one-shot flag to deduplicate |
 | Not adopting existing Live Activities | Orphaned system activities | Scan and adopt on launch |
 | Hardcoded unit display (miles, lbs) | Wrong values for metric users | Always use `UnitPreferenceManager` formatters |
+| Profile form defaults of 5'9"/150 with a global Save | Invented height/weight on name-only save | Leave measurement fields empty until set; omit nil keys from profile PATCH |
 | Capping progress at 100% in display | Misleading achievement info | Cap the visual ring, not the number |
 | Only checking recurring workout days | One-time workouts invisible | Query both `assignedDays` and `oneTimeDate` |
 
