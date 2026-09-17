@@ -1,7 +1,7 @@
 # FitComp Fix Tracker
 
 > Log of all bugs encountered and fixes implemented to prevent recurrence.
-> Last updated: 2026-04-13 (v6)
+> Last updated: 2026-09-17 (v7)
 
 ---
 
@@ -563,6 +563,15 @@
 - **Prevention:** Trend metrics must expose data sufficiency explicitly and ensure UI descriptions match the actual aggregation method/windowing logic.
 
 ---
+
+### 59a. Calorie Calculator Update Plan Wrote Fake 178 cm / 77 kg
+- **Status:** Fixed (2026-09-17)
+- **Symptom:** Tapping **Update Plan** on the calorie calculator persisted placeholder height/weight (178 cm / 77 kg) to `UserDefaults` and `profiles.height` / `profiles.weight` when the user had never entered measurements.
+- **Root Cause:** `CalorieCalculatorSheet` seeds `@State` with 178 cm / 76.5 kg. `loadSavedData()` only replaces those defaults when `userHeight`/`userWeight` are already > 0. `save()` always wrote the displayed values and called `updateUserHeightWeight`.
+- **Trigger:** New Apple/email user (onboarding measurements optional) opens Workouts → Daily Target, changes goal/age/activity only, taps Update Plan. Also a sign-in race: real server measurements not yet copied into UserDefaults get overwritten by the placeholders. `ProfileViewModel` only treats 175/68 as HealthKit sentinels, so 178/77 then blocks HealthKit correction.
+- **Fix:** Persist height/weight only when they were already stored or the user explicitly edited the +/- fields. Name/goal-only Update Plan no longer invents body measurements.
+- **Files:** `CalorieCalculator.swift`, `CalorieCalculatorView.swift`, `CaloriePlanMeasurementPersistenceTests.swift`
+- **Prevention:** Never persist calculator or form placeholder defaults as if the user entered them.
 
 ### 59. Metrics Silently Coerced Missing Data to `0`
 - **Status:** Fixed (uncommitted)

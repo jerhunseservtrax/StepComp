@@ -1,7 +1,7 @@
 # FitComp Feature Tracker
 
 > Comprehensive catalog of all features in the FitComp fitness competition app (formerly StepComp).
-> Last updated: 2026-04-13 (v5)
+> Last updated: 2026-09-17 (v6)
 
 ---
 
@@ -139,7 +139,7 @@
 | Food Search | `AddMealView.swift`, `FoodSearchSection.swift`, `FoodSearchResultsSection.swift`, `USDAFoodService.swift` | USDA food database search |
 | Meal Logging | `FoodLogViewModel.swift`, `AddMealView.swift`, `MealEntryRow.swift`, `FoodLogMealSectionView.swift` | Log meals with calories and macros |
 | Daily Summary | `FoodLogView.swift`, `FoodLogSummaryCard.swift`, `FoodLogDailySummaryHeader.swift` | Calorie/macro progress rings |
-| Calorie Calculator | `CalorieCalculatorView.swift`, `CalorieCalculator.swift` | BMR/TDEE estimation with activity level |
+| Calorie Calculator | `CalorieCalculatorView.swift`, `CalorieCalculator.swift` | BMR/TDEE estimation with activity level; Update Plan persists height/weight only when already stored or explicitly edited (does not write placeholder 178 cm / 77 kg) |
 | Macro Targets | `FoodLogViewModel.swift` | Protein, carbs, fat goal tracking |
 | CalorieNinjas API | `CalorieNinjasService.swift` | Alternative nutrient calculation |
 | FatSecret API | `FatSecretFoodService.swift` | Alternative food database |

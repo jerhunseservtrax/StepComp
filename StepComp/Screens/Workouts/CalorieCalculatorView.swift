@@ -158,6 +158,10 @@ struct CalorieCalculatorSheet: View {
     @State private var sex: BiologicalSex = .male
     @State private var heightCmValue: Int = 178
     @State private var weightKgValue: Double = 76.5
+    @State private var hadStoredHeight = false
+    @State private var hadStoredWeight = false
+    @State private var didEditHeight = false
+    @State private var didEditWeight = false
 
     private struct CalorieResultOption: Identifiable {
         let id: String
@@ -549,6 +553,7 @@ struct CalorieCalculatorSheet: View {
                 let clamped = min(max(totalInches, 48), 95)
                 heightCmValue = feetInchesToCm(feet: clamped / 12, inches: clamped % 12)
             }
+            didEditHeight = true
         case "Weight":
             if unitManager.unitSystem == .metric {
                 weightKgValue = min(max(weightKgValue + 0.5, 35.0), 250.0)
@@ -556,6 +561,7 @@ struct CalorieCalculatorSheet: View {
                 let increasedLbs = min(max(weightLbsValue + 1.0, 80.0), 550.0)
                 weightKgValue = lbsToKg(increasedLbs)
             }
+            didEditWeight = true
         default:
             break
         }
@@ -573,6 +579,7 @@ struct CalorieCalculatorSheet: View {
                 let clamped = min(max(totalInches, 48), 95)
                 heightCmValue = feetInchesToCm(feet: clamped / 12, inches: clamped % 12)
             }
+            didEditHeight = true
         case "Weight":
             if unitManager.unitSystem == .metric {
                 weightKgValue = min(max(weightKgValue - 0.5, 35.0), 250.0)
@@ -580,6 +587,7 @@ struct CalorieCalculatorSheet: View {
                 let decreasedLbs = min(max(weightLbsValue - 1.0, 80.0), 550.0)
                 weightKgValue = lbsToKg(decreasedLbs)
             }
+            didEditWeight = true
         default:
             break
         }
@@ -632,10 +640,14 @@ struct CalorieCalculatorSheet: View {
         let defaults = UserDefaults.standard
         let storedHeight = defaults.integer(forKey: "userHeight")
         let storedWeight = defaults.integer(forKey: "userWeight")
-        if storedHeight > 0 {
+        hadStoredHeight = storedHeight > 0
+        hadStoredWeight = storedWeight > 0
+        didEditHeight = false
+        didEditWeight = false
+        if hadStoredHeight {
             heightCmValue = storedHeight
         }
-        if storedWeight > 0 {
+        if hadStoredWeight {
             weightKgValue = Double(storedWeight)
         }
         let storedWorkoutDays = defaults.integer(forKey: "calorie_workout_days_per_week")
@@ -658,15 +670,30 @@ struct CalorieCalculatorSheet: View {
         CalorieCalculator.saveGoal(calories: calculatedTarget, isManual: false)
         UserDefaults.standard.set(workoutDaysPerWeek, forKey: "calorie_workout_days_per_week")
 
-        UserDefaults.standard.set(savedHeightCm, forKey: "userHeight")
-        UserDefaults.standard.set(savedWeightKg, forKey: "userWeight")
+        let persist = CaloriePlanMeasurementPersistence.measurementsToPersist(
+            heightCm: savedHeightCm,
+            weightKg: savedWeightKg,
+            hadStoredHeight: hadStoredHeight,
+            hadStoredWeight: hadStoredWeight,
+            didEditHeight: didEditHeight,
+            didEditWeight: didEditWeight
+        )
 
-        Task {
-            let auth = AuthService.shared
-            await auth.updateUserHeightWeight(
-                height: savedHeightCm,
-                weight: savedWeightKg
-            )
+        if let height = persist.height {
+            UserDefaults.standard.set(height, forKey: "userHeight")
+        }
+        if let weight = persist.weight {
+            UserDefaults.standard.set(weight, forKey: "userWeight")
+        }
+
+        if persist.height != nil || persist.weight != nil {
+            Task {
+                let auth = AuthService.shared
+                await auth.updateUserHeightWeight(
+                    height: persist.height,
+                    weight: persist.weight
+                )
+            }
         }
     }
 }
