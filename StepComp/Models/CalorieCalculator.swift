@@ -197,3 +197,21 @@ enum CalorieCalculator {
         UserDefaults.standard.bool(forKey: Keys.calorieGoalIsManual)
     }
 }
+
+/// Decides which calculator height/weight values may be written to UserDefaults / profiles.
+/// Placeholder defaults (178 cm / 76.5 kg) must not be persisted unless the user already
+/// had stored measurements or explicitly edited the fields.
+enum CaloriePlanMeasurementPersistence {
+    static func measurementsToPersist(
+        heightCm: Int,
+        weightKg: Int,
+        hadStoredHeight: Bool,
+        hadStoredWeight: Bool,
+        didEditHeight: Bool,
+        didEditWeight: Bool
+    ) -> (height: Int?, weight: Int?) {
+        let height = (hadStoredHeight || didEditHeight) ? heightCm : nil
+        let weight = (hadStoredWeight || didEditWeight) ? weightKg : nil
+        return (height, weight)
+    }
+}
