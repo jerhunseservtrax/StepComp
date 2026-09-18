@@ -1,7 +1,7 @@
 # FitComp Fix Tracker
 
 > Log of all bugs encountered and fixes implemented to prevent recurrence.
-> Last updated: 2026-04-13 (v6)
+> Last updated: 2026-09-18 (v7)
 
 ---
 
@@ -84,6 +84,14 @@
 - **Fix:** Changed to `@ObservedObject`. Wrapped state updates in `MainActor.run`. Added `.id()` modifier for clean view recreation.
 - **Files:** `RootView.swift`, `MainTabView.swift`, `SessionViewModel.swift`
 - **Prevention:** Use `@ObservedObject` for shared view models during view transitions. Use `.id()` to force clean recreation.
+
+### 6b. Number Pad Commit Wrote Weight/Reps Onto the Wrong Set
+- **Date:** 2026-09-18
+- **Symptom:** Tapping the next set (or another exercise's set) while the number pad was open saved the typed weight/reps onto the newly tapped row and left the set being edited unchanged. Finishing the workout persisted the corrupted session.
+- **Root Cause:** `SetRow.commitCurrentField` received the previous `SetFieldIdentifier` but called `updateSet` with `self.set.id` / `self.exerciseId` (the row that handled the tap). `editBuffer` is shared across rows, so the typed value followed the tap, not the field.
+- **Fix:** Extracted `SetFieldCommit.resolve` to look up exercise + set by `field.setId`. Both Done (`commitValue`) and mid-edit switches / checkmarks (`commitCurrentField`) now persist through that helper.
+- **Files:** `ActiveWorkoutView.swift`, `StepCompTests/SetFieldCommitTests.swift`
+- **Prevention:** Shared editor buffers must commit by the active field identity, never by the view instance that received the next gesture.
 
 ---
 
@@ -612,6 +620,7 @@
 | Local-only delete/leave operations | Data reappears on refresh | Always delete from DB too |
 | `[String: Any]` for Supabase payloads | Non-Codable crash | Use Codable structs |
 | Unit conversion on every keystroke | Input feedback loop | Convert only on commit |
+| Shared number-pad buffer committed via `self.set.id` | Weight/reps written to the tapped row | Commit by `field.setId` / `SetFieldCommit.resolve` |
 | `CREATE POLICY IF NOT EXISTS` | PostgreSQL syntax error | `DROP IF EXISTS` + `CREATE` |
 | Chaining 5+ `onChange` modifiers | Type-check timeout | Split into sub-ViewModifiers |
 | Timer callbacks without `@MainActor` | UI race conditions | Wrap in `Task { @MainActor in }` |

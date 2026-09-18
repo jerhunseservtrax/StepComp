@@ -19,6 +19,52 @@ struct SetFieldIdentifier: Hashable {
     let fieldType: SetFieldType
 }
 
+/// Resolves a number-pad commit to the set identified by `field.setId`.
+/// SetRow must not persist `editBuffer` onto `self.set` — the row that
+/// handled the tap may be a different set than the field being committed.
+enum SetFieldCommit {
+    struct Update: Equatable {
+        let exerciseId: UUID
+        let setId: UUID
+        let weight: Double?
+        let reps: Int?
+    }
+
+    static func resolve(
+        session: WorkoutSession,
+        field: SetFieldIdentifier,
+        text: String,
+        convertWeightToStorage: (Double) -> Double,
+        clearOnEmpty: Bool
+    ) -> Update? {
+        guard let exercise = session.exercises.first(where: { $0.sets.contains(where: { $0.id == field.setId }) }),
+              let set = exercise.sets.first(where: { $0.id == field.setId }) else {
+            return nil
+        }
+
+        switch field.fieldType {
+        case .weight:
+            if let displayVal = Double(text), displayVal > 0 {
+                return Update(
+                    exerciseId: exercise.id,
+                    setId: set.id,
+                    weight: convertWeightToStorage(displayVal),
+                    reps: set.reps
+                )
+            } else if clearOnEmpty, text.isEmpty {
+                return Update(exerciseId: exercise.id, setId: set.id, weight: nil, reps: set.reps)
+            }
+        case .reps:
+            if let reps = Int(text), reps > 0 {
+                return Update(exerciseId: exercise.id, setId: set.id, weight: set.weight, reps: reps)
+            } else if clearOnEmpty, text.isEmpty {
+                return Update(exerciseId: exercise.id, setId: set.id, weight: set.weight, reps: nil)
+            }
+        }
+        return nil
+    }
+}
+
 // MARK: - Custom Number Pad
 
 struct WorkoutNumberPad: View {
@@ -290,26 +336,24 @@ struct ActiveWorkoutView: View {
     }
 
     private func commitValue(field: SetFieldIdentifier, text: String) {
-        guard let session = viewModel.currentSession,
-              let exercise = session.exercises.first(where: { $0.sets.contains(where: { $0.id == field.setId }) }),
-              let set = exercise.sets.first(where: { $0.id == field.setId }) else { return }
+        applySetFieldCommit(field: field, text: text, clearOnEmpty: true)
+    }
 
-        switch field.fieldType {
-        case .weight:
-            if let displayVal = Double(text), displayVal > 0 {
-                // Store in kg with full decimal precision
-                let storageKg = unitManager.convertWeightToStorage(displayVal)
-                viewModel.updateSet(exerciseId: exercise.id, setId: set.id, weight: storageKg, reps: set.reps)
-            } else if text.isEmpty {
-                viewModel.updateSet(exerciseId: exercise.id, setId: set.id, weight: nil, reps: set.reps)
-            }
-        case .reps:
-            if let reps = Int(text), reps > 0 {
-                viewModel.updateSet(exerciseId: exercise.id, setId: set.id, weight: set.weight, reps: reps)
-            } else if text.isEmpty {
-                viewModel.updateSet(exerciseId: exercise.id, setId: set.id, weight: set.weight, reps: nil)
-            }
-        }
+    private func applySetFieldCommit(field: SetFieldIdentifier, text: String, clearOnEmpty: Bool) {
+        guard let session = viewModel.currentSession,
+              let update = SetFieldCommit.resolve(
+                session: session,
+                field: field,
+                text: text,
+                convertWeightToStorage: { unitManager.convertWeightToStorage($0) },
+                clearOnEmpty: clearOnEmpty
+              ) else { return }
+        viewModel.updateSet(
+            exerciseId: update.exerciseId,
+            setId: update.setId,
+            weight: update.weight,
+            reps: update.reps
+        )
     }
 
     // MARK: - Header
@@ -999,17 +1043,20 @@ struct SetRow: View {
     }
 
     private func commitCurrentField(_ field: SetFieldIdentifier) {
-        switch field.fieldType {
-        case .weight:
-            if let displayVal = Double(editBuffer), displayVal > 0 {
-                let storageWeight = unitManager.convertWeightToStorage(displayVal)
-                viewModel.updateSet(exerciseId: exerciseId, setId: set.id, weight: storageWeight, reps: set.reps)
-            }
-        case .reps:
-            if let reps = Int(editBuffer), reps > 0 {
-                viewModel.updateSet(exerciseId: exerciseId, setId: set.id, weight: set.weight, reps: reps)
-            }
-        }
+        guard let session = viewModel.currentSession,
+              let update = SetFieldCommit.resolve(
+                session: session,
+                field: field,
+                text: editBuffer,
+                convertWeightToStorage: { unitManager.convertWeightToStorage($0) },
+                clearOnEmpty: false
+              ) else { return }
+        viewModel.updateSet(
+            exerciseId: update.exerciseId,
+            setId: update.setId,
+            weight: update.weight,
+            reps: update.reps
+        )
     }
 
     private var accessibilityLabel: String {
