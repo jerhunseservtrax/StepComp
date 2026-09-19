@@ -113,7 +113,12 @@ class WorkoutViewModel: ObservableObject {
     
     // MARK: - Workout Session Management
     
-    func startWorkout(_ workout: Workout, targetDate: Date = Date()) {
+    @discardableResult
+    func startWorkout(_ workout: Workout, targetDate: Date = Date()) -> Bool {
+        guard ActiveWorkoutStartPolicy.canStartNewWorkout(hasActiveSession: currentSession != nil) else {
+            return false
+        }
+
         workoutTargetDate = targetDate
         
         // Find the last completed session for this workout
@@ -185,6 +190,7 @@ class WorkoutViewModel: ObservableObject {
         startTimer()
         saveActiveWorkoutDraft()
         pushWidgetState()
+        return true
     }
     
     func pauseWorkout() {

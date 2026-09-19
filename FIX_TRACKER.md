@@ -1,7 +1,7 @@
 # FitComp Fix Tracker
 
 > Log of all bugs encountered and fixes implemented to prevent recurrence.
-> Last updated: 2026-04-13 (v6)
+> Last updated: 2026-09-19 (v7)
 
 ---
 
@@ -84,6 +84,14 @@
 - **Fix:** Changed to `@ObservedObject`. Wrapped state updates in `MainActor.run`. Added `.id()` modifier for clean view recreation.
 - **Files:** `RootView.swift`, `MainTabView.swift`, `SessionViewModel.swift`
 - **Prevention:** Use `@ObservedObject` for shared view models during view transitions. Use `.id()` to force clean recreation.
+
+### 6a. Starting a Second Workout Wipes the In-Progress Session
+- **Status:** Fixed (2026-09-19)
+- **Symptom:** Starting another workout from Home (Upcoming Workout card → Start Workout) silently replaced the live session. Logged sets and the persisted active-workout draft were lost.
+- **Root Cause:** `startWorkout()` always assigned a new `currentSession` and saved a new draft. Workouts tab hid Start behind `ActiveWorkoutView`, but Home/`WorkoutDetailView` and suggested-workout sheets did not.
+- **Fix:** `ActiveWorkoutStartPolicy` rejects start when a session is already live. `startWorkout()` returns false without mutating state. Workout detail shows "Workout In Progress" and routes back to the Workouts tab. Suggested-workout start paths no-op while a session exists.
+- **Files:** `ActiveWorkoutStartPolicy.swift`, `WorkoutViewModel.swift`, `WorkoutDetailView.swift`, `SuggestedWorkoutsView.swift`
+- **Prevention:** Any "start workout" entry point must check for an existing `currentSession` before creating a new one. Persist-or-cancel the live session first.
 
 ---
 
@@ -621,6 +629,7 @@
 | Hardcoded unit display (miles, lbs) | Wrong values for metric users | Always use `UnitPreferenceManager` formatters |
 | Capping progress at 100% in display | Misleading achievement info | Cap the visual ring, not the number |
 | Only checking recurring workout days | One-time workouts invisible | Query both `assignedDays` and `oneTimeDate` |
+| Starting a workout without checking for a live session | In-progress sets and draft overwritten | Guard `startWorkout` and hide Start on every entry point |
 
 ---
 

@@ -27,6 +27,10 @@ struct WorkoutDetailView: View {
         return false
     }
 
+    private var hasActiveWorkout: Bool {
+        viewModel.currentSession != nil
+    }
+
     private var totalSets: Int {
         workout.exercises.reduce(0) { $0 + $1.sets.count }
     }
@@ -104,7 +108,29 @@ struct WorkoutDetailView: View {
                 VStack {
                     Spacer()
                     
-                    if isCompleted {
+                    if hasActiveWorkout {
+                        Button(action: {
+                            dismiss()
+                            if let tabManager = tabManager {
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                                    tabManager.selectedTab = 1
+                                }
+                            }
+                        }) {
+                            HStack {
+                                Image(systemName: "figure.strengthtraining.traditional")
+                                Text("Workout In Progress")
+                                    .font(.system(size: 18, weight: .bold))
+                            }
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 56)
+                            .background(FitCompColors.primary.opacity(0.18))
+                            .foregroundColor(FitCompColors.textPrimary)
+                            .cornerRadius(28)
+                        }
+                        .padding(.horizontal, 20)
+                        .padding(.bottom, 16)
+                    } else if isCompleted {
                         HStack {
                             Image(systemName: "checkmark.circle.fill")
                             Text("Already Completed Today")
@@ -119,11 +145,13 @@ struct WorkoutDetailView: View {
                         .padding(.bottom, 16)
                     } else {
                         Button(action: {
+                            let started: Bool
                             if let date = selectedDate {
-                                viewModel.startWorkout(workout, targetDate: date)
+                                started = viewModel.startWorkout(workout, targetDate: date)
                             } else {
-                                viewModel.startWorkout(workout, targetDate: Date())
+                                started = viewModel.startWorkout(workout, targetDate: Date())
                             }
+                            guard started else { return }
                             dismiss()
                             // Switch to Workouts tab to show active workout
                             if let tabManager = tabManager {
