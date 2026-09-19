@@ -497,10 +497,11 @@ struct SuggestedWorkoutsSheet: View {
     }
 
     private func startCustomWorkout() {
+        guard workoutViewModel.currentSession == nil else { return }
         let muscleNames = selectedMuscles.map(\.rawValue).joined(separator: " + ")
         let workout = Workout(name: muscleNames, exercises: generatedExercises, assignedDays: [])
         workoutViewModel.addWorkout(workout)
-        workoutViewModel.startWorkout(workout)
+        guard workoutViewModel.startWorkout(workout) else { return }
         HapticManager.shared.success()
         dismiss()
     }
@@ -623,9 +624,10 @@ struct WorkoutPreviewSheet: View {
     }
 
     private func startWorkout() {
+        guard workoutViewModel.currentSession == nil else { return }
         let workout = Workout(name: title, exercises: exercises, assignedDays: [])
         workoutViewModel.addWorkout(workout)
-        workoutViewModel.startWorkout(workout)
+        guard workoutViewModel.startWorkout(workout) else { return }
         HapticManager.shared.success()
         dismiss()
         onDismissParent()
