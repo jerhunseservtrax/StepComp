@@ -194,12 +194,13 @@ struct EditSetRow: View {
                         focusedField = .weight
                     }
                     .onChange(of: displayWeight) { _, newValue in
+                        // Tap-to-clear empties the display for replacement typing.
+                        // Persist a new weight only when the user enters a positive
+                        // number. Empty/invalid text must keep saved history.
                         if let display = Double(newValue), display > 0 {
                             // Convert from display unit to storage (kg)
                             let storage = unitManager.convertWeightToStorage(display)
                             set.weight = storage
-                        } else if newValue.isEmpty {
-                            set.weight = nil
                         }
                     }
             }
@@ -224,7 +225,11 @@ struct EditSetRow: View {
                         focusedField = .reps
                     }
                     .onChange(of: displayReps) { _, newValue in
-                        set.reps = Int(newValue)
+                        // Same policy as weight: empty tap-to-clear must not
+                        // persist Int("") == nil into completed history.
+                        if let reps = Int(newValue), reps > 0 {
+                            set.reps = reps
+                        }
                     }
             }
         }

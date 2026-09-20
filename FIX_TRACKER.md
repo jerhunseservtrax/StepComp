@@ -1,7 +1,7 @@
 # FitComp Fix Tracker
 
 > Log of all bugs encountered and fixes implemented to prevent recurrence.
-> Last updated: 2026-04-13 (v6)
+> Last updated: 2026-09-20 (v7)
 
 ---
 
@@ -26,6 +26,13 @@
 ---
 
 ## Critical Fixes
+
+### 2026-09-20 - Edit Completed Session Tap-to-Clear Wipes History
+- **Symptom:** Editing a completed workout and tapping a weight or reps field immediately cleared the stored value. Tapping Save (or tapping the other field then Save) persisted `nil` into history, dropping volume and 1RM for that set.
+- **Root Cause:** `onTapGesture` emptied `displayWeight`/`displayReps` for replacement typing. `onChange` treated that empty string as an explicit clear (`set.weight = nil`, `set.reps = Int("")`).
+- **Fix:** Empty/invalid display text no longer overwrites stored weight or reps. A new value is written only when the field parses to a positive number.
+- **Files:** `EditCompletedSessionView.swift`, `scripts/edit_completed_session_empty_field_check.py`
+- **Prevention:** History-edit fields that clear the display on tap must not persist `nil` from that empty replacement buffer.
 
 ### 1. Workout State Data Loss After Long Sessions
 - **Commit:** `6b21b36`
