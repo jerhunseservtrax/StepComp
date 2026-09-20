@@ -96,3 +96,25 @@ Verification checklist for any rest timer changes:
 - Start rest timer, leave app, wait for completion time: receive local notification popup.
 - Start timer, add time, leave app: notification fires at updated end time.
 - Start timer then cancel/skip: no completion notification should fire.
+
+## Rule 6: Completed-Session Edit Must Not Wipe On Empty Display
+
+Status: fixed on 2026-09-20
+
+Symptoms that must never return:
+- Tapping a weight or reps field on Edit Completed Session and then Save clears the historical value.
+- Tapping weight then editing reps (or vice versa) persists `nil` for the first field.
+
+Root causes that were fixed:
+- `onTapGesture` emptied the display for replacement typing.
+- `onChange` wrote `set.weight = nil` / `set.reps = Int("")` into `editedExercises`, and Save persisted it.
+
+Required guardrails:
+1. `EditSetRow` in `EditCompletedSessionView.swift` must apply a new weight/reps only when the display parses to a positive number.
+2. Empty or invalid display text must keep the already-saved history value.
+3. `scripts/edit_completed_session_empty_field_check.py` must stay green.
+
+Verification checklist:
+- Open a completed session, tap a weight field, tap Save without typing: weight remains.
+- Tap a reps field, tap the weight field, type a new weight, Save: reps remain and weight updates.
+- Type a new positive weight and Save: new weight is stored.
